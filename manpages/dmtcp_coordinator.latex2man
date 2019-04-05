@@ -1,0 +1,57 @@
+\begin{Name}{1}{dmtcp\_coordinator}{Kapil Arya, Gene Cooperman, Rohan Garg, et al.}{Distributed MultiThreaded CheckPointing}{dmtcp\_coordinator -- coordinates checkpoints among multiple processes}
+  \myProg{dmtcp\_coordinater} -- coordinates checkpoints among multiple processes.
+\end{Name}
+
+\section{Synopsis}
+%%%%%%%%%%%%%%%%%%
+\textbf{dmtcp\_coordinater} \oArg{OPTIONS}
+
+\section{Description}
+%%%%%%%%%%%%%%%%%%
+
+\myProg{dmtcp\_coordinator} coordinates checkpoints among multiple processes.
+
+\section{Options}
+%%%%%%%%%%%%%%%%%%
+
+\begin{Description}
+  \item[\Opt{-p}, \OptSArg{--coord-port}{port} (environment variable DMTCP\_COORD\_PORT)]
+    Port to listen on (default: 7779)
+
+  \item[\OptSArg{--port-file}{filename}]
+    File to write listener port number.
+    (Useful with \Opt{--coord-port 0}, which is used to assign a random port)
+
+  \item[\OptSArg{--ckptdir}{path} (environment variable DMTCP\_CHECKPOINT\_DIR)]
+    Directory to store dmtcp\_restart\_script.sh (default: ./)
+
+  \item[\OptSArg{--tmpdir}{path} (environment variable DMTCP\_TMPDIR)]
+    Directory to store temporary files (default: env var TMDPIR or \File{/tmp})
+
+  \item[\Opt{--exit-on-last}] Exit automatically when last client disconnects
+
+  \item[\Opt{--exit-after-ckpt}] Exit automatically after checkpoint is created
+
+  \item[\Opt{--daemon}]
+    Run silently in the background after detaching from the parent process.
+
+  \item[\Opt{-i}, \OptSArg{--interval}{<val>} (environment variable DMTCP\_CHECKPOINT\_INTERVAL)]
+    Time in seconds between automatic checkpoints (default: 0, disabled)
+
+  \item[\Opt{-q}, \Opt{--quiet}] Skip copyright notice.
+
+  \item[\Opt{--help}] Print this message and exit.
+
+  \item[\Opt{--version}] Print version information and exit.
+\end{Description}
+
+\subsubsection{Commands for Coordinator}
+
+\Opt{l}: List connected nodes\\
+\Opt{s}: Print status message\\
+\Opt{c}: Checkpoint all nodes\\
+\Opt{i}: Print current checkpoint interval\\
+\SP\SP\SP(To\ change checkpoint interval, use dmtcp\_command)\\
+\Opt{k}: Kill all nodes\\
+\Opt{q}: Kill all nodes and quit\\
+\Opt{?}: Show this message\\

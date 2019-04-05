@@ -1,0 +1,249 @@
+/* mmap - map files or devices into memory.  Linux version.
+   Copyright (C) 1999-2018 Free Software Foundation, Inc.
+   This file is part of the GNU C Library.
+   Contributed by Jakub Jelinek <jakub@redhat.com>, 1999.
+
+   The GNU C Library is free software; you can redistribute it and/or
+   modify it under the terms of the GNU Lesser General Public
+   License as published by the Free Software Foundation; either
+   version 2.1 of the License, or (at your option) any later version.
+
+   The GNU C Library is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   Lesser General Public License for more details.
+
+   You should have received a copy of the GNU Lesser General Public
+   License along with the GNU C Library; if not, see
+   <http://www.gnu.org/licenses/>.  */
+
+#include <errno.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/mman.h>
+#include <stdio.h>
+#include <assert.h>
+// #include <sysdep.h>
+// #include <mmap_internal.h>
+#include "mmap_internal.h"
+#include <sys/syscall.h>
+
+#ifndef __set_errno
+# define __set_errno(Val) errno = (Val)
+#endif
+
+typedef struct __MemRange
+{
+  void *start;
+  void *end;
+} MemRange_t;
+
+extern MemRange_t *g_range;
+
+/* Set error number and return -1.  A target may choose to return the
+   internal function, __syscall_error, which sets errno and returns -1.
+   We use -1l, instead of -1, so that it can be casted to (void *).  */
+#define INLINE_SYSCALL_ERROR_RETURN_VALUE(err)  \
+  ({						\
+    __set_errno (err);				\
+    -1l;					\
+  })
+
+/* To avoid silent truncation of offset when using mmap2, do not accept
+   offset larger than 1 << (page_shift + off_t bits).  For archictures with
+   32 bits off_t and page size of 4096 it would be 1^44.  */
+#define MMAP_OFF_HIGH_MASK \
+  ((-(MMAP2_PAGE_UNIT << 1) << (8 * sizeof (off_t) - 1)))
+
+#define MMAP_OFF_MASK (MMAP_OFF_HIGH_MASK | MMAP_OFF_LOW_MASK)
+
+/* An architecture may override this.  */
+#ifndef MMAP_PREPARE
+# define MMAP_PREPARE(addr, len, prot, flags, fd, offset)
+#endif
+
+#define PAGE_SIZE 4096
+#define HUGE_PAGE 0x200000
+#define ROUND_UP(addr) ((unsigned long)(addr + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1))
+#define ROUND_UP_HUGE(addr) \
+    ((unsigned long)(addr + HUGE_PAGE - 1) & ~(HUGE_PAGE - 1))
+
+// Source code copied from glibc-2.27/sysdeps/unix/sysv/linux/mmap64.c
+// Modified to keep track of regions mmaped by lower half
+
+// TODO:
+//  1. Make the size of list dynamic
+int numRegions = 0;
+MmapInfo_t mmaps[MAX_TRACK] = {0};
+void *nextFreeAddr = NULL;
+
+// Returns a pointer to the array of mmap-ed regions
+// Sets num to the number of valid items in the array
+MmapInfo_t*
+getMmappedList(int *num)
+{
+  if (!num) return NULL;
+  *num = numRegions;
+  return mmaps;
+}
+
+void
+resetMmappedList()
+{
+  for (int i = 0; i < numRegions; i++) {
+    memset(&mmaps[i], 0, sizeof(mmaps[i]));
+  }
+  numRegions = 0;
+}
+
+int
+getMmapIdx(const void *addr)
+{
+  for (int i = 0; i < numRegions; i++) {
+    if (mmaps[i].addr == addr) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+void*
+getNextAddr(size_t len)
+{
+  if (g_range->start == NULL && nextFreeAddr == NULL) {
+    return NULL;
+  } else if (g_range->start != NULL && nextFreeAddr == NULL) {
+    nextFreeAddr = g_range->start;
+  }
+  void *curr = nextFreeAddr;
+  nextFreeAddr = (char*)curr + ROUND_UP(len) + PAGE_SIZE;
+  if (nextFreeAddr > g_range->end) {
+    assert(0);
+  }
+  return curr;
+}
+
+static int
+extendExistingMmap(const void *addr)
+{
+  for (int i = 0; i < numRegions; i++) {
+    if (mmaps[i].addr + mmaps[i].len == addr) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+// Handle huge pages; returns huge page aligned address (2 MB alignment)
+static void*
+getNextHugeAddr(size_t len)
+{
+  if (g_range->start == NULL && nextFreeAddr == NULL) {
+    return NULL;
+  } else if (g_range->start != NULL && nextFreeAddr == NULL) {
+    nextFreeAddr = g_range->start;
+  }
+  void *curr = (void*)ROUND_UP_HUGE((unsigned long)nextFreeAddr);
+  nextFreeAddr = (char*)curr + ROUND_UP(len) + PAGE_SIZE;
+  if (nextFreeAddr > g_range->end) {
+    assert(0);
+  }
+  return curr;
+}
+
+void *
+__mmap64 (void *addr, size_t len, int prot, int flags, int fd, __off_t offset)
+{
+  void *ret = MAP_FAILED;
+  MMAP_CHECK_PAGE_UNIT ();
+
+  if (offset & MMAP_OFF_MASK)
+    return (void *) INLINE_SYSCALL_ERROR_RETURN_VALUE (EINVAL);
+
+  MMAP_PREPARE (addr, len, prot, flags, fd, offset);
+
+  int extraGuardPage = 0;
+  size_t totalLen = len;
+
+  if (addr == NULL) {
+    // FIXME: This should be made more generic
+    if (len != 0x400000 &&
+        len != 0x600000 &&
+        len != 0x800000 &&
+        len != 0xC00000 &&
+        len != 0xE00000 &&
+        len != 0x1400000 &&
+        len != 0xA00000 &&
+        len != 0x1600000) {
+      addr = getNextAddr(len);
+    } else {
+      if (fd > 0) {
+        // TODO: Check fd is pointing to hugetlbfs
+        addr = getNextHugeAddr(len);
+      } else {
+        addr = NULL;
+      }
+    }
+    if (addr) {
+      flags |= MAP_FIXED;
+    }
+  }
+
+  // FIXME: This is a temporary hack. Can we remove this magic number
+  // and make this test more robust. It seems like a test for MAP_FIXED
+  // would not work.
+  if (len > 0x400000 && addr == NULL) {
+    extraGuardPage = 1;
+    totalLen += 2 * PAGE_SIZE;
+  }
+#ifdef __NR_mmap2
+  ret = MMAP_CALL (mmap2, addr, totalLen, prot, flags, fd,
+            (off_t) (offset / MMAP2_PAGE_UNIT));
+#else
+  ret = (void *) MMAP_CALL (mmap, addr, totalLen, prot, flags, fd, offset);
+#endif
+  if (ret != MAP_FAILED) {
+    int idx = getMmapIdx(ret);
+    if (idx != -1) {
+      mmaps[idx].len = len;
+      mmaps[idx].unmapped = 0;
+    } else {
+      int idx2 = extendExistingMmap(ret);
+      if (idx2 != -1) {
+        mmaps[idx2].len += len;
+        mmaps[idx2].unmapped = 0;
+        idx = idx2;
+      } else {
+        mmaps[numRegions].addr = ret;
+        mmaps[numRegions].len = len;
+        mmaps[numRegions].unmapped = 0;
+        idx = numRegions;
+        numRegions = (numRegions + 1) % MAX_TRACK;
+      }
+    }
+    if (extraGuardPage) {
+      mmaps[idx].guard = 1;
+      void *lastPage = (char*)ret + ROUND_UP(totalLen) - PAGE_SIZE;
+      void *firstPage = ret;
+      mprotect(firstPage, PAGE_SIZE, PROT_NONE);
+      mprotect(lastPage, PAGE_SIZE, PROT_NONE);
+      mmaps[idx].addr = (char*)ret + PAGE_SIZE;
+      ret = mmaps[idx].addr;
+    }
+  }
+  return ret;
+}
+// weak_alias (__mmap64, mmap64)
+// libc_hidden_def (__mmap64)
+
+extern __typeof (__mmap64) __mmap64 __attribute__ ((visibility ("hidden")));
+extern __typeof (__mmap64) mmap64 __attribute__ ((weak, alias ("__mmap64")));
+
+#ifdef __OFF_T_MATCHES_OFF64_T
+// weak_alias (__mmap64, mmap)
+// weak_alias (__mmap64, __mmap)
+// libc_hidden_def (__mmap)
+extern __typeof (__mmap64) mmap __attribute__ ((weak, alias ("__mmap64")));
+extern __typeof (__mmap64) __mmap __attribute__ ((weak, alias ("__mmap64")));
+extern __typeof (__mmap) __mmap __attribute__ ((visibility ("hidden")));
+#endif
