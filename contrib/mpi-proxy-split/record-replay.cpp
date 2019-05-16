@@ -50,27 +50,35 @@ dmtcp_mpi::restoreComms(const MpiRecord &rec)
   JTRACE("Restoring MPI communicators");
   switch (rec.getType()) {
     case GENERATE_ENUM(Comm_split):
+      JTRACE("restoreCommSplit");
       rc = restoreCommSplit(rec);
       break;
     case GENERATE_ENUM(Comm_split_type):
+      JTRACE("restoreCommSplitType");
       rc = restoreCommSplitType(rec);
       break;
     case GENERATE_ENUM(Comm_dup):
+      JTRACE("restoreCommDup");
       rc = restoreCommDup(rec);
       break;
     case GENERATE_ENUM(Comm_create):
+      JTRACE("restoreCommCreate");
       rc = restoreCommCreate(rec);
       break;
     case GENERATE_ENUM(Comm_set_errhandler):
+      JTRACE("restoreCommErrHandler");
       rc = restoreCommErrHandler(rec);
       break;
     case GENERATE_ENUM(Comm_free):
+      JTRACE("restoreCommFree");
       rc = restoreCommFree(rec);
       break;
     case GENERATE_ENUM(Attr_put):
+      JTRACE("restoreAtrrPut");
       rc = restoreAttrPut(rec);
       break;
     case GENERATE_ENUM(Attr_delete):
+      JTRACE("restoreAtrrDelete");
       rc = restoreAttrDelete(rec);
       break;
     default:
@@ -87,12 +95,15 @@ dmtcp_mpi::restoreGroups(const MpiRecord &rec)
   JTRACE("Restoring MPI groups");
   switch (rec.getType()) {
     case GENERATE_ENUM(Comm_group):
+      JTRACE("restoreCommGroup");
       rc = restoreCommGroup(rec);
       break;
     case GENERATE_ENUM(Group_free):
+      JTRACE("restoreGroupFree");
       rc = restoreGroupFree(rec);
       break;
     case GENERATE_ENUM(Group_incl):
+      JTRACE("restoreGroupIncl");
       rc = restoreGroupIncl(rec);
       break;
     default:
@@ -109,18 +120,23 @@ dmtcp_mpi::restoreTypes(const MpiRecord &rec)
   JTRACE("Restoring MPI derived types");
   switch (rec.getType()) {
     case GENERATE_ENUM(Type_contiguous):
+      JTRACE("restoreTypeContiguous");
       rc = restoreTypeContiguous(rec);
       break;
     case GENERATE_ENUM(Type_commit):
+      JTRACE("restoreTypeCommit");
       rc = restoreTypeCommit(rec);
       break;
     case GENERATE_ENUM(Type_vector):
+      JTRACE("restoreTypeVector");
       rc = restoreTypeVector(rec);
       break;
     case GENERATE_ENUM(Type_indexed):
+      JTRACE("restoreTypeIndexed");
       rc = restoreTypeIndexed(rec);
       break;
     case GENERATE_ENUM(Type_free):
+      JTRACE("restoreTypeFree");
       rc = restoreTypeFree(rec);
       break;
     default:
@@ -137,15 +153,19 @@ dmtcp_mpi::restoreCarts(const MpiRecord &rec)
   JTRACE("Restoring MPI cartesian");
   switch (rec.getType()) {
     case GENERATE_ENUM(Cart_create):
+      JTRACE("restoreCartCreate");
       rc = restoreCartCreate(rec);
       break;
     case GENERATE_ENUM(Cart_map):
+      JTRACE("restoreCartMap");
       rc = restoreCartMap(rec);
       break;
     case GENERATE_ENUM(Cart_shift):
+      JTRACE("restoreCartShift");
       rc = restoreCartShift(rec);
       break;
     case GENERATE_ENUM(Cart_sub):
+      JTRACE("restoreCartSub");
       rc = restoreCartSub(rec);
       break;
     default:
@@ -162,9 +182,11 @@ dmtcp_mpi::restoreOps(const MpiRecord &rec)
   JTRACE("Restoring MPI Ops");
   switch (rec.getType()) {
     case GENERATE_ENUM(Op_create):
+      JTRACE("restoreOpCreate");
       rc = restoreOpCreate(rec);
       break;
     case GENERATE_ENUM(Op_free):
+      JTRACE("restoreOpFree");
       rc = restoreOpFree(rec);
       break;
     default:

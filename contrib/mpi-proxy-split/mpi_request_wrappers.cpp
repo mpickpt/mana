@@ -23,7 +23,7 @@ USER_DEFINED_WRAPPER(int, Test, (MPI_Request*) request,
     // MPI_Test can change the *request argument
     retval = NEXT_FUNC(Test)(request, flag, status);
     RETURN_TO_UPPER_HALF();
-    if (*flag) {
+    if (retval == MPI_SUCCESS && *flag) {
       clearPendingRequestFromLog(request, req);
     }
     DMTCP_PLUGIN_ENABLE_CKPT();

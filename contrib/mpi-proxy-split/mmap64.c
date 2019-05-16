@@ -127,7 +127,7 @@ static int
 extendExistingMmap(const void *addr)
 {
   for (int i = 0; i < numRegions; i++) {
-    if (mmaps[i].addr + mmaps[i].len == addr) {
+    if (addr >= mmaps[i].addr && addr <= mmaps[i].addr + mmaps[i].len) {
       return i;
     }
   }
@@ -210,7 +210,8 @@ __mmap64 (void *addr, size_t len, int prot, int flags, int fd, __off_t offset)
     } else {
       int idx2 = extendExistingMmap(ret);
       if (idx2 != -1) {
-        mmaps[idx2].len += len;
+        size_t length = ROUND_UP(len) + ((char*)ret - (char*)mmaps[idx2].addr);
+        mmaps[idx2].len = length > mmaps[idx2].len ? length : mmaps[idx2].len;
         mmaps[idx2].unmapped = 0;
         idx = idx2;
       } else {

@@ -99,11 +99,12 @@ updateCkptDirByRank()
   const char *ckptDir = dmtcp_get_ckpt_dir();
   dmtcp::string baseDir;
 
-  if (strstr(ckptDir, dmtcp_get_computation_id_str()) != NULL) {
+  if (strstr(ckptDir, "ckpt_rank_") != NULL) {
     baseDir = jalib::Filesystem::DirName(ckptDir);
   } else {
     baseDir = ckptDir;
   }
+  JTRACE("Updating checkpoint directory")(ckptDir)(baseDir);
   dmtcp::ostringstream o;
   o << baseDir << "/ckpt_rank_" << g_world_rank;
   dmtcp_set_ckpt_dir(o.str().c_str());
@@ -264,6 +265,9 @@ clearPendingRequestFromLog(MPI_Request* req, MPI_Request orig)
   for (iter = g_async_calls.begin(); iter != g_async_calls.end();) {
     mpi_async_call_t *call = iter->second;
     if (call && call->req == orig) {
+      if (call->type == IRECV_REQUEST) {
+        updateLocalRecvs();
+      }
       JALLOC_HELPER_FREE(call);
       call = NULL;
       // erase() returns the iterator to the next elt
