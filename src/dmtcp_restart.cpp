@@ -1017,7 +1017,7 @@ main(int argc, char **argv)
     // We can only call this Util method after having initialized
     // the DMTCP shared-data area.
     string mtcprestart = Util::getPath("mtcp_restart");
-    mtcpArgList.emplace(mtcpArgList.begin(), (char *)mtcprestart.c_str());
+    mtcpArgList.insert(mtcpArgList.begin(), (char *)mtcprestart.c_str());
     mtcpArgList.push_back(NULL);
     execvp(mtcpArgList[0], &mtcpArgList[0]);
   }
