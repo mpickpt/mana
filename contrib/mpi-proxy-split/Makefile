@@ -14,19 +14,17 @@ endif
 NAME=${shell basename $$PWD}
 
 # By default, your resulting plugin library will have this name.
-LIBNAME=libdmtcp_${NAME}
+LIBNAME=libmana
 
 LOWER_HALF_SRCDIR=lower-half
 
 # As you add new files to your plugin library, add the object file names here.
-LIBOBJS = mpi_plugin.o mpi_wrappers.o drain_send_recv_packets.o \
-          mpi_p2p_wrappers.o mpi_collective_wrappers.o mpi_request_wrappers.o \
-          mpi_type_wrappers.o mpi_comm_wrappers.o mpi_group_wrappers.o \
-          mpi_cart_wrappers.o mpi_op_wrappers.o \
-          mpi_unimplemented_wrappers.o \
-          mpi_fortran_wrappers.o \
-          record-replay.o \
-          two-phase-algo.o \
+
+WRAPPERS_SRCDIR=mpi-wrappers
+LIBWRAPPER=libmpiwrappers.a
+
+LIBOBJS = mpi_plugin.o drain_send_recv_packets.o \
+          record-replay.o two-phase-algo.o \
           split_process.o ${LOWER_HALF_SRCDIR}/procmapsutils.o
 
 PROXY_BIN = proxy
@@ -43,9 +41,9 @@ override CFLAGS += -g3 -O0 -fPIC -I${DMTCP_INCLUDE} -I${LOWER_HALF_SRCDIR} -std=
 override CXXFLAGS += -g3 -O0 -fPIC -I${DMTCP_INCLUDE} -I${JALIB_INCLUDE} \
                      -I${DMTCP_ROOT}/src -I${LOWER_HALF_SRCDIR} -std=c++11
 
-default: ${LIBNAME}.so ${LOWER_HALF_SRCDIR}/${PROXY_BIN} libmpidummy.so libmpich_intel.so.3
+default: ${LIBNAME}.so ${LOWER_HALF_SRCDIR}/${PROXY_BIN} ${WRAPPERS_SRCDIR}/libmpidummy.so ${WRAPPERS_SRCDIR}/libmpich_intel.so.3
 
-${LIBNAME}.so: ${LIBOBJS}
+${LIBNAME}.so: ${LIBOBJS} ${WRAPPERS_SRCDIR}/${LIBWRAPPER}
 	${MPICXX} -shared -fPIC -g3 -O0 -o $@ $^
 
 mpi_unimplemented_wrappers.cpp: generate-mpi-unimplemented-wrappers.py mpi_unimplemented_wrappers.txt
@@ -66,20 +64,14 @@ ${LOWER_HALF_SRCDIR}/${PROXY_BIN}: ${LOWER_HALF_SRCDIR}/${LIBPROXY}
 ${LOWER_HALF_SRCDIR}/${LIBPROXY}:
 	@make -C ${LOWER_HALF_SRCDIR} ${LIBPROXY}
 
-mpi_dummy.c: generate-mpi-dummy-wrappers.py mpi_dummy_wrappers.txt
-	python $^ > $@
+${WRAPPERS_SRCDIR}/${LIBWRAPPER}:
+	@make -C ${WRAPPERS_SRCDIR} ${LIBWRAPPER}
 
-mpi_fortran_wrappers.cpp: generate-mpi-fortran-wrappers.py mpi_fortran_wrappers.txt
-	python $^ > $@
+${WRAPPERS_SRCDIR}/libmpidummy.so:
+	@make -C ${WRAPPERS_SRCDIR} libmpidummy.so
 
-libmpidummy.so: mpi_dummy.c
-	${MPICC} -fPIC -g3 -O0 $< -shared -o $@
-
-libmpich_intel.so.3.0.1: libmpidummy.so
-	cp -f $< $@
-
-libmpich_intel.so.3: libmpich_intel.so.3.0.1
-	ln -sf $< $@
+${WRAPPERS_SRCDIR}/libmpich_intel.so.3:
+	@make -C ${WRAPPERS_SRCDIR} libmpich_intel.so.3
 
 vi vim: ${FILE}
 	vim $<
@@ -100,12 +92,10 @@ check: ${LIBNAME}.so ${LOWER_HALF_SRCDIR}/${PROXY_BIN} ./autotest.py
 check-unit: ${LIBNAME}.so
 	@make -C unit-test/ check
 
-install: ${LOWER_HALF_SRCDIR}/${PROXY_BIN} ${LIBNAME}.so libmpich_intel.so.3
+install: ${LOWER_HALF_SRCDIR}/${PROXY_BIN} ${LIBNAME}.so ${WRAPPERS_SRCDIR}/libmpich_intel.so.3
 	@make -C ${LOWER_HALF_SRCDIR} install
 	cp ${LIBNAME}.so ${DMTCP_ROOT}/lib/dmtcp
-	cp libmpidummy.so ${DMTCP_ROOT}/lib/dmtcp
-	cp -a libmpich_intel.so.3 ${DMTCP_ROOT}/lib/dmtcp
-	cp libmpich_intel.so.3.0.1 ${DMTCP_ROOT}/lib/dmtcp
+	@make -C ${WRAPPERS_SRCDIR} install
 
 tidy:
 	rm -f *~ .*.swp dmtcp_restart_script*.sh ckpt_*.dmtcp
@@ -114,9 +104,8 @@ tidy:
 clean: tidy
 	@make -C ${LOWER_HALF_SRCDIR} clean
 	rm -f ${LIBOBJS}
-	rm -f ${LIBNAME}.so libmpidummy.so
-	rm -f mpi_unimplemented_wrappers.cpp
-	rm -f libmpich_intel.so.3.0.1 libmpich_intel.so.3
+	rm -f ${LIBNAME}.so
+	@make -C ${WRAPPERS_SRCDIR} clean
 
 distclean: clean
 
