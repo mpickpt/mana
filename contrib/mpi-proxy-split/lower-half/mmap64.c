@@ -32,12 +32,6 @@
 # define __set_errno(Val) errno = (Val)
 #endif
 
-typedef struct __MemRange
-{
-  void *start;
-  void *end;
-} MemRange_t;
-
 extern MemRange_t *g_range;
 
 /* Set error number and return -1.  A target may choose to return the

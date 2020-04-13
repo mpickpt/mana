@@ -165,16 +165,7 @@ static uint64_t page_unit;
     INLINE_SYSCALL_CALL (__nr, __addr, __len, __prot, __flags, __fd, __offset)
 #endif
 
-// FIXME: Refactor this. There's another declaration of this struct in
-// mpi_copybits.h. There should be a common header file with a single
-// declaration.
-typedef struct __MmapInfo
-{
-  void *addr;
-  size_t len;
-  int unmapped;
-  int guard;
-} MmapInfo_t;
+#include "lower_half_api.h"
 
 int getMmapIdx(const void *);
 void* getNextAddr(size_t );

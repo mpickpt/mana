@@ -18,6 +18,7 @@
 #include "libproxy.h"
 #include "mpi_copybits.h"
 #include "procmapsutils.h"
+#include "lower_half_api.h"
 
 struct LowerHalfInfo_t info = {0};
 static MemRange_t memRange = {0};
@@ -33,17 +34,6 @@ static void* MPI_Fnc_Ptrs[] = {
 };
 
 // Local functions
-
-static int
-getRank()
-{
-  int ret = MPI_Init(NULL, NULL);
-  int world_rank = -1;
-  if (ret != -1) {
-    MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
-  }
-  return world_rank;
-}
 
 static void
 getDataFromMaps(const Area *text, Area *data, Area *heap)
@@ -157,13 +147,24 @@ isValidFd(int fd)
   return fcntl(fd, F_GETFL, 0) != -1;
 }
 
-static void
-updateEnviron(char **newenviron)
+// Global functions
+
+void
+updateEnviron(const char **newenviron)
 {
-  __environ = newenviron;
+  __environ = (char **)newenviron;
 }
 
-// Global functions
+int
+getRank()
+{
+  int ret = MPI_Init(NULL, NULL);
+  int world_rank = -1;
+  if (ret != -1) {
+    MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+  }
+  return world_rank;
+}
 
 void*
 mydlsym(enum MPI_Fncs fnc)

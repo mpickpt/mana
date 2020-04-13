@@ -1,24 +1,14 @@
-#ifndef _MPI_COPYBITS_H
-#define _MPI_COPYBITS_H
+#ifndef _LOWER_HALF_API_H
+#define _LOWER_HALF_API_H
 
 #include <stdint.h>
-#include <ucontext.h>
-#include <link.h>
-#include <unistd.h>
 
 #include "libproxy.h"
 
-#ifdef MAIN_AUXVEC_ARG
-/* main gets passed a pointer to the auxiliary.  */
-# define MAIN_AUXVEC_DECL , void *
-# define MAIN_AUXVEC_PARAM , auxvec
-#else
-# define MAIN_AUXVEC_DECL
-# define MAIN_AUXVEC_PARAM
-#endif // ifdef MAIN_AUXVEC_ARG
+#define GENERATE_ENUM(ENUM)    MPI_Fnc_##ENUM
+#define GENERATE_FNC_PTR(FNC)  &MPI_##FNC
 
-#define ROUND_UP(addr) ((addr + getpagesize() - 1) & ~(getpagesize()-1))
-#define ROUND_DOWN(addr) ((unsigned long)addr & ~(getpagesize()-1))
+// Shared data structures
 
 // The transient proxy process introspects its memory layout and passes this
 // information back to the main application process using this struct.
@@ -59,28 +49,16 @@ typedef struct __MmapInfo
   int guard;
 } MmapInfo_t;
 
-extern struct LowerHalfInfo_t info;
-extern int g_numMmaps;
-extern MmapInfo_t *g_list;
-extern MemRange_t *g_range;
+enum MPI_Fncs {
+  MPI_Fnc_NULL,
+  FOREACH_FNC(GENERATE_ENUM)
+  MPI_Fnc_Invalid,
+};
 
-extern int main(int argc, char *argv[], char *envp[]);
-extern int __libc_csu_init (int argc, char **argv, char **envp);
-extern void __libc_csu_fini (void);
-extern MmapInfo_t* getMmappedList(int *num);
-extern void resetMmappedList();
+// Useful type definitions
 
 typedef int (*mainFptr)(int argc, char *argv[], char *envp[]);
 typedef void (*finiFptr) (void);
-
-extern int __libc_start_main(int (*main)(int, char **, char **MAIN_AUXVEC_DECL),
-                             int argc,
-                             char **argv,
-                             __typeof (main) init,
-                             void (*fini) (void),
-                             void (*rtld_fini) (void),
-                             void *stack_end);
-
 typedef int (*libcFptr_t) (int (*main) (int, char **, char ** MAIN_AUXVEC_DECL),
                            int ,
                            char **,
@@ -94,4 +72,13 @@ typedef void* (*updateEnviron_t)(char **environ);
 typedef MmapInfo_t* (*getMmappedList_t)(int *num);
 typedef void (*resetMmappedList_t)();
 
-#endif // #ifndef _MPI_COPYBITS_H
+// API
+
+extern void *mydlsym(enum MPI_Fncs fnc);
+extern int getRank();
+extern void updateEnviron(const char **newenviron);
+extern MmapInfo_t* getMmappedList(int *num);
+extern void resetMmappedList();
+
+
+#endif // ifndef _LOWER_HALF_API_H

@@ -19,7 +19,7 @@
 
 
 #include "jassert.h"
-#include "libproxy.h"
+#include "lower_half_api.h"
 #include "mpi_plugin.h"
 #include "mpi_nextfunc.h"
 #include "mpi_copybits.h"

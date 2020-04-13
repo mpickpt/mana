@@ -16,6 +16,8 @@ NAME=${shell basename $$PWD}
 # By default, your resulting plugin library will have this name.
 LIBNAME=libdmtcp_${NAME}
 
+LOWER_HALF_SRCDIR=lower-half
+
 # As you add new files to your plugin library, add the object file names here.
 LIBOBJS = mpi_plugin.o mpi_wrappers.o drain_send_recv_packets.o \
           mpi_p2p_wrappers.o mpi_collective_wrappers.o mpi_request_wrappers.o \
@@ -25,12 +27,10 @@ LIBOBJS = mpi_plugin.o mpi_wrappers.o drain_send_recv_packets.o \
           mpi_fortran_wrappers.o \
           record-replay.o \
           two-phase-algo.o \
-          split_process.o procmapsutils.o
+          split_process.o ${LOWER_HALF_SRCDIR}/procmapsutils.o
 
 PROXY_BIN = proxy
-PROXY_OBJS = proxy.o
-LIBPROXY = libproxy
-LIBPROXY_OBJS = libproxy.o procmapsutils.o sbrk.o mmap64.o munmap.o shmat.o shmget.o
+LIBPROXY = libproxy.a
 
 # Modify if your DMTCP_ROOT is located elsewhere.
 ifndef DMTCP_ROOT
@@ -39,13 +39,11 @@ endif
 DMTCP_INCLUDE=${DMTCP_ROOT}/include
 JALIB_INCLUDE=${DMTCP_ROOT}/jalib
 
-override CFLAGS += -g3 -O0 -fPIC -I${DMTCP_INCLUDE} -std=gnu11
+override CFLAGS += -g3 -O0 -fPIC -I${DMTCP_INCLUDE} -I${LOWER_HALF_SRCDIR} -std=gnu11
 override CXXFLAGS += -g3 -O0 -fPIC -I${DMTCP_INCLUDE} -I${JALIB_INCLUDE} \
-                     -I${DMTCP_ROOT}/src -std=c++11
+                     -I${DMTCP_ROOT}/src -I${LOWER_HALF_SRCDIR} -std=c++11
 
-PROXY_LD_FLAGS=-static -Wl,-Ttext-segment -Wl,0xE000000 -Wl,--wrap -Wl,__munmap -Wl,--wrap -Wl,shmat -Wl,--wrap -Wl,shmget
-
-default: ${LIBNAME}.so ${PROXY_BIN} libmpidummy.so libmpich_intel.so.3
+default: ${LIBNAME}.so ${LOWER_HALF_SRCDIR}/${PROXY_BIN} libmpidummy.so libmpich_intel.so.3
 
 ${LIBNAME}.so: ${LIBOBJS}
 	${MPICXX} -shared -fPIC -g3 -O0 -o $@ $^
@@ -59,11 +57,14 @@ mpi_unimplemented_wrappers.cpp: generate-mpi-unimplemented-wrappers.py mpi_unimp
 .cpp.o:
 	${MPICXX} ${CXXFLAGS} -g3 -O0 -c -o $@ $<
 
-${PROXY_BIN}: ${PROXY_OBJS} ${LIBPROXY}.a
-	${MPICC} ${PROXY_LD_FLAGS} -o $@ $^ ${MPI_LD_FLAG} -lrt -lpthread -lc ${LIBPROXY}.a
+${LOWER_HALF_SRCDIR}/procmapsutils.o:
+	@make -C ${LOWER_HALF_SRCDIR} procmapsutils.o
 
-${LIBPROXY}.a: ${LIBPROXY_OBJS}
-	ar cr $@ $^
+${LOWER_HALF_SRCDIR}/${PROXY_BIN}: ${LOWER_HALF_SRCDIR}/${LIBPROXY}
+	@make -C ${LOWER_HALF_SRCDIR} ${PROXY_BIN}
+
+${LOWER_HALF_SRCDIR}/${LIBPROXY}:
+	@make -C ${LOWER_HALF_SRCDIR} ${LIBPROXY}
 
 mpi_dummy.c: generate-mpi-dummy-wrappers.py mpi_dummy_wrappers.txt
 	python $^ > $@
@@ -92,15 +93,15 @@ gdb: ${basename proxy.c ${FILE}}
 tests:
 	@make -C test/
 
-check: ${LIBNAME}.so ${PROXY_BIN} ./autotest.py
+check: ${LIBNAME}.so ${LOWER_HALF_SRCDIR}/${PROXY_BIN} ./autotest.py
 	@make -C test/
 	@python ./autotest.py
 
 check-unit: ${LIBNAME}.so
 	@make -C unit-test/ check
 
-install: ${PROXY_BIN} ${LIBNAME}.so libmpich_intel.so.3
-	cp $< ${DMTCP_ROOT}/bin/
+install: ${LOWER_HALF_SRCDIR}/${PROXY_BIN} ${LIBNAME}.so libmpich_intel.so.3
+	@make -C ${LOWER_HALF_SRCDIR} install
 	cp ${LIBNAME}.so ${DMTCP_ROOT}/lib/dmtcp
 	cp libmpidummy.so ${DMTCP_ROOT}/lib/dmtcp
 	cp -a libmpich_intel.so.3 ${DMTCP_ROOT}/lib/dmtcp
@@ -111,8 +112,9 @@ tidy:
 	rm -rf ckpt_rank_*
 
 clean: tidy
-	rm -f ${LIBOBJS} ${LIBPROXY_OBJS} ${PROXY_OBJS}
-	rm -f ${PROXY_BIN} ${LIBPROXY}.a ${LIBNAME}.so libmpidummy.so
+	@make -C ${LOWER_HALF_SRCDIR} clean
+	rm -f ${LIBOBJS}
+	rm -f ${LIBNAME}.so libmpidummy.so
 	rm -f mpi_unimplemented_wrappers.cpp
 	rm -f libmpich_intel.so.3.0.1 libmpich_intel.so.3
 

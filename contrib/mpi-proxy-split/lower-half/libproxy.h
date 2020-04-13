@@ -382,16 +382,4 @@ do {                                                                           \
   MACRO(Wtick), \
   MACRO(Wtime),
 
-#define GENERATE_ENUM(ENUM) MPI_Fnc_##ENUM
-
-#define GENERATE_FNC_PTR(FNC) &MPI_##FNC
-
-enum MPI_Fncs {
-  MPI_Fnc_NULL,
-  FOREACH_FNC(GENERATE_ENUM)
-  MPI_Fnc_Invalid,
-};
-
-extern void *mydlsym(enum MPI_Fncs fnc);
-
 #endif // define _LIBPROXY_H

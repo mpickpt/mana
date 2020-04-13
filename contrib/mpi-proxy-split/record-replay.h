@@ -11,7 +11,7 @@
 #include "jassert.h"
 #include "jconvert.h"
 
-#include "libproxy.h"
+#include "lower_half_api.h"
 
 #define LOG_CALL(cb, fnc, args...) \
   dmtcp_mpi::MpiRecordReplay::instance().record(cb, GENERATE_ENUM(fnc),  \
