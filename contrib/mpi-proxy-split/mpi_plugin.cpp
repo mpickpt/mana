@@ -1,9 +1,7 @@
 #include <signal.h>
 
 #include "lower_half_api.h"
-#include "mpi_plugin.h"
 #include "mpi_nextfunc.h"
-#include "mpi_copybits.h"
 #include "drain_send_recv_packets.h"
 #include "record-replay.h"
 #include "two-phase-algo.h"

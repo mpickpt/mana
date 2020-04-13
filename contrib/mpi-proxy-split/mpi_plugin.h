@@ -4,6 +4,7 @@
 #include <mpi.h>
 #include <stdint.h>
 
+#include "lower_half_api.h"
 #include "dmtcp_dlsym.h"
 
 #define   _real_fork      NEXT_FNC_DEFAULT(fork)
@@ -25,5 +26,10 @@
 
 #define PMPI_IMPL(ret, func, ...)                               \
   EXTERNC ret P##func(__VA_ARGS__) __attribute__ ((weak, alias (#func)));
+
+extern struct LowerHalfInfo_t info;
+extern int g_numMmaps;
+extern MmapInfo_t *g_list;
+extern MemRange_t *g_range;
 
 #endif // ifndef _MPI_PLUGIN_H

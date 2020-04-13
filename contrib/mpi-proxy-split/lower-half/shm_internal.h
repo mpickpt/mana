@@ -1,11 +1,11 @@
 #ifndef SHM_INTERNAL_H
 # define SHM_INTERNAL_H 1
 
+#include "lower_half_api.h"
+
 #ifndef __set_errno
 # define __set_errno(Val) errno = (Val)
 #endif
-
-#define PAGE_SIZE 4096
 
 typedef struct __ShmInfo
 {

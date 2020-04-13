@@ -4,9 +4,8 @@
 #include <errno.h>
 #include <assert.h>
 
+#include "lower_half_api.h"
 #include "mmap_internal.h"
-
-#define PAGE_SIZE 4096
 
 /* Deallocate any mapping for the region starting at ADDR and extending LEN
    bytes.  Returns 0 if successful, -1 for errors (and sets errno).  */

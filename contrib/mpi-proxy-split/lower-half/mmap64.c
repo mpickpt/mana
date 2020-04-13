@@ -26,13 +26,12 @@
 // #include <sysdep.h>
 // #include <mmap_internal.h>
 #include "mmap_internal.h"
+#include "mpi_copybits.h"
 #include <sys/syscall.h>
 
 #ifndef __set_errno
 # define __set_errno(Val) errno = (Val)
 #endif
-
-extern MemRange_t *g_range;
 
 /* Set error number and return -1.  A target may choose to return the
    internal function, __syscall_error, which sets errno and returns -1.
@@ -55,12 +54,6 @@ extern MemRange_t *g_range;
 #ifndef MMAP_PREPARE
 # define MMAP_PREPARE(addr, len, prot, flags, fd, offset)
 #endif
-
-#define PAGE_SIZE 4096
-#define HUGE_PAGE 0x200000
-#define ROUND_UP(addr) ((unsigned long)(addr + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1))
-#define ROUND_UP_HUGE(addr) \
-    ((unsigned long)(addr + HUGE_PAGE - 1) & ~(HUGE_PAGE - 1))
 
 // Source code copied from glibc-2.27/sysdeps/unix/sysv/linux/mmap64.c
 // Modified to keep track of regions mmaped by lower half
@@ -104,14 +97,14 @@ getMmapIdx(const void *addr)
 void*
 getNextAddr(size_t len)
 {
-  if (g_range->start == NULL && nextFreeAddr == NULL) {
+  if (lh_memRange.start == NULL && nextFreeAddr == NULL) {
     return NULL;
-  } else if (g_range->start != NULL && nextFreeAddr == NULL) {
-    nextFreeAddr = g_range->start;
+  } else if (lh_memRange.start != NULL && nextFreeAddr == NULL) {
+    nextFreeAddr = lh_memRange.start;
   }
   void *curr = nextFreeAddr;
   nextFreeAddr = (char*)curr + ROUND_UP(len) + PAGE_SIZE;
-  if (nextFreeAddr > g_range->end) {
+  if (nextFreeAddr > lh_memRange.end) {
     assert(0);
   }
   return curr;
@@ -132,14 +125,14 @@ extendExistingMmap(const void *addr)
 static void*
 getNextHugeAddr(size_t len)
 {
-  if (g_range->start == NULL && nextFreeAddr == NULL) {
+  if (lh_memRange.start == NULL && nextFreeAddr == NULL) {
     return NULL;
-  } else if (g_range->start != NULL && nextFreeAddr == NULL) {
-    nextFreeAddr = g_range->start;
+  } else if (lh_memRange.start != NULL && nextFreeAddr == NULL) {
+    nextFreeAddr = lh_memRange.start;
   }
   void *curr = (void*)ROUND_UP_HUGE((unsigned long)nextFreeAddr);
   nextFreeAddr = (char*)curr + ROUND_UP(len) + PAGE_SIZE;
-  if (nextFreeAddr > g_range->end) {
+  if (nextFreeAddr > lh_memRange.end) {
     assert(0);
   }
   return curr;

@@ -20,10 +20,8 @@
 #include "procmapsutils.h"
 #include "lower_half_api.h"
 
-struct LowerHalfInfo_t info = {0};
-static MemRange_t memRange = {0};
-
-MemRange_t *g_range = &memRange;
+struct LowerHalfInfo_t lh_info = {0};
+MemRange_t lh_memRange = {0};
 
 static ucontext_t g_appContext;
 
@@ -202,27 +200,27 @@ void first_constructor()
     int argc = *(int*)stackstart;
     char **argv = (char**)(stackstart + sizeof(unsigned long));
 
-    info.startTxt = (void*)start;
-    info.endTxt = (void*)end;
-    info.startData = (void*)data.addr;
-    info.endOfHeap = (void*)heap.endAddr;
-    info.libc_start_main = &__libc_start_main;
-    info.main = &main;
-    info.libc_csu_init = &__libc_csu_init;
-    info.libc_csu_fini = &__libc_csu_fini;
-    info.fsaddr = (void*)fsaddr;
-    info.lh_AT_PHNUM = getauxval(AT_PHNUM);
-    info.lh_AT_PHDR = getauxval(AT_PHDR);
-    info.g_appContext = (void*)&g_appContext;
-    info.lh_dlsym = (void*)&mydlsym;
-    info.getRankFptr = (void*)&getRank;
-    info.parentStackStart = (void*)pstackstart;
-    info.updateEnvironFptr = (void*)&updateEnviron;
-    info.getMmappedListFptr = (void*)&getMmappedList;
-    info.resetMmappedListFptr = (void*)&resetMmappedList;
-    info.memRange = (void*)&memRange;
+    lh_info.startTxt = (void*)start;
+    lh_info.endTxt = (void*)end;
+    lh_info.startData = (void*)data.addr;
+    lh_info.endOfHeap = (void*)heap.endAddr;
+    lh_info.libc_start_main = &__libc_start_main;
+    lh_info.main = &main;
+    lh_info.libc_csu_init = &__libc_csu_init;
+    lh_info.libc_csu_fini = &__libc_csu_fini;
+    lh_info.fsaddr = (void*)fsaddr;
+    lh_info.lh_AT_PHNUM = getauxval(AT_PHNUM);
+    lh_info.lh_AT_PHDR = getauxval(AT_PHDR);
+    lh_info.g_appContext = (void*)&g_appContext;
+    lh_info.lh_dlsym = (void*)&mydlsym;
+    lh_info.getRankFptr = (void*)&getRank;
+    lh_info.parentStackStart = (void*)pstackstart;
+    lh_info.updateEnvironFptr = (void*)&updateEnviron;
+    lh_info.getMmappedListFptr = (void*)&getMmappedList;
+    lh_info.resetMmappedListFptr = (void*)&resetMmappedList;
+    lh_info.memRange = (void*)&lh_memRange;
     DLOG(INFO, "startTxt: %p, endTxt: %p, startData: %p, endOfHeap; %p\n",
-         info.startTxt, info.endTxt, info.startData, info.endOfHeap);
+         lh_info.startTxt, lh_info.endTxt, lh_info.startData, lh_info.endOfHeap);
     int pipefd = argc > 1 ? atoi(argv[1]) : -1;
 
     if (!isValidFd(pipefd)) { // run standalone, if no pipefd
@@ -230,7 +228,7 @@ void first_constructor()
       exit(0);
     }
 
-    write(pipefd, &info, sizeof info);
+    write(pipefd, &lh_info, sizeof lh_info);
     close(pipefd);
     // Allow some time for parent to copy bits of child before we exit.
     sleep(2);

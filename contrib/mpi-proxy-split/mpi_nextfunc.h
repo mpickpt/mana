@@ -1,7 +1,7 @@
 #ifndef _MPI_NEXTFUNC_H
 #define _MPI_NEXTFUNC_H
 
-#include "mpi_copybits.h"
+#include "lower_half_api.h"
 #include "split_process.h"
 
 #define EAT(x)

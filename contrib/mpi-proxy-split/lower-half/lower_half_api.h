@@ -7,6 +7,25 @@
 
 #define GENERATE_ENUM(ENUM)    MPI_Fnc_##ENUM
 #define GENERATE_FNC_PTR(FNC)  &MPI_##FNC
+#define PAGE_SIZE              0x1000
+#define HUGE_PAGE              0x200000
+
+#ifdef MAIN_AUXVEC_ARG
+/* main gets passed a pointer to the auxiliary.  */
+# define MAIN_AUXVEC_DECL , void *
+# define MAIN_AUXVEC_PARAM , auxvec
+#else
+# define MAIN_AUXVEC_DECL
+# define MAIN_AUXVEC_PARAM
+#endif // ifdef MAIN_AUXVEC_ARG
+
+#define ROUND_UP(addr)  \
+    ((unsigned long)(addr + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1))
+
+#define ROUND_DOWN(addr) ((unsigned long)addr & ~(PAGE_SIZE - 1))
+
+#define ROUND_UP_HUGE(addr) \
+    ((unsigned long)(addr + HUGE_PAGE - 1) & ~(HUGE_PAGE - 1))
 
 // Shared data structures
 

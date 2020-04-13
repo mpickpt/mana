@@ -10,6 +10,7 @@
 #include <sys/wait.h>
 #include <sys/mman.h>
 #include <limits.h>
+#include <link.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <ucontext.h>
@@ -22,7 +23,6 @@
 #include "lower_half_api.h"
 #include "mpi_plugin.h"
 #include "mpi_nextfunc.h"
-#include "mpi_copybits.h"
 #include "split_process.h"
 #include "procmapsutils.h"
 #include "util.h"

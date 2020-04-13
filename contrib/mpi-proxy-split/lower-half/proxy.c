@@ -14,10 +14,10 @@ int main(int argc, char **argv, char **envp)
   if (argc >= 1) { // run standalone, if no pipefd
     // info is defined in lastlib.c
     DLOG(INFO, "startTxt: %p, endTxt: %p, endOfHeap: %p\n",
-         info.startTxt, info.endTxt, info.endOfHeap);
+         lh_info.startTxt, lh_info.endTxt, lh_info.endOfHeap);
     // We're done initializing; jump back to the upper half
     // g_appContext would have been set by the upper half
-    int ret = setcontext(info.g_appContext);
+    int ret = setcontext(lh_info.g_appContext);
     if (ret < 0) {
       DLOG(ERROR, "setcontext failed: %s", strerror(errno));
     }
