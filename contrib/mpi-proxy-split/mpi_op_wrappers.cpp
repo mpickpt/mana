@@ -34,7 +34,7 @@ USER_DEFINED_WRAPPER(int, Op_free, (MPI_Op*) op)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Op realOp = NULL;
+  MPI_Op realOp = MPI_OP_NULL;
   if (op) {
     realOp = VIRTUAL_TO_REAL_OP(*op);
   }
