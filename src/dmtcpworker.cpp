@@ -469,7 +469,9 @@ DmtcpWorker::waitForSuspendMessage()
     if (msg.type == DMT_DO_PRE_SUSPEND) {
       JTRACE("Received pre-suspend query from coordinator");
       handlePreSuspendMsg(extraData);
-      JALLOC_HELPER_FREE(extraData);
+      if (extraData) {
+        JALLOC_HELPER_FREE(extraData);
+      }
     }
   } while (msg.type == DMT_DO_PRE_SUSPEND);
 
