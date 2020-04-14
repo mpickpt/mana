@@ -113,6 +113,8 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
   }
 }
 
+// Sets the global 'g_list' pointer to the beginning of the MmapInfo_t array
+// in the lower half
 static void
 getLhMmapList()
 {
@@ -126,6 +128,7 @@ getLhMmapList()
   }
 }
 
+// Sets the lower half's __environ variable to point to upper half's __environ
 static void
 updateLhEnviron()
 {

@@ -70,15 +70,34 @@ typedef struct __send_recv_totals
   int countSends;
 } send_recv_totals_t;
 
+// Increments the global number of receives by 1
 extern void updateLocalRecvs();
+
+// Increments the global number of sends by 1
 extern void updateLocalSends();
 
+// Fetches the MPI rank and world size; also, verifies that MPI rank and
+// world size match the globally stored values in the plugin
 extern void getLocalRankInfo();
+
+// Publishes the count of total sent and received messages (along with the count
+// unserviced Isends) to the DMTCP coordinator.
 extern void registerLocalSendsAndRecvs();
+
 extern void drainMpiPackets();
+
+// Sets the name of the checkpoint directory of the current process to
+// "ckpt_rank_<RANK>", where RANK is the MPI rank of the process.
 extern void updateCkptDirByRank();
+
+// Fetches the MPI rank and world size; also, verifies that MPI rank and
+// world size match with the pre-checkpoint values in the plugin.
 extern void verifyLocalInfoOnRestart();
+
+// Restores the state of MPI P2P communication by replaying any pending
+// MPI_Isend and MPI_Irecv requests post restart
 extern void replayMpiOnRestart();
+
 extern void resetDrainCounters();
 
 extern void addPendingRequestToLog(mpi_req_t , const void* , void* , int ,

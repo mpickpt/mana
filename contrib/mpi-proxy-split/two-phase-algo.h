@@ -177,7 +177,11 @@ namespace dmtcp_mpi
   };
 };
 
+// Forces the current process to synchronize with the coordinator in order to
+// get to a globally safe state for checkpointing
 extern void drainMpiCollectives(const void* );
+
+// Clears the pending checkpoint state for the two-phase checkpointing algo
 extern void clearPendingCkpt();
 
 #endif // ifndef TWO_PHASE_ALGO_H

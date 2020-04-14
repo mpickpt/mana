@@ -211,6 +211,7 @@ registerLocalSendsAndRecvs()
 void
 updateLocalSends()
 {
+  // TODO: Use C++ atomics
   lock_t lock(srMutex);
   localSrCount.sends += 1;
 }
@@ -218,6 +219,7 @@ updateLocalSends()
 void
 updateLocalRecvs()
 {
+  // TODO: Use C++ atomics
   lock_t lock(srMutex);
   localSrCount.recvs += 1;
 }

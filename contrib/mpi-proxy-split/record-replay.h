@@ -422,6 +422,8 @@ namespace dmtcp_mpi
   extern int restoreOps(const MpiRecord& );
 }; // namespace dmtcp_mpi
 
+// Restores the MPI state by recreating the communicator, groups, types, etc.
+// post restart
 extern void restoreMpiState();
 
 #endif // ifndef MPI_RECORD_REPLAY_H
