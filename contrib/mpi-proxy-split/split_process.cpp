@@ -37,7 +37,10 @@ static int read_proxy_bits(pid_t );
 static pid_t startProxy();
 static int initializeLowerHalf();
 static void setLhMemRange();
+
 #if 0
+// TODO: Code to compile the lower half at runtime to adjust for differences
+// in memory layout in different environments.
 static Area getHighestAreaInMaps();
 static char* proxyAddrInApp();
 static void compileProxy();
@@ -134,6 +137,11 @@ getStackPtr()
   return startstack;
 }
 
+// Sets the given AT_PHNUM and AT_PHDR fields of the given auxiliary vector
+// pointer, 'av', to the values specified by 'phnum' and 'phdr', respectively.
+// If 'save' is 1, the original values of the two fields are saved to global
+// global members. If 'save' is 0, the original values of the two fields are
+// restored to the earlier saved values and the given values are ignored.
 static void
 patchAuxv(ElfW(auxv_t) *av, unsigned long phnum, unsigned long phdr, int save)
 {
@@ -161,6 +169,8 @@ patchAuxv(ElfW(auxv_t) *av, unsigned long phnum, unsigned long phdr, int save)
   }
 }
 
+// Mmaps a memory region at address and length specified by the given IO vector,
+// 'iov', and with the given protections, 'prot'.
 static int
 mmap_iov(const struct iovec *iov, int prot)
 {
@@ -173,6 +183,8 @@ mmap_iov(const struct iovec *iov, int prot)
   return ret == MAP_FAILED;
 }
 
+// Copies over the lower half memory segments from the child process with the
+// given pid, 'childpid'. On success, returns 0. Otherwise, -1 is returned.
 static int
 read_proxy_bits(pid_t childpid)
 {
@@ -196,7 +208,9 @@ read_proxy_bits(pid_t childpid)
   ret = mmap_iov(&remote_iov[1], RW_PERMS);
   JWARNING(ret == 0)(info.startData)(remote_iov[1].iov_len)
           .Text("Error mapping data segment for proxy");
-  // NOTE:  In our case loca_iov will be same as remote_iov.
+
+  // NOTE:  For the process_vm_readv call, the local_iov will be same as
+  //        remote_iov, since we are just duplicating child processes memory.
   // NOTE:  This requires same privilege as ptrace_attach (valid for child)
   for (int i = 0; i < IOV_SZ; i++) {
     JTRACE("Reading segment from proxy")
@@ -205,13 +219,15 @@ read_proxy_bits(pid_t childpid)
     JWARNING(ret != -1)(JASSERT_ERRNO).Text("Error reading data from proxy");
   }
 
-  // Can remove PROT_WRITE now that we've oppulated the text segment.
+  // Can remove PROT_WRITE now that we've populated the text segment.
   ret = mprotect((void *)ROUND_DOWN(remote_iov[0].iov_base),
                  ROUND_UP(remote_iov[0].iov_len), PROT_READ | PROT_EXEC);
   return ret;
 }
 
-// Returns the PID of the proxy child process
+// Starts a child process for the lower half application, and returns the PID
+// of the child process. Also populates the global 'info' object with the
+// LowerHalfInfo_t data from the child process.
 static pid_t
 startProxy()
 {
@@ -259,6 +275,10 @@ startProxy()
   return childpid;
 }
 
+// Sets the address range for the lower half. The lower half gets a fixed
+// address range of 1 GB at a high address before the stack region of the
+// current process. All memory allocations done by the lower half are restricted
+// to the specified address range.
 static void
 setLhMemRange()
 {
@@ -285,6 +305,7 @@ setLhMemRange()
   }
 }
 
+// Initializes the libraries (libc, libmpi, etc.) of the lower half
 static int
 initializeLowerHalf()
 {
@@ -301,6 +322,9 @@ initializeLowerHalf()
   char **ev = &argv[argc + 1];
   // char **ev = &((unsigned long*)stack_end[argc + 1]);
   libcFptr_t fnc = (libcFptr_t)info.libc_start_main;
+
+  // Save the pointer to mydlsym() function in the lower half. This will be
+  // used in all the wrappers
   pdlsym = (proxyDlsym_t)info.lh_dlsym;
   resetMmappedList_t resetMaps = (resetMmappedList_t)info.resetMmappedListFptr;
 
@@ -313,17 +337,27 @@ initializeLowerHalf()
   }
   setLhMemRange();
   JUMP_TO_LOWER_HALF(info.fsaddr);
+  // Clear any saved mappings in the lower half
   resetMaps();
+  // Set the auxiliary vector to correspond to the values of the lower half
+  // (which is statically linked, unlike the upper half). Without this, glibc
+  // will get confused during the initialization.
   patchAuxv(auxvec, info.lh_AT_PHNUM, info.lh_AT_PHDR, 1);
+  // Save upper half's ucontext_t in a global object in the lower half, as
+  // specified by the info.g_appContext pointer
   JWARNING(getcontext((ucontext_t*)info.g_appContext) == 0)(JASSERT_ERRNO);
 
   if (!lh_initialized) {
+    // Initialize the lower half by calling the __libc_start_main function
+    // in the lower half, if not already done.
     lh_initialized = true;
     fnc((mainFptr)info.main, argc, argv,
         (mainFptr)info.libc_csu_init,
         (finiFptr)info.libc_csu_fini, 0, stack_end);
   }
   JTRACE("After getcontext");
+  // Restore the the auxiliary vector to correspond to the values of the upper
+  // half.
   patchAuxv(auxvec, 0, 0, 0);
   RETURN_TO_UPPER_HALF();
   return ret;

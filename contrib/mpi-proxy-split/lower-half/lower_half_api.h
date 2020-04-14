@@ -33,39 +33,39 @@
 // information back to the main application process using this struct.
 struct LowerHalfInfo_t
 {
-  void *startTxt;
-  void *endTxt;
-  void *startData;
-  void *endOfHeap;
-  void *libc_start_main;
-  void *main;
-  void *libc_csu_init;
-  void *libc_csu_fini;
-  void *fsaddr;
-  uint64_t lh_AT_PHNUM;
-  uint64_t lh_AT_PHDR;
-  void *g_appContext;
-  void *lh_dlsym;
-  void *getRankFptr;
-  void *parentStackStart;
-  void *updateEnvironFptr;
-  void *getMmappedListFptr;
-  void *resetMmappedListFptr;
-  void *memRange;
+  void *startTxt; // Start address of text segment (R-X) of lower half
+  void *endTxt;   // End address of text segmeent (R-X) of lower half
+  void *startData; // Start address of data segment (RW-) of lower half
+  void *endOfHeap; // Pointer to the end of heap segment of lower half
+  void *libc_start_main; // Pointer to libc's __libc_start_main function in statically-linked lower half
+  void *main;      // Pointer to the main() function in statically-linked lower half
+  void *libc_csu_init; // Pointer to libc's __libc_csu_init() function in statically-linked lower half
+  void *libc_csu_fini; // Pointer ot libc's __libc_csu_fini() function in statically-linked lower half
+  void *fsaddr; // The base value of the FS register of the lower half
+  uint64_t lh_AT_PHNUM; // The number of program headers (AT_PHNUM) from the auxiliary vector of the lower half
+  uint64_t lh_AT_PHDR;  // The address of the program headers (AT_PHDR) from the auxiliary vector of the lower half
+  void *g_appContext; // Pointer to ucontext_t of upper half application (defined in the lower half)
+  void *lh_dlsym;     // Pointer to mydlsym() function in the lower half
+  void *getRankFptr;  // Pointer to getRank() function in the lower half
+  void *parentStackStart; // Address to the start of the stack of the parent process (FIXME: Not currently used anywhere)
+  void *updateEnvironFptr; // Pointer to updateEnviron() function in the lower half
+  void *getMmappedListFptr; // Pointer to getMmapedList() function in the lower half
+  void *resetMmappedListFptr; // Pointer to resetMmapedList() function in the lower half
+  void *memRange; // Pointer to MemRange_t object in the lower half
 };
 
 typedef struct __MemRange
 {
-  void *start;
-  void *end;
+  void *start;  // Start of the address range for lower half memory allocations
+  void *end;    // End of the address range for lower half memory allocations
 } MemRange_t;
 
 typedef struct __MmapInfo
 {
-  void *addr;
-  size_t len;
-  int unmapped;
-  int guard;
+  void *addr;   // Start address of mmapped region
+  size_t len;   // Length (in bytes) of mmapped region
+  int unmapped; // 1 if the region was unmapped; 0 otherwise
+  int guard;    // 1 if the region has additional guard pages around it; 0 otherwise
 } MmapInfo_t;
 
 enum MPI_Fncs {

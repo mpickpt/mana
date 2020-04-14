@@ -17,11 +17,15 @@
 class SwitchContext
 {
   private:
-    unsigned long upperHalfFs;
-    unsigned long lowerHalfFs;
+    unsigned long upperHalfFs; // The base value of the FS register of the upper half thread
+    unsigned long lowerHalfFs; // The base value of the FS register of the lower half
 
   public:
+    // Saves the current FS register value to 'upperHalfFs' and then
+    // changes the value of the FS register to the given 'lowerHalfFs'
     explicit SwitchContext(unsigned long );
+
+    // Restores the FS register value to 'upperHalfFs'
     ~SwitchContext();
 };
 
