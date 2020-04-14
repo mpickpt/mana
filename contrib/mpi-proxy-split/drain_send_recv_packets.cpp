@@ -25,19 +25,21 @@ using namespace dmtcp;
 using mutex_t = std::mutex;
 using lock_t  = std::unique_lock<mutex_t>;
 
-static mutex_t srMutex;
-static mutex_t logMutex;
-static send_recv_totals_t localSrCount;
-static vector<send_recv_totals_t> remoteSrCounts;
+static mutex_t srMutex;    // Lock to protect the global 'localSrCount' object
+static mutex_t logMutex;   // Lock to protect the global 'g_async_calls' object
+static send_recv_totals_t localSrCount; // Stores the counts of local send/recv/unserviced send calls
+static vector<send_recv_totals_t> remoteSrCounts; // TODO: Remove this?
 
-static int g_world_rank = -1;
-static int g_world_size = -1;
+static int g_world_rank = -1; // Global rank of the current process
+static int g_world_size = -1; // Total number of ranks in the current computation
 
-// Cached messages drained during a checkpoint
+// Queue of cached messages drained during a checkpoint
 static dmtcp::vector<mpi_message_t*> g_message_queue;
 
-// Unserviced irecv/isend requests
+// Map of unserviced irecv/isend requests to MPI call params
 static dmtcp::map<MPI_Request* const, mpi_async_call_t*> g_async_calls;
+
+// List of unserviced async send requests
 static dmtcp::vector<mpi_call_params_t> g_unsvcd_sends;
 
 static void get_remote_sr_counts(uint64_t* , uint64_t* ,
@@ -82,6 +84,7 @@ drainMpiPackets()
     // of all the proxies, since we're not the only one waiting
     registerLocalSendsAndRecvs();
 
+    // TODO: This could be replaced with a dmtcp_global_barrier()
     JUMP_TO_LOWER_HALF(info.fsaddr);
     NEXT_FUNC(Barrier)(MPI_COMM_WORLD);
     RETURN_TO_UPPER_HALF();
@@ -300,7 +303,6 @@ isBufferedPacket(int source, int tag, MPI_Comm comm, int *flag,
   return ret;
 }
 
-// Should always be called with checkpointing disabled
 bool
 isServicedRequest(MPI_Request *req, int *flag, MPI_Status *status)
 {
@@ -353,6 +355,12 @@ resetDrainCounters()
 }
 
 // Local functions
+
+// Fetches the send/recv data for all the ranks from the coordinator.
+// On a successful execution,
+//   - 'totalSends' will contain the total number of sends across all the ranks
+//   - 'totalRecvs' will contain the total number of recvs across all the ranks
+//   - 'unsvcdSends' will contain the metadata of all the unserviced sends for
 static void
 get_remote_sr_counts(uint64_t *totalSends, uint64_t *totalRecvs,
                      dmtcp::vector<mpi_call_params_t> &unsvcdSends)
@@ -370,11 +378,15 @@ get_remote_sr_counts(uint64_t *totalSends, uint64_t *totalRecvs,
   }
   char *ptr = (char*)buf;
   while (ptr < (char*)buf + len) {
+    // For each rank:
+    //   First, we get the send/recv/unserviced send counts
     size_t mysz = sizeof(size_t) + sizeof(int) + sizeof(size_t);
     send_recv_totals_t *sptr = (send_recv_totals_t*)(ptr + mysz);
     *totalSends += sptr->sends;
     *totalRecvs += sptr->recvs;
     int ts = sptr->countSends;
+    //   Next, if there are unserviced sends, we fetch the metadata of the
+    //   unserviced sends ...
     if (ts > 0) {
       JTRACE("Received unserviced requests")(ts);
       uint32_t sz = ts * sizeof(mpi_call_params_t);
@@ -384,6 +396,7 @@ get_remote_sr_counts(uint64_t *totalSends, uint64_t *totalRecvs,
                                            ps, &sz);
       JASSERT(rc == sz)(rc)(MPI_US_DB)
              .Text("Error querying for MPI database.");
+      // ... and add it to our local list of unserviced sends
       unsvcdSends.insert(std::end(unsvcdSends), ps, ps + ts);
       JALLOC_HELPER_FREE(ps);
     }
@@ -396,7 +409,9 @@ get_remote_sr_counts(uint64_t *totalSends, uint64_t *totalRecvs,
   }
 }
 
-// Returns true if there are unresolved async MPI_Send calls
+// Returns true if there are unresolved async MPI_Send calls and adds any
+// unresolved send requests (i.e., local async MPI sends that haven't yet been
+// received by a peer) to the global 'g_unsvcd_sends' queue
 static bool
 resolve_async_messages()
 {
@@ -450,6 +465,8 @@ resolve_async_messages()
   return unserviced_isends != 0;
 }
 
+// Drains (i.e., executes non-blocking receives for) all unserviced packets in
+// the given 'unsvcdSends' queue
 static bool
 drain_packets(const dmtcp::vector<mpi_call_params_t> &unsvcdSends)
 {
@@ -460,6 +477,9 @@ drain_packets(const dmtcp::vector<mpi_call_params_t> &unsvcdSends)
   return ret;
 }
 
+// Drains (i.e., executes non-blocking receives for) a single unserviced
+// packet with the given 'datatype' and using the given 'comm' MPI communicator.
+// The received packet is saved to the global 'g_message_queue'.
 static bool
 drain_one_packet(MPI_Datatype datatype, MPI_Comm comm)
 {

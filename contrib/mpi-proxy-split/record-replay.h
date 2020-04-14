@@ -41,8 +41,8 @@
 #define LOGGING() \
   dmtcp_mpi::MpiRecordReplay::instance().isReplayOn()
 
-// Calls the wrapper function corresponding to the given type 'type' with the
-// arguments saved in the 'rec' object
+// Calls the wrapper function corresponding to the given type 'type'. (The
+// 'rec' object contains a pointer to the wrapper function.)
 #define FNC_CALL(type, rec)                                                    \
   ({                                                                           \
     __typeof__(GENERATE_FNC_PTR(type))_real_MPI_## type =                      \
@@ -170,7 +170,8 @@ namespace dmtcp_mpi
         return _type;
       }
 
-      // Calls the wrapper function corresponding to this MPI record object
+      // Returns a pointer to the wrapper function corresponding to this MPI
+      // record object
       template<typename T>
       T call(T fptr) const
       {
