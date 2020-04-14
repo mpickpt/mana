@@ -23,11 +23,11 @@
 // were executed
 typedef struct __wr_counts
 {
-  int sendCount;
-  int isendCount;
-  int recvCount;
-  int irecvCount;
-  int sendrecvCount;
+  int sendCount;     // Number of times MPI_Send wrapper was called
+  int isendCount;    // Number of times MPI_Isend wrapper was called
+  int recvCount;     // Number of times MPI_Recv wrapper was called
+  int irecvCount;    // Number of times MPI_Irecv wrapper was called
+  int sendrecvCount; // Number of times MPI_Sendrecv wrapper was called
 } wr_counts_t;
 
 // Stores the counts of executed wrappers (send, isend, recv, irecv); useful
@@ -120,6 +120,8 @@ extern void verifyLocalInfoOnRestart();
 // MPI_Isend and MPI_Irecv requests post restart
 extern void replayMpiOnRestart();
 
+// Resets the global counters to 0 and clears the global lists of saved MPI
+// messages and metadata
 extern void resetDrainCounters();
 
 // Saves the async send/recv call of the given type and params to a global map

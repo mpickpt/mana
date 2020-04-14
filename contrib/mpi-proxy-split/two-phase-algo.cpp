@@ -144,11 +144,11 @@ TwoPhaseAlgo::preSuspendBarrier(const void *data)
 
 // Local functions
 
-// We got here because we must have received a ckpt-intent msg from
-// the coordinator
 void
 TwoPhaseAlgo::stop(MPI_Comm comm, phase_t p)
 {
+  // We got here because we must have received a ckpt-intent msg from
+  // the coordinator
   // INVARIANT: We can checkpoint only within stop()
   JASSERT(p == PHASE_1 || p == PHASE_2);
   // INVARIANT: Ckpt should be pending when we get here
@@ -166,10 +166,10 @@ TwoPhaseAlgo::stop(MPI_Comm comm, phase_t p)
   }
 }
 
-// This is called by stop() in phase-2
 bool
 TwoPhaseAlgo::waitForFreePass(MPI_Comm comm)
 {
+  // This is called by stop() in phase-2
   lock_t lock(_freePassMutex);
   _freePassCv.wait(lock, [=]{ return this->_freePass; });
   bool tmp = _freePass;
@@ -186,10 +186,6 @@ TwoPhaseAlgo::waitForCkpt()
   }
 }
 
-// We wait for the following 3 transitions
-// IS_READY -> PHASE_1
-// OUT_CS   -> PHASE_2
-// PHASE_1  -> IN_CS
 phase_t
 TwoPhaseAlgo::waitForSafeState()
 {
@@ -201,14 +197,6 @@ TwoPhaseAlgo::waitForSafeState()
   return _currState;
 }
 
-// We wait for the following 5 transitions
-// PHASE_1  -> READY_FOR_CKPT
-// PHASE_1  -> IN_CS
-// PHASE_2  -> READY_FOR_CKPT
-// PHASE_2  -> IS_READY
-// IS_READY -> IS_READY
-// PHASE_2  -> READY_FOR_CKPT -> PHASE_1 (If the ckpt thread was too slow.)
-// PHASE_1  -> IN_CS -> PHASE_2 (If the ckpt thread was too slow.)
 phase_t
 TwoPhaseAlgo::waitForFreePassToTakeEffect(phase_t oldState)
 {
