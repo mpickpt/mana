@@ -72,6 +72,8 @@ dmtcp_skip_memory_region_ckpting(const ProcMapsArea *area)
   return 0;
 }
 
+// Handler for SIGSEGV: forces the code into an infinite loop for attaching
+// GDB and debugging
 void
 segvfault_handler(int signum, siginfo_t *siginfo, void *context)
 {
@@ -80,6 +82,7 @@ segvfault_handler(int signum, siginfo_t *siginfo, void *context)
   while (!dummy);
 }
 
+// Installs a handler for SIGSEGV; useful for debugging crashes
 void
 initialize_segv_handler()
 {

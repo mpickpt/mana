@@ -13,6 +13,12 @@
 
 #include "lower_half_api.h"
 
+// Logs the MPI call to the global MPI calls log object (defined by the
+// 'MpiRecordReplay' class). 'cb' specifies the callback that will be used
+// to replay the MPI call while restoring the MPI state at restart time. 'fnc'
+// represents the current MPI call.  'args ...' can be used to provide a
+// variable-length list of arguments to be saved. The saved arguments are useful
+// while replaying the call later.
 #define LOG_CALL(cb, fnc, args...) \
   dmtcp_mpi::MpiRecordReplay::instance().record(cb, GENERATE_ENUM(fnc),  \
                                                 GENERATE_FNC_PTR(fnc), args)
@@ -29,9 +35,14 @@
 #define CLEAR_COMM_LOGS(comm) \
   dmtcp_mpi::MpiRecordReplay::instance().clearCommLogs(comm)
 
+// Returns true if we are currently replaying the MPI calls from the saved MPI
+// calls log; false, otherwise. Normally, this would be true while restoring
+// the MPI state at restart time. All other times, this would return false.
 #define LOGGING() \
   dmtcp_mpi::MpiRecordReplay::instance().isReplayOn()
 
+// Calls the wrapper function corresponding to the given type 'type' with the
+// arguments saved in the 'rec' object
 #define FNC_CALL(type, rec)                                                    \
   ({                                                                           \
     __typeof__(GENERATE_FNC_PTR(type))_real_MPI_## type =                      \
@@ -52,6 +63,7 @@ namespace dmtcp_mpi
   using lock_t  = std::unique_lock<mutex_t>;
   using fcb_t   = std::function<int(const MpiRecord&)>;
 
+  // Struct for saving arbitrary function arguments
   struct FncArg
   {
     void *_buf;
@@ -71,11 +83,13 @@ namespace dmtcp_mpi
       }
     }
 
+    // Returns an int corresponding to the saved argument
     operator int() const
     {
       return *(int*)_buf;
     }
 
+    // Returns an int pointer to saved argument
     operator int*() const
     {
       return (int*)_buf;
@@ -87,6 +101,7 @@ namespace dmtcp_mpi
     }
   };
 
+  // Represent a single call record
   class MpiRecord
   {
     public:
@@ -137,22 +152,25 @@ namespace dmtcp_mpi
         addArgs(cdr...);
       }
 
-      // Execute the callback for this record
+      // Execute the restore callback for this record
       int play() const
       {
         return _cb(*this);
       }
 
+      // Returns a reference to the 'n'-th function argument object
       const FncArg& args(int n) const
       {
         return _args[n];
       }
 
+      // Returns the enum MPI_Fncs type of the current MPI record object
       MPI_Fncs getType() const
       {
         return _type;
       }
 
+      // Calls the wrapper function corresponding to this MPI record object
       template<typename T>
       T call(T fptr) const
       {
@@ -160,12 +178,14 @@ namespace dmtcp_mpi
       }
 
     private:
-      fcb_t _cb;
-      MPI_Fncs _type;
-      void *_fnc;
-      dmtcp::vector<FncArg> _args;
+      fcb_t _cb; // Callback to invoke to replay this MPI call
+      MPI_Fncs _type; // enum MPI_Fncs type of this MPI call
+      void *_fnc; // Pointer to the wrapper function of this MPI call
+      dmtcp::vector<FncArg> _args; // List of argument objects for this MPI call
   };
 
+  // Singleton class representing the entire log of MPI calls, useful for
+  // saving and restoring the MPI state
   class MpiRecordReplay
   {
     public:
@@ -174,12 +194,17 @@ namespace dmtcp_mpi
       static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
       static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
 #endif
+
+      // Returns the singleton instance of the MpiRecordReplay class
       static MpiRecordReplay& instance()
       {
         static MpiRecordReplay _records;
         return _records;
       }
 
+      // Records an MPI call with its arguments in the MPI calls log. Returns
+      // a pointer to the inserted MPI record object (containing the details
+      // of the call).
       template<typename T, typename... Targs>
       MpiRecord* record(fcb_t cb, MPI_Fncs type,
                         const T fPtr, const Targs*... args)
@@ -193,6 +218,7 @@ namespace dmtcp_mpi
         return rec;
       }
 
+      // Replays the MPI calls from the log. Returns MPI_SUCCESS on success.
       int replay()
       {
         int rc = MPI_SUCCESS;
@@ -391,6 +417,7 @@ namespace dmtcp_mpi
         cleanComms(staleComms);
       }
 
+      // Returns true if we are currently replaying the MPI calls
       bool isReplayOn()
       {
         // FIXME: This needs locking. But we can't do this here, otherwise it'll
@@ -415,11 +442,21 @@ namespace dmtcp_mpi
       mutex_t _mutex;
   }; // class MpiRecordReplay
 
+  // Restores the MPI communicators and returns MPI_SUCCESS on success
   extern int restoreComms(const MpiRecord& );
+
+  // Restores the MPI groups and returns MPI_SUCCESS on success
   extern int restoreGroups(const MpiRecord& );
+
+  // Restores the MPI types and returns MPI_SUCCESS on success
   extern int restoreTypes(const MpiRecord& );
+
+  // Restores the MPI cartesian communicators and returns MPI_SUCCESS on success
   extern int restoreCarts(const MpiRecord& );
+
+  // Restores the MPI ops and returns MPI_SUCCESS on success
   extern int restoreOps(const MpiRecord& );
+
 }; // namespace dmtcp_mpi
 
 // Restores the MPI state by recreating the communicator, groups, types, etc.
