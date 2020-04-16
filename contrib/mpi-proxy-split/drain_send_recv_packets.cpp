@@ -196,7 +196,7 @@ registerLocalSendsAndRecvs()
     int rc = dmtcp_send_key_val_pair_to_coordinator(MPI_US_DB,
                                                     &(localSrCount.rank),
                                                     sizeof(localSrCount.rank),
-                                                    &g_unsvcd_sends, sz);
+                                                    &g_unsvcd_sends[0], sz);
     JWARNING(rc == 1)
             .Text("Error publishing local sends and recvs to the coord");
   }
