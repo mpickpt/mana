@@ -24,13 +24,22 @@ using namespace dmtcp_mpi;
 static dmtcp::LookupService lsObj;
 proxyDlsym_t pdlsym = NULL;
 struct LowerHalfInfo_t info;
+int g_numMmaps = 0;
+MmapInfo_t *g_list = NULL;
+MemRange_t *g_range = NULL;
+wr_counts_t g_counts = {0};
+
+// Mock DMTCP coordinator APIs
 
 EXTERNC int
 dmtcp_send_key_val_pair_to_coordinator(const char *id, const void *key,
                                        uint32_t key_len, const void *val,
                                        uint32_t val_len)
 {
-  lsObj.addKeyValue(id, key, key_len, val, val_len);
+  size_t keylen = (size_t)key_len;
+  size_t vallen = (size_t)val_len;
+
+  lsObj.addKeyValue(id, key, key_len, val, vallen);
   return 1;
 }
 
@@ -43,8 +52,33 @@ dmtcp_send_query_to_coordinator(const char *id,
                                 const void *key, uint32_t key_len,
                                 void *val, uint32_t *val_len)
 {
-  lsObj.query(id, key, key_len, &val, (size_t*)val_len);
-  return 1;
+  void *buf = NULL;
+  size_t keylen = (size_t)key_len;
+  size_t vallen = (size_t)val_len;
+
+  lsObj.query(id, key, keylen, &buf, &vallen);
+  *val_len = (uint32_t)vallen;
+  if (buf) {
+    memcpy(val, buf, *val_len);
+    delete[] (char *)buf;
+  }
+  return (int)*val_len;
+}
+
+EXTERNC int
+dmtcp_send_query_all_to_coordinator(const char *id, void **buf, int *len)
+{
+  void *val = NULL;
+  size_t buflen = 0;
+
+  lsObj.queryAll(id, &val, &buflen);
+  *len = (int)buflen;
+  if (&val) {
+    *buf = JALLOC_HELPER_MALLOC(*len);
+    memcpy(*buf, val, *len);
+    delete[] (char *)val;
+  }
+  return 0;
 }
 
 EXTERNC const char*

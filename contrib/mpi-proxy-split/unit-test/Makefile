@@ -17,9 +17,11 @@ ifndef DMTCP_ROOT
 endif
 DMTCP_INCLUDE=${DMTCP_ROOT}/include
 JALIB_INCLUDE=${DMTCP_ROOT}/jalib
+LOWER_HALF_INCLUDE=../lower-half
 
 override CFLAGS += -g3 -O0 -fPIC -I${DMTCP_INCLUDE} -I.. -std=gnu11
 override CXXFLAGS += -g3 -O0 -fPIC -I${DMTCP_INCLUDE} -I.. -I${JALIB_INCLUDE} \
+                     -I${LOWER_HALF_INCLUDE} \
                      -I${DMTCP_ROOT}/src -std=c++11 \
                      -D'NEXT_FUNC(fnc)=MPI_\#\#fnc'
 

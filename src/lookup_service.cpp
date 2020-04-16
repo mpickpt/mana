@@ -205,17 +205,11 @@ LookupService::getUniqueId(const char *id,    // DB name
 }
 
 void
-LookupService::sendAllMappings(jalib::JSocket &remote,
-                               const DmtcpMessage &msg)
+LookupService::queryAll(const string& id, void **buf, size_t *buflen)
 {
-  void *val = NULL;
-  size_t valLen = 0;
   ostringstream o;
-
-  DmtcpMessage reply(DMT_NAME_SERVICE_QUERY_ALL_RESPONSE);
-
   map<KeyValue, KeyValue *>::iterator i;
-  KeyValueMap &kvmap = _maps[msg.nsid];
+  KeyValueMap &kvmap = _maps[id];
 
   for (i = kvmap.begin(); i != kvmap.end(); i++) {
     KeyValue *k = (KeyValue *)&(i->first);
@@ -232,16 +226,39 @@ LookupService::sendAllMappings(jalib::JSocket &remote,
     o.write((const char*)v->data(), len);
   }
 
+  *buflen = o.tellp();
+  if (buflen == 0) {
+    return;
+  }
+
+  *buf = new char[*buflen];
+  if (!(*buf)) {
+    return;
+  }
+
+  memcpy(*buf, o.str().c_str(), *buflen);
+}
+
+void
+LookupService::sendAllMappings(jalib::JSocket &remote,
+                               const DmtcpMessage &msg)
+{
+  void *val = NULL;
+  size_t valLen = 0;
+
+  DmtcpMessage reply(DMT_NAME_SERVICE_QUERY_ALL_RESPONSE);
+
+  queryAll(msg.nsid, &val, &valLen);
+
   reply.keyLen = 0;
-  valLen = o.tellp();
   reply.valLen = valLen;
   reply.extraBytes = reply.valLen;
-  val = new char[reply.extraBytes];
-  memcpy(val, o.str().c_str(), reply.extraBytes);
 
   remote << reply;
   if (valLen > 0) {
     remote.writeAll((char *)val, valLen);
   }
-  delete[] (char *)val;
+  if (val) {
+    delete[] (char *)val;
+  }
 }

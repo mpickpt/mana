@@ -98,8 +98,8 @@ class CartTests : public CppUnit::TestFixture
       CPPUNIT_ASSERT(MPI_Cart_map(_comm, _ndims, _dims,
                                   _periods, &newrank1) == MPI_SUCCESS);
       CPPUNIT_ASSERT(newrank1 != -1);
-      FncArg ds = CREATE_LOG_BUF(_dims, _ndims);
-      FncArg ps = CREATE_LOG_BUF(_periods, _ndims);
+      FncArg ds = CREATE_LOG_BUF(_dims, _ndims * sizeof(int));
+      FncArg ps = CREATE_LOG_BUF(_periods, _ndims * sizeof(int));
       CPPUNIT_ASSERT(LOG_CALL(restoreCarts, Cart_map, &_comm, &_ndims,
                               &ds, &ps, &newrank1) != NULL);
       CPPUNIT_ASSERT(RESTORE_MPI_STATE() == MPI_SUCCESS);

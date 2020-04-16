@@ -111,6 +111,14 @@ class LookupService
                void **val,
                size_t *valLen);
 
+    // Returns all key-value pairs from the map with the given 'id'. On
+    // success, 'buf' is allocated and populated with key-value pairs from
+    // the map, and 'buflen' is set to the total size of the buffer. It's the
+    // caller's responsibility to free the buffer.
+    void queryAll(const string& id,
+                  void **buf,
+                  size_t *buflen);
+
   private:
     typedef map<string, KeyValueMap>::iterator MapIterator;
     typedef map<string, KeyValueMap>::const_iterator ConstMapIterator;
