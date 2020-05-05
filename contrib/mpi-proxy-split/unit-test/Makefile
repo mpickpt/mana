@@ -1,6 +1,14 @@
 # MPI compiler
+PLATFORM=${shell echo $$HOST}
+ifeq ($(findstring cori,$(PLATFORM)),cori)
+MPIRUN = srun
+MPICC = cc
+MPICXX = CC
+else
+MPIRUN = mpirun
 MPICC = mpicc
 MPICXX = mpic++
+endif
 
 TESTS = record-replay-comm-test \
         record-replay-group-test \
@@ -10,12 +18,13 @@ TESTS = record-replay-comm-test \
 
 TEST_OBJS=$(addsuffix .o, ${TESTS})
 TEST_BINS=$(addsuffix .exe, ${TESTS})
+TEST_INCLUDE=../cppunit-installed/include
 
 # Modify if your DMTCP_ROOT is located elsewhere.
 ifndef DMTCP_ROOT
   DMTCP_ROOT=../../..
 endif
-DMTCP_INCLUDE=${DMTCP_ROOT}/include
+DMTCP_INCLUDE=${DMTCP_ROOT}/include -I${TEST_INCLUDE}
 JALIB_INCLUDE=${DMTCP_ROOT}/jalib
 LOWER_HALF_INCLUDE=../lower-half
 
@@ -28,7 +37,7 @@ override CXXFLAGS += -g3 -O0 -fPIC -I${DMTCP_INCLUDE} -I.. -I${JALIB_INCLUDE} \
 TEST_LD_FLAGS=${DMTCP_ROOT}/src/libjalib.a \
               ${DMTCP_ROOT}/src/libdmtcpinternal.a \
               ${DMTCP_ROOT}/src/libnohijack.a \
-              -lcppunit -lpthread
+              -L../cppunit-installed/lib -lcppunit -lpthread
 
 DRAIN_TEST_OBJS = drain-send-recv-test.o ../drain_send_recv_packets.cpp \
              ${DMTCP_ROOT}/src/lookup_service.o
@@ -54,7 +63,7 @@ gdb-%: ${TEST_BINS}
 	gdb --args ./record-replay-$*-test.exe
 
 check: ${TEST_BINS}
-	@for x in $^; do mpirun -n 1 ./$$x; done
+	@for x in $^; do ${MPIRUN} -n 1 ./$$x; done
 
 clean: tidy
 	rm -f ${TEST_BINS} ${TEST_OBJS}
