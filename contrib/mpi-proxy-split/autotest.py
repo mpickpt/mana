@@ -16,14 +16,15 @@ TESTS=["mpi_hello_world", "Abort_test", "Allreduce_test", "Alltoall_test",
 NAME=path.basename(getcwd())
 LIBNAME="libdmtcp_%s" % (NAME)
 DMTCP_ROOT="../.."
-MPIRUN="mpirun"
+# srun is for cori; change it to mpirun for local usage
+MPIRUN="srun"
 MPIRUN_FLAGS="-n 4"
 DMTCP_COORD="%s/bin/dmtcp_coordinator" % (DMTCP_ROOT)
 DMTCP_LAUNCH="%s/bin/dmtcp_launch" % (DMTCP_ROOT)
 DMTCP_LAUNCH_FLAGS="-j --with-plugin ./%s.so" % (LIBNAME)
 
 def checkTestSuccess(test=None, retcode=0):
-  if "Abort_test" in test and retcode == 143:
+  if "Abort_test" in test and retcode == 134:
     return "Pass"
   elif retcode == 0:
     return "Pass"
