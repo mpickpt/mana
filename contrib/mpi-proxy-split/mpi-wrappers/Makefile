@@ -10,6 +10,8 @@ else
  MPI_LD_FLAG = -lmpi
 endif
 
+WRAPPERS_SRCDIR = ${PWD}
+
 # By default, your resulting plugin library will have this name.
 LIBNAME=libmpiwrappers
 

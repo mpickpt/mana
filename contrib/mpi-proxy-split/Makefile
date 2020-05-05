@@ -95,17 +95,17 @@ check-unit: ${LIBNAME}.so
 install: ${LOWER_HALF_SRCDIR}/${PROXY_BIN} ${LIBNAME}.so ${WRAPPERS_SRCDIR}/libmpich_intel.so.3
 	@make -C ${LOWER_HALF_SRCDIR} install
 	cp ${LIBNAME}.so ${DMTCP_ROOT}/lib/dmtcp
-	@make -C ${WRAPPERS_SRCDIR} install
+	@cd ${WRAPPERS_SRCDIR} && make install
 
 tidy:
 	rm -f *~ .*.swp dmtcp_restart_script*.sh ckpt_*.dmtcp
 	rm -rf ckpt_rank_*
 
 clean: tidy
-	@make -C ${LOWER_HALF_SRCDIR} clean
+	@cd ${LOWER_HALF_SRCDIR} && make clean
 	rm -f ${LIBOBJS}
 	rm -f ${LIBNAME}.so
-	@make -C ${WRAPPERS_SRCDIR} clean
+	@cd ${WRAPPERS_SRCDIR} && make clean
 
 distclean: clean
 

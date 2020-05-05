@@ -67,7 +67,7 @@ else
   HAS_MPICH=no
   MPICH_MPICC=
   HAS_OPENMPI=no
-  OPENMPI_MPICC=/home/rohgarg/sws/bin/mpicc
+  OPENMPI_MPICC=no
   HAS_CILK=no
   CILKC=no
 endif
