@@ -108,6 +108,8 @@ clean: tidy
 	@cd ${WRAPPERS_SRCDIR} && make clean
 
 distclean: clean
+	cd test && make clean
+	cd unit-test && make clean
 
 dist: distclean
 	dir=`basename $$PWD` && cd .. && tar czvf $$dir.tgz ./$$dir

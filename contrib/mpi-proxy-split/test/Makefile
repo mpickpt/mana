@@ -17,7 +17,8 @@ ifndef DMTCP_ROOT
   DMTCP_ROOT=../../../
   endif
 DMTCP_INCLUDE=${DMTCP_ROOT}/include
-LIBNAME=libdmtcp_mpi-proxy
+# LIBNAME=libdmtcp_mpi-proxy
+LIBNAME=libmana
 DEMO_PORT=7787
 
 FILES=mpi_hello_world Abort_test Allreduce_test Alltoall_test \
