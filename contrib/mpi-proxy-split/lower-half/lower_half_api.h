@@ -93,10 +93,24 @@ typedef void (*resetMmappedList_t)();
 
 // API
 
+// Returns the address of an MPI API in the lower half's MPI library based on
+// the given enum value
 extern void *mydlsym(enum MPI_Fncs fnc);
+
+// Initializes the MPI library in the lower half (by calling MPI_Init()) and
+// returns the MPI rank of the current process
 extern int getRank();
+
+// Updates the lower half's global environ pointer (__environ) to the given
+// 'newenviron' pointer value
 extern void updateEnviron(const char **newenviron);
+
+// Returns a pointer to the first element of a pre-allocated array of
+// 'MmapInfo_t' objects and 'num' is set to the number of valid items in
+// the array
 extern MmapInfo_t* getMmappedList(int *num);
+
+// Clears the global, pre-allocated array of 'MmapInfo_t' objects
 extern void resetMmappedList();
 
 

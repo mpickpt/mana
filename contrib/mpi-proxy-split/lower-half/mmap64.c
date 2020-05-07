@@ -60,8 +60,14 @@
 
 // TODO:
 //  1. Make the size of list dynamic
+
+// Number of valid objects in the 'mmaps' list below
 int numRegions = 0;
+
+// List of regions mmapped by the lower half
 MmapInfo_t mmaps[MAX_TRACK] = {0};
+
+// Pointer to the next free address used for allocation
 void *nextFreeAddr = NULL;
 
 // Returns a pointer to the array of mmap-ed regions
@@ -94,6 +100,8 @@ getMmapIdx(const void *addr)
   return -1;
 }
 
+// Handle non-huge pages; returns page aligned address (4 KB alignment) from
+// within the lower half memory range
 void*
 getNextAddr(size_t len)
 {
@@ -102,8 +110,14 @@ getNextAddr(size_t len)
   } else if (lh_memRange.start != NULL && nextFreeAddr == NULL) {
     nextFreeAddr = lh_memRange.start;
   }
+
+  // Get a 4 KB aligned region; nextFreeAddr is always 4 KB aligned
   void *curr = nextFreeAddr;
+
+  // Move the pointer to the next free address
   nextFreeAddr = (char*)curr + ROUND_UP(len) + PAGE_SIZE;
+
+  // Assert if we have gone past the end of the lower half memory range
   if (nextFreeAddr > lh_memRange.end) {
     assert(0);
   }
@@ -121,7 +135,8 @@ extendExistingMmap(const void *addr)
   return -1;
 }
 
-// Handle huge pages; returns huge page aligned address (2 MB alignment)
+// Handle huge pages; returns huge page aligned address (2 MB alignment) from
+// within the lower half memory range
 static void*
 getNextHugeAddr(size_t len)
 {
@@ -130,8 +145,14 @@ getNextHugeAddr(size_t len)
   } else if (lh_memRange.start != NULL && nextFreeAddr == NULL) {
     nextFreeAddr = lh_memRange.start;
   }
+
+  // Get a 2 MB aligned region
   void *curr = (void*)ROUND_UP_HUGE((unsigned long)nextFreeAddr);
+
+  // Move the pointer to the next free address
   nextFreeAddr = (char*)curr + ROUND_UP(len) + PAGE_SIZE;
+
+  // Assert if we have gone past the end of the lower half memory range
   if (nextFreeAddr > lh_memRange.end) {
     assert(0);
   }
@@ -195,7 +216,8 @@ __mmap64 (void *addr, size_t len, int prot, int flags, int fd, __off_t offset)
 
   // Accounting of the lower-half mmap regions
   // XXX: Why are we doing this? Given that all the lower half memory
-  // allocations are restricted to a specified range, do we need to do this?
+  //      allocations are restricted to a specified range, do we need to do
+  //      this?
   if (ret != MAP_FAILED) {
     int idx = getMmapIdx(ret);
     if (idx != -1) {
