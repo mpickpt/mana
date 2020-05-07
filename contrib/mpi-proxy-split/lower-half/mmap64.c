@@ -153,7 +153,10 @@ __mmap64 (void *addr, size_t len, int prot, int flags, int fd, __off_t offset)
   size_t totalLen = len;
 
   if (addr == NULL) {
-    // FIXME: This should be made more generic
+    // FIXME: This should be made more generic; perhaps use MAP_HUGETLB?
+    //        Perhaps a simpler solution is to "module unload hugetlbfs"
+    // FIXME: Handle the case of the caller calling us with MAP_FIXED
+    //        This code cannot handle this scenario
     if (len != 0x400000 &&
         len != 0x600000 &&
         len != 0x800000 &&
@@ -189,6 +192,10 @@ __mmap64 (void *addr, size_t len, int prot, int flags, int fd, __off_t offset)
 #else
   ret = (void *) MMAP_CALL (mmap, addr, totalLen, prot, flags, fd, offset);
 #endif
+
+  // Accounting of the lower-half mmap regions
+  // XXX: Why are we doing this? Given that all the lower half memory
+  // allocations are restricted to a specified range, do we need to do this?
   if (ret != MAP_FAILED) {
     int idx = getMmapIdx(ret);
     if (idx != -1) {

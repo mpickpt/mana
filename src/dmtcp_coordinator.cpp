@@ -471,6 +471,7 @@ printMpiDrainStatus()
     return;
   }
 
+  // TODO: Get rid of all the autos; perhaps use nested typedefs
   auto sendSum = [](uint64_t sum, std::pair<KeyValue, KeyValue *> el)
                  { send_recv_totals_t *obj =
                            (send_recv_totals_t*)el.second->data();
@@ -724,6 +725,7 @@ DmtcpCoordinator::recordCkptFilename(CoordClient *client, const char *extraData)
 static bool
 noRanksInCriticalSection(map<CoordClient*, rank_state_t>& clientStates)
 {
+  // TODO: Why are we using [=] here?
   auto req = std::find_if(clientStates.begin(), clientStates.end(),
                          [=](const std::pair<CoordClient*, rank_state_t> &elt)
                          { return elt.second.st == IN_CS; });
@@ -734,6 +736,7 @@ static bool
 allRanksReadyForCkpt(map<CoordClient*, rank_state_t>& clientStates,
                      long int size)
 {
+  // TODO: Why are we using [=] here?
   auto numReadyRanks =
         std::count_if(clientStates.begin(), clientStates.end(),
                       [=](const std::pair<CoordClient*, rank_state_t> &elt)
