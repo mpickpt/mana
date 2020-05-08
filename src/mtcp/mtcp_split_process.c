@@ -2,6 +2,7 @@
 #include <sys/prctl.h>
 #include <sys/personality.h>
 #include <sys/types.h>
+#include <signal.h>
 #include <sys/wait.h>
 #include <sys/mman.h>
 #include <limits.h>
@@ -43,6 +44,7 @@ splitProcess(char *argv0, void **environ)
   int ret = -1;
   if (childpid > 0) {
     ret = read_proxy_bits(childpid);
+    mtcp_sys_kill(childpid, SIGKILL);
     mtcp_sys_wait4(childpid, NULL, 0, NULL);
   }
   if (ret == 0) {
@@ -111,15 +113,17 @@ read_proxy_bits(pid_t childpid)
   remote_iov[1].iov_len = (unsigned long)info.endOfHeap -
                           (unsigned long)info.startData;
   ret = mmap_iov(&remote_iov[1], PROT_READ|PROT_WRITE);
-  // NOTE:  In our case loca_iov will be same as remote_iov.
+  // NOTE:  In our case local_iov will be same as remote_iov.
   // NOTE:  This requires same privilege as ptrace_attach (valid for child)
   int i = 0;
   for (i = 0; i < IOV_SZ; i++) {
     DPRINTF("Reading segment from proxy: %p, %lu Bytes\n",
             remote_iov[i].iov_base, remote_iov[i].iov_len);
-    ret = mtcp_sys_process_vm_readv(childpid, remote_iov + i,
+    ret = mtcp_sys_process_vm_readv(childpid, remote_iov + i /* local_iov */,
                                     1, remote_iov + i, 1, 0);
     MTCP_ASSERT(ret != -1);
+    // If the next assert fails, then we had a partial read.
+    MTCP_ASSERT(ret == remote_iov[i].iov_len);
   }
 
   // Can remove PROT_WRITE now that we've oppulated the text segment.
