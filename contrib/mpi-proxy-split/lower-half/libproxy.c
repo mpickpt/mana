@@ -230,9 +230,9 @@ void first_constructor()
 
     write(pipefd, &lh_info, sizeof lh_info);
     close(pipefd);
-    // Allow some time for parent to copy bits of child before we exit.
-    sleep(2);
-    exit(0);
+    // It's okay to have an infinite loop here.  Our parent has promised to
+    // kill us after it copies our bits.  So, this child doesn't need to exit.
+    while(1);
   } else {
     DLOG(NOISE, "(2) Constructor: Running in the parent?\n");
   }

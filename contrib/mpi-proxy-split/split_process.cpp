@@ -26,6 +26,7 @@
 #include "split_process.h"
 #include "procmapsutils.h"
 #include "util.h"
+#include "dmtcp.h"
 
 static unsigned long origPhnum;
 static unsigned long origPhdr;
@@ -72,6 +73,7 @@ splitProcess()
   int ret = -1;
   if (childpid > 0) {
     ret = read_proxy_bits(childpid);
+    kill(childpid, SIGKILL);
     waitpid(childpid, NULL, 0);
   }
   if (ret == 0) {

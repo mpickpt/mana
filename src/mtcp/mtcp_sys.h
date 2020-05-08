@@ -336,6 +336,7 @@ struct linux_dirent {
                                       mtcp_inline_syscall(rt_sigaction, \
                       4,                                                \
                       args)
+# define mtcp_sys_kill(args ...)  mtcp_inline_syscall(kill, 2, args)
 # define mtcp_sys_set_tid_address(args ...) \
   mtcp_inline_syscall(set_tid_address, 1, args)
 
