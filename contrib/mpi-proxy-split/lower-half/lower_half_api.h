@@ -29,7 +29,7 @@
 
 // Shared data structures
 
-// The transient proxy process introspects its memory layout and passes this
+// The transient lh_proxy process introspects its memory layout and passes this
 // information back to the main application process using this struct.
 struct LowerHalfInfo_t
 {

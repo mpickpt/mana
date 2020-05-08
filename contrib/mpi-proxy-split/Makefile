@@ -27,7 +27,7 @@ LIBOBJS = mpi_plugin.o drain_send_recv_packets.o \
           record-replay.o two-phase-algo.o \
           split_process.o ${LOWER_HALF_SRCDIR}/procmapsutils.o
 
-PROXY_BIN = proxy
+PROXY_BIN = lh_proxy
 LIBPROXY = libproxy.a
 
 # Modify if your DMTCP_ROOT is located elsewhere.
@@ -79,7 +79,7 @@ vi vim: ${FILE}
 touch: ${FILE}
 	$@ $<
 
-gdb: ${basename proxy.c ${FILE}}
+gdb: ${basename lh_proxy.c ${FILE}}
 	$@ $<
 
 tests:

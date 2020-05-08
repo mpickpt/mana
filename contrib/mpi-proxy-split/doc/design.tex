@@ -82,10 +82,10 @@ with a fresh, uninitialized one on restart.
 The key idea is to ``split'' the
 address space of the application process into two halves: an upper
 half (which contains the application); and a lower half (which
-contains the proxy, along with the non-reentrant library). The
+contains the lh\_proxy, along with the non-reentrant library). The
 library executing in the lower half (although in the same process's
 address space) is not allowed to affect the memory of the upper
-half. The lower half acts as an external proxy process -- it's
+half. The lower half acts as an external lh\_proxy process -- it's
 akin to running two processes in a single address space -- with its
 own heap and stack. The assumption here is that there must be
 be a strict API between the two halves. So, the two halves must

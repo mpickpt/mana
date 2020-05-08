@@ -516,7 +516,7 @@ drain_one_packet(MPI_Datatype datatype, MPI_Comm comm)
   size = count * size;
   buf = JALLOC_HELPER_MALLOC(size); // maximum of 65535 ints
 
-  // drain from proxy to plugin buffer
+  // drain from lh_proxy to plugin buffer
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
   JUMP_TO_LOWER_HALF(info.fsaddr);
   rc = NEXT_FUNC(Recv)(buf, count, MPI_BYTE, status.MPI_SOURCE,

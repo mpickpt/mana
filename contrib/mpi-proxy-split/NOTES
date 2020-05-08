@@ -38,7 +38,7 @@ At a high level, it seems that there are two approaches for restart:
 1) The lower half starts first and restores the upper half:
 
    Steps:
-   Start the proxy first, which then, initializes itself, calls
+   Start the lh_proxy first, which then, initializes itself, calls
    MPI_Init(), acquires a rank, and finally, restores the memory
    of the process from a chosen checkpoint image.
 
@@ -49,17 +49,17 @@ At a high level, it seems that there are two approaches for restart:
       shared memory area, etc.),
     - mtcp_restart (restore memory of the process from a checkpoint
       image)
-    - MPI proxy (initialize MPI, acquire a rank, etc.)
+    - MPI lh_proxy (initialize MPI, acquire a rank, etc.)
 
 2) dmtcp_restart starts first (execs mtcp_restart), and
-   copies in the bits of the proxy:
+   copies in the bits of the lh_proxy:
 
    Steps:
     a) Start dmtcp_restart first, which does its thing (connect
        with DMTCP coord., create DMTCP shared-memory area, etc.) and execs
        into mtcp_restart.
-    b) Then, mtcp_restart, starts a transient proxy process and copies the
-       proxy bits into a lower-half in its memory.
+    b) Then, mtcp_restart, starts a transient lh_proxy process and copies the
+       lh_proxy bits into a lower-half in its memory.
     c) Then, mtcp_restart (which acts the upper half) initializes the
        lower-half and calls MPI_Init() through the lower half, and
        acquires a rank.
@@ -84,8 +84,8 @@ of MPI ranks.
 In order to avoid this virtualization, we want to do the following
 steps in order:
 
- 1) First, initialize the proxy code (in particular, libc and other
-    proxy libraries, such as, libmpi) in the lower half.
+ 1) First, initialize the lh_proxy code (in particular, libc and other
+    lh_proxy libraries, such as, libmpi) in the lower half.
 
  2) Then we would like to call MPI_Init() in the lower half. This
     allows the MPI coordinator to assign us an MPI rank.
@@ -96,11 +96,11 @@ steps in order:
 
 Now, here are the problems.
 
- 1) In order to initialize the proxy code (initialize glibc), we
+ 1) In order to initialize the lh_proxy code (initialize glibc), we
     have to pass in a pointer to the beginning of stack to libc.
 
     Recall that at launch time, the application, first, copies
-    the proxy bits into its lower half, and then calls libc_init using
+    the lh_proxy bits into its lower half, and then calls libc_init using
     its own stack. Lower-half's libc uses the application's stack to
     initialize itself and other lower-half libraries (MPI, etc.).
 

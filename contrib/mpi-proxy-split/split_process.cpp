@@ -34,7 +34,7 @@ static unsigned long origPhdr;
 static unsigned long getStackPtr();
 static void patchAuxv(ElfW(auxv_t) *, unsigned long , unsigned long , int );
 static int mmap_iov(const struct iovec *, int );
-static int read_proxy_bits(pid_t );
+static int read_lh_proxy_bits(pid_t );
 static pid_t startProxy();
 static int initializeLowerHalf();
 static void setLhMemRange();
@@ -72,7 +72,7 @@ splitProcess()
   pid_t childpid = startProxy();
   int ret = -1;
   if (childpid > 0) {
-    ret = read_proxy_bits(childpid);
+    ret = read_lh_proxy_bits(childpid);
     kill(childpid, SIGKILL);
     waitpid(childpid, NULL, 0);
   }
@@ -82,7 +82,7 @@ splitProcess()
   return ret;
 }
 
-// FIXME: This code is duplicated in proxy and plugin. Refactor into utils.
+// FIXME: This code is duplicated in lh_proxy and plugin. Refactor into utils.
 // Returns the address of argc on the stack
 static unsigned long
 getStackPtr()
@@ -188,7 +188,7 @@ mmap_iov(const struct iovec *iov, int prot)
 // Copies over the lower half memory segments from the child process with the
 // given pid, 'childpid'. On success, returns 0. Otherwise, -1 is returned.
 static int
-read_proxy_bits(pid_t childpid)
+read_lh_proxy_bits(pid_t childpid)
 {
   int ret = -1;
   const int IOV_SZ = 2;
@@ -202,23 +202,23 @@ read_proxy_bits(pid_t childpid)
                           (unsigned long)info.startTxt;
   ret = mmap_iov(&remote_iov[0], RWX_PERMS);
   JWARNING(ret == 0)(info.startTxt)(remote_iov[0].iov_len)
-          .Text("Error mapping text segment for proxy");
+          .Text("Error mapping text segment for lh_proxy");
   // data segment
   remote_iov[1].iov_base = info.startData;
   remote_iov[1].iov_len = (unsigned long)info.endOfHeap -
                           (unsigned long)info.startData;
   ret = mmap_iov(&remote_iov[1], RW_PERMS);
   JWARNING(ret == 0)(info.startData)(remote_iov[1].iov_len)
-          .Text("Error mapping data segment for proxy");
+          .Text("Error mapping data segment for lh_proxy");
 
   // NOTE:  For the process_vm_readv call, the local_iov will be same as
   //        remote_iov, since we are just duplicating child processes memory.
   // NOTE:  This requires same privilege as ptrace_attach (valid for child)
   for (int i = 0; i < IOV_SZ; i++) {
-    JTRACE("Reading segment from proxy")
+    JTRACE("Reading segment from lh_proxy")
           (remote_iov[i].iov_base)(remote_iov[i].iov_len);
     ret = process_vm_readv(childpid, remote_iov + i, 1, remote_iov + i, 1, 0);
-    JWARNING(ret != -1)(JASSERT_ERRNO).Text("Error reading data from proxy");
+    JWARNING(ret != -1)(JASSERT_ERRNO).Text("Error reading data from lh_proxy");
   }
 
   // Can remove PROT_WRITE now that we've populated the text segment.
@@ -243,7 +243,7 @@ startProxy()
   int childpid = fork();
   switch (childpid) {
     case -1:
-      JWARNING(false)(JASSERT_ERRNO).Text("Failed to fork proxy");
+      JWARNING(false)(JASSERT_ERRNO).Text("Failed to fork lh_proxy");
       break;
 
     case 0:
@@ -252,7 +252,7 @@ startProxy()
       char buf[10];
       snprintf(buf, sizeof buf, "%d", pipefd[1]); // write end of pipe
       dmtcp::string nockpt = dmtcp::Util::getPath("dmtcp_nocheckpoint");
-      dmtcp::string progname = dmtcp::Util::getPath("proxy");
+      dmtcp::string progname = dmtcp::Util::getPath("lh_proxy");
       char* const args[] = {const_cast<char*>(nockpt.c_str()),
                             const_cast<char*>(progname.c_str()),
                             const_cast<char*>(buf),
@@ -260,7 +260,7 @@ startProxy()
 
       personality(ADDR_NO_RANDOMIZE);
       JWARNING(execvp(args[0], args) != -1)(JASSERT_ERRNO)
-        .Text("Failed to exec proxy");
+        .Text("Failed to exec lh_proxy");
       break;
     }
 
@@ -393,12 +393,12 @@ proxyAddrInApp()
 static void
 compileProxy()
 {
-  dmtcp::string cmd = "make proxy PROXY_TXT_ADDR=0x";
+  dmtcp::string cmd = "make lh_proxy PROXY_TXT_ADDR=0x";
   dmtcp::string safe_addr = proxyAddrInApp();
   cmd.append(safe_addr);
   int ret = system(cmd.c_str());
   if (ret == -1) {
-      ret = system("make proxy");
+      ret = system("make lh_proxy");
       if (ret == -1) {
         JWARNING(false)(JASSERT_ERRNO).Text("Proxy building failed!");
       }
