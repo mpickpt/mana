@@ -342,7 +342,7 @@ main(int argc, char *argv[], char **environ)
     // checkpoint image to open for memory restoration.
     // The other assumption here is that we can only handle uncompressed
     // checkpoint images.
-    splitProcess(argv0, (void**)environ);
+    splitProcess(argv0, environ);
     int rank = -1;
     reserveSpaceForGniDriver();
     JUMP_TO_LOWER_HALF(info.fsaddr);

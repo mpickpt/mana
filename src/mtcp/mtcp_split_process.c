@@ -30,17 +30,17 @@ static proxyDlsym_t pdlsym;
 static void patchAuxv(ElfW(auxv_t) *, unsigned long , unsigned long , int );
 static int mmap_iov(const struct iovec *, int );
 static int read_proxy_bits(pid_t );
-static pid_t startProxy(char *argv0, void **environ);
+static pid_t startProxy(char *argv0, char **envp);
 static int initializeLowerHalf();
 
 int
-splitProcess(char *argv0, void **environ)
+splitProcess(char *argv0, char **envp)
 {
 #if 0
   compileProxy();
 #endif
-  DPRINTF("Initializing Proxy");
-  pid_t childpid = startProxy(argv0, environ);
+  DPRINTF("Initializing Lower-Half Proxy");
+  pid_t childpid = startProxy(argv0, envp);
   int ret = -1;
   if (childpid > 0) {
     ret = read_proxy_bits(childpid);
@@ -135,7 +135,7 @@ read_proxy_bits(pid_t childpid)
 
 // Returns the PID of the proxy child process
 static pid_t
-startProxy(char *argv0, void **environ)
+startProxy(char *argv0, char **envp)
 {
   int pipefd[2] = {0};
   int ret = -1;
@@ -170,7 +170,7 @@ startProxy(char *argv0, void **environ)
       // FIXME: This is platform-dependent.  The lower half has hardwired
       //        addresses.  They must be changed for each platform.
       mtcp_sys_personality(ADDR_NO_RANDOMIZE);
-      MTCP_ASSERT(mtcp_sys_execve(args[0], args, environ) != -1);
+      MTCP_ASSERT(mtcp_sys_execve(args[0], args, envp) != -1);
       break;
     }
 
