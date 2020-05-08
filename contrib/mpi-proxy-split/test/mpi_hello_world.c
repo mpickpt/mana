@@ -54,6 +54,10 @@ int main(int argc, char** argv)
   }
   printf("**** %s is now exiting.\n", argv[0]);
 
+  printf("Will now sleep for 500 seconds ...\n");
+  sleep(500);
+  printf("**** %s is now exiting.\n", argv[0]);
+
   // Finalize the MPI environment. No more MPI calls can be made after this
   MPI_Finalize();
 }
