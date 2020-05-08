@@ -17,11 +17,11 @@ LIBPROXY_OBJS = libproxy.o procmapsutils.o sbrk.o mmap64.o munmap.o shmat.o shmg
 
 # Modify if your DMTCP_ROOT is located elsewhere.
 ifndef DMTCP_ROOT
-  DMTCP_ROOT=../../../
+  DMTCP_ROOT=../../..
 endif
 
 ifndef PLUGIN_ROOT
-  PLUGIN_ROOT=../
+  PLUGIN_ROOT=..
 endif
 
 DMTCP_INCLUDE=${DMTCP_ROOT}/include

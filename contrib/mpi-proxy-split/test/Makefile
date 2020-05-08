@@ -14,7 +14,7 @@ else
 endif
 
 ifndef DMTCP_ROOT
-  DMTCP_ROOT=../../../
+  DMTCP_ROOT=../../..
   endif
 DMTCP_INCLUDE=${DMTCP_ROOT}/include
 # LIBNAME=libdmtcp_mpi-proxy
