@@ -478,6 +478,6 @@ typedef void* (*updateEnviron_t)(char **environ);
 typedef void (*resetMmappedList_t)();
 typedef MmapInfo_t* (*getMmappedList_t)(int *num);
 
-extern int splitProcess(void **environ);
+extern int splitProcess(char *argv0, void **environ);
 
 #endif // ifndef MTCP_SPLIT_PROCESS_H

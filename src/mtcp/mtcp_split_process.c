@@ -29,17 +29,17 @@ static proxyDlsym_t pdlsym;
 static void patchAuxv(ElfW(auxv_t) *, unsigned long , unsigned long , int );
 static int mmap_iov(const struct iovec *, int );
 static int read_proxy_bits(pid_t );
-static pid_t startProxy(void **environ);
+static pid_t startProxy(char *argv0, void **environ);
 static int initializeLowerHalf();
 
 int
-splitProcess(void **environ)
+splitProcess(char *argv0, void **environ)
 {
 #if 0
   compileProxy();
 #endif
   DPRINTF("Initializing Proxy");
-  pid_t childpid = startProxy(environ);
+  pid_t childpid = startProxy(argv0, environ);
   int ret = -1;
   if (childpid > 0) {
     ret = read_proxy_bits(childpid);
@@ -131,7 +131,7 @@ read_proxy_bits(pid_t childpid)
 
 // Returns the PID of the proxy child process
 static pid_t
-startProxy(void **environ)
+startProxy(char *argv0, void **environ)
 {
   int pipefd[2] = {0};
   int ret = -1;
@@ -153,10 +153,18 @@ startProxy(void **environ)
       mtcp_sys_close(pipefd[0]); // close reading end of pipe
       char buf[10];
       mtcp_itoa(pipefd[1], buf);
-      char* const args[] = {"./proxy",
+      char* args[] = {"NO_SUCH_EXECUTABLE",
                             buf,
                             NULL};
 
+      // Replace ".../mtcp_restart" by ".../proxy" in argv0/args[0]
+      args[0] = argv0;
+      char *last_component = mtcp_strrchr(args[0], '/');
+      MTCP_ASSERT(mtcp_strlen("proxy") <= mtcp_strlen(last_component+1));
+      mtcp_strcpy(last_component+1, "proxy");
+
+      // FIXME: This is platform-dependent.  The lower half has hardwired
+      //        addresses.  They must be changed for each platform.
       mtcp_sys_personality(ADDR_NO_RANDOMIZE);
       MTCP_ASSERT(mtcp_sys_execve(args[0], args, environ) != -1);
       break;

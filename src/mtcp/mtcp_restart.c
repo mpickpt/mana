@@ -253,6 +253,7 @@ main(int argc, char *argv[], char **environ)
   int mtcp_sys_errno;
   int simulate = 0;
   int runMpiProxy = 0;
+  char *argv0 = argv[0]; // Needed for runMpiProxy
 
   if (argc == 1) {
     MTCP_PRINTF("***ERROR: This program should not be used directly.\n");
@@ -341,7 +342,7 @@ main(int argc, char *argv[], char **environ)
     // checkpoint image to open for memory restoration.
     // The other assumption here is that we can only handle uncompressed
     // checkpoint images.
-    splitProcess((void**)environ);
+    splitProcess(argv0, (void**)environ);
     int rank = -1;
     reserveSpaceForGniDriver();
     JUMP_TO_LOWER_HALF(info.fsaddr);
