@@ -342,6 +342,30 @@ main(int argc, char *argv[], char **environ)
     // checkpoint image to open for memory restoration.
     // The other assumption here is that we can only handle uncompressed
     // checkpoint images.
+
+    // USAGE:  DMTCP_MANA_PAUSE=1 srun -n XXX gdb --args dmtcp_restart ...
+    //   (for DEBUGGING by setting DMTCP_MANA_PAUSE environment variable)
+    // RATIONALE: When using Slurm's srun, dmtcp_restart is a child process
+    //   of slurmstepd.  So, 'gdb --args srun -n XX dmtcp_restart ...' doesn't
+    //   work, since 'dmtcp_restart ...' is fork/exec'ed from slurmstepd.
+    // ALTERNATIVE (tested under Slurm 19.05):
+    //   'srun --input all' should "broadcast stdin to all remote tasks".
+    //   But 'srun --input all -n 1 gdb --args dmtcp_restart ...'
+    //   fails.  GDB starts up, but then exits (due to end-of-stdin??).
+    char **myenvp = environ;
+    while (*myenvp != NULL) {
+      if (mtcp_strstartswith(*myenvp++, "DMTCP_MANA_PAUSE=")) {
+        MTCP_PRINTF("*** PAUSED FOR DEBUGGING: Please do:\n  *** gdb %s %d\n\n",
+                    argv0, mtcp_sys_getpid());
+        MTCP_PRINTF("***     (OR, for one rank only, do:)\n"
+                    "  ***     gdb %s `pgrep -n mtcp_restart`\n\n", argv0);
+        MTCP_PRINTF("*** Then do '(gdb) p dummy=0' to continue debugging.\n\n");
+        volatile int dummy = 1;
+        while (dummy) {};
+        break;
+      }
+    }
+
     splitProcess(argv0, environ);
     int rank = -1;
     reserveSpaceForGniDriver();
@@ -349,6 +373,7 @@ main(int argc, char *argv[], char **environ)
     rank = ((getRankFptr_t)info.getRankFptr)();
     RETURN_TO_UPPER_HALF();
     unreserveSpaceForGniDriver();
+
     ckptImage = getCkptImageByRank(rank, argv);
     MTCP_PRINTF("[Rank: %d] Choosing ckpt image: %s\n", rank, ckptImage);
   }
