@@ -474,10 +474,10 @@ enum MPI_Fncs {
 };
 
 typedef void* (*proxyDlsym_t)(enum MPI_Fncs fnc);
-typedef void* (*updateEnviron_t)(char **environ);
+typedef void* (*updateEnviron_t)(char **envp);
 typedef void (*resetMmappedList_t)();
 typedef MmapInfo_t* (*getMmappedList_t)(int *num);
 
-extern int splitProcess(char *argv0, void **environ);
+extern int splitProcess(char *argv0, char **envp);
 
 #endif // ifndef MTCP_SPLIT_PROCESS_H
