@@ -161,11 +161,11 @@ startProxy(char *argv0, void **environ)
                             buf,
                             NULL};
 
-      // Replace ".../mtcp_restart" by ".../proxy" in argv0/args[0]
+      // Replace ".../mtcp_restart" by ".../lh_proxy" in argv0/args[0]
       args[0] = argv0;
       char *last_component = mtcp_strrchr(args[0], '/');
-      MTCP_ASSERT(mtcp_strlen("proxy") <= mtcp_strlen(last_component+1));
-      mtcp_strcpy(last_component+1, "proxy");
+      MTCP_ASSERT(mtcp_strlen("lh_proxy") <= mtcp_strlen(last_component+1));
+      mtcp_strcpy(last_component+1, "lh_proxy");
 
       // FIXME: This is platform-dependent.  The lower half has hardwired
       //        addresses.  They must be changed for each platform.
