@@ -11,7 +11,7 @@
 
 // Pointer to the custom dlsym implementation (see mydlsym() in libproxy.c) in
 // the lower half. This is initialized using the information passed to us by
-// the transient proxy process in DMTCP_EVENT_INIT.
+// the transient lh_proxy process in DMTCP_EVENT_INIT.
 extern proxyDlsym_t pdlsym;
 
 /* This counts the number of args */

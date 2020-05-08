@@ -41,7 +41,7 @@ class SwitchContext
   } while (0)
 
 // This function splits the process by initializing the lower half with the
-// proxy code. It returns 0 on success.
+// lh_proxy code. It returns 0 on success.
 extern int splitProcess();
 
 #endif // ifndef _SPLIT_PROCESS_H

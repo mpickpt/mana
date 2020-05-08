@@ -10,10 +10,11 @@ else
  MPI_LD_FLAG = -lmpi
 endif
 
-PROXY_BIN = proxy
-PROXY_OBJS = proxy.o
+PROXY_BIN = lh_proxy
+PROXY_OBJS = lh_proxy.o
 LIBPROXY = libproxy
-LIBPROXY_OBJS = libproxy.o procmapsutils.o sbrk.o mmap64.o munmap.o shmat.o shmget.o
+LIBPROXY_OBJS = libproxy.o procmapsutils.o sbrk.o mmap64.o munmap.o \
+		shmat.o shmget.o
 
 # Modify if your DMTCP_ROOT is located elsewhere.
 ifndef DMTCP_ROOT
