@@ -190,7 +190,7 @@ regionContains(const void *haystackStart,
 }
 
 static void
-reserveSpaceForGniDriver()
+beforeLoadingGniDriverBlacklistAddresses()
 {
   // FIXME: This needs to be made dynamic.
   const void *start = (const void*)0x2aaaaaab0000;
@@ -228,7 +228,7 @@ reserveSpaceForGniDriver()
 }
 
 static void
-unreserveSpaceForGniDriver()
+afterLoadingGniDriverUnblacklistAddresses()
 {
   // FIXME: This needs to be made dynamic.
   const void *start = (const void*)0x2aaaaaab0000;
@@ -368,11 +368,11 @@ main(int argc, char *argv[], char **environ)
 
     splitProcess(argv0, environ);
     int rank = -1;
-    reserveSpaceForGniDriver();
+    beforeLoadingGniDriverBlacklistAddresses();
     JUMP_TO_LOWER_HALF(info.fsaddr);
     rank = ((getRankFptr_t)info.getRankFptr)();
     RETURN_TO_UPPER_HALF();
-    unreserveSpaceForGniDriver();
+    afterLoadingGniDriverUnblacklistAddresses();
 
     ckptImage = getCkptImageByRank(rank, argv);
     MTCP_PRINTF("[Rank: %d] Choosing ckpt image: %s\n", rank, ckptImage);
