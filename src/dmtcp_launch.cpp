@@ -31,6 +31,10 @@
 #include "syscallwrappers.h"
 #include "util.h"
 
+// Eventually, we may move this macro to config.h.in, but it doesn't currently
+// interfere with ordinary DMTCP.
+#define MPI 1
+
 #define BINARY_NAME "dmtcp_launch"
 
 using namespace dmtcp;
@@ -45,7 +49,9 @@ static int testJava(char **argv);
 static bool testSetuid(const char *filename);
 static void testStaticallyLinked(const char *filename);
 static bool testScreen(char **argv, char ***newArgv);
+#ifdef MPI
 static void setLDLibraryPathForMPI(bool is32bitElf);
+#endif
 static void setLDPreloadLibs(bool is32bitElf);
 
 // gcc-4.3.4 -Wformat=2 issues false positives for warnings unless the format
@@ -627,7 +633,9 @@ main(int argc, char **argv)
   // Set DLSYM_OFFSET env var(s).
   Util::prepareDlsymWrapper();
 
+#ifdef MPI
   setLDLibraryPathForMPI(is32bitElf);
+#endif
   setLDPreloadLibs(is32bitElf);
 
   // run the user program
@@ -777,6 +785,7 @@ testScreen(char **argv, char ***newArgv)
   return false;
 }
 
+#ifdef MPI
 static void
 setLDLibraryPathForMPI(bool is32bitElf) {
   // If libmpidummy.so found, add it to LD_LIBRARY_PATH and assume we're
@@ -804,6 +813,7 @@ setLDLibraryPathForMPI(bool is32bitElf) {
   } 
   setenv("LD_LIBRARY_PATH", ld_library_path.c_str(), 1);
 }
+#endif
 
 static void
 setLDPreloadLibs(bool is32bitElf)

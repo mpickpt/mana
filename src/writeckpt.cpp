@@ -37,6 +37,7 @@
 #include "procselfmaps.h"
 #include "shareddata.h"
 #include "util.h"
+#include "mtcp/mtcp_header.h"  // MtcpHdr
 
 #define DEV_ZERO_DELETED_STR "/dev/zero (deleted)"
 #define DEV_NULL_DELETED_STR "/dev/null (deleted)"
