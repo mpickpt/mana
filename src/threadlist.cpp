@@ -2,6 +2,7 @@
 #include <pthread.h>
 #include <semaphore.h>
 #include <signal.h>
+#include <sys/personality.h> // for MPI
 #include <sys/resource.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
@@ -19,6 +20,7 @@
 #include "dmtcpworker.h"
 #include "mtcp/mtcp_header.h"
 #include "pluginmanager.h"
+#include "procselfmaps.h" // for MPI
 #include "shareddata.h"
 #include "siginfo.h"
 #include "syscallwrappers.h"
@@ -26,6 +28,10 @@
 #include "threadsync.h"
 #include "uniquepid.h"
 #include "util.h"
+
+// Eventually, we may move this macro to config.h.in, but it doesn't currently
+// interfere with ordinary DMTCP.
+#define MPI 1
 
 // For i386 and x86_64, SETJMP currently has bugs.  Don't turn this
 // on for them until they are debugged.
@@ -296,6 +302,72 @@ ThreadList::killCkpthread()
  *  Prepare MTCP Header
  *
  *************************************************************************/
+#ifdef MPI
+static void
+prepareMtcpHeaderInfoForMPI(MtcpHeader *mtcpHdr)
+{
+  ProcSelfMaps procSelfMaps; // This will be deleted when out of scope.
+  Area area;
+
+  bool randomization = false;
+  // This code assumes that /proc/sys/kernel/randomize_va_space is 0
+  //   or that personality(ADDR_NO_RANDOMIZE) was set.
+  int fd = open("/proc/sys/kernel/randomize_va_space", O_RDONLY);
+  char buf[1];
+  if (fd != -1) {
+    while (1) {
+      int rc = read(fd, buf, 1);
+      if (rc == 1) break;
+      JASSERT(rc == -1 && errno == EAGAIN || rc == -1 && errno == EINTR);
+    }
+  }
+  if (*buf != '0') {
+    randomization = true;
+  }
+  if (randomization && personality(0xffffffff) & ADDR_NO_RANDOMIZE == 0) {
+    randomization = false;
+  }
+  if (randomization) {
+    // The analysis in the rest of this function assumes that
+    // randomization is turned off.  MPI needs this information.
+    JWARNING( ! randomization )
+      .Text("FIXME:  Linux process randomization is turned on.\n");
+  }
+
+  // Initialize the MPI information to NULL (unknown).
+  mtcpHdr->libsStart = NULL;
+  mtcpHdr->libsEnd = NULL;
+  mtcpHdr->highMemStart = NULL;
+
+  // We discover the last address that the kernel had mapped:
+  // ASSUMPTIONS:  Target app is not using mmap
+  // ASSUMPTIONS:  Kernel does not go back and fill previos gap after munmap
+  void *addr = mmap(NULL, 4096, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+  munmap(addr, 4096);
+  mtcpHdr->libsEnd = addr;
+
+  // Preprocess memory regions as needed.
+  while (procSelfMaps.getNextArea(&area)) {
+    const char *lastslash = strrchr(area.name, '/');
+    // Set mtcpHdr->libsStart if possible.
+    if (mtcpHdr->libsStart == NULL) {
+      // FIXME:  This could be confused by ld-XXX.so instead of ld-2.16.so
+      if (lastslash && strncmp(lastslash, "/ld-", strlen("/ld-")) == 0) {
+        mtcpHdr->libsStart = (VA)area.addr;
+      }
+    }
+    // Set mtcpHdr->highMemStart if possible.
+    if (lastslash && strstr(lastslash, ".so") != NULL) {
+      mtcpHdr->libsEnd = (VA)area.addr;
+    }
+    if (mtcpHdr->highMemStart == NULL &&
+        (char *)area.addr > (char *)0x7fff00000000) {
+      mtcpHdr->highMemStart = (void *)area.addr;
+    }
+  }
+}
+#endif
+
 static void
 prepareMtcpHeader(MtcpHeader *mtcpHdr)
 {
@@ -312,6 +384,10 @@ prepareMtcpHeader(MtcpHeader *mtcpHdr)
   mtcpHdr->vdsoEnd = (void *)ProcessInfo::instance().vdsoEnd();
   mtcpHdr->vvarStart = (void *)ProcessInfo::instance().vvarStart();
   mtcpHdr->vvarEnd = (void *)ProcessInfo::instance().vvarEnd();
+
+#ifdef MPI
+  prepareMtcpHeaderInfoForMPI(mtcpHdr);
+#endif
 
   mtcpHdr->post_restart = &ThreadList::postRestart;
   mtcpHdr->post_restart_debug = &ThreadList::postRestartDebug;

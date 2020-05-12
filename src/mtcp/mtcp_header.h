@@ -51,6 +51,9 @@ typedef union _MtcpHeader {
     void *vdsoEnd;
     void *vvarStart;
     void *vvarEnd;
+    void *libsStart;   // used by MPI: start of where kernel mmap's libraries
+    void *libsEnd;     // used by MPI: end of where kernel mmap's libraries
+    void *highMemStart;// used by MPI: start of memory beyond libraries
     void (*post_restart)(double);
     void (*post_restart_debug)(double);
     ThreadTLSInfo motherofall_tls_info;
