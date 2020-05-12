@@ -190,37 +190,17 @@ regionContains(const void *haystackStart,
 }
 
 static void
-beforeLoadingGniDriverBlacklistAddresses()
+beforeLoadingGniDriverBlacklistAddresses(const char *start1, const char *end1,
+	                                 const char *start2, const char *end2)
 {
   // FIXME: This needs to be made dynamic.
-  const void *start = (const void*)0x2aaaaaab0000;
-  const void *end = (const void*)0x2aaaaaaf8000;
-  const size_t len = end - start;
-  const void *start2 = (const void*)0x2aaaaab1b000;
-  const void *end2 = g_range->start;
+  const size_t len1 = end1 - start1;
   const size_t len2 = end2 - start2;
 
-  /*
-   * We assume the following memory layout at this point.
-   *
-   * 00400000-0040c000 r-xp 00000000 00:3f 321213928         mtcp_restart
-   * 0060b000-0060d000 rwxp 0000b000 00:3f 321213928         mtcp_restart
-   * 0060d000-0060f000 rwxp 00000000 00:00 0                 [heap]
-   * 0e000000-0e45e000 r-xp 00000000 00:00 0
-   * 0e65e000-0e702000 rwxp 00000000 00:00 0
-   * 2aaaaaaab000-2aaaaaaae000 r--p 00000000 00:00 0         [vvar]
-   * 2aaaaaaae000-2aaaaaab0000 r-xp 00000000 00:00 0         [vdso]
-   * 7fff80000000-7fff80021000 rwxp 00000000 00:00 0
-   * 7fff80021000-7fff84000000 ---p 00000000 00:00 0
-   * 7fff87fe6000-7fff87ff3000 rwxs 00000000 00:01 5201092   /dev/zero (deleted)
-   * 7ffffffd7000-7ffffffff000 rwxp 00000000 00:00 0         [stack]
-   * ffffffffff600000-ffffffffff601000 r-xp 00000000 00:00 0 [vsyscall]
-   */
-
-  void *addr = mtcp_sys_mmap(start, len,
+  void *addr = mtcp_sys_mmap(start1, len1,
                              PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED,
                              -1, 0);
-  MTCP_ASSERT(addr == start);
+  MTCP_ASSERT(addr == start1);
   addr = mtcp_sys_mmap(start2, len2,
                        PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED,
                        -1, 0);
@@ -228,17 +208,14 @@ beforeLoadingGniDriverBlacklistAddresses()
 }
 
 static void
-afterLoadingGniDriverUnblacklistAddresses()
+afterLoadingGniDriverUnblacklistAddresses(const char *start1, const char *end1,
+	                                 const char *start2, const char *end2)
 {
   // FIXME: This needs to be made dynamic.
-  const void *start = (const void*)0x2aaaaaab0000;
-  const void *end = (const void*)0x2aaaaaaf8000;
-  const size_t len = end - start;
-  const void *start2 = (const void*)0x2aaaaab1b000;
-  const void *end2 = g_range->start;
+  const size_t len1 = end1 - start1;
   const size_t len2 = end2 - start2;
 
-  mtcp_sys_munmap(start, len);
+  mtcp_sys_munmap(start1, len1);
   mtcp_sys_munmap(start2, len2);
 }
 
@@ -368,11 +345,16 @@ main(int argc, char *argv[], char **environ)
 
     splitProcess(argv0, environ);
     int rank = -1;
-    beforeLoadingGniDriverBlacklistAddresses();
+    // Refer to "blocked memory" in MANA Plugin Documentation for the addresses
+    const char *start1 = (const void*)0x2aaaaaab0000;
+    const char *end1 = (const void*)0x2aaaaaaf8000;
+    const char *start2 = (const void*)0x2aaaaab1b000;
+    const char *end2 = g_range->start;
+    beforeLoadingGniDriverBlacklistAddresses(start1, end1, start2, end2);
     JUMP_TO_LOWER_HALF(info.fsaddr);
     rank = ((getRankFptr_t)info.getRankFptr)();
     RETURN_TO_UPPER_HALF();
-    afterLoadingGniDriverUnblacklistAddresses();
+    afterLoadingGniDriverUnblacklistAddresses(start1, end1, start2, end2);
 
     ckptImage = getCkptImageByRank(rank, argv);
     MTCP_PRINTF("[Rank: %d] Choosing ckpt image: %s\n", rank, ckptImage);
