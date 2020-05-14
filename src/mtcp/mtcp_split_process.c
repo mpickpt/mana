@@ -230,7 +230,6 @@ initializeLowerHalf()
   char **argv = (char**)(argcAddr + sizeof(unsigned long));
   char **ev = &argv[argc + 1];
   // char **ev = &((unsigned long*)stack_end[argc + 1]);
-  libcFptr_t fnc = (libcFptr_t)info.libc_start_main;
   pdlsym = (proxyDlsym_t)info.lh_dlsym;
 
   // Copied from glibc source
@@ -248,6 +247,7 @@ initializeLowerHalf()
 
   if (!lh_initialized) {
     lh_initialized = 1;
+    libcFptr_t fnc = (libcFptr_t)info.libc_start_main;
     fnc((mainFptr)info.main, argc, argv,
         (mainFptr)info.libc_csu_init,
         (finiFptr)info.libc_csu_fini, 0, stack_end);
