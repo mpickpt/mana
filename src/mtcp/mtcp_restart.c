@@ -38,6 +38,7 @@
  */
 
 #define _GNU_SOURCE 1
+#include <elf.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <sched.h>
@@ -219,6 +220,41 @@ afterLoadingGniDriverUnblacklistAddresses(const char *start1, const char *end1,
   mtcp_sys_munmap(start2, len2);
 }
 
+NO_OPTIMIZE
+static unsigned long int
+mygetauxval(char **evp, unsigned long int type)
+{ while (*evp++ != NULL) {};
+  Elf64_auxv_t *auxv = (Elf64_auxv_t *)evp;
+  Elf64_auxv_t *p;
+  for (p = auxv; p->a_type != AT_NULL; p++) {
+    if (p->a_type == type)
+       return p->a_un.a_val;
+  }
+  return 0;
+}
+
+NO_OPTIMIZE
+static int
+mysetauxval(char **evp, unsigned long int type, unsigned long int val)
+{ while (*evp++ != NULL) {};
+  Elf64_auxv_t *auxv = (Elf64_auxv_t *)evp;
+  Elf64_auxv_t *p;
+  for (p = auxv; p->a_type != AT_NULL; p++) {
+    if (p->a_type == type) {
+       p->a_un.a_val = val;
+       return 0;
+    }
+  }
+  return -1;
+}
+
+#define PAGESIZE 4096 /* We hardwire this, since we can't make libc calls. */
+// The mpi-proxy-split plugin hardwires in this address for lower half: 0xE000000
+// We'll use the end of that 16~MB region as a temporary holding place for mmap.
+// In May, 2020, on Cori and elsewhere, vvar is 3 pages and vdso is 2 pages.
+#define vvarStartTmp ((0xE000000 + 0x1000000) - 5*PAGESIZE)
+#define vdsoStartTmp ((0xE000000 + 0x1000000) - 2*PAGESIZE)
+
 
 #define shift argv++; argc--;
 NO_OPTIMIZE
@@ -312,14 +348,6 @@ main(int argc, char *argv[], char **environ)
   }
 
   if (runMpiProxy) {
-    typedef int (*getRankFptr_t)(void);
-    // NOTE: We use mtcp_restart's original stack to initialized the lower
-    // half. We need to do this in order to call MPI_Init() in the lower half,
-    // which is required to figure out our rank, and hence, figure out which
-    // checkpoint image to open for memory restoration.
-    // The other assumption here is that we can only handle uncompressed
-    // checkpoint images.
-
     // USAGE:  DMTCP_MANA_PAUSE=1 srun -n XXX gdb --args dmtcp_restart ...
     //   (for DEBUGGING by setting DMTCP_MANA_PAUSE environment variable)
     // RATIONALE: When using Slurm's srun, dmtcp_restart is a child process
@@ -342,6 +370,42 @@ main(int argc, char *argv[], char **environ)
         break;
       }
     }
+
+    MTCP_PRINTF("vdsoStart: %p\n", mygetauxval(environ, AT_SYSINFO_EHDR));
+    // We could have read /proc/self/maps for vdsoStart, etc.  But that code
+    //   is long, and is used to discover many things about the maps.
+    //   By using mygetauxval(), we have a much shorter mechanism now.
+    // If we want to test this, we can add code to do a trial mremap with a page
+    //   before vvar and after vdso, and verify that we get an EFAULT.
+    // In May, 2020, on Cori and elsewhere, vvar is 3 pages and vdso is 2 pages.
+    char *vdsoStart = (char *)mygetauxval(environ, AT_SYSINFO_EHDR);
+    char *vvarStart = vdsoStart - 3 * PAGESIZE;
+    void *rc1 = mtcp_sys_mremap(vvarStart, 3*PAGESIZE, 3*PAGESIZE,
+		                MREMAP_FIXED | MREMAP_MAYMOVE, vvarStartTmp);
+    void *rc2 = mtcp_sys_mremap(vdsoStart, 2*PAGESIZE, 2*PAGESIZE,
+		                MREMAP_FIXED | MREMAP_MAYMOVE, vdsoStartTmp);
+    if (rc2 == MAP_FAILED) { // vdso segment can be one page or two pages.
+      rc2 = mtcp_sys_mremap(vdsoStart, 1*PAGESIZE, 1*PAGESIZE,
+		            MREMAP_FIXED | MREMAP_MAYMOVE, vdsoStartTmp);
+    }
+    if (rc1 == MAP_FAILED || rc2 == MAP_FAILED) {
+      MTCP_PRINTF("mtcp_restart failed: "
+		  "gdb --mpi \"DMTCP_ROOT/bin/mtcp_restart\" to debug.\n");
+    }
+    // Now that we moved vdso/vvar, we need to update the vdso address
+    //   in the auxv vector.  This will be needed when the lower half
+    //   starts up:  initializeLowerHalf() will be called from splitProcess().
+    mysetauxval(environ, AT_SYSINFO_EHDR, vdsoStartTmp);
+  }
+
+  if (runMpiProxy) {
+    typedef int (*getRankFptr_t)(void);
+    // NOTE: We use mtcp_restart's original stack to initialize the lower
+    // half. We need to do this in order to call MPI_Init() in the lower half,
+    // which is required to figure out our rank, and hence, figure out which
+    // checkpoint image to open for memory restoration.
+    // The other assumption here is that we can only handle uncompressed
+    // checkpoint images.
 
     splitProcess(argv0, environ);
     int rank = -1;
