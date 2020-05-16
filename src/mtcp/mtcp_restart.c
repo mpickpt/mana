@@ -202,10 +202,12 @@ beforeLoadingGniDriverBlacklistAddresses(const char *start1, const char *end1,
                              PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED,
                              -1, 0);
   MTCP_ASSERT(addr == start1);
-  addr = mtcp_sys_mmap(start2, len2,
-                       PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED,
-                       -1, 0);
-  MTCP_ASSERT(addr == start2);
+  if (len2 > 0) {
+    addr = mtcp_sys_mmap(start2, len2,
+                         PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED,
+                         -1, 0);
+    MTCP_ASSERT(addr == start2);
+  }
 }
 
 static void
@@ -217,7 +219,45 @@ afterLoadingGniDriverUnblacklistAddresses(const char *start1, const char *end1,
   const size_t len2 = end2 - start2;
 
   mtcp_sys_munmap(start1, len1);
-  mtcp_sys_munmap(start2, len2);
+  if (len2 > 0) {
+    mtcp_sys_munmap(start2, len2);
+  }
+}
+
+#define min(a,b) (a < b ? a : b)
+#define max(a,b) (a > b ? a : b)
+int discover_union_ckpt_images(char *argv[],
+	                        char **libsStart, char **libsEnd,
+	                        char **highMemStart) {
+  MtcpHeader mtcpHdr;
+  int rank;
+  *libsStart = (void *)(-1); // We'll take a min later.
+  *libsEnd = NULL; // We'll take a max later.
+  *highMemStart = (void *)(-1); // We'll take a min later.
+  for (rank = 0; ; rank++) {
+    char *ckptImage = getCkptImageByRank(rank, argv);
+    if (ckptImage == NULL) {
+      return rank;
+    }
+    // FIXME: This code is duplicated from below.  Refactor it.
+    int rc = -1;
+    int fd = mtcp_sys_open2(ckptImage, O_RDONLY);
+    if (fd == -1) {
+      MTCP_PRINTF("***ERROR opening ckpt image (%s); errno: %d\n",
+                  ckptImage, mtcp_sys_errno);
+      mtcp_abort();
+    }
+    do {
+      rc = mtcp_readfile(fd, &mtcpHdr, sizeof mtcpHdr);
+    } while (rc > 0 && mtcp_strcmp(mtcpHdr.signature, MTCP_SIGNATURE) != 0);
+    if (rc == 0) { /* if end of file */
+      MTCP_PRINTF("***ERROR: ckpt image doesn't match MTCP_SIGNATURE\n");
+      return -1;  /* exit with error code -1 */
+    }
+    *libsStart = min(*libsStart, (char *)mtcpHdr.libsStart);
+    *libsEnd = max(*libsEnd, (char *)mtcpHdr.libsEnd);
+    *highMemStart = min(*highMemStart, (char *)mtcpHdr.highMemStart);
+  }
 }
 
 NO_OPTIMIZE
@@ -399,7 +439,6 @@ main(int argc, char *argv[], char **environ)
   }
 
   if (runMpiProxy) {
-    typedef int (*getRankFptr_t)(void);
     // NOTE: We use mtcp_restart's original stack to initialize the lower
     // half. We need to do this in order to call MPI_Init() in the lower half,
     // which is required to figure out our rank, and hence, figure out which
@@ -407,13 +446,39 @@ main(int argc, char *argv[], char **environ)
     // The other assumption here is that we can only handle uncompressed
     // checkpoint images.
 
+    // This creates the lower half and copies the bits to this address space
     splitProcess(argv0, environ);
-    int rank = -1;
+
+    char *libsStart;   // used by MPI: start of where kernel mmap's libraries
+    char *libsEnd;     // used by MPI: end of where kernel mmap's libraries
+    char *highMemStart;// used by MPI: start of memory beyond libraries
+    discover_union_ckpt_images(argv, &libsStart, &libsEnd, &highMemStart);
+
     // Refer to "blocked memory" in MANA Plugin Documentation for the addresses
-    const char *start1 = (const void*)0x2aaaaaab0000;
-    const char *end1 = (const void*)0x2aaaaaaf8000;
-    const char *start2 = (const void*)0x2aaaaab1b000;
-    const char *end2 = g_range->start;
+#if 1
+# define GB (1024 * 1024)
+    const char *start1 = libsStart;    // first lib (ld.so) of upper half
+    // One gigabyte below the mmaps of the lower half:
+    //   This is space for GNI driver data.
+    const char *end1 = g_range->start - 1 * GB;
+    // start2 == end2:  So, this will not be used.
+    const char *start2 = 0;
+    const char *end2 = start2;
+#else
+    // ***** These constants are hardwired for Cori in May, 2020 *****
+    // *****   DELETE THIS WHEN NO LONGER NEEDED FOR DEBUGGING   *****
+    // The dynamic values of start1, end1 above are preferred to this.
+    const void *start1 = (const void*)0x2aaaaaaaf000; // End of vdso
+    //  const void *end1 = (const void*)0x2aaaaaaf8000;
+    //  const size_t len1 = end1 - start1;
+    //  const void *start2 = (const void*)0x2aaaaab1b000; // Start of upper half
+    const void *end1 = g_range->start; //Start of lower half memory
+    const size_t len1 = end1 - start1;
+    const char *start2 = 0;
+    const char *end2 = start2;
+#endif
+    typedef int (*getRankFptr_t)(void);
+    int rank = -1;
     beforeLoadingGniDriverBlacklistAddresses(start1, end1, start2, end2);
     JUMP_TO_LOWER_HALF(info.fsaddr);
     rank = ((getRankFptr_t)info.getRankFptr)();
