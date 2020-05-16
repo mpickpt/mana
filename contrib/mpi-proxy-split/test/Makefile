@@ -15,16 +15,25 @@ endif
 
 ifndef DMTCP_ROOT
   DMTCP_ROOT=../../..
-  endif
+endif
+DMTCP_BIN=${DMTCP_ROOT}/bin
+DMTCP_LIB=${DMTCP_ROOT}/lib/dmtcp
 DMTCP_INCLUDE=${DMTCP_ROOT}/include
 # LIBNAME=libdmtcp_mpi-proxy
 LIBNAME=libmana
 DEMO_PORT=7787
 
-FILES=mpi_hello_world Abort_test Allreduce_test Alltoall_test \
-      Alltoallv_test Barrier_test Bcast_test Comm_split_test Reduce_test \
+# FILES=mpi_hello_world Abort_test Allreduce_test Alltoall_test \
+#       Alltoallv_test Barrier_test Bcast_test Comm_split_test Reduce_test \
+#       send_recv send_recv_many ping_pong Comm_dup_test Sendrecv_test \
+#       Waitall_test Allgather_test Group_size_rank Type_commit_contiguous
+## Reordering the tests:
+FILES=mpi_hello_world \
       send_recv send_recv_many ping_pong Comm_dup_test Sendrecv_test \
-      Waitall_test Allgather_test Group_size_rank Type_commit_contiguous
+      Barrier_test Bcast_test Comm_split_test Reduce_test \
+      Waitall_test \
+      Abort_test Allreduce_test Alltoall_test Alltoallv_test \
+      Allgather_test Group_size_rank Type_commit_contiguous
 
 OBJS=$(addsuffix .o, ${FILES})
 
@@ -34,10 +43,45 @@ LDFLAGS_DUMMY=-L../mpi-wrappers -lmpidummy
 
 default: ${TESTS} ${TESTS_DUMMY}
 
-integrated_dmtcp_test: integrated_dmtcp_test.c
-	${MPICC}  -I${DMTCP_INCLUDE} -I${JALIB_INCLUDE} -DDMTCP -fPIC -g3 -O0 -o $@ $<
+# This doesn't work well yet, but it's a work in progress.
+# PROBLEM WITH UNAVAILABLE NODES:
+#  srun: step creation temporarily disabled, retrying (Requested nodes are busy
+check: ${TESTS_DUMMY}
+	for mpi_test in $^; do \
+	  ${MAKE} tidy > /dev/null; \
+	  ${DMTCP_BIN}/dmtcp_command -q 2>/dev/null; \
+	  pkill -9 mana.exe; \
+	  pkill -9 srun; \
+	  echo ""; \
+	  echo ""; \
+	  echo '***' Testing "$$mpi_test" '***'; \
+	  ${DMTCP_BIN}/dmtcp_coordinator --mpi -q -q --exit-on-last --daemon; \
+	  (sleep 10 && pkill -9 dummy.exe && pkill -9 srun) & \
+	  srun -n 2 ${DMTCP_BIN}/dmtcp_launch --no-gzip --join \
+                  --disable-dl-plugin --with-plugin \
+                  ${DMTCP_LIB}/libmana.so -i5 ./$$mpi_test; \
+	  sleep 10; \
+	  ${DMTCP_BIN}/dmtcp_command -q 2>/dev/null; \
+	  pkill -9 dummy.exe; \
+	  pkill -9 srun; \
+	  echo ""; \
+	  echo '***' Restarting "$$mpi_test" '***'; \
+	  ${DMTCP_BIN}/dmtcp_coordinator --mpi -q -q --exit-on-last --daemon; \
+	  (sleep 10 && pkill -9 srun) & \
+	  srun -n 2 ${DMTCP_BIN}/dmtcp_restart --join --mpi \
+	       ckpt_rank_*/ckpt_*.dmtcp; \
+	  sleep 10 \
+	  ${DMTCP_BIN}/dmtcp_command -q 2>/dev/null; \
+	  pkill -9 dummy.exe; \
+	  echo '***' Done testing "$$mpi_test" '***'; \
+	  sleep 10; \
+	done
 
-check: tidy integrated_dmtcp_test
+integrated_dmtcp_test: integrated_dmtcp_test.c
+	${MPICC}  -I${DMTCP_INCLUDE} -I${JALIB_INCLUDE} -DDMTCP \
+		  -fPIC -g3 -O0 -o $@ $<
+
+check-integrated_dmtcp_text: tidy integrated_dmtcp_test
 	${DMTCP_ROOT}/bin/dmtcp_launch --port ${DEMO_PORT}\
     --with-plugin $$PWD/../${LIBNAME}.so ./integrated_dmtcp_test && \
       echo "Restarting..." && \
