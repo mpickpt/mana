@@ -43,7 +43,7 @@ override CXXFLAGS += -g3 -O0 -fPIC -I${DMTCP_INCLUDE} -I${JALIB_INCLUDE} \
 
 default: ${LIBNAME}.so ${LOWER_HALF_SRCDIR}/${PROXY_BIN} ${WRAPPERS_SRCDIR}/libmpidummy.so ${WRAPPERS_SRCDIR}/libmpich_intel.so.3
 
-${LIBNAME}.so: ${LIBOBJS} ${WRAPPERS_SRCDIR}/${LIBWRAPPER}
+${LIBNAME}.so: ${LIBOBJS} ${WRAPPERS_SRCDIR}/*.o
 	${MPICXX} -shared -fPIC -g3 -O0 -o $@ $^
 
 mpi_unimplemented_wrappers.cpp: generate-mpi-unimplemented-wrappers.py mpi_unimplemented_wrappers.txt
