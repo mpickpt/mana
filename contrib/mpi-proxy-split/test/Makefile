@@ -37,7 +37,7 @@ FILES=mpi_hello_world \
 
 OBJS=$(addsuffix .o, ${FILES})
 
-TESTS_DUMMY=$(addsuffix .dummy.exe, ${FILES})
+TESTS_DUMMY=$(addsuffix .mana.exe, ${FILES})
 TESTS=$(addsuffix .exe, ${FILES})
 LDFLAGS_DUMMY=-L../mpi-wrappers -lmpidummy
 
@@ -56,13 +56,13 @@ check: ${TESTS_DUMMY}
 	  echo ""; \
 	  echo '***' Testing "$$mpi_test" '***'; \
 	  ${DMTCP_BIN}/dmtcp_coordinator --mpi -q -q --exit-on-last --daemon; \
-	  (sleep 10 && pkill -9 dummy.exe && pkill -9 srun) & \
+	  (sleep 10 && pkill -9 mana.exe && pkill -9 srun) & \
 	  srun -n 2 ${DMTCP_BIN}/dmtcp_launch --no-gzip --join \
                   --disable-dl-plugin --with-plugin \
                   ${DMTCP_LIB}/libmana.so -i5 ./$$mpi_test; \
 	  sleep 10; \
 	  ${DMTCP_BIN}/dmtcp_command -q 2>/dev/null; \
-	  pkill -9 dummy.exe; \
+	  pkill -9 mana.exe; \
 	  pkill -9 srun; \
 	  echo ""; \
 	  echo '***' Restarting "$$mpi_test" '***'; \
@@ -72,7 +72,7 @@ check: ${TESTS_DUMMY}
 	       ckpt_rank_*/ckpt_*.dmtcp; \
 	  sleep 10 \
 	  ${DMTCP_BIN}/dmtcp_command -q 2>/dev/null; \
-	  pkill -9 dummy.exe; \
+	  pkill -9 mana.exe; \
 	  echo '***' Done testing "$$mpi_test" '***'; \
 	  sleep 10; \
 	done
@@ -94,7 +94,7 @@ check-integrated_dmtcp_text: tidy integrated_dmtcp_test
 %.exe: %.o
 	 $(MPICC)  -o $@ $< ${LDFLAGS}
 
-%.dummy.exe: %.o
+%.mana.exe: %.o
 	 $(MPICC)  -o $@ $< ${LDFLAGS} ${LDFLAGS_DUMMY}
 
 %.exe: %.cpp
