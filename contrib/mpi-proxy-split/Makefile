@@ -39,6 +39,7 @@ JALIB_INCLUDE=${DMTCP_ROOT}/jalib
 
 override CFLAGS += -g3 -O0 -fPIC -I${DMTCP_INCLUDE} -I${LOWER_HALF_SRCDIR} -std=gnu11
 override CXXFLAGS += -g3 -O0 -fPIC -I${DMTCP_INCLUDE} -I${JALIB_INCLUDE} \
+                     -I${WRAPPERS_SRCDIR} -I. \
                      -I${DMTCP_ROOT}/src -I${LOWER_HALF_SRCDIR} -std=c++11
 
 default: ${LIBNAME}.so ${LOWER_HALF_SRCDIR}/${PROXY_BIN} ${WRAPPERS_SRCDIR}/libmpidummy.so ${WRAPPERS_SRCDIR}/libmpich_intel.so.3

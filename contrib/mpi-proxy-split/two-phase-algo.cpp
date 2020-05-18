@@ -1,7 +1,6 @@
 #include "dmtcp.h"
 #include "coordinatorapi.h"
 
-#include "mpi_nextfunc.h"
 #include "record-replay.h"
 #include "two-phase-algo.h"
 #include "virtual-ids.h"
