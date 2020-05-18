@@ -18,18 +18,23 @@ TESTS = record-replay-comm-test \
 
 TEST_OBJS=$(addsuffix .o, ${TESTS})
 TEST_BINS=$(addsuffix .exe, ${TESTS})
-TEST_INCLUDE=../cppunit-installed/include
+
+CPPUNIT_INSTALL=../cppunit-installed
+CPPUNIT_INCLUDE=-I${CPPUNIT_INSTALL}/include
+CPPUNIT_LIB=-L${CPPUNIT_INSTALL}/lib
 
 # Modify if your DMTCP_ROOT is located elsewhere.
 ifndef DMTCP_ROOT
   DMTCP_ROOT=../../..
 endif
-DMTCP_INCLUDE=${DMTCP_ROOT}/include -I${TEST_INCLUDE}
+DMTCP_INCLUDE=${DMTCP_ROOT}/include
 JALIB_INCLUDE=${DMTCP_ROOT}/jalib
 LOWER_HALF_INCLUDE=../lower-half
 
-override CFLAGS += -g3 -O0 -fPIC -I${DMTCP_INCLUDE} -I.. -std=gnu11
-override CXXFLAGS += -g3 -O0 -fPIC -I${DMTCP_INCLUDE} -I.. -I${JALIB_INCLUDE} \
+override CFLAGS += -g3 -O0 -fPIC -I${DMTCP_INCLUDE} ${CPPUNIT_INCLUDE} \
+                   -I.. -std=gnu11
+override CXXFLAGS += -g3 -O0 -fPIC -I${DMTCP_INCLUDE} ${CPPUNIT_INCLUDE} \
+                     -I.. -I${JALIB_INCLUDE} \
                      -I${LOWER_HALF_INCLUDE} \
                      -I${DMTCP_ROOT}/src -std=c++11 \
                      -D'NEXT_FUNC(fnc)=MPI_\#\#fnc'
@@ -37,7 +42,7 @@ override CXXFLAGS += -g3 -O0 -fPIC -I${DMTCP_INCLUDE} -I.. -I${JALIB_INCLUDE} \
 TEST_LD_FLAGS=${DMTCP_ROOT}/src/libjalib.a \
               ${DMTCP_ROOT}/src/libdmtcpinternal.a \
               ${DMTCP_ROOT}/src/libnohijack.a \
-              -L../cppunit-installed/lib -lcppunit -lpthread
+              ${CPPUNIT_LIB} -lcppunit -lpthread
 
 DRAIN_TEST_OBJS = drain-send-recv-test.o ../drain_send_recv_packets.cpp \
              ${DMTCP_ROOT}/src/lookup_service.o
