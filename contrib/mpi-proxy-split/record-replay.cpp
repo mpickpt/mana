@@ -3,7 +3,6 @@
 #include "jassert.h"
 #include "jconvert.h"
 
-#include "mpi_nextfunc.h"
 #include "record-replay.h"
 #include "virtual-ids.h"
 

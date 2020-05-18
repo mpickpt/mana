@@ -22,7 +22,6 @@
 #include "jassert.h"
 #include "lower_half_api.h"
 #include "mpi_plugin.h"
-#include "mpi_nextfunc.h"
 #include "split_process.h"
 #include "procmapsutils.h"
 #include "util.h"

@@ -3,16 +3,12 @@
 
 #include "lower_half_api.h"
 #include "split_process.h"
+#include "mpi_plugin.h"
 
 #define EAT(x)
 #define REM(x) x
 #define STRIP(x) EAT x
 #define PAIR(x) REM x
-
-// Pointer to the custom dlsym implementation (see mydlsym() in libproxy.c) in
-// the lower half. This is initialized using the information passed to us by
-// the transient lh_proxy process in DMTCP_EVENT_INIT.
-extern proxyDlsym_t pdlsym;
 
 /* This counts the number of args */
 #define NARGS_SEQ(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, N, ...) N
