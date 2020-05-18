@@ -46,6 +46,37 @@ default: ${TESTS} ${TESTS_DUMMY}
 # This doesn't work well yet, but it's a work in progress.
 # PROBLEM WITH UNAVAILABLE NODES:
 #  srun: step creation temporarily disabled, retrying (Requested nodes are busy
+check-%: ${TESTS_DUMMY}
+	${MAKE} tidy > /dev/null; \
+	${DMTCP_BIN}/dmtcp_command -q 2>/dev/null; \
+	pkill -9 mana.exe; \
+	pkill -9 srun; \
+	echo ""; \
+	echo ""; \
+	echo '***' Testing $*.mana.exe '***'; \
+	${DMTCP_BIN}/dmtcp_coordinator --mpi -q -q --exit-on-last --daemon & \
+	pid_last=$$! ; \
+	(sleep 10 && pkill -9 mana.exe && pkill -9 srun) & \
+	srun -n 2 ${DMTCP_BIN}/dmtcp_launch --host `hostname` --no-gzip --join \
+                --disable-dl-plugin --with-plugin \
+                ${DMTCP_LIB}/libmana.so -i5 ./$*.mana.exe; \
+	sleep 10; \
+	${DMTCP_BIN}/dmtcp_command -q 2>/dev/null; \
+	pkill -9 mana.exe; \
+	pkill -9 srun; \
+	echo ""; \
+	echo '***' Restarting $*.mana.exe '***'; \
+	echo $$pid_last; \
+	wait $$pid_last; \
+	${DMTCP_BIN}/dmtcp_coordinator --mpi -q -q --exit-on-last --daemon; \
+	(sleep 10 && pkill -9 srun) & \
+	srun -n 2 ${DMTCP_BIN}/dmtcp_restart --host `hostname` --join --mpi \
+	     ckpt_rank_*/ckpt_*.dmtcp; \
+	sleep 10 \
+	${DMTCP_BIN}/dmtcp_command -q 2>/dev/null; \
+	pkill -9 mana.exe; \
+	echo '***' Done testing $*.mana.exe '***'; \
+	sleep 10;
 check: ${TESTS_DUMMY}
 	for mpi_test in $^; do \
 	  ${MAKE} tidy > /dev/null; \
