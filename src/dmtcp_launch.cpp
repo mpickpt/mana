@@ -635,6 +635,12 @@ main(int argc, char **argv)
 
 #ifdef MPI
   setLDLibraryPathForMPI(is32bitElf);
+  // We print here.  But 'while (dummy);' is in constructor in dmtcp_worker.cpp.
+  if (getenv("DMTCP_MANA_PAUSE") != NULL) {
+    printf("*** PAUSED FOR DEBUGGING: Please do:\n  *** gdb %s %d\n\n",
+           argv[0], getpid());
+    printf("*** Then do '(gdb) p dummy=0' to continue debugging.\n\n");
+  }
 #endif
   setLDPreloadLibs(is32bitElf);
 
