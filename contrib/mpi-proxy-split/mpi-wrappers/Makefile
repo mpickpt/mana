@@ -40,7 +40,7 @@ override CXXFLAGS += -g3 -O0 -fPIC -I${DMTCP_INCLUDE} -I${JALIB_INCLUDE} \
 										 -I${LOWER_HALF_SRCDIR} -std=c++11
 
 # We don't build libmpiwrappers.a.  Instead, we use *.o to build libmana.so.
-default: libmpidummy.so libmpich_intel.so.3
+default: ${LIBNAME}.a libmpidummy.so libmpich_intel.so.3
 
 ${LIBNAME}.a: ${LIBWRAPPER_OBJS}
 	ar cr $@ $^
