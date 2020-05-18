@@ -728,9 +728,8 @@ DmtcpCoordinator::recordCkptFilename(CoordClient *client, const char *extraData)
 static bool
 noRanksInCriticalSection(map<CoordClient*, rank_state_t>& clientStates)
 {
-  // TODO: Why are we using [=] here?
   RankConstIterator req = std::find_if(clientStates.begin(), clientStates.end(),
-                         [=](const std::pair<CoordClient*, rank_state_t> &elt)
+                         [](const std::pair<CoordClient*, rank_state_t> &elt)
                          { return elt.second.st == IN_CS; });
   return req == std::end(clientStates);
 }
@@ -739,10 +738,9 @@ static bool
 allRanksReadyForCkpt(map<CoordClient*, rank_state_t>& clientStates,
                      long int size)
 {
-  // TODO: Why are we using [=] here?
   int numReadyRanks =
         std::count_if(clientStates.begin(), clientStates.end(),
-                      [=](const std::pair<CoordClient*, rank_state_t> &elt)
+                      [](const std::pair<CoordClient*, rank_state_t> &elt)
                       { return elt.second.st == READY_FOR_CKPT; });
   JTRACE("Ranks ready for ckpting")(numReadyRanks)(size);
   return numReadyRanks == size;
@@ -753,15 +751,15 @@ allRanksReady(map<CoordClient*, rank_state_t>& clientStates, long int size)
 {
   int numReadyRanks =
         std::count_if(clientStates.begin(), clientStates.end(),
-                      [=](const std::pair<CoordClient*, rank_state_t> &elt)
+                      [](const std::pair<CoordClient*, rank_state_t> &elt)
                       { return elt.second.st == IS_READY; });
   int numPhase1Ranks =
         std::count_if(clientStates.begin(), clientStates.end(),
-                      [=](const std::pair<CoordClient*, rank_state_t> &elt)
+                      [](const std::pair<CoordClient*, rank_state_t> &elt)
                       { return elt.second.st == PHASE_1; });
   int numPhase2Ranks =
         std::count_if(clientStates.begin(), clientStates.end(),
-                      [=](const std::pair<CoordClient*, rank_state_t> &elt)
+                      [](const std::pair<CoordClient*, rank_state_t> &elt)
                       { return elt.second.st == PHASE_2; });
   return ((numReadyRanks + numPhase1Ranks) == size) ||
          ((numReadyRanks + numPhase1Ranks + numPhase2Ranks) == size) ||
@@ -776,7 +774,7 @@ unblockRanks(map<CoordClient*, rank_state_t>& clientStates, long int size)
     DmtcpMessage msg(DMT_DO_PRE_SUSPEND);
     if (c.second.st == PHASE_1 || c.second.st == PHASE_2) {
       // For ranks in PHASE_1 or in PHASE_2, send them a free pass to unblock
-      // them.
+      // other ranks stuck in critical section.
       JTRACE("Sending free pass to client")(c.first->identity())(c.second.st);
       query_t q(FREE_PASS);
       msg.extraBytes = sizeof q;
