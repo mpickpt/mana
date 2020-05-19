@@ -28,6 +28,13 @@
 
 namespace dmtcp
 {
+typedef struct {
+  WorkerState::eWorkerState minimumState;
+  WorkerState::eWorkerState maximumState;
+  bool minimumStateUnanimous;
+  int numPeers;
+} ComputationStatus;
+
 class CoordClient
 {
   public:
@@ -87,13 +94,6 @@ class CoordClient
 class DmtcpCoordinator
 {
   public:
-    typedef struct {
-      WorkerState::eWorkerState minimumState;
-      WorkerState::eWorkerState maximumState;
-      bool minimumStateUnanimous;
-      int numPeers;
-    } ComputationStatus;
-
     void onData(CoordClient *client);
     void onConnect();
     void onDisconnect(CoordClient *client);
