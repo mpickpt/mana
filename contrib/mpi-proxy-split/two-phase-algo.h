@@ -10,40 +10,13 @@
 #include "jassert.h"
 #include "dmtcpmessagetypes.h"
 #include "workerstate.h"
+#include "mana_coord_proto.h"
 
 // Convenience macro
 #define twoPhaseCommit(comm, fnc) \
         dmtcp_mpi::TwoPhaseAlgo::instance().commit(comm, __FUNCTION__, fnc)
 
 using namespace dmtcp;
-
-typedef enum __phase_t
-{
-  UNKNOWN = -1,
-  IS_READY,
-  PHASE_1,
-  IN_CS,
-  OUT_CS,
-  READY_FOR_CKPT,
-  PHASE_2,
-} phase_t;
-
-typedef enum __query_t
-{
-  NONE = -1,
-  INTENT,
-  GET_STATUS,
-  FREE_PASS,
-  CKPT,
-} query_t;
-
-// Struct to encapsulate the checkpointing state of a rank
-typedef struct __rank_state_t
-{
-  int rank;       // MPI rank
-  MPI_Comm comm;  // MPI communicator object
-  phase_t st;     // Checkpointing state of the MPI rank
-} rank_state_t;
 
 namespace dmtcp_mpi
 {
