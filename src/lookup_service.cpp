@@ -57,11 +57,11 @@ LookupService::getSummaryStats()
 }
 
 const KeyValueMap*
-LookupService::getMap(string mapName)
+LookupService::getMap(string mapName) const
 {
   ConstMapIterator map = _maps.find(mapName);
   if (map != _maps.end()) {
-    return &_maps[mapName];
+    return &_maps.at(mapName);
   }
   return NULL;
 }
