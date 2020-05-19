@@ -27,6 +27,8 @@ LIBOBJS = mpi_plugin.o drain_send_recv_packets.o \
           record-replay.o two-phase-algo.o \
           split_process.o ${LOWER_HALF_SRCDIR}/procmapsutils.o
 
+MANA_COORD_OBJS = mana_coordinator.o
+
 PROXY_BIN = lh_proxy
 LIBPROXY = libproxy.a
 
@@ -42,7 +44,7 @@ override CXXFLAGS += -g3 -O0 -fPIC -I${DMTCP_INCLUDE} -I${JALIB_INCLUDE} \
                      -I${WRAPPERS_SRCDIR} -I. \
                      -I${DMTCP_ROOT}/src -I${LOWER_HALF_SRCDIR} -std=c++11
 
-default: ${LIBNAME}.so ${LOWER_HALF_SRCDIR}/${PROXY_BIN} ${WRAPPERS_SRCDIR}/libmpidummy.so ${WRAPPERS_SRCDIR}/libmpich_intel.so.3
+default: ${LIBNAME}.so ${MANA_COORD_OBJS} ${LOWER_HALF_SRCDIR}/${PROXY_BIN} ${WRAPPERS_SRCDIR}/libmpidummy.so ${WRAPPERS_SRCDIR}/libmpich_intel.so.3
 
 ${LIBNAME}.so: ${LIBOBJS} ${WRAPPERS_SRCDIR}/${LIBWRAPPER}
 	${MPICXX} -shared -fPIC -g3 -O0 -o $@ ${LIBOBJS} -Wl,--whole-archive ${WRAPPERS_SRCDIR}/${LIBWRAPPER} -Wl,--no-whole-archive
@@ -104,7 +106,7 @@ tidy:
 
 clean: tidy
 	@cd ${LOWER_HALF_SRCDIR} && make clean
-	rm -f ${LIBOBJS}
+	rm -f ${LIBOBJS} ${MANA_COORD_OBJS}
 	rm -f ${LIBNAME}.so
 	@cd ${WRAPPERS_SRCDIR} && make clean
 
