@@ -44,6 +44,10 @@ AC_CONFIG_FILES([Makefile \
                  test/plugin/Makefile])
 #AC_CONFIG_FILES([test/credentials/Makefile])
 
+if test -e contrib/mpi-proxy-split/Makefile_config; then
+  AC_CONFIG_FILES([contrib/mpi-proxy-split/Makefile_config])
+fi
+
 #AC_CONFIG_SUBDIRS([dmtcp])
 
 dnl Autoconf manual says option checking is set to warn ("yes") by
@@ -694,5 +698,13 @@ if test "$wait_status" = "no"; then
   AC_DEFINE([__WAIT_STATUS],[int *],
             [can use __WAIT_STATUS as wait status type])
 fi
+
+AC_SUBST(MPICC)
+AC_SUBST(MPICXX)
+AC_SUBST(MPIRUN)
+AC_SUBST(MPI_LD_FLAG)
+AC_SUBST(MPI_CFLAGS)
+AC_SUBST(MPI_CXXFLAGS)
+AC_SUBST(MPI_LDFLAGS)
 
 AC_OUTPUT
