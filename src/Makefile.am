@@ -16,6 +16,7 @@ AUTOMAKE_OPTIONS = foreign
 jalibdir=$(top_srcdir)/jalib
 dmtcpincludedir=$(top_srcdir)/include
 dmtcplibdir = $(pkglibdir)
+manaplugindir = $(top_srcdir)/contrib/mpi-proxy-split
 
 SUBDIRS = mtcp plugin
 
@@ -117,7 +118,8 @@ __d_libdir__libdmtcp_so_LDADD = libdmtcpinternal.a libjalib.a \
 				libsyscallsreal.a mtcp/libmtcp.a \
 				-ldl -lpthread -lrt
 
-__d_bindir__dmtcp_coordinator_LDADD = libdmtcpinternal.a libjalib.a \
+__d_bindir__dmtcp_coordinator_LDADD = $(manaplugindir)/mana_coordinator.o \
+			  libdmtcpinternal.a libjalib.a \
 			  libnohijack.a -lpthread -lrt
 __d_bindir__dmtcp_launch_LDADD  = libdmtcpinternal.a libjalib.a \
 			  libnohijack.a -lpthread -lrt -ldl
