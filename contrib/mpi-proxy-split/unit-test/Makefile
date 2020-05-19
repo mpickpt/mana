@@ -22,6 +22,8 @@ TEST_BINS=$(addsuffix .exe, ${TESTS})
 CPPUNIT_INSTALL=../cppunit-installed
 CPPUNIT_INCLUDE=-I${CPPUNIT_INSTALL}/include
 CPPUNIT_LIB=-L${CPPUNIT_INSTALL}/lib
+CPPUNIT_INCLUDE=
+CPPUNIT_LIB=
 
 # Modify if your DMTCP_ROOT is located elsewhere.
 ifndef DMTCP_ROOT
@@ -30,12 +32,14 @@ endif
 DMTCP_INCLUDE=${DMTCP_ROOT}/include
 JALIB_INCLUDE=${DMTCP_ROOT}/jalib
 LOWER_HALF_INCLUDE=../lower-half
+MPI_WRAPPERS_INCLUDE=../mpi-wrappers
 
 override CFLAGS += -g3 -O0 -fPIC -I${DMTCP_INCLUDE} ${CPPUNIT_INCLUDE} \
                    -I.. -std=gnu11
 override CXXFLAGS += -g3 -O0 -fPIC -I${DMTCP_INCLUDE} ${CPPUNIT_INCLUDE} \
                      -I.. -I${JALIB_INCLUDE} \
                      -I${LOWER_HALF_INCLUDE} \
+                     -I${MPI_WRAPPERS_INCLUDE} \
                      -I${DMTCP_ROOT}/src -std=c++11 \
                      -D'NEXT_FUNC(fnc)=MPI_\#\#fnc'
 
