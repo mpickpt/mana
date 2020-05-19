@@ -1,14 +1,6 @@
 # MPI compiler according to the platform
 PLATFORM=${shell echo $$HOST}
-ifeq ($(findstring cori,$(PLATFORM)),cori)
- MPICC = cc
- MPICXX = CC
- MPI_LD_FLAG = -lmpich
-else
- MPICC = mpicc
- MPICXX = mpic++
- MPI_LD_FLAG = -lmpi
-endif
+include ../Makefile_config
 
 PROXY_BIN = lh_proxy
 PROXY_OBJS = lh_proxy.o
