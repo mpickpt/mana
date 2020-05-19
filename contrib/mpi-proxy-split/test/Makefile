@@ -1,17 +1,5 @@
 PLATFORM=${shell echo $$HOST}
-ifeq ($(findstring cori,$(PLATFORM)),cori)
-  MPICC = cc
-  MPICXX = CC
-  CFLAGS?= -g3 -O0 -std=c99 -fPIC
-  CXXFLAGS?= -g3 -O0 -std=c99 -fPIC
-  LDFLAGS?= -dynamic
-else
-  MPICC = mpicc
-  MPICXX = mpic++
-  CFLAGS?= -g3 -O0 -std=c99 -fPIC
-  CXXFLAGS?= -g3 -O0 -std=c99 -fPIC
-  LDFLAGS?=
-endif
+include ../Makefile_config
 
 ifndef DMTCP_ROOT
   DMTCP_ROOT=../../..
@@ -120,16 +108,16 @@ check-integrated_dmtcp_text: tidy integrated_dmtcp_test
           ckpt*.dmtcp
 
 %.o: %.c
-	 $(MPICC)  -fPIC -g3 -O0 -c -o $@ $< $(CFLAGS)
+	 $(MPICC)  -fPIC -g3 -O0 -c -o $@ $< $(MPI_CFLAGS)
 
 %.exe: %.o
-	 $(MPICC)  -o $@ $< ${LDFLAGS}
+	 $(MPICC)  -o $@ $< ${MPI_LDFLAGS}
 
 %.mana.exe: %.o
-	 $(CC)  -o $@ $< ${LDFLAGS} ${LDFLAGS_DUMMY}
+	 $(CC)  -o $@ $< ${MPI_LDFLAGS} ${LDFLAGS_DUMMY}
 
 %.exe: %.cpp
-	$(MPICXX)  -fPIC -g3 -O0 -o $@ $< $(CXXFLAGS)
+	$(MPICXX)  -fPIC -g3 -O0 -o $@ $< $(MPI_CXXFLAGS)
 
 tidy:
 	rm -f ckpt_*.dmtcp dmtcp_restart_script* \

@@ -1,14 +1,6 @@
 # MPI compiler according to the platform
 PLATFORM=${shell echo $$HOST}
-ifeq ($(findstring cori,$(PLATFORM)),cori)
- MPICC = cc
- MPICXX = CC
- MPI_LD_FLAG = -lmpich
-else
- MPICC = mpicc
- MPICXX = mpic++
- MPI_LD_FLAG = -lmpi
-endif
+include Makefile_config
 
 # The name will be the same as the current directory name.
 NAME=${shell basename $$PWD}

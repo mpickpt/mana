@@ -1,0 +1,25 @@
+ifneq (@MPICC@,)
+  MPICC = @MPICC@
+  MPICXX = @MPICXX@
+  MPIRUN = @MPIRUN@
+  MPI_LD_FLAG = @MPI_LD_FLAG@
+  MPI_CFLAGS?= @MPI_CFLAGS@
+  MPI_CXXFLAGS?= @MPI_CXXFLAGS@
+  MPI_LDFLAGS?= @MPI_LDFLAGS@
+else ifeq ($(findstring cori,$(PLATFORM)),cori)
+  MPICC = cc
+  MPICXX = CC
+  MPI_LD_FLAG = -lmpich
+  MPIRUN = srun
+  MPI_CFLAGS?= -g3 -O0 -std=c99 -fPIC
+  MPI_CXXFLAGS?= -g3 -O0 -std=c99 -fPIC
+  MPI_LDFLAGS?= -dynamic
+else
+  MPICC = mpicc
+  MPICXX = mpic++
+  MPIRUN = mpirun
+  MPI_LD_FLAG = -lmpi
+  MPI_CFLAGS?= -g3 -O0 -std=c99 -fPIC
+  MPI_CXXFLAGS?= -g3 -O0 -std=c99 -fPIC
+  MPI_LDFLAGS?=
+endif

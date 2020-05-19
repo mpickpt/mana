@@ -1,0 +1,11 @@
+#!/bin/sh
+
+@ These optional autoconf variables will be
+#  configured via contrib/mpi-proxy-split/Makefie_config.in
+./configure MPICC=$PWD/../mpich-3.3.2-build/bin/mpicc \
+            MPICXX=$PWD/../mpich-3.3.2-build/bin/mpicxx \
+            MPIRUN=$PWD/../mpich-3.3.2-build/bin/mpirun \
+            MPI_LD_FLAG=-lmpi \
+            MPI_CFLAGS= \
+            MPI_CXXFLAGS= \
+            MPI_LDFLAGS=
