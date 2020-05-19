@@ -3,32 +3,9 @@
 
 #include <mpi.h>
 
+#include "mana_coord_proto.h"
+
 #define DRAINED_REQUEST_VALUE 0xFFFFFFFF
-
-// Key-value database containing the counts of sends, receives, and unserviced
-// sends for each rank
-// Mapping is (rank -> send_recv_totals_t)
-#define MPI_SEND_RECV_DB  "SR_DB"
-
-// Key-value database containing the metadata of unserviced sends for each rank
-// Mapping is (rank -> mpi_call_params_t)
-#define MPI_US_DB         "US_DB"
-
-// Database containing the counts of wrappers (send, isend, recv, irecv)
-// executed for each rank (useful while debugging)
-// Mapping is (rank -> wr_counts_t)
-#define MPI_WRAPPER_DB    "WR_DB"
-
-// Struct to store the number of times send, isend, recv, and irecv wrappers
-// were executed
-typedef struct __wr_counts
-{
-  int sendCount;     // Number of times MPI_Send wrapper was called
-  int isendCount;    // Number of times MPI_Isend wrapper was called
-  int recvCount;     // Number of times MPI_Recv wrapper was called
-  int irecvCount;    // Number of times MPI_Irecv wrapper was called
-  int sendrecvCount; // Number of times MPI_Sendrecv wrapper was called
-} wr_counts_t;
 
 // Stores the counts of executed wrappers (send, isend, recv, irecv); useful
 // while debugging
@@ -80,15 +57,6 @@ typedef struct __mpi_async_call
   MPI_Request req; // Original request value
   int flag;
 } mpi_async_call_t;
-
-// Struct to store the MPI send/recv counts of a rank
-typedef struct __send_recv_totals
-{
-  int rank;         // MPI rank
-  uint64_t sends;   // Number of completed sends
-  uint64_t recvs;   // Number of completed receives
-  int countSends;   // Number of unserviced sends
-} send_recv_totals_t;
 
 // Increments the global number of receives by 1
 extern void updateLocalRecvs();
