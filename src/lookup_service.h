@@ -84,7 +84,7 @@ class LookupService
     ~LookupService() { reset(); }
 
     string getSummaryStats();
-    const KeyValueMap* getMap(string name);
+    const KeyValueMap* getMap(string name) const;
     void reset();
     void registerData(const DmtcpMessage &msg, const void *data);
     void respondToQuery(jalib::JSocket &remote,
