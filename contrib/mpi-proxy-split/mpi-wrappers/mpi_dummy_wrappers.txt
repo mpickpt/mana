@@ -1,4 +1,5 @@
-#include <mpi.h>;
+// native signatures from local mpi.h conflict with this.
+// #include <mpi.h>;
 #include <assert.h>;
 
 int MPI_Accumulate(const void *origin_addr, int origin_count,
