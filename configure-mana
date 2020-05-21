@@ -1,11 +1,38 @@
 #!/bin/sh
 
-@ These optional autoconf variables will be
-#  configured via contrib/mpi-proxy-split/Makefie_config.in
-./configure MPICC=$PWD/../mpich-3.3.2-build/bin/mpicc \
-            MPICXX=$PWD/../mpich-3.3.2-build/bin/mpicxx \
-            MPIRUN=$PWD/../mpich-3.3.2-build/bin/mpirun \
-            MPI_LD_FLAG=-lmpi \
-            MPI_CFLAGS= \
-            MPI_CXXFLAGS= \
-            MPI_LDFLAGS=
+# These optional autoconf variables will be
+#    configured via contrib/mpi-proxy-split/Makefie_config.in
+
+# This works on dekaksi from my own build.
+# But see below for how to make it work.
+./configure --enable-debug \
+             MPICC=$PWD/../mpich-3.3.2-build/bin/mpicc \
+             MPICXX=$PWD/../mpich-3.3.2-build/bin/mpicxx \
+             MPIRUN=$PWD/../mpich-3.3.2-build/bin/mpirun \
+             MPI_LD_FLAG=-lmpi \
+             MPI_CFLAGS= \
+             MPI_CXXFLAGS= \
+             MPI_LDFLAGS=
+
+# NOTE:  And this version also works on dekaksi.  But to make it work, one must:
+#  (cd contrib/mpi-proxy-split && make -j)
+#  (cd contrib/mpi-proxy-split/lower-half && bash -x <MPICC-COMMAND>)
+#  Then remove -lunwind from that expanded mpicc command line, and so modify the gcc cmd
+#    that was displayed by 'bash -x'.  It will be something like this.:
+# gcc -g -static -Wl,-Ttext-segment -Wl,0xE000000 -Wl,--wrap -Wl,__munmap -Wl,--wrap -Wl,shmat -Wl,--wrap -Wl,shmget -o lh_proxy lh_proxy.o libproxy.a -lmpi -llzma -lrt -lpthread -lc libproxy.a -llzma -I/home/rohgarg/sws/include -L/home/rohgarg/sws/lib -Wl,-rpath -Wl,/home/rohgarg/sws/lib -Wl,--enable-new-dtags -lmpi -lm  -lbacktrace -lpthread -lrt
+
+# THEN IT COMPILES TO BUILD lh_proxy.
+# QUESTION:  Why doesn't this work when building the latest mpich?
+#            They both seem to use libmpi.so.12.
+# Note:  also, compiling coordinator_mana.cpp in the plugin requires '#include <mpi.h>'
+#   in order to compile the data structure rank_state_t .
+#   Because of this, we're currently using 'mpicxx'.  That works.  But is there something cleaner?
+
+# ./configure --enable-debug \
+# 	    MPICC=/home/rohgarg/sws/bin/mpicc \
+#             MPICXX=/home/rohgarg/sws/bin/mpicxx \
+#             MPIRUN=/home/rohgarg/sws/bin/mpirun \
+#             MPI_LD_FLAG=-lmpi \
+#             MPI_CFLAGS= \
+#             MPI_CXXFLAGS= \
+#             MPI_LDFLAGS=
