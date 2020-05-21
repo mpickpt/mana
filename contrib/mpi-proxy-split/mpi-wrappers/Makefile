@@ -60,8 +60,11 @@ mpi_dummy.c: generate-mpi-dummy-wrappers.py mpi_dummy_wrappers.txt
 mpi_fortran_wrappers.cpp: generate-mpi-fortran-wrappers.py mpi_fortran_wrappers.txt
 	python $^ > $@
 
-libmpidummy.so: mpi_dummy.c
-	${MPICC} -fPIC -g3 -O0 $< -shared -o $@
+mpidummy.o: mpidummy.c
+	${MPICC} ${CFLAGS} -g3 -O0 -c -o $@ $<
+
+libmpidummy.so: mpi_dummy.o
+	${CC} -fPIC -g3 -O0 $< -shared -o $@
 
 libmpich_intel.so.3.0.1: libmpidummy.so
 	cp -f $< $@
