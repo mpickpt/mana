@@ -2,6 +2,12 @@
 PLATFORM=${shell echo $$HOST}
 include Makefile_config
 
+# These are needed for libmana.so, since the wrapper functions there will
+# call the lower half.  That requires temporarily changing the FS register,
+# and apparently, glibc detects this as an attempt to do stack smashing.
+CFLAGS=-fno-stack-protector
+CXXFLAGS=-fno-stack-protector
+
 # The name will be the same as the current directory name.
 NAME=${shell basename $$PWD}
 

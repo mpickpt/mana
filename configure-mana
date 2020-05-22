@@ -4,30 +4,46 @@
 #    configured via contrib/mpi-proxy-split/Makefie_config.in
 
 # This works on dekaksi from my own build.
-# But see below for how to make it work.
+# But read the note right after this, to see:
+# (In principle, this would also work with the MPICH package for the distro.)
 ./configure --enable-debug \
+	     CFLAGS=-fno-stack-protector \
+	     CXXFLAGS=-fno-stack-protector \
              MPICC=$PWD/../mpich-3.3.2-build/bin/mpicc \
              MPICXX=$PWD/../mpich-3.3.2-build/bin/mpicxx \
-             MPIRUN=$PWD/../mpich-3.3.2-build/bin/mpirun \
+             MPIRUN="$PWD/../mpich-3.3.2-build/bin/mpirun -iface eth0" \
              MPI_LD_FLAG=-lmpi \
              MPI_CFLAGS= \
              MPI_CXXFLAGS= \
              MPI_LDFLAGS=
 
-# NOTE:  And this version also works on dekaksi.  But to make it work, one must:
+# NOTE:  To make it work, two changes were needed:
+# ===============================================================
+# 1. Linking contrib/mpi-proxy-split/lower-half/lh_proxy fails.
+#    The workaround follows:
 #  (cd contrib/mpi-proxy-split && make -j)
 #  (cd contrib/mpi-proxy-split/lower-half && bash -x <MPICC-COMMAND>)
 #  Then remove -lunwind from that expanded mpicc command line, and so modify the gcc cmd
-#    that was displayed by 'bash -x'.  It will be something like this.:
-# gcc -g -static -Wl,-Ttext-segment -Wl,0xE000000 -Wl,--wrap -Wl,__munmap -Wl,--wrap -Wl,shmat -Wl,--wrap -Wl,shmget -o lh_proxy lh_proxy.o libproxy.a -lmpi -llzma -lrt -lpthread -lc libproxy.a -llzma -I/home/rohgarg/sws/include -L/home/rohgarg/sws/lib -Wl,-rpath -Wl,/home/rohgarg/sws/lib -Wl,--enable-new-dtags -lmpi -lm  -lbacktrace -lpthread -lrt
+#    that was displayed by 'bash -x'.  The cd to lower-half, and execute the gcc command.
+#    It will be something like this.:
+# gcc -g -static -Wl,-Ttext-segment -Wl,0xE000000 -Wl,--wrap -Wl,__munmap -Wl,--wrap -Wl,shmat -Wl,--wrap -Wl,shmget -o lh_proxy lh_proxy.o libproxy.a -lmpi -llzma -lrt -lpthread -lc libproxy.a -llzma -I$PWD/../../../../mpich-3.3.2-build/include -L$PWD/../../../../mpich-3.3.2-build/lib -Wl,-rpath -Wl,$PWD/../../../../mpich-3.3.2-build/lib/ -Wl,--enable-new-dtags -lmpi -lm  -lbacktrace -lpthread -lrt
+
+# ===============================================================
+# 2. Recent versions of gcc ran into problems with the stack protector.
+#    This happens in the DMTCP call to arch_prctl(ARCH_SET_FS, ...).
+#    (Actually, this is called through syscall.)  So, stack protection
+#    must be turned off in the files interposing on syscall().  For convenience,
+#    we have turned it off everywhere, by setting CFLAGS and CXXFLAGS
+#    in the 'configure' command, above.
+# ===============================================================
 
 # THEN IT COMPILES TO BUILD lh_proxy.
-# QUESTION:  Why doesn't this work when building the latest mpich?
-#            They both seem to use libmpi.so.12.
-# Note:  also, compiling coordinator_mana.cpp in the plugin requires '#include <mpi.h>'
-#   in order to compile the data structure rank_state_t .
-#   Because of this, we're currently using 'mpicxx'.  That works.  But is there something cleaner?
+# Note:  also, compiling coordinator_mana.cpp in the plugin requires
+#  '#include <mpi.h>' in order to compile the data structure rank_state_t .
+#   Because of this, we need to use 'mpicxx' to build the coordinator code.
+#.  That works.  But is there something cleaner?
 
+# This is equivalent, but it uses a previously built version.
 # ./configure --enable-debug \
 # 	    MPICC=/home/rohgarg/sws/bin/mpicc \
 #             MPICXX=/home/rohgarg/sws/bin/mpicxx \
