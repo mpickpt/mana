@@ -639,7 +639,8 @@ main(int argc, char **argv)
   if (getenv("DMTCP_MANA_PAUSE") != NULL) {
     printf("*** PAUSED FOR DEBUGGING: Please do:\n  *** gdb %s %d\n\n",
            argv[0], getpid());
-    printf("*** Then do '(gdb) p dummy=0' to continue debugging.\n\n");
+    printf("  *** Then do '(gdb) p dummy=0' to continue debugging.\n\n");
+    fflush(stdout);
   }
 #endif
   setLDPreloadLibs(is32bitElf);
