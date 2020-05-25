@@ -1,3 +1,4 @@
+// FIXME:  Why do we have all these libc headers if we're not using libc here?
 #include <asm/prctl.h>
 #include <sys/prctl.h>
 #include <sys/personality.h>
@@ -22,6 +23,7 @@
 int mtcp_sys_errno;
 LowerHalfInfo_t info;
 MemRange_t *g_lh_mem_range = NULL;
+static MemRange_t g_lh_mem_range_buf;
 
 static unsigned long origPhnum;
 static unsigned long origPhdr;
@@ -31,7 +33,8 @@ static void patchAuxv(ElfW(auxv_t) *, unsigned long , unsigned long , int );
 static int mmap_iov(const struct iovec *, int );
 static int read_proxy_bits(pid_t );
 static pid_t startProxy(char *argv0, char **envp);
-static int initializeLowerHalf();
+static int initializeLowerHalf(void);
+static MemRange_t setLhMemRange(void);
 
 int
 splitProcess(char *argv0, char **envp)
@@ -137,11 +140,17 @@ read_proxy_bits(pid_t childpid)
 static pid_t
 startProxy(char *argv0, char **envp)
 {
-  int pipefd[2] = {0};
+  int pipefd_in[2] = {0};
+  int pipefd_out[2] = {0};
   int ret = -1;
   int mtcp_sys_errno;
 
-  if (mtcp_sys_pipe(pipefd) < 0) {
+
+  if (mtcp_sys_pipe(pipefd_in) < 0) {
+    MTCP_PRINTF("Failed to create pipe: %d", mtcp_sys_errno);
+    return ret;
+  }
+  if (mtcp_sys_pipe(pipefd_out) < 0) {
     MTCP_PRINTF("Failed to create pipe: %d", mtcp_sys_errno);
     return ret;
   }
@@ -152,20 +161,26 @@ startProxy(char *argv0, char **envp)
       MTCP_PRINTF("Failed to fork proxy: %d", mtcp_sys_errno);
       break;
 
-    case 0:
+    case 0: // in child
     {
-      mtcp_sys_close(pipefd[0]); // close reading end of pipe
+      mtcp_sys_close(pipefd_out[0]); // close reading end of pipe
+      // FIXME:  This could be done more simply by writing to stdin of lh_proxy.
       char buf[10];
-      mtcp_itoa(pipefd[1], buf);
-      char* args[] = {"NO_SUCH_EXECUTABLE",
-                            buf,
-                            NULL};
+      mtcp_itoa(pipefd_out[1], buf);
+      char* args[] = {"NO_SUCH_EXECUTABLE", buf, NULL};
 
       // Replace ".../mtcp_restart" by ".../lh_proxy" in argv0/args[0]
       args[0] = argv0;
       char *last_component = mtcp_strrchr(args[0], '/');
       MTCP_ASSERT(mtcp_strlen("lh_proxy") <= mtcp_strlen(last_component+1));
       mtcp_strcpy(last_component+1, "lh_proxy");
+
+      // Move reading end of pipe to stadin of lh_proxy.
+      // Can then write pipefd_out[1] to lh_proxy.
+      //   (But that would be better if lh_proxy simply wrote to stdout.)
+      // Then, lh_proxy can read lh_mem_range (type: MemRange_t).
+      mtcp_sys_dup2(pipefd_in[0], 0);
+      mtcp_sys_close(pipefd_in[0]);
 
       // FIXME: This is platform-dependent.  The lower half has hardwired
       //        addresses.  They must be changed for each platform.
@@ -174,14 +189,17 @@ startProxy(char *argv0, char **envp)
       break;
     }
 
-    default:
-      // in parent
-      mtcp_sys_close(pipefd[1]); // we won't be needing write end of pipe
-      if (mtcp_sys_read(pipefd[0], &info, sizeof info) < sizeof info) {
+    default: // in parent
+      mtcp_sys_close(pipefd_out[1]); // close write end of pipe
+      // FIXME:  Remove all setLhMemRange from this file, and red pipefd_in[1]
+      MemRange_t mem_range = setLhMemRange();
+      mtcp_sys_write(pipefd_in[1], &mem_range, sizeof(mem_range));
+      mtcp_sys_close(pipefd_in[1]); // close writing end of pipe
+      if (mtcp_sys_read(pipefd_out[0], &info, sizeof info) < sizeof info) {
         MTCP_PRINTF("Read fewer bytes than expected");
         break;
       }
-      mtcp_sys_close(pipefd[0]);
+      mtcp_sys_close(pipefd_out[0]);
   }
   return childpid;
 }
@@ -222,6 +240,10 @@ setLhMemRange()
     DPRINTF("Failed to find [stack] memory segment\n");
     mtcp_abort();
   }
+  // FIXME:  The next two lines will go away when g_lh_mem_range not needed.
+  g_lh_mem_range = &g_lh_mem_range_buf;
+  *g_lh_mem_range = lh_mem_range;
+  return lh_mem_range;
 }
 
 static int

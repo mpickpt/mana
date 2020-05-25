@@ -13,6 +13,22 @@
 
 typedef void (*fnptr_t)();
 
+// FIXME: Much of this is duplicated in ../lower-half/lower_half_api.h
+
+typedef struct __MemRange
+{
+  void *start;
+  void *end;
+} MemRange_t;
+
+typedef struct __MmapInfo
+{
+  void *addr;
+  size_t len;
+  int unmapped;
+  int guard;
+} MmapInfo_t;
+
 // The transient proxy process introspects its memory layout and passes this
 // information back to the main application process using this struct.
 typedef struct _LowerHalfInfo
@@ -35,22 +51,8 @@ typedef struct _LowerHalfInfo
   void *updateEnvironFptr;
   void *getMmappedListFptr;
   void *resetMmappedListFptr;
-  void *memRange;
+  MemRange_t memRange;
 } LowerHalfInfo_t;
-
-typedef struct __MemRange
-{
-  void *start;
-  void *end;
-} MemRange_t;
-
-typedef struct __MmapInfo
-{
-  void *addr;
-  size_t len;
-  int unmapped;
-  int guard;
-} MmapInfo_t;
 
 extern LowerHalfInfo_t info;
 extern MemRange_t *g_lh_mem_range;
