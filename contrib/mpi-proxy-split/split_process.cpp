@@ -300,7 +300,8 @@ setLhMemRange()
   }
   close(mapsfd);
   if (found && g_range == NULL) {
-    g_range = (MemRange_t*)info.memRange;
+    // Fill in info.memRange
+    g_range = &info.memRange;
     g_range->start = (VA)area.addr - TWO_GB;
     g_range->end = (VA)area.addr - ONE_GB;
   }

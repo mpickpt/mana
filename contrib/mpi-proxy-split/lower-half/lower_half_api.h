@@ -29,6 +29,20 @@
 
 // Shared data structures
 
+typedef struct __MemRange
+{
+  void *start;  // Start of the address range for lower half memory allocations
+  void *end;    // End of the address range for lower half memory allocations
+} MemRange_t;
+
+typedef struct __MmapInfo
+{
+  void *addr;   // Start address of mmapped region
+  size_t len;   // Length (in bytes) of mmapped region
+  int unmapped; // 1 if the region was unmapped; 0 otherwise
+  int guard;    // 1 if the region has additional guard pages around it; 0 otherwise
+} MmapInfo_t;
+
 // The transient lh_proxy process introspects its memory layout and passes this
 // information back to the main application process using this struct.
 struct LowerHalfInfo_t
@@ -51,22 +65,8 @@ struct LowerHalfInfo_t
   void *updateEnvironFptr; // Pointer to updateEnviron() function in the lower half
   void *getMmappedListFptr; // Pointer to getMmapedList() function in the lower half
   void *resetMmappedListFptr; // Pointer to resetMmapedList() function in the lower half
-  void *memRange; // Pointer to MemRange_t object in the lower half
+  MemRange_t memRange; // MemRange_t object in the lower half
 };
-
-typedef struct __MemRange
-{
-  void *start;  // Start of the address range for lower half memory allocations
-  void *end;    // End of the address range for lower half memory allocations
-} MemRange_t;
-
-typedef struct __MmapInfo
-{
-  void *addr;   // Start address of mmapped region
-  size_t len;   // Length (in bytes) of mmapped region
-  int unmapped; // 1 if the region was unmapped; 0 otherwise
-  int guard;    // 1 if the region has additional guard pages around it; 0 otherwise
-} MmapInfo_t;
 
 enum MPI_Fncs {
   MPI_Fnc_NULL,

@@ -21,6 +21,7 @@
 #include "lower_half_api.h"
 
 struct LowerHalfInfo_t lh_info = {0};
+// This is the allocated buffer for lh_info.memRange
 MemRange_t lh_memRange = {0};
 
 static ucontext_t g_appContext;
@@ -173,6 +174,44 @@ mydlsym(enum MPI_Fncs fnc)
   return MPI_Fnc_Ptrs[fnc];
 }
 
+// FIXME:  This will replace ../split_process.cpp:setLhMemRange()
+//         Delete ../split_process.cpp:setLhMemRange() when not needed.
+// Sets the address range for the lower half. The lower half gets a fixed
+// address range of 1 GB at a high address before the stack region of the
+// current process. All memory allocations done by the lower half are restricted
+// to the specified address range.
+static MemRange_t
+setLhMemRange()
+{
+  const uint64_t ONE_GB = 0x40000000;
+  const uint64_t TWO_GB = 0x80000000;
+  Area area;
+  int found = 0;
+  int mapsfd = open("/proc/self/maps", O_RDONLY);
+  if (mapsfd < 0) {
+    DLOG(ERROR, "Failed to open proc maps");
+    exit(1);
+  }
+  while (readMapsLine(mapsfd, &area)) {
+    if (strstr(area.name, "[stack]")) {
+      found = 1;
+      break;
+    }
+  }
+  close(mapsfd);
+
+  MemRange_t lh_mem_range;
+  // FIXME:  If the lh_mem_range that is read is valid, then
+  //   read from stdin.  Else it has NULL entries, and we'll add defaults.
+  //   Eventually, we should use the other setLhMemRange, and use this
+  //   only to set info.  And then we don't need to read "[stack]" of lower half
+  // mtcp_split_process.c:startProxy() wrote forked and wrote to our stdin.
+  read(0, &lh_mem_range, sizeof(lh_mem_range));
+  lh_mem_range.start = (VA)area.addr - TWO_GB;
+  lh_mem_range.end = (VA)area.addr - ONE_GB;
+  return lh_mem_range;
+}
+
 __attribute__((constructor))
 void first_constructor()
 {
@@ -181,6 +220,9 @@ void first_constructor()
   if (firstTime) {
     DLOG(NOISE, "(1) Constructor: We'll pass information to the parent.\n");
     firstTime = 0;
+
+    // Pre-initialize this component of lh_info
+    lh_memRange = setLhMemRange();  
 
     unsigned long start, end, stackstart;
     unsigned long pstart, pend, pstackstart;
@@ -218,14 +260,14 @@ void first_constructor()
     lh_info.updateEnvironFptr = (void*)&updateEnviron;
     lh_info.getMmappedListFptr = (void*)&getMmappedList;
     lh_info.resetMmappedListFptr = (void*)&resetMmappedList;
-    lh_info.memRange = (void*)&lh_memRange;
+    lh_info.memRange = lh_memRange;
     DLOG(INFO, "startTxt: %p, endTxt: %p, startData: %p, endOfHeap; %p\n",
          lh_info.startTxt, lh_info.endTxt, lh_info.startData, lh_info.endOfHeap);
     int pipefd = argc > 1 ? atoi(argv[1]) : -1;
 
     if (!isValidFd(pipefd)) { // run standalone, if no pipefd
       DLOG(ERROR, "No valid pipe fd found! Exiting...\n");
-      exit(0);
+      exit(1);
     }
 
     write(pipefd, &lh_info, sizeof lh_info);
