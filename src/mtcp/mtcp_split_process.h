@@ -53,7 +53,7 @@ typedef struct __MmapInfo
 } MmapInfo_t;
 
 extern LowerHalfInfo_t info;
-extern MemRange_t *g_range;
+extern MemRange_t *g_lh_mem_range;
 
 // Helper macro to be used whenever making a jump from the upper half to
 // the lower half.
