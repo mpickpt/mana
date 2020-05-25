@@ -461,15 +461,15 @@ main(int argc, char *argv[], char **environ)
     char *start1, *start2, *end1, *end2;
     if (libsEnd + 1 * GB < highMemStart /* end of stack of upper half */) {
       start1 = libsStart;    // first lib (ld.so) of upper half
-      // g_range is the memory region for the mmaps of the lower half.
-      // Apparently g_range is a region that's between 1 GB and 2 GB below
+      // g_lh_mem_range is the memory region for the mmaps of the lower half.
+      // Apparently g_lh_mem_range is a region between 1 GB and 2 GB below
       //   the end of stack in the lower half.
       // One gigabyte below those mmaps of the lower half, we are creating space
       //   for the GNI driver data, to be created when the GNI library runs.
-      // FIXME:  Give g_range a meaningful name, and create pointer argument
-      //   in setLhMemRange(), etc., so that we don't need a global variable.
+      // FIXME:  Create pointer argument (out parameter) in setLhMemRange(),
+      //    initializeLowerHalf, splitProcess, etc., to remove global variable.
       // This says that we have to reserve only up to the mtcp_restart stack.
-      end1 = g_range->start - 1 * GB;
+      end1 = g_lh_mem_range->start - 1 * GB;
       // start2 == end2:  So, this will not be used.
       start2 = 0;
       end2 = start2;
@@ -485,7 +485,7 @@ main(int argc, char *argv[], char **environ)
     //  const void *end1 = (const void*)0x2aaaaaaf8000;
     //  const size_t len1 = end1 - start1;
     //  const void *start2 = (const void*)0x2aaaaab1b000; // Start of upper half
-    void *end1 = g_range->start; //Start of lower half memory
+    void *end1 = g_lh_mem_range->start; //Start of lower half memory
     size_t len1 = end1 - start1;
     char *start2 = 0;
     char *end2 = start2;

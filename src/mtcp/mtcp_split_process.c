@@ -21,7 +21,7 @@
 
 int mtcp_sys_errno;
 LowerHalfInfo_t info;
-MemRange_t *g_range = NULL;
+MemRange_t *g_lh_mem_range = NULL;
 
 static unsigned long origPhnum;
 static unsigned long origPhdr;
@@ -207,10 +207,10 @@ setLhMemRange()
     }
   }
   mtcp_sys_close(mapsfd);
-  if (found && g_range == NULL) {
-    g_range = (MemRange_t*)info.memRange;
-    g_range->start = (VA)area.addr - TWO_GB;
-    g_range->end = (VA)area.addr - ONE_GB;
+  if (found && g_lh_mem_range == NULL) {
+    g_lh_mem_range = (MemRange_t*)info.memRange;
+    g_lh_mem_range->start = (VA)area.addr - TWO_GB;
+    g_lh_mem_range->end = (VA)area.addr - ONE_GB;
   }
 }
 
