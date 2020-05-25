@@ -351,15 +351,19 @@ prepareMtcpHeaderInfoForMPI(MtcpHeader *mtcpHdr)
     const char *lastslash = strrchr(area.name, '/');
     // Set mtcpHdr->libsStart if possible.
     if (mtcpHdr->libsStart == NULL) {
-      // FIXME:  This could be confused by ld-XXX.so instead of ld-2.16.so
-      if (lastslash && strncmp(lastslash, "/ld-", strlen("/ld-")) == 0) {
+      // NOTE:  On typical CentOS/Ubuntu, with no randomization,
+      //   mmap starts about 128 MB below stack and grows downward.
+      // But on some HPC O/S's (e.g., Cray, May, 2020), this is likely
+      //   to be ld-XXX.so, and mmap allocations will grow upward.
+      if (lastslash && strstr(lastslash, ".so") != NULL) {
         mtcpHdr->libsStart = (VA)area.addr;
       }
     }
-    // Set mtcpHdr->highMemStart if possible.
     if (lastslash && strstr(lastslash, ".so") != NULL) {
-      mtcpHdr->libsEnd = (VA)area.addr;
+      mtcpHdr->libsEnd = (VA)area.addr + area.size;
     }
+    // Set mtcpHdr->highMemStart if possible.
+    // highMemStart not currently used.  We could change the constant logic.
     if (mtcpHdr->highMemStart == NULL &&
         (char *)area.addr > (char *)0x7fff00000000) {
       mtcpHdr->highMemStart = (void *)area.addr;

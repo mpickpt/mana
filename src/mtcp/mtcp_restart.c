@@ -191,8 +191,8 @@ regionContains(const void *haystackStart,
 }
 
 static void
-beforeLoadingGniDriverBlacklistAddresses(const char *start1, const char *end1,
-	                                 const char *start2, const char *end2)
+beforeLoadingGniDriverBlacklistAddresses(char *start1, char *end1,
+	                                 char *start2, char *end2)
 {
   // FIXME: This needs to be made dynamic.
   const size_t len1 = end1 - start1;
@@ -211,8 +211,8 @@ beforeLoadingGniDriverBlacklistAddresses(const char *start1, const char *end1,
 }
 
 static void
-afterLoadingGniDriverUnblacklistAddresses(const char *start1, const char *end1,
-	                                 const char *start2, const char *end2)
+afterLoadingGniDriverUnblacklistAddresses(char *start1, char *end1,
+	                                 char *start2, char *end2)
 {
   // FIXME: This needs to be made dynamic.
   const size_t len1 = end1 - start1;
@@ -227,8 +227,8 @@ afterLoadingGniDriverUnblacklistAddresses(const char *start1, const char *end1,
 #define min(a,b) (a < b ? a : b)
 #define max(a,b) (a > b ? a : b)
 int discover_union_ckpt_images(char *argv[],
-	                        char **libsStart, char **libsEnd,
-	                        char **highMemStart) {
+	                       char **libsStart, char **libsEnd,
+	                       char **highMemStart) {
   MtcpHeader mtcpHdr;
   int rank;
   *libsStart = (void *)(-1); // We'll take a min later.
@@ -457,25 +457,38 @@ main(int argc, char *argv[], char **environ)
     // Refer to "blocked memory" in MANA Plugin Documentation for the addresses
 #if 1
 # define GB (1024 * 1024)
-    const char *start1 = libsStart;    // first lib (ld.so) of upper half
-    // One gigabyte below the mmaps of the lower half:
-    //   This is space for GNI driver data.
-    const char *end1 = g_range->start - 1 * GB;
-    // start2 == end2:  So, this will not be used.
-    const char *start2 = 0;
-    const char *end2 = start2;
+    // FIXME:  Rewrite this logic more carefully.
+    char *start1, *start2, *end1, *end2;
+    if (libsEnd + 1 * GB < highMemStart /* end of stack of upper half */) {
+      start1 = libsStart;    // first lib (ld.so) of upper half
+      // g_range is the memory region for the mmaps of the lower half.
+      // Apparently g_range is a region that's between 1 GB and 2 GB below
+      //   the end of stack in the lower half.
+      // One gigabyte below those mmaps of the lower half, we are creating space
+      //   for the GNI driver data, to be created when the GNI library runs.
+      // FIXME:  Give g_range a meaningful name, and create pointer argument
+      //   in setLhMemRange(), etc., so that we don't need a global variable.
+      // This says that we have to reserve only up to the mtcp_restart stack.
+      end1 = g_range->start - 1 * GB;
+      // start2 == end2:  So, this will not be used.
+      start2 = 0;
+      end2 = start2;
+    } else {
+      MTCP_PRINTF("Upper half high end of libs memory too close to stack.\n");
+      mtcp_abort();
+    }
 #else
     // ***** These constants are hardwired for Cori in May, 2020 *****
     // *****   DELETE THIS WHEN NO LONGER NEEDED FOR DEBUGGING   *****
     // The dynamic values of start1, end1 above are preferred to this.
-    const void *start1 = (const void*)0x2aaaaaaaf000; // End of vdso
+    void *start1 = (const void*)0x2aaaaaaaf000; // End of vdso
     //  const void *end1 = (const void*)0x2aaaaaaf8000;
     //  const size_t len1 = end1 - start1;
     //  const void *start2 = (const void*)0x2aaaaab1b000; // Start of upper half
-    const void *end1 = g_range->start; //Start of lower half memory
-    const size_t len1 = end1 - start1;
-    const char *start2 = 0;
-    const char *end2 = start2;
+    void *end1 = g_range->start; //Start of lower half memory
+    size_t len1 = end1 - start1;
+    char *start2 = 0;
+    char *end2 = start2;
 #endif
     typedef int (*getRankFptr_t)(void);
     int rank = -1;
