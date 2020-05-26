@@ -116,7 +116,10 @@ updateCkptDirByRank()
   o << "/lhregions.dat";
   const char *fname = o.str().c_str();
   int fd = open(fname, O_CREAT | O_WRONLY);
+#if 0
+  // g_range (lh_memory_range) was written for debugging here.
   Util::writeAll(fd, g_range, sizeof(*g_range));
+#endif
   Util::writeAll(fd, &g_numMmaps, sizeof(g_numMmaps));
   for (int i = 0; i < g_numMmaps; i++) {
     Util::writeAll(fd, &g_list[i], sizeof(g_list[i]));
