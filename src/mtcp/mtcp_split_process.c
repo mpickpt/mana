@@ -142,17 +142,15 @@ startProxy(char *argv0, char **envp)
 {
   int pipefd_in[2] = {0};
   int pipefd_out[2] = {0};
-  int ret = -1;
   int mtcp_sys_errno;
-
 
   if (mtcp_sys_pipe(pipefd_in) < 0) {
     MTCP_PRINTF("Failed to create pipe: %d", mtcp_sys_errno);
-    return ret;
+    return -1;
   }
   if (mtcp_sys_pipe(pipefd_out) < 0) {
     MTCP_PRINTF("Failed to create pipe: %d", mtcp_sys_errno);
-    return ret;
+    return -1;
   }
 
   int childpid = mtcp_sys_fork();
@@ -166,11 +164,8 @@ startProxy(char *argv0, char **envp)
       mtcp_sys_dup2(pipefd_out[1], 1); // Will write lh_info to stdout.
       mtcp_sys_close(pipefd_out[1]);
       mtcp_sys_close(pipefd_out[0]); // Close reading end of pipe.
-      // FIXME:  Remove buf after verifying can write to stdout instead.
-      char buf[10];
-      mtcp_itoa(pipefd_out[1], buf);
-      char* args[] = {"NO_SUCH_EXECUTABLE", buf, NULL};
 
+      char* args[] = {"NO_SUCH_EXECUTABLE", NULL};
       // Replace ".../mtcp_restart" by ".../lh_proxy" in argv0/args[0]
       args[0] = argv0;
       char *last_component = mtcp_strrchr(args[0], '/');
@@ -192,16 +187,19 @@ startProxy(char *argv0, char **envp)
     }
 
     default: // in parent
-      mtcp_sys_close(pipefd_out[1]); // close write end of pipe
-      // FIXME:  Remove all setLhMemRange from this file, and red pipefd_in[1]
+    {
+      // Write memory range for mmap's by lower half to stdin of lh_proxy.
       MemRange_t mem_range = setLhMemRange();
       mtcp_sys_write(pipefd_in[1], &mem_range, sizeof(mem_range));
       mtcp_sys_close(pipefd_in[1]); // close writing end of pipe
+      // Read full info struct from stdout of lh_proxy, including orig memRange.
+      mtcp_sys_close(pipefd_out[1]); // close write end of pipe
       if (mtcp_sys_read(pipefd_out[0], &info, sizeof info) < sizeof info) {
         MTCP_PRINTF("Read fewer bytes than expected");
         break;
       }
       mtcp_sys_close(pipefd_out[0]);
+    }
   }
   return childpid;
 }
@@ -243,6 +241,7 @@ setLhMemRange()
     mtcp_abort();
   }
   // FIXME:  The next two lines will go away when g_lh_mem_range not needed.
+  //         splitProcess() can return the lh_info struct to mtcp_restart.
   g_lh_mem_range = &g_lh_mem_range_buf;
   *g_lh_mem_range = lh_mem_range;
   return lh_mem_range;
@@ -273,10 +272,14 @@ initializeLowerHalf()
     while (*evp++ != NULL);
     auxvec = (ElfW(auxv_t) *) evp;
   }
-  setLhMemRange();
   JUMP_TO_LOWER_HALF(info.fsaddr);
   resetMmaps();
+  // Set the auxiliary vector to correspond to the values of the lower half
+  // (which is statically linked, unlike the upper half). Without this, glibc
+  // will get confused during the initialization.
   patchAuxv(auxvec, info.lh_AT_PHNUM, info.lh_AT_PHDR, 1);
+  // Save upper half's ucontext_t in a global object in the lower half, as
+  // specified by the info.g_appContext pointer
   getcontext((ucontext_t*)info.g_appContext);
 
   if (!lh_initialized) {

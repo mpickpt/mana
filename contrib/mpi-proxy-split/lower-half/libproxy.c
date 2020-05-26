@@ -174,44 +174,6 @@ mydlsym(enum MPI_Fncs fnc)
   return MPI_Fnc_Ptrs[fnc];
 }
 
-// FIXME:  This will replace ../split_process.cpp:setLhMemRange()
-//         Delete ../split_process.cpp:setLhMemRange() when not needed.
-// Sets the address range for the lower half. The lower half gets a fixed
-// address range of 1 GB at a high address before the stack region of the
-// current process. All memory allocations done by the lower half are restricted
-// to the specified address range.
-static MemRange_t
-setLhMemRange()
-{
-  const uint64_t ONE_GB = 0x40000000;
-  const uint64_t TWO_GB = 0x80000000;
-  Area area;
-  int found = 0;
-  int mapsfd = open("/proc/self/maps", O_RDONLY);
-  if (mapsfd < 0) {
-    DLOG(ERROR, "Failed to open proc maps");
-    exit(1);
-  }
-  while (readMapsLine(mapsfd, &area)) {
-    if (strstr(area.name, "[stack]")) {
-      found = 1;
-      break;
-    }
-  }
-  close(mapsfd);
-
-  MemRange_t lh_mem_range;
-  // FIXME:  If the lh_mem_range that is read is valid, then
-  //   read from stdin.  Else it has NULL entries, and we'll add defaults.
-  //   Eventually, we should use the other setLhMemRange, and use this
-  //   only to set info.  And then we don't need to read "[stack]" of lower half
-  // mtcp_split_process.c:startProxy() wrote forked and wrote to our stdin.
-  read(0, &lh_mem_range, sizeof(lh_mem_range));
-  lh_mem_range.start = (VA)area.addr - TWO_GB;
-  lh_mem_range.end = (VA)area.addr - ONE_GB;
-  return lh_mem_range;
-}
-
 __attribute__((constructor))
 void first_constructor()
 {
@@ -224,7 +186,7 @@ void first_constructor()
     // Pre-initialize this component of lh_info.
     // mtcp_restart analyzes the memory layout, and then writes this to us.
     // lh_memRange is the memory range to be used for any mmap's by lower half.
-    lh_memRange = read(0, &lh_memRange, sizeof(lh_memRange));
+    read(0, &lh_memRange, sizeof(lh_memRange));
 
     unsigned long start, end, stackstart;
     unsigned long pstart, pend, pstackstart;
