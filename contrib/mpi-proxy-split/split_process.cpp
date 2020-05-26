@@ -232,9 +232,16 @@ read_lh_proxy_bits(pid_t childpid)
 static pid_t
 startProxy()
 {
-  int pipefd[2] = {0};
+  int pipefd_in[2] = {0};
+  int pipefd_out[2] = {0};
+  int ret = -1;
+  int mtcp_sys_errno;
 
-  if (pipe(pipefd) < 0) {
+  if (pipe(pipefd_in) < 0) {
+    JWARNING(false)(JASSERT_ERRNO).Text("Failed to create pipe");
+    return -1;
+  }
+  if (pipe(pipefd_out) < 0) {
     JWARNING(false)(JASSERT_ERRNO).Text("Failed to create pipe");
     return -1;
   }
@@ -247,15 +254,22 @@ startProxy()
 
     case 0:
     {
-      close(pipefd[0]); // close reading end of pipe
-      char buf[10];
-      snprintf(buf, sizeof buf, "%d", pipefd[1]); // write end of pipe
+      dup2(pipefd_out[1], 1); // Will write lh_info to stdout.
+      close(pipefd_out[1]);
+      close(pipefd_out[0]); // Close reading end of pipe.
+
       dmtcp::string nockpt = dmtcp::Util::getPath("dmtcp_nocheckpoint");
       dmtcp::string progname = dmtcp::Util::getPath("lh_proxy");
       char* const args[] = {const_cast<char*>(nockpt.c_str()),
                             const_cast<char*>(progname.c_str()),
-                            const_cast<char*>(buf),
                             NULL};
+
+      // Move reading end of pipe to stadin of lh_proxy.
+      // Can then write pipefd_out[1] to lh_proxy.
+      //   (But that would be better if lh_proxy simply wrote to stdout.)
+      // Then, lh_proxy can read lh_mem_range (type: MemRange_t).
+      dup2(pipefd_in[0], 0);
+      close(pipefd_in[0]);
 
       personality(ADDR_NO_RANDOMIZE);
       JWARNING(execvp(args[0], args) != -1)(JASSERT_ERRNO)
@@ -336,7 +350,7 @@ initializeLowerHalf()
   libcFptr_t fnc = (libcFptr_t)info.libc_start_main;
 
   // Save the pointer to mydlsym() function in the lower half. This will be
-  // used in all the wrappers
+  // used in all the mpi-wrappers.
   pdlsym = (proxyDlsym_t)info.lh_dlsym;
   resetMmappedList_t resetMaps = (resetMmappedList_t)info.resetMmappedListFptr;
 
