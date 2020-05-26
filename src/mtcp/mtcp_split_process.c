@@ -163,8 +163,10 @@ startProxy(char *argv0, char **envp)
 
     case 0: // in child
     {
-      mtcp_sys_close(pipefd_out[0]); // close reading end of pipe
-      // FIXME:  This could be done more simply by writing to stdin of lh_proxy.
+      mtcp_sys_dup2(pipefd_out[1], 1); // Will write lh_info to stdout.
+      mtcp_sys_close(pipefd_out[1]);
+      mtcp_sys_close(pipefd_out[0]); // Close reading end of pipe.
+      // FIXME:  Remove buf after verifying can write to stdout instead.
       char buf[10];
       mtcp_itoa(pipefd_out[1], buf);
       char* args[] = {"NO_SUCH_EXECUTABLE", buf, NULL};
