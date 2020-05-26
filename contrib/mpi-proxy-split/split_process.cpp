@@ -36,7 +36,7 @@ static int mmap_iov(const struct iovec *, int );
 static int read_lh_proxy_bits(pid_t );
 static pid_t startProxy();
 static int initializeLowerHalf();
-static void setLhMemRange();
+static MemRange_t setLhMemRange();
 
 #if 0
 // TODO: Code to compile the lower half at runtime to adjust for differences
@@ -263,15 +263,20 @@ startProxy()
       break;
     }
 
-    default:
-      // in parent
-      close(pipefd[1]); // we won't be needing write end of pipe
-      if (read(pipefd[0], &info, sizeof info) < sizeof info) {
+    default: // in parent
+    {
+      // Write memory range for mmap's by lower half to stdin of lh_proxy.
+      MemRange_t mem_range = setLhMemRange();
+      write(pipefd_in[1], &mem_range, sizeof(mem_range));
+      close(pipefd_in[1]); // close writing end of pipe
+      // Read full info struct from stdout of lh_proxy, including orig memRange.
+      close(pipefd_out[1]); // close write end of pipe
+      if (read(pipefd_out[0], &info, sizeof info) < sizeof info) {
         JWARNING(false)(JASSERT_ERRNO) .Text("Read fewer bytes than expected");
         break;
       }
-      close(pipefd[0]);
-      break;
+      close(pipefd_out[0]);
+    } 
   }
   return childpid;
 }
@@ -280,7 +285,7 @@ startProxy()
 // address range of 1 GB at a high address before the stack region of the
 // current process. All memory allocations done by the lower half are restricted
 // to the specified address range.
-static void
+static MemRange_t
 setLhMemRange()
 {
   const uint64_t ONE_GB = 0x40000000;
@@ -289,8 +294,7 @@ setLhMemRange()
   bool found = false;
   int mapsfd = open("/proc/self/maps", O_RDONLY);
   if (mapsfd < 0) {
-    JWARNING(false)(JASSERT_ERRNO).Text("Failed to open proc maps");
-    return;
+    JASSERT(false)(JASSERT_ERRNO).Text("Failed to open proc maps");
   }
   while (readMapsLine(mapsfd, &area)) {
     if (strstr(area.name, "[stack]")) {
@@ -299,12 +303,18 @@ setLhMemRange()
     }
   }
   close(mapsfd);
-  if (found && g_range == NULL) {
-    // Fill in info.memRange
-    g_range = &info.memRange;
-    g_range->start = (VA)area.addr - TWO_GB;
-    g_range->end = (VA)area.addr - ONE_GB;
+  static MemRange_t lh_mem_range;
+  if (found) {
+    lh_mem_range.start = (VA)area.addr - TWO_GB;
+    lh_mem_range.end = (VA)area.addr - ONE_GB;
+  } else {
+    JASSERT(false).Text("Failed to find [stack] memory segment\n");
   }
+  // FIXME:  These next two lines will go away when g_lh_mem_range not needed.
+  //         splitProcess() can return the lh_info struct to mtcp_restart.
+  // g_lh_mem_range = &g_lh_mem_range_buf;
+  // *g_lh_mem_range = lh_mem_range;
+  return lh_mem_range;
 }
 
 // Initializes the libraries (libc, libmpi, etc.) of the lower half
@@ -337,7 +347,6 @@ initializeLowerHalf()
     while (*evp++ != NULL);
     auxvec = (ElfW(auxv_t) *) evp;
   }
-  setLhMemRange();
   JUMP_TO_LOWER_HALF(info.fsaddr);
   // Clear any saved mappings in the lower half
   resetMaps();

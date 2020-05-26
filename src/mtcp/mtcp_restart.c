@@ -466,9 +466,9 @@ main(int argc, char *argv[], char **environ)
       //   the end of stack in the lower half.
       // One gigabyte below those mmaps of the lower half, we are creating space
       //   for the GNI driver data, to be created when the GNI library runs.
-      // FIXME:  Create pointer argument (out parameter) in setLhMemRange(),
-      //    initializeLowerHalf, splitProcess, etc., to remove global variable.
       // This says that we have to reserve only up to the mtcp_restart stack.
+      // FIXME:  splitProcess() should return the lh_info struct.
+      //         Then we can use 'lh_info.memRange->start', below.
       end1 = g_lh_mem_range->start - 1 * GB;
       // start2 == end2:  So, this will not be used.
       start2 = 0;

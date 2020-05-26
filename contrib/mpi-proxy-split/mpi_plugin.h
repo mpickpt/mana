@@ -30,7 +30,6 @@
 extern struct LowerHalfInfo_t info;
 extern int g_numMmaps;
 extern MmapInfo_t *g_list;
-extern MemRange_t *g_range;
 
 // Pointer to the custom dlsym implementation (see mydlsym() in libproxy.c) in
 // the lower half. This is initialized using the information passed to us by

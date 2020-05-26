@@ -23,7 +23,6 @@ LowerHalfInfo_t info;
 
 int g_numMmaps = 0;
 MmapInfo_t *g_list = NULL;
-MemRange_t *g_range = NULL;
 
 // #define DEBUG
 
