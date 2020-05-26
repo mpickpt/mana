@@ -221,8 +221,10 @@ void first_constructor()
     DLOG(NOISE, "(1) Constructor: We'll pass information to the parent.\n");
     firstTime = 0;
 
-    // Pre-initialize this component of lh_info
-    lh_memRange = setLhMemRange();  
+    // Pre-initialize this component of lh_info.
+    // mtcp_restart analyzes the memory layout, and then writes this to us.
+    // lh_memRange is the memory range to be used for any mmap's by lower half.
+    lh_memRange = read(0, &lh_memRange, sizeof(lh_memRange));
 
     unsigned long start, end, stackstart;
     unsigned long pstart, pend, pstackstart;
@@ -262,16 +264,10 @@ void first_constructor()
     lh_info.resetMmappedListFptr = (void*)&resetMmappedList;
     lh_info.memRange = lh_memRange;
     DLOG(INFO, "startTxt: %p, endTxt: %p, startData: %p, endOfHeap; %p\n",
-         lh_info.startTxt, lh_info.endTxt, lh_info.startData, lh_info.endOfHeap);
-    int pipefd = argc > 1 ? atoi(argv[1]) : -1;
+        lh_info.startTxt, lh_info.endTxt, lh_info.startData, lh_info.endOfHeap);
 
-    if (!isValidFd(pipefd)) { // run standalone, if no pipefd
-      DLOG(ERROR, "No valid pipe fd found! Exiting...\n");
-      exit(1);
-    }
-
-    write(pipefd, &lh_info, sizeof lh_info);
-    close(pipefd);
+    // Write lh_info to stadout, for mtcp_split_process.c to read.
+    write(1, &lh_info, sizeof lh_info);
     // It's okay to have an infinite loop here.  Our parent has promised to
     // kill us after it copies our bits.  So, this child doesn't need to exit.
     while(1);
