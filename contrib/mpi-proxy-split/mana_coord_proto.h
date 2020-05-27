@@ -1,6 +1,8 @@
 #ifndef _MANA_COORD_PROTO_
 #define _MANA_COORD_PROTO_
 
+#include <atomic>
+
 // Key-value database containing the counts of sends, receives, and unserviced
 // sends for each rank
 // Mapping is (rank -> send_recv_totals_t)
@@ -58,8 +60,8 @@ typedef struct __wr_counts
 typedef struct __send_recv_totals
 {
   int rank;         // MPI rank
-  uint64_t sends;   // Number of completed sends
-  uint64_t recvs;   // Number of completed receives
+  std::atomic<uint64_t> sends;   // Number of completed sends
+  std::atomic<uint64_t> recvs;   // Number of completed receives
   int countSends;   // Number of unserviced sends
 } send_recv_totals_t;
 

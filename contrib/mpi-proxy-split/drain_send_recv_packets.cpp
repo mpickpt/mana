@@ -25,7 +25,6 @@ using namespace dmtcp;
 using mutex_t = std::mutex;
 using lock_t  = std::unique_lock<mutex_t>;
 
-static mutex_t srMutex;    // Lock to protect the global 'localSrCount' object
 static mutex_t logMutex;   // Lock to protect the global 'g_async_calls' object
 static send_recv_totals_t localSrCount; // Stores the counts of local send/recv/unserviced send calls
 static vector<send_recv_totals_t> remoteSrCounts; // TODO: Remove this?
@@ -214,17 +213,13 @@ registerLocalSendsAndRecvs()
 void
 updateLocalSends()
 {
-  // TODO: Use C++ atomics
-  lock_t lock(srMutex);
-  localSrCount.sends += 1;
+  localSrCount.sends++;
 }
 
 void
 updateLocalRecvs()
 {
-  // TODO: Use C++ atomics
-  lock_t lock(srMutex);
-  localSrCount.recvs += 1;
+  localSrCount.recvs++;
 }
 
 void
