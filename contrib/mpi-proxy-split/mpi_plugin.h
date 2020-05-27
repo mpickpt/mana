@@ -2,7 +2,7 @@
 #define _MPI_PLUGIN_H
 
 #include <mpi.h>
-#include <stdint.h>
+#include <cstdint>
 
 #include "lower_half_api.h"
 #include "dmtcp_dlsym.h"
