@@ -170,7 +170,7 @@ TwoPhaseAlgo::waitForFreePass(MPI_Comm comm)
 {
   // This is called by stop() in phase-2
   lock_t lock(_freePassMutex);
-  _freePassCv.wait(lock, [=]{ return this->_freePass; });
+  _freePassCv.wait(lock, [this]{ return _freePass; });
   bool tmp = _freePass;
   _freePass = false; // Clear out free pass for next checkpoint
   return tmp;
@@ -189,10 +189,10 @@ phase_t
 TwoPhaseAlgo::waitForSafeState()
 {
   lock_t lock(_phaseMutex);
-  _phaseCv.wait(lock, [=]{ return _currState == PHASE_1 ||
-                                  _currState == PHASE_2 ||
-                                  _currState == READY_FOR_CKPT ||
-                                  _currState == IN_CS;});
+  _phaseCv.wait(lock, [this]{ return _currState == PHASE_1 ||
+                                     _currState == PHASE_2 ||
+                                     _currState == READY_FOR_CKPT ||
+                                     _currState == IN_CS;});
   return _currState;
 }
 
@@ -200,13 +200,13 @@ phase_t
 TwoPhaseAlgo::waitForFreePassToTakeEffect(phase_t oldState)
 {
   lock_t lock(_phaseMutex);
-  _phaseCv.wait(lock, [=]{ return _currState == READY_FOR_CKPT ||
-                                  _currState == IN_CS ||
-                                  (oldState == PHASE_2 &&
-                                   _currState == PHASE_1) ||
-                                  (oldState == PHASE_1 &&
-                                   _currState == PHASE_2) ||
-                                  _currState == IS_READY;});
+  _phaseCv.wait(lock, [this, oldState]{ return _currState == READY_FOR_CKPT ||
+                                               _currState == IN_CS ||
+                                               (oldState == PHASE_2 &&
+                                                _currState == PHASE_1) ||
+                                               (oldState == PHASE_1 &&
+                                                _currState == PHASE_2) ||
+                                               _currState == IS_READY;});
   return _currState;
 }
 
