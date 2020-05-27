@@ -27,14 +27,7 @@
 #define PMPI_IMPL(ret, func, ...)                               \
   EXTERNC ret P##func(__VA_ARGS__) __attribute__ ((weak, alias (#func)));
 
-extern struct LowerHalfInfo_t info;
 extern int g_numMmaps;
 extern MmapInfo_t *g_list;
-
-// Pointer to the custom dlsym implementation (see mydlsym() in libproxy.c) in
-// the lower half. This is initialized using the information passed to us by
-// the transient lh_proxy process in DMTCP_EVENT_INIT.
-extern proxyDlsym_t pdlsym;
-
 
 #endif // ifndef _MPI_PLUGIN_H

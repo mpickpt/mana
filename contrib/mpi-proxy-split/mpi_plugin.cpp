@@ -18,9 +18,6 @@ using namespace dmtcp;
 
 /* Global variables */
 
-proxyDlsym_t pdlsym;
-LowerHalfInfo_t info;
-
 int g_numMmaps = 0;
 MmapInfo_t *g_list = NULL;
 
