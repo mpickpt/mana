@@ -21,7 +21,6 @@
 
 #include "jassert.h"
 #include "lower_half_api.h"
-#include "mpi_plugin.h"
 #include "split_process.h"
 #include "procmapsutils.h"
 #include "util.h"
@@ -29,6 +28,8 @@
 
 static unsigned long origPhnum;
 static unsigned long origPhdr;
+LowerHalfInfo_t info;
+proxyDlsym_t pdlsym; // initialized to (proxyDlsym_t)info.lh_dlsym
 
 static unsigned long getStackPtr();
 static void patchAuxv(ElfW(auxv_t) *, unsigned long , unsigned long , int );
@@ -279,11 +280,11 @@ startProxy()
 
     default: // in parent
     {
-      // Write memory range for mmap's by lower half to stdin of lh_proxy.
+      // Write to stdin of lh_proxy the memory range for mmap's by lower half
       MemRange_t mem_range = setLhMemRange();
       write(pipefd_in[1], &mem_range, sizeof(mem_range));
       close(pipefd_in[1]); // close writing end of pipe
-      // Read full info struct from stdout of lh_proxy, including orig memRange.
+      // Read from stdout of lh_proxy full info struct, including orig memRange.
       close(pipefd_out[1]); // close write end of pipe
       if (read(pipefd_out[0], &info, sizeof info) < sizeof info) {
         JWARNING(false)(JASSERT_ERRNO) .Text("Read fewer bytes than expected");
