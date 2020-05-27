@@ -91,6 +91,16 @@ typedef void* (*updateEnviron_t)(char **environ);
 typedef MmapInfo_t* (*getMmappedList_t)(int *num);
 typedef void (*resetMmappedList_t)();
 
+// Global variables with lower-half information
+
+// startProxy() (called from splitProcess()) will initialize 'info'
+extern struct LowerHalfInfo_t info;
+// Pointer to the custom dlsym implementation (see mydlsym() in libproxy.c) in
+// the lower half. This is initialized using the information passed to us by
+// the transient lh_proxy process in DMTCP_EVENT_INIT.
+// initializeLowerHalf() will initialize this to: (proxyDlsym_t)info.lh_dlsym
+extern proxyDlsym_t pdlsym;
+
 // API
 
 // Returns the address of an MPI API in the lower half's MPI library based on

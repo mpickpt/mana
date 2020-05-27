@@ -22,12 +22,19 @@
 
 int mtcp_sys_errno;
 LowerHalfInfo_t info;
+// FIXME:  The value of pdlsym must be passed from mtcp_restart to
+//         the upper half, so that NEXT_FNC() in mpi-wrappers in libmana.so in 
+//         can use the updated pdlsym in case the address of the lower half
+//         in the restarted process has changed.
+//         But the lower half is loaded at a fixed address.  So, the address of
+//         pdlsym can be a fixed address that is unused by the upper half.
+//         In this case, we don't need to pass pdlsym to the upper half.
+static proxyDlsym_t pdlsym; // initialized to (proxyDlsym_t)info.lh_dlsym
 MemRange_t *g_lh_mem_range = NULL;
 static MemRange_t g_lh_mem_range_buf;
 
 static unsigned long origPhnum;
 static unsigned long origPhdr;
-static proxyDlsym_t pdlsym;
 
 static void patchAuxv(ElfW(auxv_t) *, unsigned long , unsigned long , int );
 static int mmap_iov(const struct iovec *, int );
