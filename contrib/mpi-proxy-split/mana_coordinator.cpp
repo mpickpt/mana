@@ -247,15 +247,15 @@ allRanksReady(const ClientToStateMap& clientStates, long int size)
 {
   int numReadyRanks =
         std::count_if(clientStates.begin(), clientStates.end(),
-                      [=](const RankKVPair& elt)
+                      [](const RankKVPair& elt)
                       { return elt.second.st == IS_READY; });
   int numPhase1Ranks =
         std::count_if(clientStates.begin(), clientStates.end(),
-                      [=](const RankKVPair& elt)
+                      [](const RankKVPair& elt)
                       { return elt.second.st == PHASE_1; });
   int numPhase2Ranks =
         std::count_if(clientStates.begin(), clientStates.end(),
-                      [=](const RankKVPair& elt)
+                      [](const RankKVPair& elt)
                       { return elt.second.st == PHASE_2; });
   return ((numReadyRanks + numPhase1Ranks) == size) ||
          ((numReadyRanks + numPhase1Ranks + numPhase2Ranks) == size) ||
