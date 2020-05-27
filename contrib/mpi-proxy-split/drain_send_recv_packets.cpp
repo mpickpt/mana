@@ -289,7 +289,7 @@ isBufferedPacket(int source, int tag, MPI_Comm comm, int *flag,
 {
   bool ret = false;
   auto req = std::find_if(g_message_queue.begin(), g_message_queue.end(),
-                          [=](const mpi_message_t *msg)
+                          [source, tag, comm](const mpi_message_t *msg)
                           { return ((msg->status.MPI_SOURCE == source) ||
                                     (source == MPI_ANY_SOURCE)) &&
                                    ((msg->status.MPI_TAG == tag) ||
@@ -324,7 +324,7 @@ consumeBufferedPacket(void *buf, int count, MPI_Datatype datatype,
   int cpysize;
   mpi_message_t *foundMsg = NULL;
   auto req = std::find_if(g_message_queue.begin(), g_message_queue.end(),
-                          [=](const mpi_message_t *msg)
+                          [source, tag, comm](const mpi_message_t *msg)
                           { return ((msg->status.MPI_SOURCE == source) ||
                                     (source == MPI_ANY_SOURCE)) &&
                                    ((msg->status.MPI_TAG == tag) ||
@@ -445,7 +445,7 @@ resolve_async_messages()
           // Send completed successfully
           g_unsvcd_sends.erase(std::remove_if(g_unsvcd_sends.begin(),
                                               g_unsvcd_sends.end(),
-                                              [=](const mpi_call_params_t &p)
+                                              [call](const mpi_call_params_t &p)
                                               {
                                                 return memcmp(&p,
                                                               &call->params,
