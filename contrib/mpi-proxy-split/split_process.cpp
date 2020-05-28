@@ -320,8 +320,13 @@ setLhMemRange()
   close(mapsfd);
   static MemRange_t lh_mem_range;
   if (found) {
+#if !defined(USE_MANA_LH_FIXED_ADDRESS)
     lh_mem_range.start = (VA)area.addr - TWO_GB;
     lh_mem_range.end = (VA)area.addr - ONE_GB;
+#else
+    lh_mem_range.start = 0x2aab00000000;
+    lh_mem_range.end =   0x2aab00000000 + ONE_GB;
+#endif
   } else {
     JASSERT(false).Text("Failed to find [stack] memory segment\n");
   }
