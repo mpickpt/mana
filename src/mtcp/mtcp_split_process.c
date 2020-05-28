@@ -239,7 +239,7 @@ setLhMemRange()
 
   int found = getMappedArea(&area, "[stack]");
   if (found) {
-#if !defined(USE_MANA_LH_FIXED_ADDRESS)
+#if !defined(MANA_USE_LH_FIXED_ADDRESS)
     lh_mem_range.start = (VA)area.addr - TWO_GB;
     lh_mem_range.end = (VA)area.addr - ONE_GB;
 #else
