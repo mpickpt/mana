@@ -268,7 +268,12 @@ mtcp_writememoryareas(int fd)
        * Posix and SysV shared memory segments can be mapped as /XYZ
        */
     }
-
+    /* Check if the area is a huge page
+     * If yes, add MAP_HUGETLB to the flags
+     */
+    if(strstr(area.name, "anon_hugepage")){
+      area.flags|=MAP_HUGETLB;
+    }
     /* Force the anonymous flag if it's a private writeable section, as the
      * data has probably changed from the contents of the original images.
      */
