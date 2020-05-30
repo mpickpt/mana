@@ -186,6 +186,25 @@ startProxy(char *argv0, char **envp)
   return childpid;
 }
 
+int
+getMappedArea(Area *area, char *name) {
+  Area area_map;
+  int mapsfd = mtcp_sys_open2("/proc/self/maps", O_RDONLY);
+  if (mapsfd < 0) {
+    DPRINTF("Failed to open proc maps\n");
+    mtcp_abort();
+  }
+  while (mtcp_readmapsline(mapsfd, &area_map)) {
+    if (mtcp_strstr(area_map.name, name)) {
+      *area = area_map;
+      mtcp_sys_close(mapsfd);
+      return 1; // found
+    }
+  }
+  mtcp_sys_close(mapsfd);
+  return 0; // not found
+}
+
 static void
 setLhMemRange()
 {
@@ -193,20 +212,8 @@ setLhMemRange()
 
   const uint64_t ONE_GB = 0x40000000;
   const uint64_t TWO_GB = 0x80000000;
-  int found = 0;
 
-  int mapsfd = mtcp_sys_open2("/proc/self/maps", O_RDONLY);
-  if (mapsfd < 0) {
-    DPRINTF("Failed to open proc maps\n");
-    return;
-  }
-  while (mtcp_readmapsline(mapsfd, &area)) {
-    if (mtcp_strstr(area.name, "[stack]")) {
-      found = 1;
-      break;
-    }
-  }
-  mtcp_sys_close(mapsfd);
+  int found = getMappedArea(&area, "[stack]");
   if (found && g_lh_mem_range == NULL) {
     g_lh_mem_range = (MemRange_t*)info.memRange;
     g_lh_mem_range->start = (VA)area.addr - TWO_GB;
