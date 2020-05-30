@@ -479,5 +479,6 @@ typedef void (*resetMmappedList_t)();
 typedef MmapInfo_t* (*getMmappedList_t)(int *num);
 
 extern int splitProcess(char *argv0, char **envp);
+int getMappedArea(Area *area, char *name);
 
 #endif // ifndef MTCP_SPLIT_PROCESS_H
