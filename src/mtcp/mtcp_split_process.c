@@ -205,19 +205,22 @@ getMappedArea(Area *area, char *name) {
   return 0; // not found
 }
 
-static void
+static MemRange_t
 setLhMemRange()
 {
   Area area;
 
   const uint64_t ONE_GB = 0x40000000;
   const uint64_t TWO_GB = 0x80000000;
+  MemRange_t lh_mem_range;
 
   int found = getMappedArea(&area, "[stack]");
-  if (found && g_lh_mem_range == NULL) {
-    g_lh_mem_range = (MemRange_t*)info.memRange;
-    g_lh_mem_range->start = (VA)area.addr - TWO_GB;
-    g_lh_mem_range->end = (VA)area.addr - ONE_GB;
+  if (found) {
+    lh_mem_range.start = (VA)area.addr - TWO_GB;
+    lh_mem_range.end = (VA)area.addr - ONE_GB;
+  } else {
+    DPRINTF("Failed to find [stack] memory segment\n");
+    mtcp_abort();
   }
 }
 
