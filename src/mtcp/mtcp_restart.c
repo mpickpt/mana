@@ -503,6 +503,7 @@ main(int argc, char *argv[], char **environ)
     } else {
       MTCP_PRINTF("Upper half high end of libs memory too close to stack.\n");
       mtcp_abort();
+# endif
     }
 #else
     // ***** These constants are hardwired for Cori in May, 2020 *****
