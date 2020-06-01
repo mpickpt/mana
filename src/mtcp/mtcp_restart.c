@@ -111,7 +111,7 @@ void restore_libc(ThreadTLSInfo *tlsInfo,
                   int tls_tid_offset,
                   MYINFO_GS_T myinfo_gs);
 static void unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo,
-                                                LowerHalfInfo_t *info);
+                                                LowerHalfInfo_t *lh_info);
 
 
 #define MB                 1024 * 1024
@@ -521,8 +521,8 @@ main(int argc, char *argv[], char **environ)
     typedef int (*getRankFptr_t)(void);
     int rank = -1;
     beforeLoadingGniDriverBlacklistAddresses(start1, end1, start2, end2);
-    JUMP_TO_LOWER_HALF(info.fsaddr);
-    rank = ((getRankFptr_t)info.getRankFptr)();
+    JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+    rank = ((getRankFptr_t)lh_info.getRankFptr)();
     RETURN_TO_UPPER_HALF();
     afterLoadingGniDriverUnblacklistAddresses(start1, end1, start2, end2);
 
@@ -871,7 +871,7 @@ restart_fast_path()
    * We call restorememoryareas_fptr(), which points to the copy of the
    * function in higher memory.  We will be unmapping the original fnc.
    */
-  rinfo.restorememoryareas_fptr(&rinfo, &info);
+  rinfo.restorememoryareas_fptr(&rinfo, &lh_info);
 
   /* NOTREACHED */
 }
@@ -880,7 +880,7 @@ NO_OPTIMIZE
 static void
 restart_slow_path()
 {
-  restorememoryareas(&rinfo, &info);
+  restorememoryareas(&rinfo, &lh_info);
 }
 
 // Used by util/readdmtcp.sh
@@ -959,7 +959,7 @@ restorememoryareas(RestoreInfo *rinfo_ptr, LowerHalfInfo_t *linfo_ptr)
 
   if (rinfo_ptr->use_gdb) {
     MTCP_PRINTF("Called with --use-gdb.  A useful command is:\n"
-                "    (gdb) info proc mapping");
+                "    (gdb) lh_info proc mapping");
     if (rinfo_ptr->text_offset != -1) {
       MTCP_PRINTF("Called with --text-offset 0x%x.  A useful command is:\n"
                   "(gdb) add-symbol-file ../../bin/mtcp_restart %p\n",
@@ -1056,23 +1056,23 @@ restorememoryareas(RestoreInfo *rinfo_ptr, LowerHalfInfo_t *linfo_ptr)
 }
 
 static int
-skip_lh_memory_region_ckpting(const Area *area, LowerHalfInfo_t *info)
+skip_lh_memory_region_ckpting(const Area *area, LowerHalfInfo_t *lh_info)
 {
   static MmapInfo_t *g_list = NULL;
   static int g_numMmaps = 0;
   int i = 0;
 
-  getMmappedList_t fnc = (getMmappedList_t)info->getMmappedListFptr;
+  getMmappedList_t fnc = (getMmappedList_t)lh_info->getMmappedListFptr;
   if (fnc) {
     g_list = fnc(&g_numMmaps);
   }
-  if (area->addr == info->startText ||
+  if (area->addr == lh_info->startText ||
       mtcp_strstr(area->name, "/dev/zero") ||
       mtcp_strstr(area->name, "/dev/kgni") ||
       mtcp_strstr(area->name, "/dev/xpmem") ||
       mtcp_strstr(area->name, "/dev/shm") ||
       mtcp_strstr(area->name, "/SYS") ||
-      area->addr == info->startData) {
+      area->addr == lh_info->startData) {
     return 1;
   }
   if (!g_list) return 0;
@@ -1092,7 +1092,7 @@ skip_lh_memory_region_ckpting(const Area *area, LowerHalfInfo_t *info)
 
 NO_OPTIMIZE
 static void
-unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo, LowerHalfInfo_t *info)
+unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo, LowerHalfInfo_t *lh_info)
 {
   /* Unmap everything except this image, vdso, vvar and vsyscall. */
   int mtcp_sys_errno;
@@ -1138,7 +1138,7 @@ unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo, LowerHalfInfo_t *info)
       // Do not unmap shm region created by MPI
       // FIXME: It's possible that this region conflicts with some region
       //        in the checkpoint image.
-    } else if (skip_lh_memory_region_ckpting(&area, info)) {
+    } else if (skip_lh_memory_region_ckpting(&area, lh_info)) {
       // Do not unmap lower half
       DPRINTF("Skipping lower half memory section: %p-%p\n",
               area.addr, area.endAddr);
