@@ -93,12 +93,12 @@ typedef void (*resetMmappedList_t)();
 
 // Global variables with lower-half information
 
-// startProxy() (called from splitProcess()) will initialize 'info'
-extern LowerHalfInfo_t info;
+// startProxy() (called from splitProcess()) will initialize 'lh_info'
+extern LowerHalfInfo_t lh_info;
 // Pointer to the custom dlsym implementation (see mydlsym() in libproxy.c) in
 // the lower half. This is initialized using the information passed to us by
 // the transient lh_proxy process in DMTCP_EVENT_INIT.
-// initializeLowerHalf() will initialize this to: (proxyDlsym_t)info.lh_dlsym
+// initializeLowerHalf() will initialize this to: (proxyDlsym_t)lh_info.lh_dlsym
 extern proxyDlsym_t pdlsym;
 
 // API

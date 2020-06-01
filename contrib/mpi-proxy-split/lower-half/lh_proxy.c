@@ -12,7 +12,7 @@
 int main(int argc, char **argv, char **envp)
 {
   if (argc >= 1) { // run standalone, if no pipefd
-    // info is defined in lastlib.c
+    // lh_info is defined in split-process.cpp
     DLOG(INFO, "startText: %p, endText: %p, endOfHeap: %p\n",
          lh_info.startText, lh_info.endText, lh_info.endOfHeap);
     // We're done initializing; jump back to the upper half

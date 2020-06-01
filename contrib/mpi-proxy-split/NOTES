@@ -7,15 +7,15 @@
 
 1) We assume the following memory layout.
 
-   0x40000 -->  +------------------+  --> info.startText
+   0x40000 -->  +------------------+  --> lh_info.startText
                 |       R-X        |
-   0x48000 -->  +------------------+  --> info.endText
+   0x48000 -->  +------------------+  --> lh_info.endText
                 |                  |
-   0x50000 -->  +------------------+  --> info.startData
+   0x50000 -->  +------------------+  --> lh_info.startData
                 |       R--        |
                 |       RW-        |
                 |      [heap]      |
-   0x60000 -->  +------------------+  --> info.endOfHeap
+   0x60000 -->  +------------------+  --> lh_info.endOfHeap
 
    Note that the addresses shown above are just for example purposes. The upper
    half doesn't assume any fixed addresses.
