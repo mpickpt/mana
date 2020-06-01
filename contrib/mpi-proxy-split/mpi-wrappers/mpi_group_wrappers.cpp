@@ -17,7 +17,7 @@ USER_DEFINED_WRAPPER(int, Comm_group, (MPI_Comm) comm, (MPI_Group *) group)
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-  JUMP_TO_LOWER_HALF(info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Comm_group)(realComm, group);
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS && LOGGING()) {
@@ -34,7 +34,7 @@ USER_DEFINED_WRAPPER(int, Group_size, (MPI_Group) group, (int *) size)
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Group realGroup = VIRTUAL_TO_REAL_GROUP(group);
-  JUMP_TO_LOWER_HALF(info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Group_size)(realGroup, size);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -46,7 +46,7 @@ USER_DEFINED_WRAPPER(int, Group_free, (MPI_Group *) group)
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Group realGroup = VIRTUAL_TO_REAL_GROUP(*group);
-  JUMP_TO_LOWER_HALF(info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Group_free)(&realGroup);
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS && LOGGING()) {
@@ -69,7 +69,7 @@ USER_DEFINED_WRAPPER(int, Group_compare, (MPI_Group) group1,
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Group realGroup1 = VIRTUAL_TO_REAL_GROUP(group1);
   MPI_Group realGroup2 = VIRTUAL_TO_REAL_GROUP(group2);
-  JUMP_TO_LOWER_HALF(info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Group_compare)(realGroup1, realGroup2, result);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -81,7 +81,7 @@ USER_DEFINED_WRAPPER(int, Group_rank, (MPI_Group) group, (int *) rank)
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Group realGroup = VIRTUAL_TO_REAL_GROUP(group);
-  JUMP_TO_LOWER_HALF(info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Group_rank)(realGroup, rank);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -94,7 +94,7 @@ USER_DEFINED_WRAPPER(int, Group_incl, (MPI_Group) group, (int) n,
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Group realGroup = VIRTUAL_TO_REAL_GROUP(group);
-  JUMP_TO_LOWER_HALF(info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Group_incl)(realGroup, n, ranks, newgroup);
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS && LOGGING()) {

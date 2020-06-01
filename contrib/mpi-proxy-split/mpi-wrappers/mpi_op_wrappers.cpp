@@ -18,7 +18,7 @@ USER_DEFINED_WRAPPER(int, Op_create,
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  JUMP_TO_LOWER_HALF(info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Op_create)(user_fn, commute, op);
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS && LOGGING()) {
@@ -38,7 +38,7 @@ USER_DEFINED_WRAPPER(int, Op_free, (MPI_Op*) op)
   if (op) {
     realOp = VIRTUAL_TO_REAL_OP(*op);
   }
-  JUMP_TO_LOWER_HALF(info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Op_free)(&realOp);
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS && LOGGING()) {

@@ -37,13 +37,13 @@ regionContains(const void *haystackStart,
 EXTERNC int
 dmtcp_skip_memory_region_ckpting(const ProcMapsArea *area)
 {
-  if (area->addr == info.startText ||
+  if (area->addr == lh_info.startText ||
       strstr(area->name, "/dev/zero") ||
       strstr(area->name, "/dev/kgni") ||
       strstr(area->name, "/SYSV") ||
       strstr(area->name, "/dev/xpmem") ||
       strstr(area->name, "/dev/shm") ||
-      area->addr == info.startData) {
+      area->addr == lh_info.startData) {
     JTRACE("Ignoring region")(area->name)((void*)area->addr);
     return 1;
   }
@@ -117,11 +117,11 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 static void
 getLhMmapList()
 {
-  getMmappedList_t fnc = (getMmappedList_t)info.getMmappedListFptr;
+  getMmappedList_t fnc = (getMmappedList_t)lh_info.getMmappedListFptr;
   if (fnc) {
     g_list = fnc(&g_numMmaps);
   }
-  JTRACE("Lh region info")(g_numMmaps);
+  JTRACE("Lower half region info")(g_numMmaps);
   for (int i = 0; i < g_numMmaps; i++) {
     JTRACE("Lh region")(g_list[i].addr)(g_list[i].len)(g_list[i].unmapped);
   }
@@ -131,7 +131,7 @@ getLhMmapList()
 static void
 updateLhEnviron()
 {
-  updateEnviron_t fnc = (updateEnviron_t)info.updateEnvironFptr;
+  updateEnviron_t fnc = (updateEnviron_t)lh_info.updateEnvironFptr;
   fnc(__environ);
 }
 

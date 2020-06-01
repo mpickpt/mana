@@ -67,7 +67,7 @@
   {                                                                            \
     rettype retval;                                                            \
     DMTCP_PLUGIN_DISABLE_CKPT();                                               \
-    JUMP_TO_LOWER_HALF(info.fsaddr);                                           \
+    JUMP_TO_LOWER_HALF(lh_info.fsaddr);                                           \
     retval = NEXT_FUNC(name)(APPLY(STRIP, args));                              \
     RETURN_TO_UPPER_HALF();                                                    \
     DMTCP_PLUGIN_ENABLE_CKPT();                                                \
