@@ -30,8 +30,6 @@ LowerHalfInfo_t lh_info;
 //         pdlsym can be a fixed address that is unused by the upper half.
 //         In this case, we don't need to pass pdlsym to the upper half.
 static proxyDlsym_t pdlsym; // initialized to (proxyDlsym_t)lh_info.lh_dlsym
-MemRange_t *g_lh_mem_range = NULL;
-static MemRange_t g_lh_mem_range_buf;
 
 static unsigned long origPhnum;
 static unsigned long origPhdr;
@@ -252,10 +250,6 @@ setLhMemRange()
     DPRINTF("Failed to find [stack] memory segment\n");
     mtcp_abort();
   }
-  // FIXME:  The next two lines will go away when g_lh_mem_range not needed.
-  //         splitProcess() can return the lh_info struct to mtcp_restart.
-  g_lh_mem_range = &g_lh_mem_range_buf;
-  *g_lh_mem_range = lh_mem_range;
   return lh_mem_range;
 }
 

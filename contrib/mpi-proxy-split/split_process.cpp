@@ -330,10 +330,6 @@ setLhMemRange()
   } else {
     JASSERT(false).Text("Failed to find [stack] memory segment\n");
   }
-  // FIXME:  These next two lines will go away when g_lh_mem_range not needed.
-  //         splitProcess() can return the lh_info struct to mtcp_restart.
-  // g_lh_mem_range = &g_lh_mem_range_buf;
-  // *g_lh_mem_range = lh_mem_range;
   return lh_mem_range;
 }
 
