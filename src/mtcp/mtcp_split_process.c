@@ -114,9 +114,9 @@ read_proxy_bits(pid_t childpid)
   const int IOV_SZ = 2;
   struct iovec remote_iov[IOV_SZ];
   // text segment
-  remote_iov[0].iov_base = info.startTxt;
-  remote_iov[0].iov_len = (unsigned long)info.endTxt -
-                          (unsigned long)info.startTxt;
+  remote_iov[0].iov_base = info.startText;
+  remote_iov[0].iov_len = (unsigned long)info.endText -
+                          (unsigned long)info.startText;
   ret = mmap_iov(&remote_iov[0], PROT_READ|PROT_EXEC|PROT_WRITE);
   // data segment
   remote_iov[1].iov_base = info.startData;

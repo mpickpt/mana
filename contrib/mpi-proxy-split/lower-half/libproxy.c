@@ -20,7 +20,7 @@
 #include "procmapsutils.h"
 #include "lower_half_api.h"
 
-struct LowerHalfInfo_t lh_info = {0};
+LowerHalfInfo_t lh_info = {0};
 // This is the allocated buffer for lh_info.memRange
 MemRange_t lh_memRange = {0};
 
@@ -206,8 +206,8 @@ void first_constructor()
     int argc = *(int*)stackstart;
     char **argv = (char**)(stackstart + sizeof(unsigned long));
 
-    lh_info.startTxt = (void*)start;
-    lh_info.endTxt = (void*)end;
+    lh_info.startText = (void*)start;
+    lh_info.endText = (void*)end;
     lh_info.startData = (void*)data.addr;
     lh_info.endOfHeap = (void*)heap.endAddr;
     lh_info.libc_start_main = &__libc_start_main;
@@ -225,8 +225,8 @@ void first_constructor()
     lh_info.getMmappedListFptr = (void*)&getMmappedList;
     lh_info.resetMmappedListFptr = (void*)&resetMmappedList;
     lh_info.memRange = lh_memRange;
-    DLOG(INFO, "startTxt: %p, endTxt: %p, startData: %p, endOfHeap; %p\n",
-        lh_info.startTxt, lh_info.endTxt, lh_info.startData, lh_info.endOfHeap);
+    DLOG(INFO, "startText: %p, endText: %p, startData: %p, endOfHeap; %p\n",
+        lh_info.startText, lh_info.endText, lh_info.startData, lh_info.endOfHeap);
 
     // Write lh_info to stadout, for mtcp_split_process.c to read.
     write(1, &lh_info, sizeof lh_info);

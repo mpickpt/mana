@@ -473,6 +473,34 @@ main(int argc, char *argv[], char **environ)
       // start2 == end2:  So, this will not be used.
       start2 = 0;
       end2 = start2;
+# ifdef MANA_USE_LH_FIXED_ADDRESS
+    } else {
+      // On standard Ubuntu/CentOS libs are mmap'ed downward in memory.
+      // Allow an extra 1 GB for future upper-half libs and mmaps to be loaded.
+      // FIXME:  Will the GNI driver data be allocated below start1?
+      //         If so, fix this to blacklist more than 1 GB.
+      //         The GNI driver data is only used by Cray GNI.
+      //         But lower-half MPI_Init may call additional mmap's not
+      //           controlled by us.
+      //         Check this logic.
+      // NOTE:   setLhMemRange (g_lh_mem_range: future mmap's of lower half)
+      //           was chosen to be in safe memory region
+      // NOTE:   When we mmap start1..end1, we will overwrite the text and
+      //         data segments of ld.so belonging to mtcp_restart.  But
+      //         mtcp_restart is statically linked, and doesn't need it.
+      Area heap_area;
+      MTCP_ASSERT(getMappedArea(&heap_area, "[heap]") == 1);
+      // FIXME:  choose higher of this and g_lh_mem_range->end; // 0x2aab00000000
+      start1 = heap_area.endAddr;
+      // FIXME:  choose lower of this and highMemStart
+      //        and make sure it doesn't intersect with g_lh_mem_range
+      Area stack_area;
+      MTCP_ASSERT(getMappedArea(&stack_area, "[stack]") == 1);
+      end1 = stack_area.endAddr - 4 * GB;
+      // end1 = highMemStart - 4 * GB;
+      start2 = 0;
+      end2 = start2;
+# else
     } else {
       MTCP_PRINTF("Upper half high end of libs memory too close to stack.\n");
       mtcp_abort();
@@ -1038,7 +1066,7 @@ skip_lh_memory_region_ckpting(const Area *area, LowerHalfInfo_t *info)
   if (fnc) {
     g_list = fnc(&g_numMmaps);
   }
-  if (area->addr == info->startTxt ||
+  if (area->addr == info->startText ||
       mtcp_strstr(area->name, "/dev/zero") ||
       mtcp_strstr(area->name, "/dev/kgni") ||
       mtcp_strstr(area->name, "/dev/xpmem") ||
