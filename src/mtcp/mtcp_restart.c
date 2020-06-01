@@ -461,15 +461,13 @@ main(int argc, char *argv[], char **environ)
     char *start1, *start2, *end1, *end2;
     if (libsEnd + 1 * GB < highMemStart /* end of stack of upper half */) {
       start1 = libsStart;    // first lib (ld.so) of upper half
-      // g_lh_mem_range is the memory region for the mmaps of the lower half.
-      // Apparently g_lh_mem_range is a region between 1 GB and 2 GB below
+      // lh_info.memRange is the memory region for the mmaps of the lower half.
+      // Apparently lh_info.memRange is a region between 1 GB and 2 GB below
       //   the end of stack in the lower half.
       // One gigabyte below those mmaps of the lower half, we are creating space
       //   for the GNI driver data, to be created when the GNI library runs.
       // This says that we have to reserve only up to the mtcp_restart stack.
-      // FIXME:  splitProcess() should return the lh_info struct.
-      //         Then we can use 'lh_info.memRange->start', below.
-      end1 = g_lh_mem_range->start - 1 * GB;
+      end1 = lh_info.memRange.start - 1 * GB;
       // start2 == end2:  So, this will not be used.
       start2 = 0;
       end2 = start2;
@@ -483,17 +481,18 @@ main(int argc, char *argv[], char **environ)
       //         But lower-half MPI_Init may call additional mmap's not
       //           controlled by us.
       //         Check this logic.
-      // NOTE:   setLhMemRange (g_lh_mem_range: future mmap's of lower half)
+      // NOTE:   setLhMemRange (lh_info.memRange: future mmap's of lower half)
       //           was chosen to be in safe memory region
       // NOTE:   When we mmap start1..end1, we will overwrite the text and
       //         data segments of ld.so belonging to mtcp_restart.  But
       //         mtcp_restart is statically linked, and doesn't need it.
       Area heap_area;
       MTCP_ASSERT(getMappedArea(&heap_area, "[heap]") == 1);
-      // FIXME:  choose higher of this and g_lh_mem_range->end; // 0x2aab00000000
+      // FIXME:  choose higher of this
+      //           and lh_info.memRange.end; // 0x2aab00000000
       start1 = heap_area.endAddr;
       // FIXME:  choose lower of this and highMemStart
-      //        and make sure it doesn't intersect with g_lh_mem_range
+      //        and make sure it doesn't intersect with lh_info.memRange
       Area stack_area;
       MTCP_ASSERT(getMappedArea(&stack_area, "[stack]") == 1);
       end1 = stack_area.endAddr - 4 * GB;
@@ -513,7 +512,7 @@ main(int argc, char *argv[], char **environ)
     //  const void *end1 = (const void*)0x2aaaaaaf8000;
     //  const size_t len1 = end1 - start1;
     //  const void *start2 = (const void*)0x2aaaaab1b000; // Start of upper half
-    void *end1 = g_lh_mem_range->start; //Start of lower half memory
+    void *end1 = lh_info.memRange.start; //Start of lower half memory
     size_t len1 = end1 - start1;
     char *start2 = 0;
     char *end2 = start2;
