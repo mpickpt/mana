@@ -7,9 +7,9 @@
 
 1) We assume the following memory layout.
 
-   0x40000 -->  +------------------+  --> info.startTxt
+   0x40000 -->  +------------------+  --> info.startText
                 |       R-X        |
-   0x48000 -->  +------------------+  --> info.endTxt
+   0x48000 -->  +------------------+  --> info.endText
                 |                  |
    0x50000 -->  +------------------+  --> info.startData
                 |       R--        |

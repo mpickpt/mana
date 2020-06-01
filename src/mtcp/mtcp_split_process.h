@@ -31,10 +31,10 @@ typedef struct __MmapInfo
 
 // The transient proxy process introspects its memory layout and passes this
 // information back to the main application process using this struct.
-typedef struct _LowerHalfInfo
+typedef struct LowerHalfInfo
 {
-  void *startTxt;
-  void *endTxt;
+  void *startText;
+  void *endText;
   void *startData;
   void *endOfHeap;
   void *libc_start_main;

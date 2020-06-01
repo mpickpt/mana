@@ -197,11 +197,11 @@ read_lh_proxy_bits(pid_t childpid)
   struct iovec remote_iov[IOV_SZ];
 
   // text segment
-  remote_iov[0].iov_base = info.startTxt;
-  remote_iov[0].iov_len = (unsigned long)info.endTxt -
-                          (unsigned long)info.startTxt;
+  remote_iov[0].iov_base = info.startText;
+  remote_iov[0].iov_len = (unsigned long)info.endText -
+                          (unsigned long)info.startText;
   ret = mmap_iov(&remote_iov[0], RWX_PERMS);
-  JWARNING(ret == 0)(info.startTxt)(remote_iov[0].iov_len)
+  JWARNING(ret == 0)(info.startText)(remote_iov[0].iov_len)
           .Text("Error mapping text segment for lh_proxy");
   // data segment
   remote_iov[1].iov_base = info.startData;

@@ -45,10 +45,10 @@ typedef struct __MmapInfo
 
 // The transient lh_proxy process introspects its memory layout and passes this
 // information back to the main application process using this struct.
-struct LowerHalfInfo_t
+typedef struct _LowerHalfInfo
 {
-  void *startTxt; // Start address of text segment (R-X) of lower half
-  void *endTxt;   // End address of text segmeent (R-X) of lower half
+  void *startText; // Start address of text segment (R-X) of lower half
+  void *endText;   // End address of text segmeent (R-X) of lower half
   void *startData; // Start address of data segment (RW-) of lower half
   void *endOfHeap; // Pointer to the end of heap segment of lower half
   void *libc_start_main; // Pointer to libc's __libc_start_main function in statically-linked lower half
@@ -66,7 +66,7 @@ struct LowerHalfInfo_t
   void *getMmappedListFptr; // Pointer to getMmapedList() function in the lower half
   void *resetMmappedListFptr; // Pointer to resetMmapedList() function in the lower half
   MemRange_t memRange; // MemRange_t object in the lower half
-};
+} LowerHalfInfo_t;
 
 enum MPI_Fncs {
   MPI_Fnc_NULL,
@@ -94,7 +94,7 @@ typedef void (*resetMmappedList_t)();
 // Global variables with lower-half information
 
 // startProxy() (called from splitProcess()) will initialize 'info'
-extern struct LowerHalfInfo_t info;
+extern LowerHalfInfo_t info;
 // Pointer to the custom dlsym implementation (see mydlsym() in libproxy.c) in
 // the lower half. This is initialized using the information passed to us by
 // the transient lh_proxy process in DMTCP_EVENT_INIT.

@@ -37,7 +37,7 @@ regionContains(const void *haystackStart,
 EXTERNC int
 dmtcp_skip_memory_region_ckpting(const ProcMapsArea *area)
 {
-  if (area->addr == info.startTxt ||
+  if (area->addr == info.startText ||
       strstr(area->name, "/dev/zero") ||
       strstr(area->name, "/dev/kgni") ||
       strstr(area->name, "/SYSV") ||

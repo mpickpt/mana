@@ -20,7 +20,7 @@ extern int __libc_start_main(int (*main)(int, char **, char **MAIN_AUXVEC_DECL),
                              void (*rtld_fini) (void),
                              void *stack_end);
 
-extern struct LowerHalfInfo_t lh_info;
+extern LowerHalfInfo_t lh_info;
 extern MemRange_t lh_memRange;
 
 #endif // #ifndef _MPI_COPYBITS_H
