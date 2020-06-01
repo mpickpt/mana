@@ -21,7 +21,7 @@
 #include "mtcp_split_process.h"
 
 int mtcp_sys_errno;
-LowerHalfInfo_t info;
+LowerHalfInfo_t lh_info;
 // FIXME:  The value of pdlsym must be passed from mtcp_restart to
 //         the upper half, so that NEXT_FNC() in mpi-wrappers in libmana.so in 
 //         can use the updated pdlsym in case the address of the lower half
@@ -29,7 +29,7 @@ LowerHalfInfo_t info;
 //         But the lower half is loaded at a fixed address.  So, the address of
 //         pdlsym can be a fixed address that is unused by the upper half.
 //         In this case, we don't need to pass pdlsym to the upper half.
-static proxyDlsym_t pdlsym; // initialized to (proxyDlsym_t)info.lh_dlsym
+static proxyDlsym_t pdlsym; // initialized to (proxyDlsym_t)lh_info.lh_dlsym
 MemRange_t *g_lh_mem_range = NULL;
 static MemRange_t g_lh_mem_range_buf;
 
@@ -114,14 +114,14 @@ read_proxy_bits(pid_t childpid)
   const int IOV_SZ = 2;
   struct iovec remote_iov[IOV_SZ];
   // text segment
-  remote_iov[0].iov_base = info.startText;
-  remote_iov[0].iov_len = (unsigned long)info.endText -
-                          (unsigned long)info.startText;
+  remote_iov[0].iov_base = lh_info.startText;
+  remote_iov[0].iov_len = (unsigned long)lh_info.endText -
+                          (unsigned long)lh_info.startText;
   ret = mmap_iov(&remote_iov[0], PROT_READ|PROT_EXEC|PROT_WRITE);
   // data segment
-  remote_iov[1].iov_base = info.startData;
-  remote_iov[1].iov_len = (unsigned long)info.endOfHeap -
-                          (unsigned long)info.startData;
+  remote_iov[1].iov_base = lh_info.startData;
+  remote_iov[1].iov_len = (unsigned long)lh_info.endOfHeap -
+                          (unsigned long)lh_info.startData;
   ret = mmap_iov(&remote_iov[1], PROT_READ|PROT_WRITE);
   // NOTE:  In our case local_iov will be same as remote_iov.
   // NOTE:  This requires same privilege as ptrace_attach (valid for child)
@@ -199,9 +199,9 @@ startProxy(char *argv0, char **envp)
       MemRange_t mem_range = setLhMemRange();
       mtcp_sys_write(pipefd_in[1], &mem_range, sizeof(mem_range));
       mtcp_sys_close(pipefd_in[1]); // close writing end of pipe
-      // Read full info struct from stdout of lh_proxy, including orig memRange.
+      // Read full lh_info struct from stdout of lh_proxy, including orig memRange.
       mtcp_sys_close(pipefd_out[1]); // close write end of pipe
-      if (mtcp_sys_read(pipefd_out[0], &info, sizeof info) < sizeof info) {
+      if (mtcp_sys_read(pipefd_out[0], &lh_info, sizeof lh_info) < sizeof lh_info) {
         MTCP_PRINTF("Read fewer bytes than expected");
         break;
       }
@@ -264,8 +264,8 @@ initializeLowerHalf()
 {
   int ret = 0;
   int lh_initialized = 0;
-  unsigned long argcAddr = (unsigned long)info.parentStackStart;
-  resetMmappedList_t resetMmaps = (resetMmappedList_t)info.resetMmappedListFptr;
+  unsigned long argcAddr = (unsigned long)lh_info.parentStackStart;
+  resetMmappedList_t resetMmaps = (resetMmappedList_t)lh_info.resetMmappedListFptr;
 
   // NOTE:
   // argv[0] is 1 LP_SIZE ahead of argc, i.e., startStack + sizeof(void*)
@@ -275,7 +275,7 @@ initializeLowerHalf()
   char **argv = (char**)(argcAddr + sizeof(unsigned long));
   char **ev = &argv[argc + 1];
   // char **ev = &((unsigned long*)stack_end[argc + 1]);
-  pdlsym = (proxyDlsym_t)info.lh_dlsym;
+  pdlsym = (proxyDlsym_t)lh_info.lh_dlsym;
 
   // Copied from glibc source
   ElfW(auxv_t) *auxvec;
@@ -284,22 +284,22 @@ initializeLowerHalf()
     while (*evp++ != NULL);
     auxvec = (ElfW(auxv_t) *) evp;
   }
-  JUMP_TO_LOWER_HALF(info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   resetMmaps();
   // Set the auxiliary vector to correspond to the values of the lower half
   // (which is statically linked, unlike the upper half). Without this, glibc
   // will get confused during the initialization.
-  patchAuxv(auxvec, info.lh_AT_PHNUM, info.lh_AT_PHDR, 1);
+  patchAuxv(auxvec, lh_info.lh_AT_PHNUM, lh_info.lh_AT_PHDR, 1);
   // Save upper half's ucontext_t in a global object in the lower half, as
-  // specified by the info.g_appContext pointer
-  getcontext((ucontext_t*)info.g_appContext);
+  // specified by the lh_info.g_appContext pointer
+  getcontext((ucontext_t*)lh_info.g_appContext);
 
   if (!lh_initialized) {
     lh_initialized = 1;
-    libcFptr_t fnc = (libcFptr_t)info.libc_start_main;
-    fnc((mainFptr)info.main, argc, argv,
-        (mainFptr)info.libc_csu_init,
-        (finiFptr)info.libc_csu_fini, 0, stack_end);
+    libcFptr_t fnc = (libcFptr_t)lh_info.libc_start_main;
+    fnc((mainFptr)lh_info.main, argc, argv,
+        (mainFptr)lh_info.libc_csu_init,
+        (finiFptr)lh_info.libc_csu_fini, 0, stack_end);
   }
   DPRINTF("After getcontext");
   patchAuxv(auxvec, 0, 0, 0);

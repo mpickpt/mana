@@ -54,7 +54,7 @@ typedef struct LowerHalfInfo
   MemRange_t memRange;
 } LowerHalfInfo_t;
 
-extern LowerHalfInfo_t info;
+extern LowerHalfInfo_t lh_info;
 extern MemRange_t *g_lh_mem_range;
 
 // Helper macro to be used whenever making a jump from the upper half to
