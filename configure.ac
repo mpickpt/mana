@@ -699,6 +699,9 @@ if test "$wait_status" = "no"; then
             [can use __WAIT_STATUS as wait status type])
 fi
 
+AC_SUBST(MPI_BIN)
+AC_SUBST(MPI_LIB)
+AC_SUBST(MPI_INCLUDE)
 AC_SUBST(MPICC)
 AC_SUBST(MPICXX)
 AC_SUBST(MPIRUN)

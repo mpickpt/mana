@@ -633,6 +633,9 @@ MPI_LD_FLAG
 MPIRUN
 MPICXX
 MPICC
+MPI_INCLUDE
+MPI_LIB
+MPI_BIN
 HAS_OPENMPI
 OPENMPI_MPIRUN
 OPENMPI_MPICC
@@ -7431,6 +7434,10 @@ if test "$wait_status" = "no"; then
 $as_echo "#define __WAIT_STATUS int *" >>confdefs.h
 
 fi
+
+
+
+
 
 
 
