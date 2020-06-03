@@ -80,27 +80,30 @@ before switching among lower and upper halves.
 ================================================================================
 Building and testing on ordinary CentOS/Ubuntu (not Cori):
 
-Building outside of Cori is a little more involved.
+Before going into details, there are a few prerequisites:
+A.  We have only tested with MPICH, not Open MPI.
+B.  You will need to build your own MPICH package.  The MPICH package
+    supplied with Ubuntu (or CentOS??) is unlikely to work.
+    That package does not seem to work well with the '-static' flag
+    required for MANA.  In addition, that package seems to have been
+    configured to require '-lcr' (BLCR).  BLCR is not actively supported,
+    and 'mpicc -static' with the MANA options is likely to fail due to
+    interactions with '-lcr'.
+C.  The mpicc command of MPICH tests if libxml2.so is present, and if so,
+    it appends a flag '-lxml2'.  As is clear, this flag fails during
+    MANA's use of 'mpicc -static' if libxml2.a has not been installed.
+    If you have installed the package 'libxml2', then you _must_ also
+    install 'libxml2-dev' (libxml2-devel in CentOS).
+D.  If you try MANA with Open MPI, please give us feedback on your results.
+
+Building outside of Cori (details).
 1.  git checkout test-dekaksi    # This will be merged into refactoring later.
-2.  Instead of './configure', do 'sh configure-mana'.  In some cases, you may
-    or may not have to modify the 'configure-mana' script.
-3.a. NOTE:  Using 'mpicc -static' seems to be problematic for MPICH, as
+2.  Instead of './configure', do 'sh configure-mana'.  You will probably
+    have to modify the 'configure-mana' script to point to your MPICH build.
+3.  NOTE:  Using 'mpicc -static' seems to be problematic for MPICH, as
             distributed with Ubuntu (and maybe with CentOS?).
-            So, we had to build our own MPICH.  Even after that, using mpicc
-            for linking led to a "library not found" error.  The solution
-            was to do  'bash -x mpicc -static ...',  and then to replace
-            the final command line by deleting '-lunwind' from the
-            command line.  The resulting 'gcc' command is given next.
-3.b.  When you do 'make -j' inside contrib/mpi-proxy-split, it will fail on
-    linking in the lower-half subdirectory.  To fix this, do:
-      cd lower-half
-        # The current variant of this command can be found in
-        # $DMTCP_ROOT/configure-mana .  Adjust the paths for your local setup.
-      gcc -g -static -Wl,-Ttext-segment -Wl,0xE000000 -Wl,--wrap -Wl,__munmap -Wl,--wrap -Wl,shmat -Wl,--wrap -Wl,shmget -o lh_proxy lh_proxy.o libproxy.a -lmpi -llzma -lrt -lpthread -lc libproxy.a -llzma -I$PWD/../../../../mpich-3.3.2-build/include -L$PWD/../../../../mpich-3.3.2-build/lib -Wl,-rpath -Wl,$PWD/../../../../mpich-3.3.2-build/lib/ -Wl,--enable-new-dtags -lmpi -lm  -lbacktrace -lpthread -lrt
-      make -j
-      cd ..
-      make install  # Same as original directions.
-      cd $DMTCP_ROOT && make -j  # Same as original directions
+            In mpi-proxy-split/lower-half/Makefile, it tries to fix that.
+            If you find a problem, see the comments for the PROXY_BIN target.
 
 ===
 Testing and running is mostly the same as described at the top.

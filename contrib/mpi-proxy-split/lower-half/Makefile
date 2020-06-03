@@ -32,8 +32,25 @@ default: ${PROXY_BIN}
 .c.o:
 	${MPICC} ${CFLAGS} -g3 -O0 -c -o $@ $<
 
+# CAVEATS:
+# If the Makefile complains about a missing libxml2.a, it can be because of
+#   a bad MPICH configuration.  If MPICH discovers libxml2.so, then it
+#   configures itself to require libxml2, even though '-static libxml2.a' fails.
+#   The solution is to install the distro package libxml2-dev .
+# Ubuntu mpich package adds '-lcr' flag that's incompatible with 'mpicc -static'
+# MPICH-3.3 'mpicc -static' adds spurious duplicate -lunwind; we remove that.
 ${PROXY_BIN}: ${PROXY_OBJS} ${LIBPROXY}.a
-	${MPICC} ${PROXY_LD_FLAGS} -o $@ $^ ${MPI_LD_FLAG} -lrt -lpthread -lc ${LIBPROXY}.a
+	if mpicc -v 2>&1 | grep -q 'MPICH version'; then \
+	  rm -f tmp.sh; \
+	  ${MPICC} -show ${PROXY_LD_FLAGS} -o $@ $^ ${MPI_LD_FLAG} \
+	    -lrt -lpthread -lc ${LIBPROXY}.a | \
+	    sed -e 's^-lunwind ^ ^'> tmp.sh; \
+	  sh tmp.sh; \
+	  rm -f tmp.sh; \
+	else \
+	  ${MPICC} ${PROXY_LD_FLAGS} -o $@ $^ ${MPI_LD_FLAG} \
+	    -lrt -lpthread -lc ${LIBPROXY}.a; \
+	fi
 
 ${LIBPROXY}.a: ${LIBPROXY_OBJS}
 	ar cr $@ $^
