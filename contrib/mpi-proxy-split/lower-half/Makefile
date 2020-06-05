@@ -40,7 +40,7 @@ default: ${PROXY_BIN}
 # Ubuntu mpich package adds '-lcr' flag that's incompatible with 'mpicc -static'
 # MPICH-3.3 'mpicc -static' adds spurious duplicate -lunwind; we remove that.
 ${PROXY_BIN}: ${PROXY_OBJS} ${LIBPROXY}.a
-	if mpicc -v 2>&1 | grep -q 'MPICH version'; then \
+	if ${MPICC} -v 2>&1 | grep -q 'MPICH version'; then \
 	  rm -f tmp.sh; \
 	  ${MPICC} -show ${PROXY_LD_FLAGS} -o $@ $^ ${MPI_LD_FLAG} \
 	    -lrt -lpthread -lc ${LIBPROXY}.a | \
