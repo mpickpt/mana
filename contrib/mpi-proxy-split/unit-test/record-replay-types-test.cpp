@@ -35,7 +35,7 @@ class TypesTests : public CppUnit::TestFixture
     void tearDown()
     {
       if (this->_array) {
-        delete this->_array;
+        delete[] this->_array;
       }
       CLEAR_LOG();
       // MPI_Finalize();

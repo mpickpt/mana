@@ -46,10 +46,10 @@ class CartTests : public CppUnit::TestFixture
     void tearDown()
     {
       if (this->_dims) {
-        delete this->_dims;
+        delete[] this->_dims;
       }
       if (this->_periods) {
-        delete this->_periods;
+        delete[] this->_periods;
       }
       CLEAR_LOG();
       // MPI_Finalize();
