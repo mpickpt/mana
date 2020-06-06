@@ -3,3 +3,9 @@ unit-test/*.exe
 proxy
 mpi-wrappers/*.c*
 mpi-wrappers/*.so*
+*.gcda
+*.gcno
+*.info
+Makefile_config
+lower-half/lh_proxy
+coverage/**

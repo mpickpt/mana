@@ -39,8 +39,23 @@ endif
 DMTCP_INCLUDE=${DMTCP_ROOT}/include
 JALIB_INCLUDE=${DMTCP_ROOT}/jalib
 
-override CFLAGS += -g3 -O0 -fPIC -I${DMTCP_INCLUDE} -I${LOWER_HALF_SRCDIR} -std=gnu11
+ifeq (${COV_BUILD}, 1)
+  COV_CXX_FLAGS = --coverage
+  COV_C_FLAGS   = --coverage
+  COV_LD_FLAGS  = -lgcov
+endif
+
+ifeq (${ASAN_BUILD}, 1)
+  ASAN_CXX_FLAGS = -fsanitize=address -fno-omit-frame-pointer
+  ASAN_C_FLAGS   = -fsanitize=address -fno-omit-frame-pointer
+  ASAN_LD_FLAGS  = -lasan
+endif
+
+override CFLAGS += -g3 -O0 -fPIC -I${DMTCP_INCLUDE} -I${LOWER_HALF_SRCDIR} \
+                   ${COV_C_FLAGS} ${ASAN_C_FLAGS} \
+                   -std=gnu11
 override CXXFLAGS += -g3 -O0 -fPIC -I${DMTCP_INCLUDE} -I${JALIB_INCLUDE} \
+                     ${COV_CXX_FLAGS} ${ASAN_CXX_FLAGS} \
                      -I${WRAPPERS_SRCDIR} -I. \
                      -I${DMTCP_ROOT}/src -I${LOWER_HALF_SRCDIR} -std=c++11
 
@@ -92,8 +107,11 @@ check: ${LIBNAME}.so ${LOWER_HALF_SRCDIR}/${PROXY_BIN} ./autotest.py
 	@make -C test/
 	@python ./autotest.py
 
-check-unit: ${LIBNAME}.so
-	@make -C unit-test/ check
+check-unit: record-replay.o drain_send_recv_packets.o
+	@make -C unit-test/ COV_BUILD=${COV_BUILD} ASAN_BUILD=${ASAN_BUILD} check
+
+check-unit-cov: check-unit
+	@lcov -c  --directory . --output-file lcov.info
 
 install: ${LOWER_HALF_SRCDIR}/${PROXY_BIN} ${LIBNAME}.so ${WRAPPERS_SRCDIR}/libmpich_intel.so.3
 	@make -C ${LOWER_HALF_SRCDIR} install
@@ -119,4 +137,4 @@ dist: distclean
 	dir=`basename $$PWD` && ls -l ../$$dir.tgz
 
 .PHONY: default clean dist distclean vi vim touch gdb tidy check \
-        tests check-unit install
+        tests check-unit install check-unit-cov
