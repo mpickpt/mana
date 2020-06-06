@@ -17,7 +17,7 @@ USER_DEFINED_WRAPPER(int, Comm_size, (MPI_Comm) comm, (int *) world_size)
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-  JUMP_TO_LOWER_HALF(info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Comm_size)(realComm, world_size);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -29,7 +29,7 @@ USER_DEFINED_WRAPPER(int, Comm_rank, (MPI_Comm) comm, (int *) world_rank)
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-  JUMP_TO_LOWER_HALF(info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Comm_rank)(realComm, world_rank);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -43,7 +43,7 @@ USER_DEFINED_WRAPPER(int, Comm_create, (MPI_Comm) comm, (MPI_Group) group,
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
   MPI_Group realGroup = VIRTUAL_TO_REAL_GROUP(group);
-  JUMP_TO_LOWER_HALF(info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Comm_create)(realComm, realGroup, newcomm);
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS && LOGGING()) {
@@ -60,7 +60,7 @@ USER_DEFINED_WRAPPER(int, Abort, (MPI_Comm) comm, (int) errorcode)
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-  JUMP_TO_LOWER_HALF(info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Abort)(comm, errorcode);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -73,7 +73,7 @@ USER_DEFINED_WRAPPER(int, Comm_split, (MPI_Comm) comm, (int) color, (int) key,
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-  JUMP_TO_LOWER_HALF(info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Comm_split)(realComm, color, key, newcomm);
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS && LOGGING()) {
@@ -90,7 +90,7 @@ USER_DEFINED_WRAPPER(int, Comm_dup, (MPI_Comm) comm, (MPI_Comm *) newcomm)
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-  JUMP_TO_LOWER_HALF(info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Comm_dup)(realComm, newcomm);
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS && LOGGING()) {
@@ -109,7 +109,7 @@ USER_DEFINED_WRAPPER(int, Comm_compare,
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm1 = VIRTUAL_TO_REAL_COMM(comm1);
   MPI_Comm realComm2 = VIRTUAL_TO_REAL_COMM(comm2);
-  JUMP_TO_LOWER_HALF(info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Comm_compare)(realComm1, realComm2, result);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -121,7 +121,7 @@ USER_DEFINED_WRAPPER(int, Comm_free, (MPI_Comm *) comm)
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(*comm);
-  JUMP_TO_LOWER_HALF(info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Comm_free)(&realComm);
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS && LOGGING()) {
@@ -143,7 +143,7 @@ USER_DEFINED_WRAPPER(int, Comm_set_errhandler,
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-  JUMP_TO_LOWER_HALF(info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Comm_set_errhandler)(realComm, errhandler);
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS && LOGGING()) {
@@ -159,7 +159,7 @@ USER_DEFINED_WRAPPER(int, Topo_test,
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-  JUMP_TO_LOWER_HALF(info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Topo_test)(realComm, status);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -172,7 +172,7 @@ USER_DEFINED_WRAPPER(int, Comm_split_type, (MPI_Comm) comm, (int) split_type,
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-  JUMP_TO_LOWER_HALF(info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Comm_split_type)(realComm, split_type, key, inf, newcomm);
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS && LOGGING()) {
@@ -191,7 +191,7 @@ USER_DEFINED_WRAPPER(int, Attr_get, (MPI_Comm) comm, (int) keyval,
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-  JUMP_TO_LOWER_HALF(info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Attr_get)(realComm, keyval, attribute_val, flag);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -203,7 +203,7 @@ USER_DEFINED_WRAPPER(int, Attr_delete, (MPI_Comm) comm, (int) keyval)
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-  JUMP_TO_LOWER_HALF(info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Attr_delete)(realComm, keyval);
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS && LOGGING()) {
@@ -219,7 +219,7 @@ USER_DEFINED_WRAPPER(int, Attr_put, (MPI_Comm) comm,
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-  JUMP_TO_LOWER_HALF(info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Attr_put)(realComm, keyval, attribute_val);
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS && LOGGING()) {

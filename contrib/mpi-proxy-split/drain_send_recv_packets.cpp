@@ -85,7 +85,7 @@ drainMpiPackets()
     registerLocalSendsAndRecvs();
 
     // TODO: This could be replaced with a dmtcp_global_barrier()
-    JUMP_TO_LOWER_HALF(info.fsaddr);
+    JUMP_TO_LOWER_HALF(lh_info.fsaddr);
     NEXT_FUNC(Barrier)(MPI_COMM_WORLD);
     RETURN_TO_UPPER_HALF();
 
@@ -521,7 +521,7 @@ drain_one_packet(MPI_Datatype datatype, MPI_Comm comm)
 
   // drain from lh_proxy to plugin buffer
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-  JUMP_TO_LOWER_HALF(info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   rc = NEXT_FUNC(Recv)(buf, count, MPI_BYTE, status.MPI_SOURCE,
                        status.MPI_TAG, realComm, &status);
   RETURN_TO_UPPER_HALF();

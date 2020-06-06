@@ -1,3 +1,7 @@
+# FIXME:  We should eventually dynamically choose this address in setLhMemRange.
+#         Then, we won't need this configure variable.
+MANA_USE_LH_FIXED_ADDRESS = @MANA_USE_LH_FIXED_ADDRESS@
+
 CC = @CC@
 M32=@M32@
 CFLAGS = @CFLAGS@

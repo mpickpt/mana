@@ -1,0 +1,45 @@
+#!/bin/sh
+
+# These optional autoconf variables will be configured
+#     via contrib/mpi-proxy-split/Makefie_config.in
+
+# This works on our local test computer (Ubuntu-18.04).
+# But also read the note right after this command.
+./configure --enable-debug \
+             CFLAGS=-fno-stack-protector \
+             CXXFLAGS=-fno-stack-protector \
+             MPI_BIN=$PWD/../mpich-3.3.2-build/bin \
+             MPI_INCLUDE=$PWD/../mpich-3.3.2-build/include \
+             MPI_LIB=$PWD/../mpich-3.3.2-build/lib \
+             MPICC='${MPI_BIN}/mpicc' \
+             MPICXX='${MPI_BIN}/mpicxx' \
+             MPIRUN="${MPI_BIN}/mpirun -iface eth0" \
+             MPI_LD_FLAG=-lmpi \
+             MPI_CFLAGS= \
+             MPI_CXXFLAGS= \
+             MPI_LDFLAGS= \
+             MANA_USE_LH_FIXED_ADDRESS=1
+
+# NOTE:  To make it work, two changes were needed:
+# ===============================================================
+# 1. There were multiple problems with using 'mpicc -static' for linking
+#    under MPICH.  Hence, it is recommended to build your own MPICH.  The MANA
+#    configure/make system then tries to adapt it to 'mpicc -static'.
+#    See the contrib/mpi-proxy-split/INSTALL file for details.
+
+# ===============================================================
+# 2. Recent versions of gcc ran into problems with the stack protector.
+#    This happens in the DMTCP call to arch_prctl(ARCH_SET_FS, ...).
+#    (Actually, this is called through syscall.)  So, stack protection
+#    must be turned off in the files interposing on syscall().  For convenience,
+#    we have turned it off everywhere, by setting CFLAGS and CXXFLAGS
+#    in the 'configure' command, above.
+# ===============================================================
+
+# THEN IT COMPILES TO BUILD lh_proxy.
+# Note:  also, compiling coordinator_mana.cpp in the plugin requires
+#  '#include <mpi.h>' in order to compile the data structure rank_state_t .
+#   Because of this, we need to use 'mpicxx' to build the coordinator code.
+#   That works.
+#   (BUT IS THERE SOMETHING CLEANER?  Perhaps modifying the result of
+#    'mpicc -show' can help.)

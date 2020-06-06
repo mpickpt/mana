@@ -70,7 +70,7 @@ def emit_wrapper(decl, ret_type, fnc, args, arg_vars):
 for decl in declarations:
   # check for header file
   decl_oneline = re.sub('\n *', ' ', decl).strip()
-  if decl_oneline.startswith("#"):
+  if decl_oneline.startswith("#") or decl_oneline.startswith("//"):
     print(decl_oneline.rstrip(';'))
     continue
 
@@ -78,6 +78,15 @@ for decl in declarations:
     abort_decl(decl, "missing final ')'")
   if '(' not in decl:
     abort_decl(decl, "missing '('")
+
+  # NOTE:
+  # We replace actual args by zero args.  Our goal is simply to create
+  # a symbol in the symbol table of mpi_dummy.o.  We can remove the
+  # args in the function signature, since we will not use those args
+  # in the function definition in mpi_dummy.c.  So, the caller places
+  # args on the stack (or in registers), and those args will not be used.
+  decl_oneline = decl_oneline.split('(', 1)[0] + '()' + \
+                 decl_oneline.split(')', 1)[1]
 #  decl_oneline = re.sub('\n *', ' ', decl).strip()
   (ret_type_and_fnc, args) = decl_oneline[:-1].split('(', 1)
 

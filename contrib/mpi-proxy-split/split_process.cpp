@@ -28,8 +28,8 @@
 
 static unsigned long origPhnum;
 static unsigned long origPhdr;
-LowerHalfInfo_t info;
-proxyDlsym_t pdlsym; // initialized to (proxyDlsym_t)info.lh_dlsym
+LowerHalfInfo_t lh_info;
+proxyDlsym_t pdlsym; // initialized to (proxyDlsym_t)lh_info.lh_dlsym
 
 static unsigned long getStackPtr();
 static void patchAuxv(ElfW(auxv_t) *, unsigned long , unsigned long , int );
@@ -197,18 +197,18 @@ read_lh_proxy_bits(pid_t childpid)
   struct iovec remote_iov[IOV_SZ];
 
   // text segment
-  remote_iov[0].iov_base = info.startTxt;
-  remote_iov[0].iov_len = (unsigned long)info.endTxt -
-                          (unsigned long)info.startTxt;
+  remote_iov[0].iov_base = lh_info.startText;
+  remote_iov[0].iov_len = (unsigned long)lh_info.endText -
+                          (unsigned long)lh_info.startText;
   ret = mmap_iov(&remote_iov[0], RWX_PERMS);
-  JWARNING(ret == 0)(info.startTxt)(remote_iov[0].iov_len)
+  JWARNING(ret == 0)(lh_info.startText)(remote_iov[0].iov_len)
           .Text("Error mapping text segment for lh_proxy");
   // data segment
-  remote_iov[1].iov_base = info.startData;
-  remote_iov[1].iov_len = (unsigned long)info.endOfHeap -
-                          (unsigned long)info.startData;
+  remote_iov[1].iov_base = lh_info.startData;
+  remote_iov[1].iov_len = (unsigned long)lh_info.endOfHeap -
+                          (unsigned long)lh_info.startData;
   ret = mmap_iov(&remote_iov[1], RW_PERMS);
-  JWARNING(ret == 0)(info.startData)(remote_iov[1].iov_len)
+  JWARNING(ret == 0)(lh_info.startData)(remote_iov[1].iov_len)
           .Text("Error mapping data segment for lh_proxy");
 
   // NOTE:  For the process_vm_readv call, the local_iov will be same as
@@ -228,7 +228,7 @@ read_lh_proxy_bits(pid_t childpid)
 }
 
 // Starts a child process for the lower half application, and returns the PID
-// of the child process. Also populates the global 'info' object with the
+// of the child process. Also populates the global 'lh_info' object with the
 // LowerHalfInfo_t data from the child process.
 static pid_t
 startProxy()
@@ -284,9 +284,9 @@ startProxy()
       MemRange_t mem_range = setLhMemRange();
       write(pipefd_in[1], &mem_range, sizeof(mem_range));
       close(pipefd_in[1]); // close writing end of pipe
-      // Read from stdout of lh_proxy full info struct, including orig memRange.
+      // Read from stdout of lh_proxy full lh_info struct, including orig memRange.
       close(pipefd_out[1]); // close write end of pipe
-      if (read(pipefd_out[0], &info, sizeof info) < sizeof info) {
+      if (read(pipefd_out[0], &lh_info, sizeof lh_info) < sizeof lh_info) {
         JWARNING(false)(JASSERT_ERRNO) .Text("Read fewer bytes than expected");
         break;
       }
@@ -320,15 +320,16 @@ setLhMemRange()
   close(mapsfd);
   static MemRange_t lh_mem_range;
   if (found) {
+#if !defined(USE_MANA_LH_FIXED_ADDRESS)
     lh_mem_range.start = (VA)area.addr - TWO_GB;
     lh_mem_range.end = (VA)area.addr - ONE_GB;
+#else
+    lh_mem_range.start = 0x2aab00000000;
+    lh_mem_range.end =   0x2aab00000000 + ONE_GB;
+#endif
   } else {
     JASSERT(false).Text("Failed to find [stack] memory segment\n");
   }
-  // FIXME:  These next two lines will go away when g_lh_mem_range not needed.
-  //         splitProcess() can return the lh_info struct to mtcp_restart.
-  // g_lh_mem_range = &g_lh_mem_range_buf;
-  // *g_lh_mem_range = lh_mem_range;
   return lh_mem_range;
 }
 
@@ -348,12 +349,12 @@ initializeLowerHalf()
   char **argv = (char**)(argcAddr + sizeof(unsigned long));
   char **ev = &argv[argc + 1];
   // char **ev = &((unsigned long*)stack_end[argc + 1]);
-  libcFptr_t fnc = (libcFptr_t)info.libc_start_main;
+  libcFptr_t fnc = (libcFptr_t)lh_info.libc_start_main;
 
   // Save the pointer to mydlsym() function in the lower half. This will be
   // used in all the mpi-wrappers.
-  pdlsym = (proxyDlsym_t)info.lh_dlsym;
-  resetMmappedList_t resetMaps = (resetMmappedList_t)info.resetMmappedListFptr;
+  pdlsym = (proxyDlsym_t)lh_info.lh_dlsym;
+  resetMmappedList_t resetMaps = (resetMmappedList_t)lh_info.resetMmappedListFptr;
 
   // Copied from glibc source
   ElfW(auxv_t) *auxvec;
@@ -362,24 +363,24 @@ initializeLowerHalf()
     while (*evp++ != NULL);
     auxvec = (ElfW(auxv_t) *) evp;
   }
-  JUMP_TO_LOWER_HALF(info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   // Clear any saved mappings in the lower half
   resetMaps();
   // Set the auxiliary vector to correspond to the values of the lower half
   // (which is statically linked, unlike the upper half). Without this, glibc
   // will get confused during the initialization.
-  patchAuxv(auxvec, info.lh_AT_PHNUM, info.lh_AT_PHDR, 1);
+  patchAuxv(auxvec, lh_info.lh_AT_PHNUM, lh_info.lh_AT_PHDR, 1);
   // Save upper half's ucontext_t in a global object in the lower half, as
-  // specified by the info.g_appContext pointer
-  JWARNING(getcontext((ucontext_t*)info.g_appContext) == 0)(JASSERT_ERRNO);
+  // specified by the lh_info.g_appContext pointer
+  JWARNING(getcontext((ucontext_t*)lh_info.g_appContext) == 0)(JASSERT_ERRNO);
 
   if (!lh_initialized) {
     // Initialize the lower half by calling the __libc_start_main function
     // in the lower half, if not already done.
     lh_initialized = true;
-    fnc((mainFptr)info.main, argc, argv,
-        (mainFptr)info.libc_csu_init,
-        (finiFptr)info.libc_csu_fini, 0, stack_end);
+    fnc((mainFptr)lh_info.main, argc, argv,
+        (mainFptr)lh_info.libc_csu_init,
+        (finiFptr)lh_info.libc_csu_fini, 0, stack_end);
   }
   JTRACE("After getcontext");
   // Restore the the auxiliary vector to correspond to the values of the upper

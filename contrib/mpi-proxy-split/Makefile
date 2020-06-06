@@ -1,14 +1,12 @@
 # MPI compiler according to the platform
 PLATFORM=${shell echo $$HOST}
-ifeq ($(findstring cori,$(PLATFORM)),cori)
- MPICC = cc
- MPICXX = CC
- MPI_LD_FLAG = -lmpich
-else
- MPICC = mpicc
- MPICXX = mpic++
- MPI_LD_FLAG = -lmpi
-endif
+include Makefile_config
+
+# These are needed for libmana.so, since the wrapper functions there will
+# call the lower half.  That requires temporarily changing the FS register,
+# and apparently, glibc detects this as an attempt to do stack smashing.
+CFLAGS=-fno-stack-protector
+CXXFLAGS=-fno-stack-protector
 
 # The name will be the same as the current directory name.
 NAME=${shell basename $$PWD}

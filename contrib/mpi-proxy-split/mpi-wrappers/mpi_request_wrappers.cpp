@@ -19,7 +19,7 @@ USER_DEFINED_WRAPPER(int, Test, (MPI_Request*) request,
     DMTCP_PLUGIN_ENABLE_CKPT();
   } else {
     MPI_Request req = *request;
-    JUMP_TO_LOWER_HALF(info.fsaddr);
+    JUMP_TO_LOWER_HALF(lh_info.fsaddr);
     // MPI_Test can change the *request argument
     retval = NEXT_FUNC(Test)(request, flag, status);
     RETURN_TO_UPPER_HALF();
@@ -66,7 +66,7 @@ USER_DEFINED_WRAPPER(int, Waitall, (int) count,
   int retval;
 #if 0
   DMTCP_PLUGIN_DISABLE_CKPT();
-  JUMP_TO_LOWER_HALF(info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Waitall)(count, array_of_requests, array_of_statuses);
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS) {
@@ -102,7 +102,7 @@ USER_DEFINED_WRAPPER(int, Wait, (MPI_Request*) request, (MPI_Status*) status)
       continue;
     }
     MPI_Request req = *request;
-    JUMP_TO_LOWER_HALF(info.fsaddr);
+    JUMP_TO_LOWER_HALF(lh_info.fsaddr);
     retval = NEXT_FUNC(Test)(request, &flag, status);
     RETURN_TO_UPPER_HALF();
     if (flag) {
@@ -137,7 +137,7 @@ USER_DEFINED_WRAPPER(int, Iprobe,
   }
 
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-  JUMP_TO_LOWER_HALF(info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Iprobe)(source, tag, realComm, flag, status);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -152,7 +152,7 @@ USER_DEFINED_WRAPPER(int, Request_get_status, (MPI_Request) request,
   if (isServicedRequest(&request, flag, status)) {
     DMTCP_PLUGIN_ENABLE_CKPT();
   } else {
-    JUMP_TO_LOWER_HALF(info.fsaddr);
+    JUMP_TO_LOWER_HALF(lh_info.fsaddr);
     retval = NEXT_FUNC(Request_get_status)(request, flag, status);
     RETURN_TO_UPPER_HALF();
     DMTCP_PLUGIN_ENABLE_CKPT();
