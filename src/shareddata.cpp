@@ -566,7 +566,7 @@ void
 SharedData::setIPCIdMap(int type, int32_t virt, int32_t real)
 {
   size_t i;
-  uint32_t *nmaps = NULL;
+  uint64_t *nmaps = NULL;
   IPCIdMap *map = NULL;
 
   if (sharedDataHeader == NULL) {
