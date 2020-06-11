@@ -37,8 +37,12 @@ default: ${LIBNAME}.a libmpidummy.so libmpich_intel.so.3
 ${LIBNAME}.a: ${LIBWRAPPER_OBJS}
 	ar cr $@ $^
 
-mpi_unimplemented_wrappers.cpp: generate-mpi-unimplemented-wrappers.py mpi_unimplemented_wrappers.txt
-	python $^ > $@
+mpi_unimplemented_wrappers.cpp: generate-mpi-unimplemented-wrappers.py \
+                                mpi_unimplemented_wrappers.txt
+	rm -f $@
+	printf "%s\n\n" \
+          "// *** THIS FILE IS AUTO-GENERATED! DO 'make' TO UPDATE. ***" > $@
+	python $^ >> $@ || (rm -f $@ && false)
 
 .c.o:
 	${MPICC} ${CFLAGS} -g3 -O0 -c -o $@ $<
@@ -47,10 +51,17 @@ mpi_unimplemented_wrappers.cpp: generate-mpi-unimplemented-wrappers.py mpi_unimp
 	${MPICXX} ${CXXFLAGS} -g3 -O0 -c -o $@ $<
 
 mpi_dummy.c: generate-mpi-dummy-wrappers.py mpi_dummy_wrappers.txt
-	python $^ > $@
+	rm -f $@
+	printf "%s\n\n" \
+          "// *** THIS FILE IS AUTO-GENERATED! DO 'make' TO UPDATE. ***" > $@
+	python $^ >> $@ || (rm -f $@ && false)
 
-mpi_fortran_wrappers.cpp: generate-mpi-fortran-wrappers.py mpi_fortran_wrappers.txt
-	python $^ > $@
+mpi_fortran_wrappers.cpp: generate-mpi-fortran-wrappers.py \
+                          mpi_fortran_wrappers.txt
+	rm -f $@
+	printf "%s\n\n" \
+          "// *** THIS FILE IS AUTO-GENERATED! DO 'make' TO UPDATE. ***" > $@
+	python $^ >> $@ || (rm -f $@ && false)
 
 mpidummy.o: mpidummy.c
 	${MPICC} ${CFLAGS} -g3 -O0 -c -o $@ $<
