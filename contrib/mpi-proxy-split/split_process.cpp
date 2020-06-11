@@ -208,17 +208,19 @@ read_lh_proxy_bits(pid_t childpid)
   remote_iov[1].iov_len = (unsigned long)lh_info.endOfHeap -
                           (unsigned long)lh_info.startData;
   ret = mmap_iov(&remote_iov[1], RW_PERMS);
-  JWARNING(ret == 0)(lh_info.startData)(remote_iov[1].iov_len)
+  JASSERT(ret == 0)(lh_info.startData)(remote_iov[1].iov_len)
           .Text("Error mapping data segment for lh_proxy");
 
   // NOTE:  For the process_vm_readv call, the local_iov will be same as
   //        remote_iov, since we are just duplicating child processes memory.
-  // NOTE:  This requires same privilege as ptrace_attach (valid for child)
+  // NOTE:  This requires same privilege as ptrace_attach (valid for child).
+  //        Anecdotally, in containers, we've seen a case where this erros out
+  //        with ESRCH (no such proc.); it may need CAP_SYS_PTRACE privilege??
   for (int i = 0; i < IOV_SZ; i++) {
     JTRACE("Reading segment from lh_proxy")
           (remote_iov[i].iov_base)(remote_iov[i].iov_len);
     ret = process_vm_readv(childpid, remote_iov + i, 1, remote_iov + i, 1, 0);
-    JWARNING(ret != -1)(JASSERT_ERRNO).Text("Error reading data from lh_proxy");
+    JASSERT(ret != -1)(JASSERT_ERRNO).Text("Error reading data from lh_proxy");
   }
 
   // Can remove PROT_WRITE now that we've populated the text segment.
@@ -273,7 +275,9 @@ startProxy()
       close(pipefd_in[0]);
 
       personality(ADDR_NO_RANDOMIZE);
-      JWARNING(execvp(args[0], args) != -1)(JASSERT_ERRNO)
+      // This will call:  lower-half/libproxy.c/first_constructor
+      // (This global constructor executes before main in lh_proxy.)
+      JASSERT(execvp(args[0], args) != -1)(JASSERT_ERRNO)
         .Text("Failed to exec lh_proxy");
       break;
     }
@@ -354,7 +358,6 @@ initializeLowerHalf()
   // Save the pointer to mydlsym() function in the lower half. This will be
   // used in all the mpi-wrappers.
   pdlsym = (proxyDlsym_t)lh_info.lh_dlsym;
-  resetMmappedList_t resetMaps = (resetMmappedList_t)lh_info.resetMmappedListFptr;
 
   // Copied from glibc source
   ElfW(auxv_t) *auxvec;
@@ -365,6 +368,8 @@ initializeLowerHalf()
   }
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   // Clear any saved mappings in the lower half
+  resetMmappedList_t resetMaps =
+    (resetMmappedList_t)lh_info.resetMmappedListFptr;
   resetMaps();
   // Set the auxiliary vector to correspond to the values of the lower half
   // (which is statically linked, unlike the upper half). Without this, glibc
