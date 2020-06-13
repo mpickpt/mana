@@ -324,7 +324,7 @@ prepareMtcpHeaderInfoForMPI(MtcpHeader *mtcpHdr)
   if (*buf != '0') {
     randomization = true;
   }
-  if (randomization && personality(0xffffffff) & ADDR_NO_RANDOMIZE == 0) {
+  if (randomization && (personality(0xffffffff) & ADDR_NO_RANDOMIZE) == 0) {
     randomization = false;
   }
   if (randomization) {
