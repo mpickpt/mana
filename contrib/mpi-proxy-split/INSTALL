@@ -123,29 +123,36 @@ Building outside of Cori (details).
 
 ===
 Testing and running is mostly the same as described at the top.
-When testing at your site, you may need to use 'mpirun' instead of 'srun'
-in the two commands for dmtcp_launch and dmtcp_restart..
+However, if not running on a traditional HPC cluster,
+your site, you may need to replace 'srun' with 'mpirun'
+in the two commands for dmtcp_launch and dmtcp_restart, above.
 
-A further complication tends to occur when using 'mpirun' on MPICH-derived
-MPI implementations.  The lower half, lh_proxy, was compiled statically
-with libc.a.  However, libc.a does not directly support gethostbyname
-and getaddrinfo.  Instead, it tries to load libnss_*.so.  But we wanted
-lh_proxy to be statically linked so that it would consist only of
-text/data/stack, and later calls to mmap.
+In a further complication, if using 'mpirun' with MPICH-derived MPI
+implementations, you may need to replace 'srun' with:
+  mpirun -iface ETHERNET_INTERFACE
+You should find the correct definition of MPIRUN in:
+  contrib/mpi-proxy-split/Makefile_config
 
-(This tends not to occur on HPC clusters, where we are more likely to
-use 'srun', and anyway, where the network interface will be a custom
-one (InfiniBand, Cray GNI, etc.).  So, it is less likely that libc.a
-calls libnss_*.so.)
+MANA tries to guess the required Ethernet interface in 'configure-mana'.
+Hopefully, that guess will be correct.  But see below for the issues, and
+under what circumstances MANA might guess the wrong interface and fail
+for an MPICH-derived MPI on a non-HPC cluster.
 
-The workaround for 'mpirun' (at least for the MPICH-based family
-of implementations) is to use:
-  ip addr | grep -B1 link/ether  # and choose one of thsoe interfaces
-OR ELSE:
-  ifconfig -a (deprecated)
-to discover what network interfaces are available on the HPC cluster.
-Then call mpirun during launch and restart with an additional flag:
-  mpirun -iface eth0 ...
-(or with your network interface, if 'eth0' is not listed)
+The issue arises because the lower half, lh_proxy, was compiled
+statically with libc.a.  However, libc.a does not directly support
+gethostbyname and getaddrinfo.  Instead, it tries to load libnss_*.so.
+But we wanted lh_proxy to be statically linked so that it would consist
+only of text/data/stack, and later calls to mmap.
+
+NOTE: On HPC clusters, it is more common to use 'srun', along with a custom
+      network interface (InfiniBand, Cray GNI, etc.).  So, most likely
+      Ethernet will not be used, and libc.a will not call libnss_*.so.
 NOTE: Open MPI seems to auto-detect an appropriate network interface,
       but we have not tested Open MPI to confirm this so far.
+
+The file MANA_ROOT/configure-mana tries to guess the Ethernet interface with:
+  ip addr | grep -B1 link/ether  # and choose one of those interfaces
+OR ELSE:
+  ifconfig -a (deprecated)
+If necessary, change the definition of MPIRUN in configure-mana for the
+correct Ethernet interface on your compute node.

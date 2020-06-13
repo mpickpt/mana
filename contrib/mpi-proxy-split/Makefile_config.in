@@ -1,6 +1,7 @@
-# FIXME:  We should eventually dynamically choose this address in setLhMemRange.
-#         Then, we won't need this configure variable.
+# FIXME: We should eventually dynamically choose this address in setLhMemRange.
+#        Then, we won't need this configure variable.
 MANA_USE_LH_FIXED_ADDRESS = @MANA_USE_LH_FIXED_ADDRESS@
+
 
 ifeq ($(findstring cori,$(PLATFORM)),cori)
   MPICC = cc
