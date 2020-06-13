@@ -13,7 +13,7 @@
              MPI_LIB=$PWD/../mpich-3.3.2-build/lib \
              MPICC='${MPI_BIN}/mpicc' \
              MPICXX='${MPI_BIN}/mpicxx' \
-             MPIRUN="${MPI_BIN}/mpirun -iface eth0" \
+             MPIRUN='${MPI_BIN}/mpirun -iface eth0' \
              MPI_LD_FLAG=-lmpi \
              MPI_CFLAGS= \
              MPI_CXXFLAGS= \
