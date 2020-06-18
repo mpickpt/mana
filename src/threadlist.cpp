@@ -819,9 +819,11 @@ ThreadList::postRestartDebug(double readTime)
   printf("\n** DMTCP: It appears DMTCP not configured with '--enable-debug'\n");
   printf("**        If GDB doesn't show source, re-configure and re-compile\n");
 #endif
-  // If we're here, user set env. to DMTCP_RESTART_PAUSE=4, & is expecting this.
-  while (dummy);
-  // User should have done GDB attach if we're here.
+  if (restartPause == 1) {
+    // If we're here, user set env. to DMTCP_RESTART_PAUSE==1; is expecting this
+    volatile int dummy = 1;
+    while (dummy);
+    // User should have done GDB attach if we're here.
 #ifdef HAS_PR_SET_PTRACER
   prctl(PR_SET_PTRACER, 0, 0, 0, 0); // Revert permission to default: no ptracer
 #endif
