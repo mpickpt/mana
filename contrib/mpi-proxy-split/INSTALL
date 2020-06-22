@@ -77,7 +77,7 @@ mpi-proxy-split/split-process.c:splitProcess(), then do:
 This is in a global constructor that executes before main.  To reach 'main'
 of the target executable, do 'b main' instead.
 
-Similarly for dmtcp_restart, MANA_RESTART_PAUSE=1 drops you in
+Similarly for dmtcp_restart, DMTCP_MANA_PAUSE=1 drops you in
   src/mtcp/mtcp_restart.c shortly before mtcp_restart.c:splitProcess().
 If you want to reach the target executable, use DMTCP_RESTART_PAUSE=1 instead.
 
@@ -89,6 +89,17 @@ This is useful for examining both the upper and lower half stacks.
 If you had previously set a breakpoint before switching, then use:
   (gdb) set breakpoint always-inserted on
 before switching among lower and upper halves.
+
+When debugging with GDB after restart, if you are debugging inside the
+target application, then a good sttrategy is:
+  DMTCP_RESTART_PAUSE=1 srun -n 1 $MANA_ROOT/bin/dmtcp_restart ...
+It will pause, with instructions:
+  (gdb) p dummy=0
+  (gdb) source DMTCP_ROOT/util/gdb-add-symbol-files-all
+  (gdb) add-symbol-files-all
+The script gdb-add-symbol-files-all is a workaround that became necessary
+since Linux 3.10, when Linux created a backwards-incompatible change
+after which GDB has been failing to find the symbols for debugging.
 
 ================================================================================
 Building and testing on ordinary CentOS/Ubuntu (not the Cori supercomputer):
