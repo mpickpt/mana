@@ -15,7 +15,7 @@ LIBWRAPPER_OBJS = mpi_p2p_wrappers.o mpi_collective_wrappers.o \
                   mpi_request_wrappers.o mpi_type_wrappers.o \
                   mpi_comm_wrappers.o mpi_group_wrappers.o \
                   mpi_cart_wrappers.o mpi_op_wrappers.o \
-                  mpi_dummy_wrappers.o mpi_fortran_wrappers.o \
+                  mpi_unimplemented_wrappers.o mpi_fortran_wrappers.o \
                   mpi_wrappers.o
 
 # Modify if your DMTCP_ROOT is located elsewhere.
@@ -36,6 +36,10 @@ default: ${LIBNAME}.a libmpidummy.so libmpich_intel.so.3
 
 ${LIBNAME}.a: ${LIBWRAPPER_OBJS}
 	ar cr $@ $^
+
+mpi_unimplemented_wrappers.cpp: generate-mpi-unimplemented-wrappers.py \
+	mpi_unimplemented_wrappers.txt
+	python $^ > $@
 
 .c.o:
 	${MPICC} ${CFLAGS} -g3 -O0 -c -o $@ $<
@@ -80,7 +84,8 @@ install: ${WRAPPERS_SRCDIR}/libmpich_intel.so.3
 clean: tidy
 	rm -f ${LIBWRAPPER_OBJS}
 	rm -f ${LIBNAME}.a libmpidummy.so
-	rm -f mpi_dummy.c
+	rm -f mpi_dummy_wrappers.c
+	rm -f mpi_unimplemented_wrappers.cpp
 	rm -f libmpich_intel.so.3.0.1 libmpich_intel.so.3
 
 distclean: clean
