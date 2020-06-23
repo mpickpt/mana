@@ -15,7 +15,7 @@ LIBWRAPPER_OBJS = mpi_p2p_wrappers.o mpi_collective_wrappers.o \
                   mpi_request_wrappers.o mpi_type_wrappers.o \
                   mpi_comm_wrappers.o mpi_group_wrappers.o \
                   mpi_cart_wrappers.o mpi_op_wrappers.o \
-                  mpi_unimplemented_wrappers.o mpi_fortran_wrappers.o \
+                  mpi_dummy_wrappers.o mpi_fortran_wrappers.o \
                   mpi_wrappers.o
 
 # Modify if your DMTCP_ROOT is located elsewhere.
@@ -37,20 +37,13 @@ default: ${LIBNAME}.a libmpidummy.so libmpich_intel.so.3
 ${LIBNAME}.a: ${LIBWRAPPER_OBJS}
 	ar cr $@ $^
 
-mpi_unimplemented_wrappers.cpp: generate-mpi-unimplemented-wrappers.py \
-                                mpi_unimplemented_wrappers.txt
-	rm -f $@
-	printf "%s\n\n" \
-          "// *** THIS FILE IS AUTO-GENERATED! DO 'make' TO UPDATE. ***" > $@
-	python $^ >> $@ || (rm -f $@ && false)
-
 .c.o:
 	${MPICC} ${CFLAGS} -g3 -O0 -c -o $@ $<
 
 .cpp.o:
 	${MPICXX} ${CXXFLAGS} -g3 -O0 -c -o $@ $<
 
-mpi_dummy.c: generate-mpi-dummy-wrappers.py mpi_dummy_wrappers.txt
+mpi_dummy_wrappers.c: generate-mpi-dummy-wrappers.py mpi_dummy_wrappers.txt
 	rm -f $@
 	printf "%s\n\n" \
           "// *** THIS FILE IS AUTO-GENERATED! DO 'make' TO UPDATE. ***" > $@
@@ -63,10 +56,10 @@ mpi_fortran_wrappers.cpp: generate-mpi-fortran-wrappers.py \
           "// *** THIS FILE IS AUTO-GENERATED! DO 'make' TO UPDATE. ***" > $@
 	python $^ >> $@ || (rm -f $@ && false)
 
-mpidummy.o: mpidummy.c
+mpi_dummy_wrappers.o: mpi_dummy_wrappers.c
 	${MPICC} ${CFLAGS} -g3 -O0 -c -o $@ $<
 
-libmpidummy.so: mpi_dummy.o
+libmpidummy.so: mpi_dummy_wrappers.o
 	${CC} -fPIC -g3 -O0 $< -shared -o $@
 
 libmpich_intel.so.3.0.1: libmpidummy.so
@@ -87,7 +80,7 @@ install: ${WRAPPERS_SRCDIR}/libmpich_intel.so.3
 clean: tidy
 	rm -f ${LIBWRAPPER_OBJS}
 	rm -f ${LIBNAME}.a libmpidummy.so
-	rm -f mpi_unimplemented_wrappers.cpp
+	rm -f mpi_dummy.c
 	rm -f libmpich_intel.so.3.0.1 libmpich_intel.so.3
 
 distclean: clean
