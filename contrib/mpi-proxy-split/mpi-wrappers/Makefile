@@ -29,7 +29,7 @@ override CFLAGS += -g3 -O0 -fPIC -I${DMTCP_INCLUDE} -I${PLUGIN_HALF_SRCDIR} \
 	                 -I${LOWER_HALF_SRCDIR} -std=gnu11
 override CXXFLAGS += -g3 -O0 -fPIC -I${DMTCP_INCLUDE} -I${JALIB_INCLUDE} \
                      -I${PLUGIN_HALF_SRCDIR} -I${DMTCP_ROOT}/src \
-										 -I${LOWER_HALF_SRCDIR} -std=c++11
+                     -I${LOWER_HALF_SRCDIR} -std=c++11
 
 # We don't build libmpiwrappers.a.  Instead, we use *.o to build libmana.so.
 default: ${LIBNAME}.a libmpidummy.so libmpich_intel.so.3
@@ -47,18 +47,22 @@ mpi_unimplemented_wrappers.cpp: generate-mpi-unimplemented-wrappers.py \
 .cpp.o:
 	${MPICXX} ${CXXFLAGS} -g3 -O0 -c -o $@ $<
 
+# We need to write to mpi_dummy_wrappers.c.tmp.$$ first, in case of 'make -j'.
+# The parallel make would generate mpi_dummy_wrappers.c 3 times, and overwrite.
 mpi_dummy_wrappers.c: generate-mpi-dummy-wrappers.py mpi_dummy_wrappers.txt
 	rm -f $@
+	tmp=$@.tmp.$$$$ ; \
 	printf "%s\n\n" \
-          "// *** THIS FILE IS AUTO-GENERATED! DO 'make' TO UPDATE. ***" > $@
-	python $^ >> $@ || (rm -f $@ && false)
+	 "// *** THIS FILE IS AUTO-GENERATED! DO 'make' TO UPDATE. ***" >$$tmp;\
+	python $^ >> $$tmp && mv -f $$tmp $@ || (rm -f $$tmp && false)
 
 mpi_fortran_wrappers.cpp: generate-mpi-fortran-wrappers.py \
                           mpi_fortran_wrappers.txt
 	rm -f $@
+	tmp=$@.tmp.$$$$ ; \
 	printf "%s\n\n" \
-          "// *** THIS FILE IS AUTO-GENERATED! DO 'make' TO UPDATE. ***" > $@
-	python $^ >> $@ || (rm -f $@ && false)
+	 "// *** THIS FILE IS AUTO-GENERATED! DO 'make' TO UPDATE. ***" >$$tmp;\
+	python $^ >> $$tmp && mv -f $$tmp $@ || (rm -f $$tmp && false)
 
 mpi_dummy_wrappers.o: mpi_dummy_wrappers.c
 	${MPICC} ${CFLAGS} -g3 -O0 -c -o $@ $<
