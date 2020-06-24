@@ -362,8 +362,8 @@ main(int argc, char *argv[], char **environ)
       rinfo.stderr_fd = mtcp_strtol(argv[1]);
       shift; shift;
     } else if (mtcp_strcmp(argv[0], "--mtcp-restart-pause") == 0) {
-      rinfo.mtcp_restart_pause = 1; /* true */
-      shift;
+      rinfo.mtcp_restart_pause = argv[1][0] - '0'; /* true */
+      shift; shift;
     } else if (mtcp_strcmp(argv[0], "--simulate") == 0) {
       simulate = 1;
       shift;
@@ -1039,8 +1039,8 @@ restorememoryareas(RestoreInfo *rinfo_ptr, LowerHalfInfo_t *linfo_ptr)
 
   if (restore_info.mtcp_restart_pause) {
     MTCP_PRINTF(
-      "\nStopping due to env. var DMTCP_RESTART_PAUSE0 or MTCP_RESTART_PAUSE0\n"
-      "(DMTCP_RESTART_PAUSE0 can be set after creating the checkpoint image.)\n"
+      "\nStopping due to env. var DMTCP_RESTART_PAUSE or MTCP_RESTART_PAUSE\n"
+      "(DMTCP_RESTART_PAUSE can be set after creating the checkpoint image.)\n"
       "Attach to the computation with GDB from another window:\n"
       "(This won't work well unless you configure DMTCP with --enable-debug)\n"
       "  gdb PROGRAM_NAME %d\n"
