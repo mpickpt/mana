@@ -14,7 +14,7 @@ USER_DEFINED_WRAPPER(int, Bcast,
                      (void *) buffer, (int) count, (MPI_Datatype) datatype,
                      (int) root, (MPI_Comm) comm)
 {
-  auto realBarrierCb = [=]() {
+  std::function<int()> realBarrierCb = [=]() {
     int retval;
     DMTCP_PLUGIN_DISABLE_CKPT();
     MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
@@ -30,7 +30,7 @@ USER_DEFINED_WRAPPER(int, Bcast,
 
 USER_DEFINED_WRAPPER(int, Barrier, (MPI_Comm) comm)
 {
-  auto realBarrierCb = [=]() {
+  std::function<int()> realBarrierCb = [=]() {
     int retval;
     DMTCP_PLUGIN_DISABLE_CKPT();
     MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
@@ -48,7 +48,7 @@ USER_DEFINED_WRAPPER(int, Allreduce,
                      (int) count, (MPI_Datatype) datatype,
                      (MPI_Op) op, (MPI_Comm) comm)
 {
-  auto realBarrierCb = [=]() {
+  std::function<int()> realBarrierCb = [=]() {
     int retval;
     DMTCP_PLUGIN_DISABLE_CKPT();
     MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
@@ -69,7 +69,7 @@ USER_DEFINED_WRAPPER(int, Reduce,
                      (MPI_Datatype) datatype, (MPI_Op) op,
                      (int) root, (MPI_Comm) comm)
 {
-  auto realBarrierCb = [=]() {
+  std::function<int()> realBarrierCb = [=]() {
     int retval;
     DMTCP_PLUGIN_DISABLE_CKPT();
     MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
@@ -90,7 +90,7 @@ USER_DEFINED_WRAPPER(int, Alltoall,
                      (MPI_Datatype) sendtype, (void *) recvbuf, (int) recvcount,
                      (MPI_Datatype) recvtype, (MPI_Comm) comm)
 {
-  auto realBarrierCb = [=]() {
+  std::function<int()> realBarrierCb = [=]() {
     int retval;
     DMTCP_PLUGIN_DISABLE_CKPT();
     MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
@@ -113,7 +113,7 @@ USER_DEFINED_WRAPPER(int, Alltoallv,
                      (const int *) rdispls, (MPI_Datatype) recvtype,
                      (MPI_Comm) comm)
 {
-  auto realBarrierCb = [=]() {
+  std::function<int()> realBarrierCb = [=]() {
     int retval;
     DMTCP_PLUGIN_DISABLE_CKPT();
     MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
@@ -134,7 +134,7 @@ USER_DEFINED_WRAPPER(int, Gather, (const void *) sendbuf, (int) sendcount,
                      (MPI_Datatype) sendtype, (void *) recvbuf, (int) recvcount,
                      (MPI_Datatype) recvtype, (int) root, (MPI_Comm) comm)
 {
-  auto realBarrierCb = [=]() {
+  std::function<int()> realBarrierCb = [=]() {
     int retval;
     DMTCP_PLUGIN_DISABLE_CKPT();
     MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
@@ -156,7 +156,7 @@ USER_DEFINED_WRAPPER(int, Gatherv, (const void *) sendbuf, (int) sendcount,
                      (const int*) recvcounts, (const int*) displs,
                      (MPI_Datatype) recvtype, (int) root, (MPI_Comm) comm)
 {
-  auto realBarrierCb = [=]() {
+  std::function<int()> realBarrierCb = [=]() {
     int retval;
     DMTCP_PLUGIN_DISABLE_CKPT();
     MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
@@ -177,7 +177,7 @@ USER_DEFINED_WRAPPER(int, Scatter, (const void *) sendbuf, (int) sendcount,
                      (MPI_Datatype) sendtype, (void *) recvbuf, (int) recvcount,
                      (MPI_Datatype) recvtype, (int) root, (MPI_Comm) comm)
 {
-  auto realBarrierCb = [=]() {
+  std::function<int()> realBarrierCb = [=]() {
     int retval;
     DMTCP_PLUGIN_DISABLE_CKPT();
     MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
@@ -199,7 +199,7 @@ USER_DEFINED_WRAPPER(int, Scatterv, (const void *) sendbuf,
                      (MPI_Datatype) sendtype, (void *) recvbuf, (int) recvcount,
                      (MPI_Datatype) recvtype, (int) root, (MPI_Comm) comm)
 {
-  auto realBarrierCb = [=]() {
+  std::function<int()> realBarrierCb = [=]() {
     int retval;
     DMTCP_PLUGIN_DISABLE_CKPT();
     MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
@@ -220,7 +220,7 @@ USER_DEFINED_WRAPPER(int, Allgather, (const void *) sendbuf, (int) sendcount,
                      (MPI_Datatype) sendtype, (void *) recvbuf, (int) recvcount,
                      (MPI_Datatype) recvtype, (MPI_Comm) comm)
 {
-  auto realBarrierCb = [=]() {
+  std::function<int()> realBarrierCb = [=]() {
     int retval;
     DMTCP_PLUGIN_DISABLE_CKPT();
     MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
@@ -242,7 +242,7 @@ USER_DEFINED_WRAPPER(int, Allgatherv, (const void *) sendbuf, (int) sendcount,
                      (const int*) recvcounts, (const int *) displs,
                      (MPI_Datatype) recvtype, (MPI_Comm) comm)
 {
-  auto realBarrierCb = [=]() {
+  std::function<int()> realBarrierCb = [=]() {
     int retval;
     DMTCP_PLUGIN_DISABLE_CKPT();
     MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
@@ -263,7 +263,7 @@ USER_DEFINED_WRAPPER(int, Scan, (const void *) sendbuf, (void *) recvbuf,
                      (int) count, (MPI_Datatype) datatype,
                      (MPI_Op) op, (MPI_Comm) comm)
 {
-  auto realBarrierCb = [=]() {
+  std::function<int()> realBarrierCb = [=]() {
     int retval;
     DMTCP_PLUGIN_DISABLE_CKPT();
     MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);

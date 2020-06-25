@@ -24,6 +24,12 @@ using namespace dmtcp;
 
 using mutex_t = std::mutex;
 using lock_t  = std::unique_lock<mutex_t>;
+using mpi_message_vector_iterator_t =
+  dmtcp::vector<mpi_message_t*>::iterator;
+using request_to_async_call_map_iterator_t =
+  dmtcp::map<MPI_Request* const, mpi_async_call_t*>::iterator;
+using request_to_async_call_map_pair_t =
+  dmtcp::map<MPI_Request* const, mpi_async_call_t*>::value_type;
 
 static mutex_t srMutex;    // Lock to protect the global 'localSrCount' object
 static mutex_t logMutex;   // Lock to protect the global 'g_async_calls' object
@@ -145,7 +151,7 @@ replayMpiOnRestart()
   mpi_async_call_t *message = NULL;
   JTRACE("Replaying unserviced isend/irecv calls");
 
-  for (auto it : g_async_calls) {
+  for (request_to_async_call_map_pair_t it : g_async_calls) {
     MPI_Status status;
     int retval = 0;
     int flag = 0;
@@ -291,13 +297,14 @@ isBufferedPacket(int source, int tag, MPI_Comm comm, int *flag,
                  MPI_Status *status, int *retval)
 {
   bool ret = false;
-  auto req = std::find_if(g_message_queue.begin(), g_message_queue.end(),
-                          [source, tag, comm](const mpi_message_t *msg)
-                          { return ((msg->status.MPI_SOURCE == source) ||
-                                    (source == MPI_ANY_SOURCE)) &&
-                                   ((msg->status.MPI_TAG == tag) ||
-                                    (tag == MPI_ANY_TAG)) &&
-                                   ((msg->comm == comm)); });
+  mpi_message_vector_iterator_t req =
+    std::find_if(g_message_queue.begin(), g_message_queue.end(),
+                 [source, tag, comm](const mpi_message_t *msg)
+                 { return ((msg->status.MPI_SOURCE == source) ||
+                           (source == MPI_ANY_SOURCE)) &&
+                          ((msg->status.MPI_TAG == tag) ||
+                           (tag == MPI_ANY_TAG)) &&
+                          ((msg->comm == comm)); });
   if (req != std::end(g_message_queue)) {
     *flag = 1;
     *status = (*req)->status;
@@ -311,7 +318,7 @@ isServicedRequest(MPI_Request *req, int *flag, MPI_Status *status)
 {
   bool ret = false;
   lock_t lock(logMutex);
-  auto it = g_async_calls.find(req);
+  request_to_async_call_map_iterator_t it = g_async_calls.find(req);
   if (it != std::end(g_async_calls)) {
     ret = (*it).second->serviced;
     *flag = ret ? 1 : 0;
@@ -326,13 +333,14 @@ consumeBufferedPacket(void *buf, int count, MPI_Datatype datatype,
 {
   int cpysize;
   mpi_message_t *foundMsg = NULL;
-  auto req = std::find_if(g_message_queue.begin(), g_message_queue.end(),
-                          [source, tag, comm](const mpi_message_t *msg)
-                          { return ((msg->status.MPI_SOURCE == source) ||
-                                    (source == MPI_ANY_SOURCE)) &&
-                                   ((msg->status.MPI_TAG == tag) ||
-                                    (tag == MPI_ANY_TAG)) &&
-                                   ((msg->comm == comm)); });
+  mpi_message_vector_iterator_t req =
+    std::find_if(g_message_queue.begin(), g_message_queue.end(),
+                 [source, tag, comm](const mpi_message_t *msg)
+                 { return ((msg->status.MPI_SOURCE == source) ||
+                           (source == MPI_ANY_SOURCE)) &&
+                          ((msg->status.MPI_TAG == tag) ||
+                           (tag == MPI_ANY_TAG)) &&
+                          ((msg->comm == comm)); });
   // This should never happen (since the caller should always check first using
   // isBufferedPacket())!
   JASSERT(req != std::end(g_message_queue))(count)(datatype)
@@ -422,7 +430,7 @@ resolve_async_messages()
   MPI_Request *request;
   mpi_async_call_t *call;
 
-  for (auto it : g_async_calls) {
+  for (request_to_async_call_map_pair_t it : g_async_calls) {
     MPI_Status status;
     int retval = 0;
     int flag = 0;
@@ -474,7 +482,7 @@ static bool
 drain_packets(const dmtcp::vector<mpi_call_params_t> &unsvcdSends)
 {
   bool ret = true;
-  for (auto it : unsvcdSends) {
+  for (mpi_call_params_t it : unsvcdSends) {
     ret &= drain_one_packet(it.datatype, it.comm);
   }
   return ret;
