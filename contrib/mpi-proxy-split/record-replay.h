@@ -62,6 +62,7 @@ namespace dmtcp_mpi
   using mutex_t = std::mutex;
   using lock_t  = std::unique_lock<mutex_t>;
   using fcb_t   = std::function<int(const MpiRecord&)>;
+  using mpi_record_vector_iterator_t = dmtcp::vector<MpiRecord*>::iterator;
 
   // Struct for saving arbitrary function arguments
   struct FncArg
@@ -225,7 +226,7 @@ namespace dmtcp_mpi
         int rc = MPI_SUCCESS;
         lock_t lock(_mutex);
         _replayOn = true;
-        for (auto rec : _records) {
+        for (MpiRecord* rec : _records) {
           rc = rec->play();
           if (rc != MPI_SUCCESS) {
             break;
@@ -238,7 +239,7 @@ namespace dmtcp_mpi
       void reset()
       {
         lock_t lock(_mutex);
-        for (auto i : _records) {
+        for (MpiRecord* i : _records) {
           delete i;
         }
         _replayOn = false;
@@ -248,7 +249,7 @@ namespace dmtcp_mpi
       void cleanComms(dmtcp::set<MPI_Comm> &staleComms)
       {
         bool setChanged = false;
-        auto isStaleComm =
+        std::function<bool(const MpiRecord*)> isStaleComm =
           [&](const MpiRecord *rec) {
             switch (rec->getType()) {
               case GENERATE_ENUM(Comm_split):
@@ -314,7 +315,8 @@ namespace dmtcp_mpi
                 return false;
             } };
         do {
-          auto it = remove_if(_records.begin(), _records.end(), isStaleComm);
+          mpi_record_vector_iterator_t it =
+            remove_if(_records.begin(), _records.end(), isStaleComm);
           _records.erase(it, _records.end());
         } while (setChanged);
       }
@@ -323,7 +325,7 @@ namespace dmtcp_mpi
       {
         lock_t lock(_mutex);
         dmtcp::set<MPI_Comm> staleComms;
-        auto isValidGroup =
+        std::function<bool(const MpiRecord*)> isValidGroup =
           [group, &staleComms](const MpiRecord *rec) {
             switch (rec->getType()) {
               case GENERATE_ENUM(Group_incl):
@@ -351,7 +353,8 @@ namespace dmtcp_mpi
               default:
                 return false;
             } };
-        auto it = remove_if(_records.begin(), _records.end(), isValidGroup);
+        mpi_record_vector_iterator_t it =
+          remove_if(_records.begin(), _records.end(), isValidGroup);
         _records.erase(it, _records.end());
         cleanComms(staleComms);
       }
@@ -360,7 +363,7 @@ namespace dmtcp_mpi
       {
         lock_t lock(_mutex);
         dmtcp::set<MPI_Comm> staleComms;
-        auto isValidComm =
+        std::function<bool(const MpiRecord*)> isValidComm =
           [comm, &staleComms](const MpiRecord *rec) {
             switch (rec->getType()) {
               case GENERATE_ENUM(Comm_split):
@@ -413,7 +416,8 @@ namespace dmtcp_mpi
               default:
                 return false;
             } };
-        auto it = remove_if(_records.begin(), _records.end(), isValidComm);
+        mpi_record_vector_iterator_t it =
+          remove_if(_records.begin(), _records.end(), isValidComm);
         _records.erase(it, _records.end());
         cleanComms(staleComms);
       }
