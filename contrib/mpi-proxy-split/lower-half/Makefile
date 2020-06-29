@@ -39,6 +39,8 @@ default: ${PROXY_BIN}
 #   The solution is to install the distro package libxml2-dev .
 # Ubuntu mpich package adds '-lcr' flag that's incompatible with 'mpicc -static'
 # MPICH-3.3 'mpicc -static' adds spurious duplicate -lunwind; we remove that.
+# *** NOTE:  This will fail unless you have configured MPICH with:
+# ***        ./configure --disable-xml2 --disable-libxml2 ...
 ${PROXY_BIN}: ${PROXY_OBJS} ${LIBPROXY}.a
 	if ${MPICC} -v 2>&1 | grep -q 'MPICH version'; then \
 	  rm -f tmp.sh; \

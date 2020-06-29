@@ -28,9 +28,10 @@ MPI_ETHERNET_INTERFACE=\
 
 # NOTE:  To make it work, two changes were needed:
 # ===============================================================
-# 1. There were multiple problems with using 'mpicc -static' for linking
-#    under MPICH.  Hence, it is recommended to build your own MPICH.  The MANA
-#    configure/make system then tries to adapt it to 'mpicc -static'.
+# 1. MANA requires 'mpicc -static' for linking under MPICH.  We saw multiple
+#    problems in this.  Hence, it is recommended to build your own MPICH.
+#    We found that 'mpicc -static' fails to link with MPICH, unless you
+#    configure MPICH with:   ./configure --disable-xml2 --disable-libxml2 ...
 #    See the contrib/mpi-proxy-split/INSTALL file for details.
 
 # ===============================================================
