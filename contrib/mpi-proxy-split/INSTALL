@@ -113,15 +113,20 @@ B.  You will need to build your own MPICH package.  The MPICH package
     configured to require '-lcr' (BLCR).  BLCR is not actively supported,
     and 'mpicc -static' with the MANA options is likely to fail due to
     interactions with '-lcr'.
-C.  The mpicc command of MPICH tests if libxml2.so is present, and if so,
-    it appends a flag '-lxml2'.  As is clear, this flag fails during
-    MANA's use of 'mpicc -static' if libxml2.a has not been installed.
-    If you have installed the package 'libxml2', then you _must_ also
-    install 'libxml2-dev' (libxml2-devel in CentOS).
+C.  Configuring your own MPICH to work with '-static' seems to be tricky.
+    We finally had success with the following configure command (on MPICH-3.3):
+    ./configure --enable-g --disable-xml2 --disable-libxml2 --prefix=INSTALL_DIR
+    This removes the internal '-lxml2' flag and removes MPICH dependencies
+    on libxml2.a.
+D.  OPTIONAL: Probably the 'configure' above suffices.  But if 'mpicc -show'
+    indicates a flag '-lxml2' anyway, then this will create a dependency on
+    libxml2.a.  Even if you have installed the package 'libxml2', then you
+    _must_ also install 'libxml2-dev' (libxml2-devel in CentOS) to get
+    'libxml2.a'.
     (If you are missing libxml2.a and lack root privilege, try copying libxml2.a
      from some distro package, and add -LPATH to mpicc command in ${PROXY_BIN}
      target of lower-half/Makefile, where PATH is a path to your libxml2.a .)
-D.  If you try MANA with Open MPI, please give us feedback on your results.
+E.  If you try MANA with Open MPI, please give us feedback on your results.
 
 Building outside of Cori (details).
 1.  git checkout test-dekaksi    # This will be merged into refactoring later.
