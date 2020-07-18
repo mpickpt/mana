@@ -1053,6 +1053,9 @@ waitForCheckpointCommand()
     reply.numPeers = 1;
     reply.isRunning = 1;
     break;
+  case 'l': case 'L':
+    JTRACE("Received list command");
+    break;
   case 'c': case 'C':
     JTRACE("checkpointing...");
     break;

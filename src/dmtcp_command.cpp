@@ -212,7 +212,7 @@ main(int argc, char **argv)
     return 2;
   }
 
-  if(*cmd == 's'){
+  if(*cmd == 's' || *cmd == 'l'){
     printf("Coordinator:\n");
     char *host = getenv(ENV_VAR_NAME_HOST);
     if (host == NULL) {
