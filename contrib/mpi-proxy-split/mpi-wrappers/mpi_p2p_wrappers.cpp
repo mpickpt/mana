@@ -25,7 +25,7 @@ USER_DEFINED_WRAPPER(int, Send,
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Send)(buf, count, realType, dest, tag, realComm);
   RETURN_TO_UPPER_HALF();
-  updateLocalSends();
+  updateLocalSends(count);
   DMTCP_PLUGIN_ENABLE_CKPT();
 #else
   MPI_Request req;
@@ -54,7 +54,7 @@ USER_DEFINED_WRAPPER(int, Isend,
   RETURN_TO_UPPER_HALF();
   addPendingRequestToLog(ISEND_REQUEST, buf, NULL, count,
                          datatype, dest, tag, comm, request);
-  updateLocalSends();
+  updateLocalSends(count);
   DMTCP_PLUGIN_ENABLE_CKPT();
   int flag = 0;
   MPI_Status st;
@@ -76,7 +76,7 @@ USER_DEFINED_WRAPPER(int, Rsend, (const void*) ibuf, (int) count,
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Rsend)(ibuf, count, realType, dest, tag, realComm);
   RETURN_TO_UPPER_HALF();
-  updateLocalSends();
+  updateLocalSends(count);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }

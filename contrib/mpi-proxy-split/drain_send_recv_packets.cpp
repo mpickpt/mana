@@ -76,12 +76,13 @@ drainMpiPackets()
   // call at checkpoint time, any pending sends and received would have been
   // completed. This is because MPI guarantees FIFO ordering on messages.
   dmtcp::vector<mpi_call_params_t> totalUnsvcdSends;
-  uint64_t totalSends = 0, totalRecvs = 0;
+  uint64_t totalSends = 0, totalRecvs = 0, totalSendCount = 0, totalRecvCount = 0; 
 
   // Get updated info from central db
-  get_remote_sr_counts(&totalSends, &totalRecvs, totalUnsvcdSends);
-
-  while (totalSends > totalRecvs) {
+  get_remote_sr_counts(&totalSends, &totalRecvs, &totalSendCount, &totalRecvCount, totalUnsvcdSends);
+  
+  //FIXME: If this works, delete (totalSends > toalrevcs) condition.
+  while (totalSends > totalRecvs && totalSendCount > totalRecvCount) {
     // Drain all unserviced sends
     drain_packets(totalUnsvcdSends);
 
@@ -98,7 +99,7 @@ drainMpiPackets()
     totalSends = totalRecvs = 0;
     totalUnsvcdSends.clear();
     // Get updated info from central db
-    get_remote_sr_counts(&totalSends, &totalRecvs, totalUnsvcdSends);
+    get_remote_sr_counts(&totalSends, &totalRecvs, &totalSendCount, &totalRecvCount, totalUnsvcdSends);
   }
 }
 
@@ -221,19 +222,21 @@ registerLocalSendsAndRecvs()
 }
 
 void
-updateLocalSends()
+updateLocalSends(int count)
 {
   // TODO: Use C++ atomics
   lock_t lock(srMutex);
   localSrCount.sends += 1;
+  localSrCount.sendCounts += count;
 }
 
 void
-updateLocalRecvs()
+updateLocalRecvs(int count)
 {
   // TODO: Use C++ atomics
   lock_t lock(srMutex);
   localSrCount.recvs += 1;
+  localSrCount.recvCounts += count;
 }
 
 void
@@ -268,7 +271,7 @@ clearPendingRequestFromLog(MPI_Request* req, MPI_Request orig)
   if (g_async_calls.find(req) != g_async_calls.end()) {
     mpi_async_call_t *call = g_async_calls[req];
     if (call && call->type == IRECV_REQUEST) {
-      updateLocalRecvs();
+      updateLocalRecvs(call->params.count);
     }
     g_async_calls.erase(req);
     if (call) {
@@ -280,7 +283,7 @@ clearPendingRequestFromLog(MPI_Request* req, MPI_Request orig)
     mpi_async_call_t *call = iter->second;
     if (call && call->req == orig) {
       if (call->type == IRECV_REQUEST) {
-        updateLocalRecvs();
+        updateLocalRecvs(call->params.count);
       }
       JALLOC_HELPER_FREE(call);
       call = NULL;
@@ -374,13 +377,14 @@ resetDrainCounters()
 //   - 'unsvcdSends' will contain the metadata of all the unserviced sends for
 static void
 get_remote_sr_counts(uint64_t *totalSends, uint64_t *totalRecvs,
+                     uint64_t *totalSendCount, uint64_t *totalRecvCount
                      dmtcp::vector<mpi_call_params_t> &unsvcdSends)
 {
   void *buf = NULL;
   int len = 0;
   int rc = 0;
 
-  JASSERT(totalRecvs && totalSends).Text("Unexpected NULL arguments");
+  JASSERT(totalRecvs && totalSends && totalSendCount && totalRecvCount).Text("Unexpected NULL arguments");
   rc = dmtcp_send_query_all_to_coordinator(MPI_SEND_RECV_DB, &buf, &len);
   JASSERT(rc == 0)(g_world_rank).Text("Error querying for MPI database.");
   if (len <= 0) {
@@ -395,6 +399,8 @@ get_remote_sr_counts(uint64_t *totalSends, uint64_t *totalRecvs,
     send_recv_totals_t *sptr = (send_recv_totals_t*)(ptr + mysz);
     *totalSends += sptr->sends;
     *totalRecvs += sptr->recvs;
+    *totalSendCount += sptr->sendCounts;
+    *totalRecvCount += sptr->recvCounts;
     int ts = sptr->countSends;
     //   Next, if there are unserviced sends, we fetch the metadata of the
     //   unserviced sends ...
@@ -451,7 +457,7 @@ resolve_async_messages()
         JTRACE("Serviced request")(call->type);
         if (call->type == IRECV_REQUEST) {
           // Recv completed successfully => user-specified buffer has data.
-          updateLocalRecvs();
+          updateLocalRecvs(call->params.count);
         } else if (call->type == ISEND_REQUEST) {
           // Send completed successfully
           g_unsvcd_sends.erase(std::remove_if(g_unsvcd_sends.begin(),
@@ -549,7 +555,7 @@ drain_one_packet(MPI_Datatype datatype, MPI_Comm comm)
 
   // queue it
   g_message_queue.push_back(message);
-  updateLocalRecvs();
+  updateLocalRecvs(count);
 
   return true;
 }

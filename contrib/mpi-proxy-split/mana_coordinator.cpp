@@ -68,6 +68,16 @@ printMpiDrainStatus(const LookupService& lookupService)
                  { send_recv_totals_t *obj =
                            (send_recv_totals_t*)el.second->data();
                     return sum + obj->recvs; };
+  std::function<uint64_t(uint64_t, KVPair)> sendCountSum =
+                 [](uint64_t sum, KVPair el)
+                 { send_recv_totals_t *obj =
+                           (send_recv_totals_t*)el.second->data();
+                    return sum + obj->sendCounts };
+  std::function<uint64_t(uint64_t, KVPair)> recvCountSum =
+                 [](uint64_t sum, KVPair el)
+                 { send_recv_totals_t *obj =
+                           (send_recv_totals_t*)el.second->data();
+                    return sum + obj->recvCounts; };
   std::function<string(string, KVPair)> indivStats =
                     [](string str, KVPair el)
                     { send_recv_totals_t *obj =
@@ -76,17 +86,25 @@ printMpiDrainStatus(const LookupService& lookupService)
                       o << str
                         <<  "Rank-" << std::to_string(obj->rank) << ": "
                         << std::to_string(obj->sends) << ", "
-                        << std::to_string(obj->recvs) << "; ";
+                        << std::to_string(obj->recvs) << ", "
+                        << std::to_string(obj->sendCounts) << ", "
+                        << std::to_string(obj->recvCounts) << ";\n";
                       return o.str(); };
   uint64_t totalSends = std::accumulate(map->begin(), map->end(),
                                         (uint64_t)0, sendSum);
   uint64_t totalRecvs = std::accumulate(map->begin(), map->end(),
                                         (uint64_t)0, recvSum);
+  uint64_t totalSendCounts = std::accumulate(map->begin(), map->end(),
+                                        (uint64_t)0, sendCountSum);
+  uint64_t totalRecvCounts = std::accumulate(map->begin(), map->end(),
+                                        (uint64_t)0, recvCountSum);
   string individuals = std::accumulate(map->begin(), map->end(),
                                        string(""), indivStats);
   ostringstream o;
   o << MPI_SEND_RECV_DB << ": Total Sends: " << totalSends << "; ";
-  o << "Total Recvs: " << totalRecvs << std::endl;
+  o << "Total Recvs: " << totalRecvs << ";";
+  o << "Total Send counts: " << totalSendCounts << ";";
+  o << "Total Recv counts: " << totalRecvCounts << std::endl;
   o << "  Individual Stats: " << individuals;
   printf("%s\n", o.str().c_str());
   fflush(stdout);
@@ -108,7 +126,7 @@ printMpiDrainStatus(const LookupService& lookupService)
                         << std::to_string(obj->isendCount) << ", "
                         << std::to_string(obj->recvCount) << ", "
                         << std::to_string(obj->irecvCount) << ", "
-                        << std::to_string(obj->sendrecvCount) << "; ";
+                        << std::to_string(obj->sendrecvCount) << ";\n";
                       return o.str(); };
 
   individuals = std::accumulate(map->begin(), map->end(),
