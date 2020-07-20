@@ -59,10 +59,10 @@ typedef struct __mpi_async_call
 } mpi_async_call_t;
 
 // Increments the global number of receives by 1
-extern void updateLocalRecvs();
+extern void updateLocalRecvs(int count);
 
 // Increments the global number of sends by 1
-extern void updateLocalSends();
+extern void updateLocalSends(int count);
 
 // Fetches the MPI rank and world size; also, verifies that MPI rank and
 // world size match the globally stored values in the plugin

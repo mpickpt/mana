@@ -60,6 +60,8 @@ typedef struct __send_recv_totals
   int rank;         // MPI rank
   uint64_t sends;   // Number of completed sends
   uint64_t recvs;   // Number of completed receives
+  uint64_t sendCounts;  // Number of completed send counts (MPI argument)
+  uint64_t recvCounts;  // Number of completed recv counts (MPI argument)
   int countSends;   // Number of unserviced sends
 } send_recv_totals_t;
 
