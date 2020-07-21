@@ -49,7 +49,8 @@ static dmtcp::map<MPI_Request* const, mpi_async_call_t*> g_async_calls;
 static dmtcp::vector<mpi_call_params_t> g_unsvcd_sends;
 
 static void get_remote_sr_counts(uint64_t* , uint64_t* ,
-                                 dmtcp::vector<mpi_call_params_t>& );
+                                 uint64_t* , uint64_t* ,
+				 dmtcp::vector<mpi_call_params_t>& );
 static bool resolve_async_messages();
 static bool drain_packets(const dmtcp::vector<mpi_call_params_t>& );
 static bool drain_one_packet(MPI_Datatype datatype, MPI_Comm comm);
@@ -377,7 +378,7 @@ resetDrainCounters()
 //   - 'unsvcdSends' will contain the metadata of all the unserviced sends for
 static void
 get_remote_sr_counts(uint64_t *totalSends, uint64_t *totalRecvs,
-                     uint64_t *totalSendCount, uint64_t *totalRecvCount
+                     uint64_t *totalSendCount, uint64_t *totalRecvCount,
                      dmtcp::vector<mpi_call_params_t> &unsvcdSends)
 {
   void *buf = NULL;
