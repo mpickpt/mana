@@ -72,7 +72,7 @@ printMpiDrainStatus(const LookupService& lookupService)
                  [](uint64_t sum, KVPair el)
                  { send_recv_totals_t *obj =
                            (send_recv_totals_t*)el.second->data();
-                    return sum + obj->sendCounts };
+                    return sum + obj->sendCounts; };
   std::function<uint64_t(uint64_t, KVPair)> recvCountSum =
                  [](uint64_t sum, KVPair el)
                  { send_recv_totals_t *obj =
