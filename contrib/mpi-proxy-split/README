@@ -1,3 +1,8 @@
+Much of the information here is obsolete.  It is kept currently
+for reference to an earlier version of MANA.
+Please read 'INSTALL' in this directory for more up-to-date
+instructions on installing and debugging.
+
 ## Instructions for building:
 
  0. Get DMTCP and checkout the v3 branch
