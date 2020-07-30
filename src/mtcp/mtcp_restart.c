@@ -191,7 +191,7 @@ regionContains(const void *haystackStart,
 }
 
 static void
-beforeLoadingGniDriverBlacklistAddresses(char *start1, char *end1,
+beforeLoadingGniDriverBlockAddressRanges(char *start1, char *end1,
 	                                 char *start2, char *end2)
 {
   // FIXME: This needs to be made dynamic.
@@ -211,8 +211,8 @@ beforeLoadingGniDriverBlacklistAddresses(char *start1, char *end1,
 }
 
 static void
-afterLoadingGniDriverUnblacklistAddresses(char *start1, char *end1,
-	                                 char *start2, char *end2)
+afterLoadingGniDriverUnblockAddressRanges(char *start1, char *end1,
+	                                  char *start2, char *end2)
 {
   // FIXME: This needs to be made dynamic.
   const size_t len1 = end1 - start1;
@@ -476,7 +476,7 @@ main(int argc, char *argv[], char **environ)
       // On standard Ubuntu/CentOS libs are mmap'ed downward in memory.
       // Allow an extra 1 GB for future upper-half libs and mmaps to be loaded.
       // FIXME:  Will the GNI driver data be allocated below start1?
-      //         If so, fix this to blacklist more than 1 GB.
+      //         If so, fix this to block more than a 1 GB address range.
       //         The GNI driver data is only used by Cray GNI.
       //         But lower-half MPI_Init may call additional mmap's not
       //           controlled by us.
@@ -520,11 +520,11 @@ main(int argc, char *argv[], char **environ)
 #endif
     typedef int (*getRankFptr_t)(void);
     int rank = -1;
-    beforeLoadingGniDriverBlacklistAddresses(start1, end1, start2, end2);
+    beforeLoadingGniDriverBlockAddressRanges(start1, end1, start2, end2);
     JUMP_TO_LOWER_HALF(lh_info.fsaddr);
     rank = ((getRankFptr_t)lh_info.getRankFptr)();
     RETURN_TO_UPPER_HALF();
-    afterLoadingGniDriverUnblacklistAddresses(start1, end1, start2, end2);
+    afterLoadingGniDriverUnblockAddressRanges(start1, end1, start2, end2);
 
     ckptImage = getCkptImageByRank(rank, argv);
     MTCP_PRINTF("[Rank: %d] Choosing ckpt image: %s\n", rank, ckptImage);
