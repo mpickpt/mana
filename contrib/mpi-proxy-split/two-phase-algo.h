@@ -51,6 +51,13 @@ namespace dmtcp_mpi
         _ckptPending = false;
       }
 
+      // Resets the client state after a checkpoint.
+      void resetStateAfterCkpt()
+      {
+        _currState = IS_READY;
+        clearCkptMsg();
+      }
+
       // Sets '_freePass' to true and unblocks any threads blocked on the
       // '_freePassCv' condition variable
       // (Executed by the checkpoint thread)
@@ -249,5 +256,9 @@ extern void drainMpiCollectives(const void* );
 
 // Clears the pending checkpoint state for the two-phase checkpointing algo
 extern void clearPendingCkpt();
+
+// Resets the state of the current process for the two-phase checkpointing
+// algo
+extern void resetTwoPhaseState();
 
 #endif // ifndef TWO_PHASE_ALGO_H
