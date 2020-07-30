@@ -19,6 +19,12 @@ clearPendingCkpt()
   TwoPhaseAlgo::instance().clearCkptPending();
 }
 
+void
+resetTwoPhaseState()
+{
+  TwoPhaseAlgo::instance().resetStateAfterCkpt();
+}
+
 // There can be multiple communicators, each with their own N (N = comm. size).
 //
 // The coordinator can initiate the checkpoint when none of the communicators
