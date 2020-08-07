@@ -241,6 +241,24 @@ afterLoadingGniDriverUnblockAddressRanges(char *start1, char *end1,
   }
 }
 
+int reserve_fds_upper_half(int *reserved_fds) {
+  int total_reserved_fds = 0;
+  int tmp_fd = 0;
+    while (tmp_fd < 500) {
+      MTCP_ASSERT((tmp_fd = mtcp_sys_open2("/dev/null",O_RDONLY)) != -1);  
+      reserved_fds[total_reserved_fds]=tmp_fd;
+      total_reserved_fds++;
+    }
+  return total_reserved_fds;
+}
+
+void unreserve_fds_upper_half(int *reserved_fds, int total_reserved_fds) {
+  int tmp_fd = 0;
+    while (--total_reserved_fds >= 0) {
+      MTCP_ASSERT((mtcp_sys_close(reserved_fds[total_reserved_fds])) != -1);  
+    }
+}
+
 #define min(a,b) (a < b ? a : b)
 #define max(a,b) (a > b ? a : b)
 int discover_union_ckpt_images(char *argv[],
@@ -470,6 +488,11 @@ main(int argc, char *argv[], char **environ)
     char *libsEnd;     // used by MPI: end of where kernel mmap's libraries
     char *highMemStart;// used by MPI: start of memory beyond libraries
     discover_union_ckpt_images(argv, &libsStart, &libsEnd, &highMemStart);
+    
+    // Reserve first 500 file descriptors for the Upper-half
+    int reserved_fds[500];
+    int total_reserved_fds;
+    total_reserved_fds = reserve_fds_upper_half(reserved_fds);
 
     // Refer to "blocked memory" in MANA Plugin Documentation for the addresses
 #if 1
@@ -543,6 +566,7 @@ main(int argc, char *argv[], char **environ)
     RETURN_TO_UPPER_HALF();
     afterLoadingGniDriverUnblockAddressRanges(start1, end1, start2, end2);
 
+    unreserve_fds_upper_half(reserved_fds,total_reserved_fds);
     ckptImage = getCkptImageByRank(rank, argv);
     MTCP_PRINTF("[Rank: %d] Choosing ckpt image: %s\n", rank, ckptImage);
   }
