@@ -193,7 +193,7 @@ read_lh_proxy_bits(pid_t childpid)
   int ret = -1;
   const int IOV_SZ = 2;
   const int RWX_PERMS = PROT_READ | PROT_EXEC | PROT_WRITE;
-  const int RW_PERMS = PROT_READ | PROT_EXEC | PROT_WRITE;
+  const int RW_PERMS = PROT_READ | PROT_WRITE;
   struct iovec remote_iov[IOV_SZ];
 
   // text segment
