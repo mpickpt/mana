@@ -112,6 +112,23 @@ void restore_libc(ThreadTLSInfo *tlsInfo,
                   MYINFO_GS_T myinfo_gs);
 static void unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo,
                                                 LowerHalfInfo_t *lh_info);
+// This emulates MAP_FIXED_NOREPLACE, which became available only in Linux 4.17
+// FIXME:  This assume that addr is a multiple of PAGESIZE.  We should
+//         check that in the function, and either issue an error in that
+//         case, or else simulate the action of MAP_FIXED_NOREPLACE.
+void* mmap_fixed_noreplace(void *addr, size_t len, int prot, int flags,
+                         int fd, off_t offset) {
+  if (flags & MAP_FIXED) {
+    flags ^= MAP_FIXED;
+  }
+  void *addr2 = mtcp_sys_mmap(addr, len, prot, flags, fd, offset);
+  if (addr == addr2) {
+    return addr2;
+  } else {
+    mtcp_sys_munmap(addr2, len);
+    return MAP_FAILED;
+  }
+}
 
 
 #define MB                 1024 * 1024
@@ -198,12 +215,12 @@ beforeLoadingGniDriverBlockAddressRanges(char *start1, char *end1,
   const size_t len1 = end1 - start1;
   const size_t len2 = end2 - start2;
 
-  void *addr = mtcp_sys_mmap(start1, len1,
+  void *addr = mmap_fixed_noreplace(start1, len1,
                              PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED,
                              -1, 0);
   MTCP_ASSERT(addr == start1);
   if (len2 > 0) {
-    addr = mtcp_sys_mmap(start2, len2,
+    addr = mmap_fixed_noreplace(start2, len2,
                          PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED,
                          -1, 0);
     MTCP_ASSERT(addr == start2);
@@ -734,7 +751,7 @@ static void
 restart_fast_path()
 {
   int mtcp_sys_errno;
-  void *addr = mtcp_sys_mmap(rinfo.restore_addr, rinfo.restore_size,
+  void *addr = mmap_fixed_noreplace(rinfo.restore_addr, rinfo.restore_size,
                              PROT_READ | PROT_WRITE | PROT_EXEC,
                              MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 
@@ -915,7 +932,7 @@ mtcp_simulateread(int fd, MtcpHeader *mtcpHdr)
     }
     if ((area.properties & DMTCP_ZERO_PAGE) == 0 &&
         (area.properties & DMTCP_SKIP_WRITING_TEXT_SEGMENTS) == 0) {
-      void *addr = mtcp_sys_mmap(0, area.size, PROT_WRITE | PROT_READ,
+      void *addr = mmap_fixed_noreplace(0, area.size, PROT_WRITE | PROT_READ,
                                  MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
       if (addr == MAP_FAILED) {
         MTCP_PRINTF("***Error: mmap failed; errno: %d\n", mtcp_sys_errno);
@@ -1235,7 +1252,7 @@ unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo, LowerHalfInfo_t *lh_info
     // Since vdso will use randomized addresses (unlike the standard practice
     // for vsyscall), this implies that kernel calls on __x86__ can go through
     // randomized addresses, and so they need special treatment.
-    vdso = mtcp_sys_mmap(vdsoStart, vdsoEnd - vdsoStart,
+    vdso = mmap_fixed_noreplace(vdsoStart, vdsoEnd - vdsoStart,
                          PROT_EXEC | PROT_WRITE | PROT_READ,
                          MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
 
@@ -1270,7 +1287,7 @@ unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo, LowerHalfInfo_t *lh_info
     MTCP_ASSERT(vvar == rinfo->vvarStart);
 
 #if defined(__i386__)
-    vvar = mtcp_sys_mmap(vvarStart, vvarEnd - vvarStart,
+    vvar = mmap_fixed_noreplace(vvarStart, vvarEnd - vvarStart,
                          PROT_EXEC | PROT_WRITE | PROT_READ,
                          MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
     if (vvar == MAP_FAILED) {
@@ -1386,7 +1403,7 @@ read_one_memory_area(int fd, VA endOfStack)
   if ((area.properties & DMTCP_ZERO_PAGE) != 0) {
     DPRINTF("restoring non-rwx anonymous area, %p bytes at %p\n",
             area.size, area.addr);
-    mmappedat = mtcp_sys_mmap(area.addr, area.size,
+    mmappedat = mmap_fixed_noreplace(area.addr, area.size,
                               area.prot,
                               area.flags | MAP_FIXED, -1, 0);
 
@@ -1458,7 +1475,7 @@ read_one_memory_area(int fd, VA endOfStack)
      * are valid.  Can we unmap vdso and vsyscall in Linux?  Used to use
      * mtcp_safemmap here to check for address conflicts.
      */
-    mmappedat = mtcp_sys_mmap(area.addr, area.size, area.prot | PROT_WRITE,
+    mmappedat = mmap_fixed_noreplace(area.addr, area.size, area.prot | PROT_WRITE,
                               area.flags, imagefd, area.offset);
 
     if (mmappedat == MAP_FAILED) {
@@ -1546,7 +1563,7 @@ adjust_for_smaller_file_size(Area *area, int fd)
     DPRINTF("For %s, current size (%ld) smaller than original (%ld).\n"
             "mmap()'ng the difference as anonymous.\n",
             area->name, curr_size, area->size);
-    VA mmappedat = mtcp_sys_mmap(anon_start_addr, anon_area_size,
+    VA mmappedat = mmap_fixed_noreplace(anon_start_addr, anon_area_size,
                                  area->prot | PROT_WRITE,
                                  MAP_FIXED | MAP_PRIVATE | MAP_ANONYMOUS,
                                  -1, 0);
@@ -1793,7 +1810,7 @@ static void mmapfile(int fd, void *buf, size_t size, int prot, int flags)
   int rc;
 
   /* Use mmap for this portion of checkpoint image. */
-  addr = mtcp_sys_mmap(buf, size, prot, flags,
+  addr = mmap_fixed_noreplace(buf, size, prot, flags,
                        fd, mtcp_sys_lseek(fd, 0, SEEK_CUR));
   if (addr != buf) {
     if (addr == MAP_FAILED) {
