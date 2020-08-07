@@ -306,11 +306,11 @@ mysetauxval(char **evp, unsigned long int type, unsigned long int val)
 }
 
 #define PAGESIZE 4096 /* We hardwire this, since we can't make libc calls. */
-// The mpi-proxy-split plugin hardwires in this address for lower half: 0xE000000
-// We'll use the end of that 16~MB region as a temporary holding place for mmap.
-// In May, 2020, on Cori and elsewhere, vvar is 3 pages and vdso is 2 pages.
-#define vvarStartTmp ((0xE000000 + 0x1000000) - 5*PAGESIZE)
-#define vdsoStartTmp ((0xE000000 + 0x1000000) - 2*PAGESIZE)
+// We choose this address based on our observation on CORI that it won't overlap
+// with any other memory segments. We might change this address in the future,
+// for now, it doesn't matters.
+#define vvarStartTmp ((0x40000) - 5*PAGESIZE)
+#define vdsoStartTmp ((0x40000) - 2*PAGESIZE)
 
 
 #define shift argv++; argc--;
