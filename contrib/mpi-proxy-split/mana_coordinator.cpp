@@ -289,7 +289,8 @@ unblockRanks(const ClientToStateMap& clientStates, long int size)
     if (c.second.st == PHASE_1 || c.second.st == PHASE_2) {
       // For ranks in PHASE_1 or in PHASE_2, send them a free pass to unblock
       // them.
-      JTRACE("Sending free pass to client")(c.first->identity())(c.second.st);
+      JTRACE("Sending free pass to client")
+            (c.first->identity())(c.second.rank)(c.second.st);
       query_t q(FREE_PASS);
       msg.extraBytes = sizeof q;
       c.first->sock() << msg;
@@ -304,7 +305,7 @@ unblockRanks(const ClientToStateMap& clientStates, long int size)
       c.first->sock().writeAll((const char*)&q, msg.extraBytes);
       count++;
     } else {
-      JWARNING(false)(c.first->identity())(c.second.st)
+      JWARNING(false)(c.first->identity())(c.second.st)(c.second.rank)
               .Text("Rank in unhandled state");
     }
   }
