@@ -124,7 +124,8 @@ TwoPhaseAlgo::preSuspendBarrier(const void *data)
       }
       break;
     case FREE_PASS:
-      JASSERT(isInWrapper() && (st == PHASE_1 || st == PHASE_2));
+      JASSERT(isInWrapper() && (st == PHASE_1 || st == PHASE_2))
+             (procRank)(isInWrapper())(st);
       notifyFreePass();
       st = waitForFreePassToTakeEffect(st);
       break;
