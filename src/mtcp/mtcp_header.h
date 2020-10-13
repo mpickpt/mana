@@ -101,6 +101,7 @@ typedef struct RestoreInfo {
 #endif
   MYINFO_GS_T myinfo_gs;
   int mtcp_restart_pause;  // Used by env. var. DMTCP_RESTART_PAUSE0
+  const char *dir; // Directory to search for checkpoint files
 } RestoreInfo;
 
 extern RestoreInfo rinfo;
