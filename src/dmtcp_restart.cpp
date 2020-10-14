@@ -56,7 +56,7 @@ using namespace dmtcp;
 static void setEnvironFd();
 
 string tmpDir = "/DMTCP/Uninitialized/Tmp/Dir";
-string ckptDirRestart;
+string restartDir;
 
 // gcc-4.3.4 -Wformat=2 issues false positives for warnings unless the format
 // string has at least one format specifier with corresponding format argument.
@@ -106,6 +106,7 @@ static const char *theUsage =
   "  --ckptdir (environment variable DMTCP_CHECKPOINT_DIR):\n"
   "              Directory to store checkpoint images\n"
   "              (default: use the same dir used in previous checkpoint)\n"
+  "  --restartdir Directory that contains checkpoint image directories\n" 
   "  --mpi       Use as MPI proxy\n (default: no MPI proxy)"
   "  --tmpdir PATH (environment variable DMTCP_TMPDIR)\n"
   "              Directory to store temp files (default: $TMDPIR or /tmp)\n"
@@ -600,8 +601,8 @@ runMtcpRestart(int is32bitElf, int fd, ProcessInfo *pInfo)
     const_cast<char *>("--stderr-fd"), stderrFdBuf,
     // TODO
     // These two flag must be last, since they may become NULL
-    ( !ckptDirRestart.empty() ? const_cast<char *>("--dir") : NULL ),
-    ( !ckptDirRestart.empty() ? const_cast<char *>(ckptDirRestart.c_str()) : NULL ),
+    ( !restartDir.empty() ? const_cast<char *>("--restartdir") : NULL ),
+    ( !restartDir.empty() ? const_cast<char *>(restartDir.c_str()) : NULL ),
     // These two flag must be last, since they may become NULL
     ( mtcp_restart_pause ? const_cast<char *>("--mtcp-restart-pause") : NULL ),
     ( mtcp_restart_pause ? pause_param : NULL ),
@@ -921,6 +922,9 @@ main(int argc, char **argv)
     } else if (argc > 1 && (s == "-t" || s == "--tmpdir")) {
       tmpdir_arg = argv[1];
       shift; shift;
+    } else if (argc > 1 && (s == "-r" || s == "--restartdir")) {
+        restartDir = string(argv[1]);
+        shift; shift;
     } else if (argc > 1 && (s == "--gdb")) {
       requestedDebugLevel = atoi(argv[1]);
       shift; shift;
@@ -958,7 +962,6 @@ main(int argc, char **argv)
   tmpDir = Util::calcTmpDir(tmpdir_arg);
   if (ckptdir_arg) {
     setNewCkptDir(ckptdir_arg);
-    ckptDirRestart = string(ckptdir_arg);
   }
 
   jassert_quiet = *getenv(ENV_VAR_QUIET) - '0';

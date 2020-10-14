@@ -302,13 +302,13 @@ int atoi2(char* str)
 } 
 
 int getCkptImageByDir(char *buffer, size_t buflen, int rank) {
-  if(rinfo.dir) {
+  if(rinfo.restart_dir) {
     return -1;
   }
 
-  size_t len = mtcp_strlen(rinfo.dir);
+  size_t len = mtcp_strlen(rinfo.restart_dir);
   if(len >= buflen) return -1;
-  mtcp_strcpy(buffer, rinfo.dir); // start with directory
+  mtcp_strcpy(buffer, rinfo.restart_dir); // start with directory
 
   // ensure directory ends with /
   if(buffer[len - 1] != '/') {
@@ -473,7 +473,7 @@ main(int argc, char *argv[], char **environ)
   rinfo.mtcp_restart_pause = 0; /* false */
   rinfo.use_gdb = 0;
   rinfo.text_offset = -1;
-  rinfo.dir = NULL;
+  rinfo.restart_dir = NULL;
   shift;
   while (argc > 0) {
     if (mtcp_strcmp(argv[0], "--use-gdb") == 0) {
@@ -499,8 +499,8 @@ main(int argc, char *argv[], char **environ)
     } else if (mtcp_strcmp(argv[0], "--simulate") == 0) {
       simulate = 1;
       shift;
-    } else if (mtcp_strcmp(argv[0], "--dir") == 0) {
-      rinfo.dir = argv[1];
+    } else if (mtcp_strcmp(argv[0], "--restartdir") == 0) {
+      rinfo.restart_dir = argv[1];
       shift; shift;
     } else if (argc == 1) {
       // We would use MTCP_PRINTF, but it's also for output of util/readdmtcp.sh
