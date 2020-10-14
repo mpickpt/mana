@@ -80,6 +80,7 @@ def emit_wrapper(decl, ret_type, fnc, args, arg_vars):
     else:
       fargs += "%s%s %s, " % (typ, '' if '*' in typ else '*', iden)
       cargs += "%s%s, " % ('' if '*' in typ else '*', iden)
+  
   if fargs == '' and not(fnc in ['MPI_Wtime', 'MPI_Wtick']):
     print("EXTERNC " + ret_type + " " + fnc.lower() + "_ (int* ierr) {")
   else:
@@ -91,6 +92,12 @@ def emit_wrapper(decl, ret_type, fnc, args, arg_vars):
       print("  return *ierr;")
   print("}")
   # print(ret_type + " " + fnc.lower() + "_ (" + args + ") __attribute__ ((weak, alias (\"" + fnc + "\")));")
+
+def emit_mpi_init():
+  print("EXTERNC int mpi_init_ (int *ierr, int* argc,  char*** argv) {")
+  print("  *ierr = MPI_Init(argc, argv);")
+  print("  return *ierr;")
+  print("}")
 
 
 for decl in declarations:
@@ -119,3 +126,4 @@ for decl in declarations:
 
   emit_wrapper(decl_oneline, ret_type, fnc, args, arg_vars)
   print("")  # emit a newline
+emit_mpi_init()
