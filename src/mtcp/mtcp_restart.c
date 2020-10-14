@@ -259,6 +259,98 @@ void unreserve_fds_upper_half(int *reserved_fds, int total_reserved_fds) {
     }
 }
 
+int itoa2(int value, char* result, int base) {
+	// check that the base if valid
+	if (base < 2 || base > 36) { *result = '\0'; return 0; }
+
+	char* ptr = result, *ptr1 = result, tmp_char;
+	int tmp_value;
+
+	int len = 0;
+	do {
+		tmp_value = value;
+		value /= base;
+		*ptr++ = "zyxwvutsrqponmlkjihgfedcba9876543210123456789abcdefghijklmnopqrstuvwxyz" [35 + (tmp_value - value * base)];
+		len++;
+	} while ( value );
+
+	// Apply negative sign
+	if (tmp_value < 0) *ptr++ = '-';
+	*ptr-- = '\0';
+	while(ptr1 < ptr) {
+		tmp_char = *ptr;
+		*ptr--= *ptr1;
+		*ptr1++ = tmp_char;
+	}
+	return len;
+}
+
+int atoi2(char* str) 
+{ 
+	// Initialize result 
+	int res = 0; 
+
+	// Iterate through all characters 
+	// of input string and update result 
+	for (int i = 0; str[i] 
+			!= '\0'; 
+			++i) 
+		res = res * 10 + str[i] - '0'; 
+
+	// return result. 
+	return res; 
+} 
+
+#define min(a,b) (a < b ? a : b)
+#define max(a,b) (a > b ? a : b)
+int discover_union_ckpt_images(char *argv[],
+		char **libsStart, char **libsEnd,
+		char **highMemStart) {
+	MtcpHeader mtcpHdr;
+	int rank;
+	*libsStart = (void *)(-1); // We'll take a min later.
+	*libsEnd = NULL; // We'll take a max later.
+	*highMemStart = (void *)(-1); // We'll take a min later.
+	argv++; 
+	for (rank = 0; ; rank++) {
+		char ckptImage[512];
+		//mtcp_strcpy(ckptImage, "hkhetaw/ckpt_rank_");
+		//int len = itoa2(rank, ckptImage + 18, 10);
+		//len = len + 18;
+		mtcp_strcpy(ckptImage, "ckpt_rank_");
+		int len = itoa2(rank, ckptImage + 10, 10);
+		len = len + 10;
+		mtcp_strcpy(ckptImage+len, "/ckpt.dmtcp");
+
+		//MTCP_PRINTF("Checkpoint file for rank %d is %s.\n", rank, ckptImage);
+
+		int rc = -1;
+		int fd = mtcp_sys_open2(ckptImage, O_RDONLY);
+		if (fd == -1) {
+			MTCP_PRINTF("***ERROR opening ckpt image (%s); errno: %d\n",
+					ckptImage, mtcp_sys_errno);
+			break;
+		}
+		do {
+			rc = mtcp_readfile(fd, &mtcpHdr, sizeof mtcpHdr);
+		} while (rc > 0 && mtcp_strcmp(mtcpHdr.signature, MTCP_SIGNATURE) != 0);
+		if (rc == 0) { 
+			MTCP_PRINTF("***ERROR: ckpt image doesn't match MTCP_SIGNATURE\n");
+			return -1;  
+		}
+		if(mtcp_sys_close(fd) == -1) {
+			MTCP_PRINTF("***ERROR closing ckpt image (%s); errno: %d\n",
+					ckptImage, mtcp_sys_errno);
+			break;
+		}
+		*libsStart = min(*libsStart, (char *)mtcpHdr.libsStart);
+		*libsEnd = max(*libsEnd, (char *)mtcpHdr.libsEnd);
+		*highMemStart = min(*highMemStart, (char *)mtcpHdr.highMemStart);
+	}
+	return rank;
+}
+
+/*
 #define min(a,b) (a < b ? a : b)
 #define max(a,b) (a > b ? a : b)
 int discover_union_ckpt_images(char *argv[],
@@ -285,15 +377,16 @@ int discover_union_ckpt_images(char *argv[],
     do {
       rc = mtcp_readfile(fd, &mtcpHdr, sizeof mtcpHdr);
     } while (rc > 0 && mtcp_strcmp(mtcpHdr.signature, MTCP_SIGNATURE) != 0);
-    if (rc == 0) { /* if end of file */
+    if (rc == 0) { // if end of file
       MTCP_PRINTF("***ERROR: ckpt image doesn't match MTCP_SIGNATURE\n");
-      return -1;  /* exit with error code -1 */
+      return -1;  // exit with error code -1
     }
     *libsStart = min(*libsStart, (char *)mtcpHdr.libsStart);
     *libsEnd = max(*libsEnd, (char *)mtcpHdr.libsEnd);
     *highMemStart = min(*highMemStart, (char *)mtcpHdr.highMemStart);
   }
 }
+*/
 
 NO_OPTIMIZE
 static unsigned long int
@@ -337,6 +430,7 @@ int
 main(int argc, char *argv[], char **environ)
 {
   char *ckptImage = NULL;
+  char ckptImageNew[512];
   MtcpHeader mtcpHdr;
   int mtcp_sys_errno;
   int simulate = 0;
@@ -564,11 +658,17 @@ main(int argc, char *argv[], char **environ)
     JUMP_TO_LOWER_HALF(lh_info.fsaddr);
     rank = ((getRankFptr_t)lh_info.getRankFptr)();
     RETURN_TO_UPPER_HALF();
-    afterLoadingGniDriverUnblockAddressRanges(start1, end1, start2, end2);
-
+    afterLoadingGniDriverUnblockAddressRanges(start1, end1, start2, end2);		
     unreserve_fds_upper_half(reserved_fds,total_reserved_fds);
-    ckptImage = getCkptImageByRank(rank, argv);
+
+    mtcp_strcpy(ckptImageNew, "ckpt_rank_");
+    int len = itoa2(rank, ckptImageNew + 10, 10);
+    len = len + 10;
+    mtcp_strcpy(ckptImageNew+len, "/ckpt.dmtcp");
+    ckptImage = ckptImageNew;
     MTCP_PRINTF("[Rank: %d] Choosing ckpt image: %s\n", rank, ckptImage);
+    //ckptImage = getCkptImageByRank(rank, argv);
+    //MTCP_PRINTF("[Rank: %d] Choosing ckpt image: %s\n", rank, ckptImage);
   }
 
 #ifdef TIMING
