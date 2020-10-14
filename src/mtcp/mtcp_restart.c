@@ -353,7 +353,8 @@ int getCkptImageByDir(char *buffer, size_t buflen, int rank) {
 
   char ldirents[256];
   int off = 0;
-  while(1){
+  int success = 0;
+  while(!sucess){
       int nread = mtcp_sys_getdents(fd, ldirents, 256);
       if(nread == -1) {
           MTCP_PRINTF("***ERROR reading directory entries from directory (%s); errno: %d\n",
@@ -362,7 +363,6 @@ int getCkptImageByDir(char *buffer, size_t buflen, int rank) {
       }
       if(nread == 0) return -1; // end of directory
 
-      short success = 0;
       int bpos = 0;
       while(bpos < nread) {
         struct linux_dirent *entry = (struct linux_dirent *) ldirents + bpos;
@@ -378,7 +378,6 @@ int getCkptImageByDir(char *buffer, size_t buflen, int rank) {
         }
         bpos += entry->d_reclen;
       }
-      if(success) break;
   }
 
   if(mtcp_sys_close(fd) == -1) {
