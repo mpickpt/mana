@@ -987,6 +987,10 @@ main(int argc, char **argv)
   mtcpArgList.push_back((char *)"--stderr-fd");
   sprintf(stderrFdBuf, "%d", PROTECTED_STDERR_FD);
   mtcpArgList.push_back(stderrFdBuf);
+  if(!restartDir.empty()) {
+    mtcpArgList.push_back((char *)"--restartdir");
+    mtcpArgList.push_back((char *)restartDir.c_str());
+  }
   for (; argc > 0; shift) {
     string restorename(argv[0]);
     struct stat buf;
@@ -1021,12 +1025,7 @@ main(int argc, char **argv)
     JTRACE("Will restart ckpt image") (argv[0]);
     if (runMpiProxy) {
         // TODO
-        if(restartDir.empty()) {
-          mtcpArgList.push_back(argv[0]);
-        } else {
-            mtcpArgList.push_back((char *)"--restartdir");
-            mtcpArgList.push_back((char *)restartDir.c_str());
-        }
+        if(restartDir.empty()) mtcpArgList.push_back(argv[0]);
     } else {
       RestoreTarget *t = new RestoreTarget(argv[0]);
       targets[t->upid()] = t;

@@ -302,7 +302,7 @@ int atoi2(char* str)
 } 
 
 int getCkptImageByDir(char *buffer, size_t buflen, int rank) {
-  if(rinfo.restart_dir) {
+  if(!rinfo.restart_dir) {
     return -1;
   }
 
@@ -323,7 +323,7 @@ int getCkptImageByDir(char *buffer, size_t buflen, int rank) {
   len += 10; // length of "ckpt_rank_"
 
   // "Add rank"
-  len = itoa2(rank, buffer + len, len); // TODO: this can theoretically overflow
+  len += itoa2(rank, buffer + len, 10); // TODO: this can theoretically overflow
   if(len >= buflen) return -1;
 
   // append '/'
@@ -357,7 +357,6 @@ int discover_union_ckpt_images(char *argv[],
 
     if(getCkptImageByDir(ckptImageFull, 512, rank) != -1) {
       ckptImage = ckptImageFull;
-      MTCP_PRINTF("Checkpoint Image Test: %s\n", ckptImage);
     } else {
       ckptImage = getCkptImageByRank(rank, argv);
     }
@@ -665,9 +664,13 @@ main(int argc, char *argv[], char **environ)
     rank = ((getRankFptr_t)lh_info.getRankFptr)();
     RETURN_TO_UPPER_HALF();
     afterLoadingGniDriverUnblockAddressRanges(start1, end1, start2, end2);
-
     unreserve_fds_upper_half(reserved_fds,total_reserved_fds);
-    ckptImage = getCkptImageByRank(rank, argv);
+
+    if(getCkptImageByDir(ckptImageNew, 512, rank) != -1) {
+        ckptImage = ckptImageNew;
+    } else {
+        ckptImage = getCkptImageByRank(rank, argv);
+    }
     MTCP_PRINTF("[Rank: %d] Choosing ckpt image: %s\n", rank, ckptImage);
   }
 
