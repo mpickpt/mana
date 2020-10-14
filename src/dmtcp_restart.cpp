@@ -865,7 +865,7 @@ main(int argc, char **argv)
 
   // process args
   shift;
-  while (true) {
+  while (argc > 0) {
     string s = argc > 0 ? argv[0] : "--help";
     if (s == "--help" && argc == 1) {
       printf("%s", theUsage);
@@ -1020,7 +1020,13 @@ main(int argc, char **argv)
 
     JTRACE("Will restart ckpt image") (argv[0]);
     if (runMpiProxy) {
-      mtcpArgList.push_back(argv[0]);
+        // TODO
+        if(restartDir.empty()) {
+          mtcpArgList.push_back(argv[0]);
+        } else {
+            mtcpArgList.push_back((char *)"--restartdir");
+            mtcpArgList.push_back((char *)restartDir.c_str());
+        }
     } else {
       RestoreTarget *t = new RestoreTarget(argv[0]);
       targets[t->upid()] = t;
@@ -1030,7 +1036,18 @@ main(int argc, char **argv)
     // Connect with coordinator using the first checkpoint image in the list
     // Also, create the DMTCP shared-memory area.
     WorkerState::setCurrentState(WorkerState::RESTARTING);
-    RestoreTarget *t = new RestoreTarget(mtcpArgList[3]);
+    RestoreTarget *t;
+    if(restartDir.empty()) {
+      t = new RestoreTarget(mtcpArgList[3]);
+    } else {
+        // TODO
+        string image_zero = restartDir; // copy constructor called
+        if(image_zero.back() != '/') {
+            image_zero.append("/");
+        }
+        image_zero.append("ckpt_rank_0/ckpt.dmtcp");
+        t = new RestoreTarget(image_zero.c_str());
+    }
     t->initializeCoordConnection();
     delete t;
     // We can only call this Util method after having initialized
