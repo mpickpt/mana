@@ -332,12 +332,43 @@ int getCkptImageByDir(char *buffer, size_t buflen, int rank) {
   buffer[len + 1] = '\0';
   len += 1;
 
-  // TODO:find checkpoint file
-  
-  if(len + 10 >= buflen) return -1;
-  mtcp_strcpy(buffer + len, "ckpt.dmtcp");
-  len += 10; // length of "ckpt.dmtcp"
+  // TODO
+  int fd = mtcp_sys_open2(buffer, O_RDONLY | O_DIRECTORY);
+  if(fd == -1) {
+      MTCP_PRINTF("***ERROR opening ckpt directory (%s); errno: %d\n",
+                  ckptImage, mtcp_sys_errno);
+      return -1;
+  }
 
+  struct linux_dirent ldirents[10];
+  while(1){
+        int ret = mtcp_sys_getdents(fd, ldirents, sizeof(struct linux_dirent) * 10)
+      if(ret == -1) {
+          MTCP_PRINTF("***ERROR reading directory entries from directory (%s); errno: %d\n",
+                      ckptImage, mtcp_sys_errno);
+          return -1;
+      }
+      if(ret == 0) return -1; // end of directory
+
+      for(int i = 0; i < (ret / sizeof(struct linux_dirent)); ++i) {
+          int slen = mtcp_strlen(ldirents[i].d_name);
+          // .dmtcp is of length 6
+          if(slen > 6 && mtcp_strcmp(ldirents[i].dname + slen - 6, ".dmtcp") == 0) {
+              // TODO: currently go with first found, is there a better alternative?
+              if(len + slen >= buflen) return -1;
+              mtcp_strcpy(buffer + len, ldirents[i].d_name);
+              len += slen;
+              break;
+          }
+      }
+  }
+
+  if(mtcp_sys_close(fd) == -1) {
+      MTCP_PRINTF("***ERROR closing ckpt directory (%s); errno: %d\n",
+                  ckptImage, mtcp_sys_errno);
+      return -1;
+  }
+  
   return len;
 }
 
