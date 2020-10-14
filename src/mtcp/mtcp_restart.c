@@ -311,8 +311,6 @@ int my_memcmp(const void *buffer1, const void *buffer2, size_t len) {
 }
 
 int getCkptImageByDir(char *buffer, size_t buflen, int rank) {
-  volatile int dummy=1;
-  while(dummy) {}
   if(!rinfo.restart_dir) {
     return -1;
   }
@@ -343,7 +341,6 @@ int getCkptImageByDir(char *buffer, size_t buflen, int rank) {
   buffer[len + 1] = '\0';
   len += 1;
 
-  // TODO
   int fd = mtcp_sys_open2(buffer, O_RDONLY | O_DIRECTORY);
   if(fd == -1) {
       MTCP_PRINTF("***ERROR opening ckpt directory (%s); errno: %d\n",
@@ -352,9 +349,8 @@ int getCkptImageByDir(char *buffer, size_t buflen, int rank) {
   }
 
   char ldirents[256];
-  int off = 0;
   int success = 0;
-  while(!sucess){
+  while(!success){
       int nread = mtcp_sys_getdents(fd, ldirents, 256);
       if(nread == -1) {
           MTCP_PRINTF("***ERROR reading directory entries from directory (%s); errno: %d\n",
@@ -365,7 +361,7 @@ int getCkptImageByDir(char *buffer, size_t buflen, int rank) {
 
       int bpos = 0;
       while(bpos < nread) {
-        struct linux_dirent *entry = (struct linux_dirent *) ldirents + bpos;
+        struct linux_dirent *entry = (struct linux_dirent *) (ldirents + bpos);
         int slen = mtcp_strlen(entry->d_name);
         if(slen > 6 
             && my_memcmp(entry->d_name, "ckpt", 4) 
@@ -375,6 +371,10 @@ int getCkptImageByDir(char *buffer, size_t buflen, int rank) {
           len += slen;
           success = 1;
           break;
+        }
+        if(entry->d_reclen == 0) {
+          MTCP_PRINTF("***ERROR Directory Entry struct invalid size of 0!");
+          return -1;
         }
         bpos += entry->d_reclen;
       }

@@ -1045,7 +1045,7 @@ main(int argc, char **argv)
             image_zero.append("/");
         }
         // TODO - hardcode for testing purposes
-        image_zero.append("ckpt_rank_0/ckpt_mpi_hello_world.mana.exe_658e8dad50cf57f9-43000-1f11f93a50bdc.dmtcp");
+        image_zero.append("ckpt_rank_0/ckpt_mpi_hello_world.mana.exe_658e8dad50cf57fb-42000-1fdbd1251e4a1.dmtcp");
 
         // read dmtcp files off underlying filesystemj
         t = new RestoreTarget(image_zero.c_str());
