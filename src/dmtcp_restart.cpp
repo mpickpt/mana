@@ -56,6 +56,7 @@ using namespace dmtcp;
 static void setEnvironFd();
 
 string tmpDir = "/DMTCP/Uninitialized/Tmp/Dir";
+string ckptDirRestart;
 
 // gcc-4.3.4 -Wformat=2 issues false positives for warnings unless the format
 // string has at least one format specifier with corresponding format argument.
@@ -597,6 +598,10 @@ runMtcpRestart(int is32bitElf, int fd, ProcessInfo *pInfo)
     (char *)mtcprestart.c_str(),
     const_cast<char *>("--fd"), fdBuf,
     const_cast<char *>("--stderr-fd"), stderrFdBuf,
+    // TODO
+    // These two flag must be last, since they may become NULL
+    ( !ckptDirRestart.empty() ? const_cast<char *>("--dir") : NULL ),
+    ( !ckptDirRestart.empty() ? const_cast<char *>(ckptDirRestart.c_str()) : NULL ),
     // These two flag must be last, since they may become NULL
     ( mtcp_restart_pause ? const_cast<char *>("--mtcp-restart-pause") : NULL ),
     ( mtcp_restart_pause ? pause_param : NULL ),
@@ -953,6 +958,7 @@ main(int argc, char **argv)
   tmpDir = Util::calcTmpDir(tmpdir_arg);
   if (ckptdir_arg) {
     setNewCkptDir(ckptdir_arg);
+    ckptDirRestart = string(ckptdir_arg);
   }
 
   jassert_quiet = *getenv(ENV_VAR_QUIET) - '0';
