@@ -3,7 +3,6 @@
 #include "dmtcp.h";
 #include "jassert.h";
 
-int MPI_Init(int* argc, char*** argv);
 int MPI_Finalize();
 int MPI_Finalized(int* flag);
 int MPI_Get_processor_name(char* name, int* resultlen);
