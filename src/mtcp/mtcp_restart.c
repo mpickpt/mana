@@ -432,6 +432,7 @@ int
 main(int argc, char *argv[], char **environ)
 {
   char *ckptImage = NULL;
+  char ckptImageNew[512];
   MtcpHeader mtcpHdr;
   int mtcp_sys_errno;
   int simulate = 0;
