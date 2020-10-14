@@ -369,7 +369,7 @@ int discover_union_ckpt_images(char *argv[],
     if (fd == -1) {
       MTCP_PRINTF("***ERROR opening ckpt image (%s); errno: %d\n",
                   ckptImage, mtcp_sys_errno);
-      mtcp_abort();
+      break;
     }
     do {
       rc = mtcp_readfile(fd, &mtcpHdr, sizeof mtcpHdr);
@@ -381,7 +381,7 @@ int discover_union_ckpt_images(char *argv[],
     if(mtcp_sys_close(fd) == -1) {
       MTCP_PRINTF("***ERROR closing ckpt image (%s); errno: %d\n",
                   ckptImage, mtcp_sys_errno);
-      mtcp_abort();
+      break;
     }
     *libsStart = min(*libsStart, (char *)mtcpHdr.libsStart);
     *libsEnd = max(*libsEnd, (char *)mtcpHdr.libsEnd);
