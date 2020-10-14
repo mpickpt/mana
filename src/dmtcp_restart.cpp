@@ -1044,7 +1044,10 @@ main(int argc, char **argv)
         if(image_zero.back() != '/') {
             image_zero.append("/");
         }
-        image_zero.append("ckpt_rank_0/ckpt.dmtcp");
+        // TODO - hardcode for testing purposes
+        image_zero.append("ckpt_rank_0/ckpt_mpi_hello_world.mana.exe_658e8dad50cf57f9-43000-1f11f93a50bdc.dmtcp");
+
+        // read dmtcp files off underlying filesystemj
         t = new RestoreTarget(image_zero.c_str());
     }
     t->initializeCoordConnection();
