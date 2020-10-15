@@ -305,38 +305,54 @@ int my_memcmp(const void *buffer1, const void *buffer2, size_t len) {
   const uint8_t *bbuf1 = (const uint8_t *) buffer1;
   const uint8_t *bbuf2 = (const uint8_t *) buffer2;
   for(size_t i = 0; i < len; ++i) {
-    if(bbuf1[i] != bbuf2[i]) return 0;
+      if(bbuf1[i] != bbuf2[i]) return bbuf1[i] - bbuf2[i];
   }
-  return 1;
+  return 0;
 }
 
 int getCkptImageByDir(char *buffer, size_t buflen, int rank) {
   if(!rinfo.restart_dir) {
+    MTCP_PRINTF("***ERROR No restart directory found - cannot find checkpoint image by directory!");
     return -1;
   }
 
   size_t len = mtcp_strlen(rinfo.restart_dir);
-  if(len >= buflen) return -1;
+  if(len >= buflen){
+    MTCP_PRINTF("***ERROR Restart directory would overflow given buffer!");
+    return -1;
+  }
   mtcp_strcpy(buffer, rinfo.restart_dir); // start with directory
 
   // ensure directory ends with /
   if(buffer[len - 1] != '/') {
-    if(len + 1 >= buflen) return -1;
+    if(len + 1 >= buflen){
+      MTCP_PRINTF("***ERROR Restart directory would overflow given buffer!");
+      return -1;
+    }
     buffer[len - 1] = '/';
     buffer[len] = '\0';
     len += 1;
   }
 
-  if(len + 10 >= buflen) return -1; // add "ckpt_rank_"
+  if(len + 10 >= buflen){
+    MTCP_PRINTF("***ERROR Ckpt directory would overflow given buffer!");
+    return -1;
+  }
   mtcp_strcpy(buffer + len, "ckpt_rank_");
   len += 10; // length of "ckpt_rank_"
 
   // "Add rank"
   len += itoa2(rank, buffer + len, 10); // TODO: this can theoretically overflow
-  if(len >= buflen) return -1;
+  if(len + 10 >= buflen){
+    MTCP_PRINTF("***ERROR Ckpt directory has overflowed the given buffer!");
+    return -1;
+  }
 
   // append '/'
-  if(len + 1 >= buflen) return -1;
+  if(len + 1 >= buflen){
+    MTCP_PRINTF("***ERROR Ckpt directory would overflow given buffer!");
+    return -1;
+  }
   buffer[len] = '/';
   buffer[len + 1] = '\0';
   len += 1;
@@ -349,8 +365,8 @@ int getCkptImageByDir(char *buffer, size_t buflen, int rank) {
   }
 
   char ldirents[256];
-  int success = 0;
-  while(!success){
+  int found = 0;
+  while(!found){
       int nread = mtcp_sys_getdents(fd, ldirents, 256);
       if(nread == -1) {
           MTCP_PRINTF("***ERROR reading directory entries from directory (%s); errno: %d\n",
@@ -364,17 +380,24 @@ int getCkptImageByDir(char *buffer, size_t buflen, int rank) {
         struct linux_dirent *entry = (struct linux_dirent *) (ldirents + bpos);
         int slen = mtcp_strlen(entry->d_name);
         if(slen > 6 
-            && my_memcmp(entry->d_name, "ckpt", 4) 
-            && my_memcmp(entry->d_name + slen - 6, ".dmtcp", 6)) {
-          if(len + slen > buflen) return -1;
+            && my_memcmp(entry->d_name, "ckpt", 4) == 0
+            && my_memcmp(entry->d_name + slen - 6, ".dmtcp", 6) == 0) {
+          found = 1;
+          if(len + slen >= buflen){
+            MTCP_PRINTF("***ERROR Ckpt file name would overflow given buffer!");
+            len = -1;
+            break; // don't return or we won't close the file
+          }
           mtcp_strcpy(buffer + len, entry->d_name);
           len += slen;
-          success = 1;
           break;
         }
+
         if(entry->d_reclen == 0) {
           MTCP_PRINTF("***ERROR Directory Entry struct invalid size of 0!");
-          return -1;
+          found = 1; // just to exit outer loop
+          len = -1;
+          break; // don't return or we won't close the file
         }
         bpos += entry->d_reclen;
       }
@@ -403,14 +426,12 @@ int discover_union_ckpt_images(char *argv[],
     char ckptImageFull[512]; // TODO: is this a big enough buffer?
     char *ckptImage = NULL;
 
-    if(getCkptImageByDir(ckptImageFull, 512, rank) != -1) {
+    if(rinfo.restart_dir && getCkptImageByDir(ckptImageFull, 512, rank) != -1) {
       ckptImage = ckptImageFull;
-    } else {
+    } else if(!rinfo.restart_dir){
       ckptImage = getCkptImageByRank(rank, argv);
     }
-    if (ckptImage == NULL) {
-      return rank;
-    }
+    if (ckptImage == NULL) break;
     // FIXME: This code is duplicated from below.  Refactor it.
     int rc = -1;
     int fd = mtcp_sys_open2(ckptImage, O_RDONLY);
