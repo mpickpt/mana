@@ -1039,13 +1039,26 @@ main(int argc, char **argv)
     if(restartDir.empty()) {
       t = new RestoreTarget(mtcpArgList[3]);
     } else {
-        // TODO
         string image_zero = restartDir; // copy constructor called
         if(image_zero.back() != '/') {
             image_zero.append("/");
         }
-        // TODO - hardcode for testing purposes
-        image_zero.append("ckpt_rank_0/ckpt_mpi_hello_world.mana.exe_658e8dad50cf57fb-42000-1fdbd1251e4a1.dmtcp");
+        image_zero.append("ckpt_rank_0/");
+        DIR *dir;
+        struct dirent *entry;
+        bool success = false;
+        JASSERT((dir = opendir(image_zero.c_str())) != NULL)
+        .Text("Failed to open checkpoint rank 0 directory to find first checkpoint file!");
+        while((entry = readdir(dir)) != NULL) {
+            if(Util::strStartsWith(entry->d_name, "ckpt") 
+                    && Util::strEndsWith(entry->d_name, ".dmtcp")) {
+                image_zero.append(entry->d_name);
+                success = true;
+                break;
+            }
+        }
+        closedir(dir);
+        JASSERT(success).Text("Failed to locate first checkpoint file!");
 
         // read dmtcp files off underlying filesystemj
         t = new RestoreTarget(image_zero.c_str());
