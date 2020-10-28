@@ -1030,6 +1030,7 @@ main(int argc, char **argv)
     mtcpArgList.insert(mtcpArgList.begin(), (char *)mtcprestart.c_str());
     mtcpArgList.push_back(NULL);
     execvp(mtcpArgList[0], &mtcpArgList[0]);
+    JASSERT(false)(mtcpArgList[0]).Text("execvp failed!");
   }
 
   // Prepare list of independent process tree roots
