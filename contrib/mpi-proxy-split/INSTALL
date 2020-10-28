@@ -172,3 +172,10 @@ OR ELSE:
   ifconfig -a (deprecated)
 If necessary, change the definition of MPIRUN in configure-mana for the
 correct Ethernet interface on your compute node.
+
+NOTE: On the latest version of the neil-testing branch a --restardir flag has
+been added to dmtcp_restart. Instead of passing all checkpoint files on the command line,
+you can use this flag to pass the directory containing the checkpoint files
+in the format ckpt_rank_{Rank}/ckpt_*.dmtcp, and it will autodetect those files
+from the directory and load them. This avoids the issue with the command line
+truncated arguments that are too long, which can be an issue at higher ranks.

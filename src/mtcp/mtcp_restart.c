@@ -354,7 +354,7 @@ int getCkptImageByDir(char *buffer, size_t buflen, int rank) {
     return -1;
   }
   buffer[len] = '/';
-  buffer[len + 1] = '\0';
+  buffer[len + 1] = '\0'; // keep null terminated for open call
   len += 1;
 
   int fd = mtcp_sys_open2(buffer, O_RDONLY | O_DIRECTORY);
@@ -379,6 +379,7 @@ int getCkptImageByDir(char *buffer, size_t buflen, int rank) {
       while(bpos < nread) {
         struct linux_dirent *entry = (struct linux_dirent *) (ldirents + bpos);
         int slen = mtcp_strlen(entry->d_name);
+        // int slen = entry->d_reclen - 2 - offsetof(struct linux_dirent, d_name);
         if(slen > 6 
             && my_memcmp(entry->d_name, "ckpt", 4) == 0
             && my_memcmp(entry->d_name + slen - 6, ".dmtcp", 6) == 0) {
