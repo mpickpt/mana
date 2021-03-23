@@ -276,7 +276,9 @@ restoreCommFree(const MpiRecord& rec)
   retval = FNC_CALL(Comm_free, rec)(&comm);
   JWARNING(retval == MPI_SUCCESS)(comm).Text("Error freeing MPI comm");
   if (retval == MPI_SUCCESS) {
-    MPI_Comm oldcomm = REMOVE_OLD_COMM(comm);
+    // This is not removed in the MPI_Comm_free wrapper,
+    // so it shouldn't be removed here.
+    // MPI_Comm oldcomm = REMOVE_OLD_COMM(comm);
   }
   return retval;
 }
@@ -328,7 +330,9 @@ restoreGroupFree(const MpiRecord& rec)
   retval = FNC_CALL(Group_free, rec)(&group);
   JWARNING(retval == MPI_SUCCESS)(group).Text("Error restoring MPI group free");
   if (retval == MPI_SUCCESS) {
-    REMOVE_OLD_GROUP(group);
+    // This is not called in the MPI_Group_free wrapper, so it shouldn't
+    // be called here.
+    // REMOVE_OLD_GROUP(group);
   }
   return retval;
 }
@@ -424,7 +428,9 @@ restoreTypeFree(const MpiRecord& rec)
   retval = FNC_CALL(Type_free, rec)(&type);
   JWARNING(retval == MPI_SUCCESS)(type).Text("Could not free MPI datatype");
   if (retval == MPI_SUCCESS) {
-    MPI_Datatype realType = REMOVE_OLD_TYPE(type);
+    // This is not called int he MPI_Type_free wrapper,
+    // so lets not call it here
+    // MPI_Datatype realType = REMOVE_OLD_TYPE(type);
   }
   return retval;
 }
@@ -527,7 +533,9 @@ restoreOpFree(const MpiRecord& rec)
   MPI_Op realOp = VIRTUAL_TO_REAL_OP(op);
   retval = FNC_CALL(Op_free, rec)(&realOp);
   if (retval == MPI_SUCCESS) {
-    realOp = REMOVE_OLD_OP(op);
+    // This is not called in the MPI_Op_free wrapper,
+    // so lets not call it here
+    // realOp = REMOVE_OLD_OP(op);
   }
   return retval;
 }
