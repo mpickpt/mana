@@ -259,6 +259,160 @@ void unreserve_fds_upper_half(int *reserved_fds, int total_reserved_fds) {
     }
 }
 
+int itoa2(int value, char* result, int base) {
+	// check that the base if valid
+	if (base < 2 || base > 36) { *result = '\0'; return 0; }
+
+	char* ptr = result, *ptr1 = result, tmp_char;
+	int tmp_value;
+
+	int len = 0;
+	do {
+		tmp_value = value;
+		value /= base;
+		*ptr++ = "zyxwvutsrqponmlkjihgfedcba9876543210123456789abcdefghijklmnopqrstuvwxyz" [35 + (tmp_value - value * base)];
+		len++;
+	} while ( value );
+
+	// Apply negative sign
+	if (tmp_value < 0) *ptr++ = '-';
+	*ptr-- = '\0';
+	while(ptr1 < ptr) {
+		tmp_char = *ptr;
+		*ptr--= *ptr1;
+		*ptr1++ = tmp_char;
+	}
+	return len;
+}
+
+int atoi2(char* str) 
+{ 
+	// Initialize result 
+	int res = 0; 
+
+	// Iterate through all characters 
+	// of input string and update result 
+	for (int i = 0; str[i] 
+			!= '\0'; 
+			++i) 
+		res = res * 10 + str[i] - '0'; 
+
+	// return result. 
+	return res; 
+} 
+
+int my_memcmp(const void *buffer1, const void *buffer2, size_t len) {
+  const uint8_t *bbuf1 = (const uint8_t *) buffer1;
+  const uint8_t *bbuf2 = (const uint8_t *) buffer2;
+  for(size_t i = 0; i < len; ++i) {
+      if(bbuf1[i] != bbuf2[i]) return bbuf1[i] - bbuf2[i];
+  }
+  return 0;
+}
+
+int getCkptImageByDir(char *buffer, size_t buflen, int rank) {
+  if(!rinfo.restart_dir) {
+    MTCP_PRINTF("***ERROR No restart directory found - cannot find checkpoint image by directory!");
+    return -1;
+  }
+
+  size_t len = mtcp_strlen(rinfo.restart_dir);
+  if(len >= buflen){
+    MTCP_PRINTF("***ERROR Restart directory would overflow given buffer!");
+    return -1;
+  }
+  mtcp_strcpy(buffer, rinfo.restart_dir); // start with directory
+
+  // ensure directory ends with /
+  if(buffer[len - 1] != '/') {
+    if(len + 1 >= buflen){
+      MTCP_PRINTF("***ERROR Restart directory would overflow given buffer!");
+      return -1;
+    }
+    buffer[len - 1] = '/';
+    buffer[len] = '\0';
+    len += 1;
+  }
+
+  if(len + 10 >= buflen){
+    MTCP_PRINTF("***ERROR Ckpt directory would overflow given buffer!");
+    return -1;
+  }
+  mtcp_strcpy(buffer + len, "ckpt_rank_");
+  len += 10; // length of "ckpt_rank_"
+
+  // "Add rank"
+  len += itoa2(rank, buffer + len, 10); // TODO: this can theoretically overflow
+  if(len + 10 >= buflen){
+    MTCP_PRINTF("***ERROR Ckpt directory has overflowed the given buffer!");
+    return -1;
+  }
+
+  // append '/'
+  if(len + 1 >= buflen){
+    MTCP_PRINTF("***ERROR Ckpt directory would overflow given buffer!");
+    return -1;
+  }
+  buffer[len] = '/';
+  buffer[len + 1] = '\0'; // keep null terminated for open call
+  len += 1;
+
+  int fd = mtcp_sys_open2(buffer, O_RDONLY | O_DIRECTORY);
+  if(fd == -1) {
+      MTCP_PRINTF("***ERROR opening ckpt directory (%s); errno: %d\n",
+                  buffer, mtcp_sys_errno);
+      return -1;
+  }
+
+  char ldirents[256];
+  int found = 0;
+  while(!found){
+      int nread = mtcp_sys_getdents(fd, ldirents, 256);
+      if(nread == -1) {
+          MTCP_PRINTF("***ERROR reading directory entries from directory (%s); errno: %d\n",
+                      buffer, mtcp_sys_errno);
+          return -1;
+      }
+      if(nread == 0) return -1; // end of directory
+
+      int bpos = 0;
+      while(bpos < nread) {
+        struct linux_dirent *entry = (struct linux_dirent *) (ldirents + bpos);
+        int slen = mtcp_strlen(entry->d_name);
+        // int slen = entry->d_reclen - 2 - offsetof(struct linux_dirent, d_name);
+        if(slen > 6 
+            && my_memcmp(entry->d_name, "ckpt", 4) == 0
+            && my_memcmp(entry->d_name + slen - 6, ".dmtcp", 6) == 0) {
+          found = 1;
+          if(len + slen >= buflen){
+            MTCP_PRINTF("***ERROR Ckpt file name would overflow given buffer!");
+            len = -1;
+            break; // don't return or we won't close the file
+          }
+          mtcp_strcpy(buffer + len, entry->d_name);
+          len += slen;
+          break;
+        }
+
+        if(entry->d_reclen == 0) {
+          MTCP_PRINTF("***ERROR Directory Entry struct invalid size of 0!");
+          found = 1; // just to exit outer loop
+          len = -1;
+          break; // don't return or we won't close the file
+        }
+        bpos += entry->d_reclen;
+      }
+  }
+
+  if(mtcp_sys_close(fd) == -1) {
+      MTCP_PRINTF("***ERROR closing ckpt directory (%s); errno: %d\n",
+                  buffer, mtcp_sys_errno);
+      return -1;
+  }
+  
+  return len;
+}
+
 #define min(a,b) (a < b ? a : b)
 #define max(a,b) (a > b ? a : b)
 int discover_union_ckpt_images(char *argv[],
@@ -270,9 +424,17 @@ int discover_union_ckpt_images(char *argv[],
   *libsEnd = NULL; // We'll take a max later.
   *highMemStart = (void *)(-1); // We'll take a min later.
   for (rank = 0; ; rank++) {
-    char *ckptImage = getCkptImageByRank(rank, argv);
+    char ckptImageFull[512]; // TODO: is this a big enough buffer?
+    char *ckptImage = NULL;
+
+    if(rinfo.restart_dir && getCkptImageByDir(ckptImageFull, 512, rank) != -1) {
+      ckptImage = ckptImageFull;
+    } else if(!rinfo.restart_dir){
+      ckptImage = getCkptImageByRank(rank, argv);
+    }
     if (ckptImage == NULL) {
-      return rank;
+        MTCP_PRINTF("***ERROR couldn't find ckpt image!");
+        break;
     }
     // FIXME: This code is duplicated from below.  Refactor it.
     int rc = -1;
@@ -280,19 +442,25 @@ int discover_union_ckpt_images(char *argv[],
     if (fd == -1) {
       MTCP_PRINTF("***ERROR opening ckpt image (%s); errno: %d\n",
                   ckptImage, mtcp_sys_errno);
-      mtcp_abort();
+      break;
     }
     do {
       rc = mtcp_readfile(fd, &mtcpHdr, sizeof mtcpHdr);
     } while (rc > 0 && mtcp_strcmp(mtcpHdr.signature, MTCP_SIGNATURE) != 0);
-    if (rc == 0) { /* if end of file */
+    if (rc == 0) { // if end of file
       MTCP_PRINTF("***ERROR: ckpt image doesn't match MTCP_SIGNATURE\n");
-      return -1;  /* exit with error code -1 */
+      return -1;  // exit with error code -1
+    }
+    if(mtcp_sys_close(fd) == -1) {
+      MTCP_PRINTF("***ERROR closing ckpt image (%s); errno: %d\n",
+                  ckptImage, mtcp_sys_errno);
+      break;
     }
     *libsStart = min(*libsStart, (char *)mtcpHdr.libsStart);
     *libsEnd = max(*libsEnd, (char *)mtcpHdr.libsEnd);
     *highMemStart = min(*highMemStart, (char *)mtcpHdr.highMemStart);
   }
+  return rank;
 }
 
 NO_OPTIMIZE
@@ -337,6 +505,7 @@ int
 main(int argc, char *argv[], char **environ)
 {
   char *ckptImage = NULL;
+  char ckptImageNew[512];
   MtcpHeader mtcpHdr;
   int mtcp_sys_errno;
   int simulate = 0;
@@ -377,6 +546,7 @@ main(int argc, char *argv[], char **environ)
   rinfo.mtcp_restart_pause = 0; /* false */
   rinfo.use_gdb = 0;
   rinfo.text_offset = -1;
+  rinfo.restart_dir = NULL;
   shift;
   while (argc > 0) {
     if (mtcp_strcmp(argv[0], "--use-gdb") == 0) {
@@ -402,6 +572,9 @@ main(int argc, char *argv[], char **environ)
     } else if (mtcp_strcmp(argv[0], "--simulate") == 0) {
       simulate = 1;
       shift;
+    } else if (mtcp_strcmp(argv[0], "--restartdir") == 0) {
+      rinfo.restart_dir = argv[1];
+      shift; shift;
     } else if (argc == 1) {
       // We would use MTCP_PRINTF, but it's also for output of util/readdmtcp.sh
       mtcp_printf("Considering '%s' as a ckpt image.\n", argv[0]);
@@ -564,11 +737,18 @@ main(int argc, char *argv[], char **environ)
     JUMP_TO_LOWER_HALF(lh_info.fsaddr);
     rank = ((getRankFptr_t)lh_info.getRankFptr)();
     RETURN_TO_UPPER_HALF();
-    afterLoadingGniDriverUnblockAddressRanges(start1, end1, start2, end2);
 
+    afterLoadingGniDriverUnblockAddressRanges(start1, end1, start2, end2);
     unreserve_fds_upper_half(reserved_fds,total_reserved_fds);
-    ckptImage = getCkptImageByRank(rank, argv);
+
+    if(getCkptImageByDir(ckptImageNew, 512, rank) != -1) {
+        ckptImage = ckptImageNew;
+    } else {
+        ckptImage = getCkptImageByRank(rank, argv);
+    }
     MTCP_PRINTF("[Rank: %d] Choosing ckpt image: %s\n", rank, ckptImage);
+    //ckptImage = getCkptImageByRank(rank, argv);
+    //MTCP_PRINTF("[Rank: %d] Choosing ckpt image: %s\n", rank, ckptImage);
   }
 
 #ifdef TIMING
