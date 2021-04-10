@@ -359,8 +359,6 @@ int getCkptImageByDir(char *buffer, size_t buflen, int rank) {
 
   int fd = mtcp_sys_open2(buffer, O_RDONLY | O_DIRECTORY);
   if(fd == -1) {
-      MTCP_PRINTF("***ERROR opening ckpt directory (%s); errno: %d\n",
-                  buffer, mtcp_sys_errno);
       return -1;
   }
 
@@ -433,7 +431,6 @@ int discover_union_ckpt_images(char *argv[],
       ckptImage = getCkptImageByRank(rank, argv);
     }
     if (ckptImage == NULL) {
-        MTCP_PRINTF("***ERROR couldn't find ckpt image!");
         break;
     }
     // FIXME: This code is duplicated from below.  Refactor it.
