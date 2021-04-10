@@ -90,7 +90,7 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-@FAST_RST_VIA_MMAP_TRUE@am__append_1 = -DFAST_RST_VIA_MMAP 
+@FAST_RST_VIA_MMAP_TRUE@am__append_1 = -DFAST_RST_VIA_MMAP
 bin_PROGRAMS = $(d_bindir)/dmtcp_launch$(EXEEXT) \
 	$(d_bindir)/dmtcp_command$(EXEEXT) \
 	$(d_bindir)/dmtcp_coordinator$(EXEEXT) \
@@ -1282,9 +1282,14 @@ uninstall-am: uninstall-binPROGRAMS uninstall-dmtcplibPROGRAMS \
 	uninstall-am uninstall-binPROGRAMS uninstall-dmtcplibPROGRAMS \
 	uninstall-includeHEADERS
 
+# MANA-specific targets
 ${manaplugindir}/mana_coordinator.o: ${manaplugindir}/mana_coordinator.cpp
 	cd ${manaplugindir} && ${MAKE} mana_coordinator.o
 	cp ${manaplugindir}/mana_coordinator.o ./
+${d_bindir}/mana_launch: ${srcdir}/mana_launch.sh
+	cp ${d_bindir}/mana_launch ${srcdir}/mana_launch.sh
+${d_bindir}/mana_restart: ${srcdir}/mana_restart.sh
+	cp ${d_bindir}/mana_restart ${srcdir}/mana_restart.sh
 
 mtcp/libmtcp.a:
 	cd mtcp && ${MAKE} libmtcp.a
