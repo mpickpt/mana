@@ -75,6 +75,7 @@
 #include <numeric>
 #include <algorithm>
 #include <iomanip>
+#include <fstream>
 #include <sys/prctl.h>
 
 #include "../jalib/jassert.h"
@@ -395,6 +396,30 @@ DmtcpCoordinator::handleUserCommand(char cmd, DmtcpMessage *reply /*= NULL*/)
       reply->coordCmdStatus = CoordCmdStatus::ERROR_INVALID_COMMAND;
     }
   }
+}
+
+void
+DmtcpCoordinator::writeSubmissionHostInfo() {
+  ofstream o;
+  string home = getenv("HOME");
+  home = home + "/.mana";
+  o.open(home.c_str(), std::ios::out | std::ios::trunc);
+  if (o.fail()) {
+    fprintf(stderr, "%s", "Failed to truncate and open ~/.mana\n");
+    exit(1);
+  }
+  o << "Status..." << std::endl
+    << "Host: " << coordHostname
+    << " (" << inet_ntoa(localhostIPAddr) << ")" << std::endl
+    << "Port: " << thePort << std::endl
+    << "PID: " << getpid() << std::endl
+    << "Checkpoint Interval: ";
+  if (theCheckpointInterval == 0) {
+    o << "disabled (checkpoint manually instead)" << std::endl;
+  } else {
+    o << theCheckpointInterval << std::endl;
+  }
+  o.close();
 }
 
 void
@@ -1848,6 +1873,10 @@ main(int argc, char **argv)
 
     // sigprocmask is only per-thread; but the coordinator is single-threaded.
     sigprocmask(SIG_BLOCK, &set, NULL);
+  }
+
+  if (mpiMode) {
+    prog.writeSubmissionHostInfo();
   }
 
   prog.eventLoop(daemon);
