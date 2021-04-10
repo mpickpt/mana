@@ -130,6 +130,10 @@ __d_bindir__dmtcp_command_LDADD     = libdmtcpinternal.a libjalib.a \
 
 __d_bindir__dmtcp_launch_SOURCES = dmtcp_launch.cpp
 
+${manaplugindir}/mana_coordinator.o: ${manaplugindir}/mana_coordinator.cpp
+	cd ${manaplugindir} && ${MAKE} mana_coordinator.o
+	cp ${manaplugindir}/mana_coordinator.o ./
+
 mtcp/libmtcp.a:
 	cd mtcp && ${MAKE} libmtcp.a
 
