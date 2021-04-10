@@ -45,6 +45,7 @@ Roughly, to test MANA, do:
   make tidy # Remove old ckpt files from a previous session.
   $MANA_ROOT/bin/dmtcp_coordinator --mpi -q -q --exit-on-last --daemon
   # This does interval checkpointing every 5 seconds.
+  make mpi_hello_world.mana.exe
   srun -n 1 $MANA_ROOT/bin/dmtcp_launch -i5 --host `hostname` --no-gzip --join --disable-dl-plugin --with-plugin $PWD/../libmana.so ./mpi_hello_world.mana.exe
   # [ creates ckpt:   ls ckpt_rank_*/ckpt_*.dmtcp ]
   $MANA_ROOT/bin/dmtcp_coordinator --mpi -q -q --exit-on-last --daemon
