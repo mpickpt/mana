@@ -1282,6 +1282,9 @@ uninstall-am: uninstall-binPROGRAMS uninstall-dmtcplibPROGRAMS \
 	uninstall-am uninstall-binPROGRAMS uninstall-dmtcplibPROGRAMS \
 	uninstall-includeHEADERS
 
+${manaplugindir}/mana_coordinator.o: ${manaplugindir}/mana_coordinator.cpp
+	cd ${manaplugindir} && ${MAKE} mana_coordinator.o
+	cp ${manaplugindir}/mana_coordinator.o ./
 
 mtcp/libmtcp.a:
 	cd mtcp && ${MAKE} libmtcp.a
