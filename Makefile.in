@@ -71,6 +71,9 @@ endif
 
 all: default
 
+mana: default
+	cd contrib/mpi-proxy-split && make install && make -j tests
+
 display-build-env: display-config display-release
 	@- uname -a
 	@  echo -n "libc version: " && ldd --version | head -1 || true
