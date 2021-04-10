@@ -34,7 +34,7 @@ d_bindir = $(top_builddir)/bin
 endif
 
 if FAST_RST_VIA_MMAP
-  AM_CXXFLAGS += -DFAST_RST_VIA_MMAP 
+  AM_CXXFLAGS += -DFAST_RST_VIA_MMAP
 endif
 
 #HEADERS
@@ -47,7 +47,9 @@ bin_PROGRAMS = $(d_bindir)/dmtcp_launch \
 	       $(d_bindir)/dmtcp_command \
 	       $(d_bindir)/dmtcp_coordinator \
 	       $(d_bindir)/dmtcp_restart \
-	       $(d_bindir)/dmtcp_nocheckpoint
+	       $(d_bindir)/dmtcp_nocheckpoint \
+	       $(d_bindir)/mana_launch \
+	       $(d_bindir)/mana_restart
 dmtcplib_PROGRAMS = $(d_libdir)/libdmtcp.so
 include_HEADERS = $(srcdir)/../include/dmtcp.h
 
@@ -130,9 +132,14 @@ __d_bindir__dmtcp_command_LDADD     = libdmtcpinternal.a libjalib.a \
 
 __d_bindir__dmtcp_launch_SOURCES = dmtcp_launch.cpp
 
+# MANA-specific targets
 ${manaplugindir}/mana_coordinator.o: ${manaplugindir}/mana_coordinator.cpp
 	cd ${manaplugindir} && ${MAKE} mana_coordinator.o
 	cp ${manaplugindir}/mana_coordinator.o ./
+${d_bindir}/mana_launch: ${srcdir}/mana_launch.sh
+	ln -s ${d_bindir}/mana_launch ${srcdir}/mana_launch.sh
+${d_bindir}/mana_restart: ${srcdir}/mana_restart.sh
+	ln -s ${srcdir}/mana_restart ${d_bindir}/mana_restart.sh
 
 mtcp/libmtcp.a:
 	cd mtcp && ${MAKE} libmtcp.a
