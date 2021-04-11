@@ -280,14 +280,25 @@ ProcessInfo::init()
   // Reserve space for restoreBuf
   _restoreBufLen = RESTORE_TOTAL_SIZE;
 
-  // Allocate two extra pages -- one at the start, one at the end -- to work as
-  // guard pages for the restore area.
-  void *addr = mmap(NULL, _restoreBufLen + (2 * 4096), PROT_READ,
-                    MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-  JASSERT(addr != MAP_FAILED) (JASSERT_ERRNO);
-  _restoreBufAddr = (uint64_t)addr + 4096;
-  JASSERT(mprotect((void *)_restoreBufAddr, _restoreBufLen, PROT_NONE) == 0)
-    ((void *)_restoreBufAddr) (_restoreBufLen) (JASSERT_ERRNO);
+  /* // Allocate two extra pages -- one at the start, one at the end -- to work as */
+  /* // guard pages for the restore area. */
+  /* void *addr = mmap(NULL, _restoreBufLen + (2 * 4096), PROT_READ, */
+  /*                   MAP_PRIVATE | MAP_ANONYMOUS, -1, 0); */
+  /* JASSERT(addr != MAP_FAILED) (JASSERT_ERRNO); */
+  /* _restoreBufAddr = (uint64_t)addr + 4096; */
+  /* JASSERT(mprotect((void *)_restoreBufAddr, _restoreBufLen, PROT_NONE) == 0) */
+  /*   ((void *)_restoreBufAddr) (_restoreBufLen) (JASSERT_ERRNO); */
+
+  // patched from commit "Add guard pages around restoreBuf when mmap'ed"
+  int pagesize = getpagesize();
+  _restoreBufAddr = (uint64_t) mmap(NULL, _restoreBufLen + 2*pagesize,
+                    PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+  JASSERT(_restoreBufAddr != (uint64_t) MAP_FAILED) (JASSERT_ERRNO);
+  _restoreBufAddr = (uint64_t)(_restoreBufAddr + pagesize);
+  // Guard page _restoreBufAddr; prevent kernel from merging regions
+  mprotect((char *)_restoreBufAddr - pagesize, pagesize, PROT_EXEC);
+  JASSERT(_restoreBufLen % pagesize == 0) (_restoreBufLen) (pagesize);
+  mprotect((char *)_restoreBufAddr + _restoreBufLen, pagesize, PROT_EXEC);
 
   if (_ckptDir.empty()) {
     updateCkptDirFileSubdir();
