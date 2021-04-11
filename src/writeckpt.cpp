@@ -147,7 +147,12 @@ mtcp_writememoryareas(int fd)
   }
 
   /* Finally comes the memory contents */
+  // patched from commit "Add guard pages around restoreBuf when mmap'ed"
+  JTRACE("addr and len of restoreBuf (to hold mtcp_restart code)")
+    ((void *)ProcessInfo::instance().restoreBufAddr())
+    (ProcessInfo::instance().restoreBufLen());
   procSelfMaps = new ProcSelfMaps();
+  // We must not cause an mmap() here, or the mem regions will not be correct.
   while (procSelfMaps->getNextArea(&area)) {
     // TODO(kapil): Verify that we are not doing any operation that might
     // result in a change of memory layout. For example, a call to JALLOC_NEW
