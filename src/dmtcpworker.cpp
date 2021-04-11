@@ -301,7 +301,8 @@ dmtcp_initialize()
   //   But 'srun --input all -n 1 gdb --args dmtcp_restart ...'
   //   fails.  GDB starts up, but then exits (due to end-of-stdin??).
   // We already printed info in dmtcp_launch.cpp, when DMTCP_MANA_PAUSE is set.
-  if (getenv("DMTCP_MANA_PAUSE") != NULL) {
+  if (getenv("DMTCP_LAUNCH_PAUSE") != NULL ||
+      getenv("DMTCP_MANA_PAUSE") != NULL) {
     volatile int dummy = 1;
     while (dummy) {};
   }

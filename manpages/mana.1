@@ -1,5 +1,5 @@
 '\" t
-.\" Manual page created with latex2man on Wed Jun  2 13:26:01 2021
+.\" Manual page created with latex2man on Sun Jun 20 15:09:00 2021
 .\" NOTE: This file is generated, DO NOT EDIT.
 .de Vb
 .ft CW
@@ -10,7 +10,7 @@
 
 .fi
 ..
-.TH "MANA" "1" "02 June 2021" "MPI\-Agnostic Netw.\-Agnostic Ckpt " "MPI\-Agnostic Netw.\-Agnostic Ckpt "
+.TH "MANA" "1" "20 June 2021" "MPI\-Agnostic Netw.\-Agnostic Ckpt " "MPI\-Agnostic Netw.\-Agnostic Ckpt "
 .SH NAME
 
 \fBmana\fP
@@ -75,15 +75,15 @@ and DMTCP_OPTIONS used, and other info.
 Execute a MANA command with \-\-help for a usage statement. 
 Checkpoints may be invoked: 
 .TP
-+ periodically 
++ periodically: 
 via the `\-\-interval\&' or `\-i\&' flag (units in seconds) 
 .TP
-+ under program control 
++ under program control: 
 (see 
 `test/plugin/applic\-initiated\-ckpt\&'
 directory) 
 .TP
-+ externally 
++ externally: 
 via `mana_status \-\-checkpoint\&'
 .PP
 A typical workflow for using MANA after untar\&'ing is: 
@@ -157,9 +157,28 @@ To see the stack, you then may or may not need to try some of the following:
 If you are debugging the lower half internals of MANA, you may need: 
 (gdb) file bin/lh_proxy 
 .PP
-.SH REPORTING BUGS
+.SH BUGS
 
-Report bugs to: dmtcp\-forum@lists.sourceforge.net
+NOTE: Compiling VASP\-5.4.4 uncovered some bugs in the combination 
+of icpc\-19.0.3.199 and GNU gcc. 
+The validation results were: 
+.TP
+.B *
+icpc+gcc\-7.5.0 (built at NERSC): Fails at runtime on VASP
+.br 
+during restart unless configured with: 
+.br
+\&./configure CXXFLAGS=\&'\-fno\-omit\-frame\-pointer
+.br
+\-fno\-optimize\-sibling\-calls\&'
+.TP
+.B *
+icpc+gcc\-9.3.0: Works correctly 
+.TP
+.B *
+icpc_gcc\-10.1.0 (built at NERSC): Fails to link using ld\-2.35.1 
+.PP
+Report bugs in MANA to: dmtcp\-forum@lists.sourceforge.net
 .br
 .PP
 .SH SEE ALSO
