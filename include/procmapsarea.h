@@ -97,6 +97,12 @@ typedef union ProcMapsArea {
       ino_t inodenum;
       uint64_t __inodenum;
     };
+#ifdef HUGEPAGES
+    union {
+      int hugepages;
+      uint64_t __hugepages;
+    };
+#endif
 
     uint64_t properties;
 
