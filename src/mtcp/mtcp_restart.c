@@ -1676,8 +1676,22 @@ read_one_memory_area(int fd, VA endOfStack)
      * are valid.  Can we unmap vdso and vsyscall in Linux?  Used to use
      * mtcp_safemmap here to check for address conflicts.
      */
-    mmappedat = mmap_fixed_noreplace(area.addr, area.size, area.prot | PROT_WRITE,
-                              area.flags, imagefd, area.offset);
+#ifdef HUGEPAGES
+    if (area.hugepages) {
+      mmappedat = mmap_fixed_noreplace(area.addr, area.size,
+				area.prot | PROT_WRITE,
+	                        area.flags | MAP_HUGETLB,
+				imagefd, area.offset);
+    } else {
+      mmappedat = mmap_fixed_noreplace(area.addr, area.size,
+				area.prot | PROT_WRITE,
+				area.flags, imagefd, area.offset);
+    }
+#else
+      mmappedat = mmap_fixed_noreplace(area.addr, area.size,
+				area.prot | PROT_WRITE,
+				area.flags, imagefd, area.offset);
+#endif
 
     if (mmappedat == MAP_FAILED) {
       DPRINTF("error %d mapping %p bytes at %p\n",

@@ -47,7 +47,6 @@
 
 #define DELETED_FILE_SUFFIX  " (deleted)"
 
-
 #define _real_open           NEXT_FNC(open)
 #define _real_close          NEXT_FNC(close)
 
@@ -78,6 +77,46 @@ vector<ProcMapsArea> *nscdAreas = NULL;
 static void writememoryarea(int fd, Area *area, int stack_was_seen);
 
 static void remap_nscd_areas(const vector<ProcMapsArea> &areas);
+
+#ifdef HUGEPAGES
+// read a line from fd
+int read_line(int fd, char buf[], int size) {
+  int numRead;
+  int i = 0;
+  while (i < size && (numRead = read(fd, buf + i, 1)) > 0) {
+    JASSERT(numRead != -1) (JASSERT_ERRNO);
+    if (numRead == 0 || buf[i] == '\n') {
+      buf[i] = '\0';
+      break;
+    }
+    i++;
+  }
+  return i;
+}
+
+/* check if a memory area use hugepages */
+int is_hugepage(void *startAddr) {
+  char buf[512];
+  char startAddrStr[100];
+  int numBytes = 0;
+  sprintf(startAddrStr, "%p", startAddr);
+
+  int fd = _real_open("/proc/self/smaps", O_RDONLY);
+  JASSERT(fd != -1) (JASSERT_ERRNO);
+  
+  while ((numBytes = read_line(fd, buf, 512))) {
+    if (strstr(buf, startAddrStr + 2) != NULL) {
+      // skip lines to find VmFlags
+      do {
+	read_line(fd, buf, 512);
+      } while (strstr(buf, "VmFlags") == NULL);
+      _real_close(fd);
+      return strstr(buf, "ht") != NULL;
+    }
+  }
+  return 0;
+}
+#endif
 
 /*****************************************************************************
  *
@@ -152,6 +191,7 @@ mtcp_writememoryareas(int fd)
     ((void *)ProcessInfo::instance().restoreBufAddr())
     (ProcessInfo::instance().restoreBufLen());
   procSelfMaps = new ProcSelfMaps();
+
   // We must not cause an mmap() here, or the mem regions will not be correct.
   while (procSelfMaps->getNextArea(&area)) {
     // TODO(kapil): Verify that we are not doing any operation that might
@@ -295,6 +335,13 @@ mtcp_writememoryareas(int fd)
       stack_was_seen = 1;
     }
 
+#ifdef HUGEPAGES
+    // check if the area uses hugepages
+    area.hugepages =  area.size % (2 * 1024 * 1024) == 0
+		      && is_hugepage(area.addr);
+
+#endif
+
     // the whole thing comes after the restore image
     writememoryarea(fd, &area, stack_was_seen);
   }
@@ -358,6 +405,7 @@ mtcp_get_next_page_range(Area *area, size_t *size, int *is_zero)
     if (*is_zero && ++count % 10 == 0) { // madvise every 10MB
       if (madvise(prevAddr, area->addr + *size - prevAddr,
                   MADV_DONTNEED) == -1) {
+
         JNOTE("error doing madvise(..., MADV_DONTNEED)")
           (JASSERT_ERRNO) ((void *)area->addr) ((int)*size);
         prevAddr = pg;
