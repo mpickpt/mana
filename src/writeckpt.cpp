@@ -47,6 +47,8 @@
 
 #define DELETED_FILE_SUFFIX  " (deleted)"
 
+#define HUGEPAGES
+
 #define _real_open           NEXT_FNC(open)
 #define _real_close          NEXT_FNC(close)
 
@@ -105,6 +107,13 @@ int is_hugepage(void *startAddr) {
   JASSERT(fd != -1) (JASSERT_ERRNO);
   
   while ((numBytes = read_line(fd, buf, 512))) {
+    // get start address from smaps
+    for (int i = 0; i < 512; i++) {
+      if (buf[i] == '-') {
+	buf[i] = '\0';
+	break;
+      }
+    }
     if (strstr(buf, startAddrStr + 2) != NULL) {
       // skip lines to find VmFlags
       do {
