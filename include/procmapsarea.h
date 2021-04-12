@@ -30,6 +30,8 @@
 #define MTCP_PAGE_OFFSET_MASK (MTCP_PAGE_SIZE - 1)
 #define FILENAMESIZE          1024
 
+#define HUGEPAGES
+
 #ifndef HIGHEST_VA
 
 // If 32-bit process in 64-bit Linux, then Makefile overrides this address,
