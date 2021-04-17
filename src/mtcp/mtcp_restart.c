@@ -63,6 +63,8 @@
 #include "tlsutil.h"
 #include "mtcp_split_process.h"
 
+#define HUGEPAGES
+
 /* The use of NO_OPTIMIZE is deprecated and will be removed, since we
  * compile mtcp_restart.c with the -O0 flag already.
  */
@@ -79,8 +81,6 @@ static void mmapfile(int fd, void *buf, size_t size, int prot, int flags);
 
 #define BINARY_NAME     "mtcp_restart"
 #define BINARY_NAME_M32 "mtcp_restart-32"
-
-#define HUGEAPAGES
 
 /* struct RestoreInfo to pass all parameters from one function to next.
  * This must be global (not on stack) at the time that we jump from
@@ -1680,20 +1680,12 @@ read_one_memory_area(int fd, VA endOfStack)
      */
 #ifdef HUGEPAGES
     if (area.hugepages) {
-      mmappedat = mmap_fixed_noreplace(area.addr, area.size,
-				area.prot | PROT_WRITE,
-	                        area.flags | MAP_HUGETLB,
-				imagefd, area.offset);
-    } else {
-      mmappedat = mmap_fixed_noreplace(area.addr, area.size,
-				area.prot | PROT_WRITE,
-				area.flags, imagefd, area.offset);
+      area.flags |= MAP_HUGETLB;
     }
-#else
-      mmappedat = mmap_fixed_noreplace(area.addr, area.size,
-				area.prot | PROT_WRITE,
-				area.flags, imagefd, area.offset);
 #endif
+    mmappedat = mmap_fixed_noreplace(area.addr, area.size,
+	                             area.prot | PROT_WRITE,
+	                             area.flags, imagefd, area.offset);
 
     if (mmappedat == MAP_FAILED) {
       DPRINTF("error %d mapping %p bytes at %p\n",
