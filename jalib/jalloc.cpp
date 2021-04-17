@@ -269,8 +269,14 @@ jalib::JAllocDispatcher::initialize(void)
     lvl3.initialize(1024 * 32 * 16);
     lvl4.initialize(1024 * 32 * 16);
   } else {
+#ifdef MPI
+    // MANA: increased initial size to avoid inconsistency in ProcSelfMaps
+    lvl1.initialize(1024 * 1024 * 16);
+    lvl2.initialize(1024 * 1024 * 16);
+#else
     lvl1.initialize(1024 * 16);
     lvl2.initialize(1024 * 16);
+#endif
     lvl3.initialize(1024 * 32);
     lvl4.initialize(1024 * 32);
   }
