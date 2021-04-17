@@ -39,6 +39,8 @@
 #include "util.h"
 #include "mtcp/mtcp_header.h"  // MtcpHdr
 
+#define HUGEPAGES
+
 #define DEV_ZERO_DELETED_STR "/dev/zero (deleted)"
 #define DEV_NULL_DELETED_STR "/dev/null (deleted)"
 
@@ -46,8 +48,6 @@
 #define DEV_DRI_SHMEM        "/dev/dri/card"
 
 #define DELETED_FILE_SUFFIX  " (deleted)"
-
-#define HUGEPAGES
 
 #define _real_open           NEXT_FNC(open)
 #define _real_close          NEXT_FNC(close)

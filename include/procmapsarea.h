@@ -24,13 +24,13 @@
 #include <stdint.h>
 #include <sys/types.h>
 
+#define HUGEPAGES
+
 // MTCP_PAGE_SIZE must be page-aligned:  multiple of sysconf(_SC_PAGESIZE).
 #define MTCP_PAGE_SIZE        4096
 #define MTCP_PAGE_MASK        (~(MTCP_PAGE_SIZE - 1))
 #define MTCP_PAGE_OFFSET_MASK (MTCP_PAGE_SIZE - 1)
 #define FILENAMESIZE          1024
-
-#define HUGEPAGES
 
 #ifndef HIGHEST_VA
 
