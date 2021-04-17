@@ -507,6 +507,21 @@ class RestoreTarget
     int _fd;
 };
 
+char *get_pause_param() {
+  char * pause_param = getenv("DMTCP_RESTART_PAUSE");
+  if (pause_param == NULL) {
+    pause_param = getenv("MTCP_RESTART_PAUSE");
+  }
+  if (pause_param != NULL) {
+#ifdef HAS_PR_SET_PTRACER
+    prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY, 0, 0, 0); // For: gdb attach
+#endif // ifdef HAS_PR_SET_PTRACER
+  }
+  // If pause_param is not NULL, mtcp_restart will invoke
+  //     postRestartDebug() in the checkpoint image instead of postRestart().
+  return pause_param;
+}
+
 static void
 runMtcpRestart(int is32bitElf, int fd, ProcessInfo *pInfo)
 {
@@ -580,32 +595,19 @@ runMtcpRestart(int is32bitElf, int fd, ProcessInfo *pInfo)
   }
 
   /* If DMTCP_RESTART_PAUSE>1, mtcp_restart will loop until gdb attach.*/
-  int mtcp_restart_pause = 0;
-  char * pause_param = getenv("DMTCP_RESTART_PAUSE");
-  if (pause_param == NULL) {
-    pause_param = getenv("MTCP_RESTART_PAUSE");
-  }
-  if (pause_param != NULL && pause_param[0] >= '1' && pause_param[0] <= '4'
-                          && pause_param[1] == '\0') {
-#ifdef HAS_PR_SET_PTRACER
-    prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY, 0, 0, 0); // For: gdb attach
-#endif // ifdef HAS_PR_SET_PTRACER
-    mtcp_restart_pause = pause_param[0] - '0';
-    // If mtcp_restart_pause == true, mtcp_restart will invoke
-    //     postRestartDebug() in the checkpoint image instead of postRestart().
-  }
-
+  char *pause_param = get_pause_param();
   char *const newArgs[] = {
     (char *)mtcprestart.c_str(),
     const_cast<char *>("--fd"), fdBuf,
     const_cast<char *>("--stderr-fd"), stderrFdBuf,
     // TODO
-    // These two flag must be last, since they may become NULL
+    // These two flags must be last, since they may become NULL
     ( !restartDir.empty() ? const_cast<char *>("--restartdir") : NULL ),
     ( !restartDir.empty() ? const_cast<char *>(restartDir.c_str()) : NULL ),
-    // These two flag must be last, since they may become NULL
-    ( mtcp_restart_pause ? const_cast<char *>("--mtcp-restart-pause") : NULL ),
-    ( mtcp_restart_pause ? pause_param : NULL ),
+    // These two flags must be last, since they may become NULL
+    // FIXME: If --restartdir is not used, then DMTCP_RESTART_PAUSE won't work
+    ( pause_param ? const_cast<char *>("--mtcp-restart-pause") : NULL ),
+    ( pause_param ? pause_param : NULL ),
     NULL
   };
 
@@ -990,6 +992,11 @@ main(int argc, char **argv)
   if(!restartDir.empty()) {
     mtcpArgList.push_back((char *)"--restartdir");
     mtcpArgList.push_back((char *)restartDir.c_str());
+  }
+  char *pause_param = get_pause_param();
+  if (pause_param) {
+    mtcpArgList.push_back((char *)"--mtcp-restart-pause");
+    mtcpArgList.push_back(pause_param);
   }
   for (; argc > 0; shift) {
     string restorename(argv[0]);
