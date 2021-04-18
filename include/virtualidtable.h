@@ -205,7 +205,7 @@ class VirtualIdTable
         IdType realId = i->second;
         out << "\t" << virtualId << "\t->   " << realId << "\n";
       }
-      JTRACE("Virtual To Real Mappings:") (_idMapTable.size()) (out.str());
+      JNOTE("Virtual To Real Mappings:") (_idMapTable.size()) (out.str());
     }
 
     vector<IdType>getIdVector()
@@ -264,6 +264,7 @@ class VirtualIdTable
 
     void writeMapsToFile(int fd)
     {
+      printMaps();
       string file = "/proc/self/fd/" + jalib::XToString(fd);
       string mapFile = jalib::Filesystem::ResolveSymlink(file);
 
