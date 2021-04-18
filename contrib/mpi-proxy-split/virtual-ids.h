@@ -76,8 +76,24 @@ namespace dmtcp_mpi
 #endif
       static MpiVirtualization& instance(const char *name, T nullId)
       {
-        static MpiVirtualization<T> _virTable(name, nullId);
-        return _virTable;
+	// FIXME: 
+	// dmtcp_mpi::MpiVirtualization::instance("MpiGroup", 1)._vIdTable.printMaps(true)
+	// to access _virTableMpiGroup in GDB.
+	// We need a cleaner way to access it.
+	if (strcmp(name, "MpiOp") == 0) {
+	  static MpiVirtualization<T> _virTableMpiOp(name, nullId);
+	  return _virTableMpiOp;
+	} else if (strcmp(name, "MpiComm") == 0) {
+	  static MpiVirtualization<T> _virTableMpiComm(name, nullId);
+	  return _virTableMpiComm;
+	} else if (strcmp(name, "MpiGroup") == 0) {
+	  static MpiVirtualization<T> _virTableMpiGroup(name, nullId);
+	  return _virTableMpiGroup;
+	} else if (strcmp(name, "MpiType") == 0) {
+	  static MpiVirtualization<T> _virTableMpiType(name, nullId);
+	  return _virTableMpiType;
+	}
+	JWARNING(false)(name)(nullId).Text("Unhandled type");
       }
 
       T virtualToReal(T virt)
