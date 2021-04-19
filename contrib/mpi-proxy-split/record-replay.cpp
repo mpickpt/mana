@@ -315,7 +315,7 @@ restoreCommGroup(const MpiRecord& rec)
   JWARNING(retval == MPI_SUCCESS)(comm).Text("Error restoring MPI comm group");
   if (retval == MPI_SUCCESS) {
     MPI_Group oldgroup = rec.args(1);
-    UPDATE_COMM_MAP(oldgroup, newgroup);
+    UPDATE_GROUP_MAP(oldgroup, newgroup);
   }
   return retval;
 }
@@ -346,7 +346,7 @@ restoreGroupIncl(const MpiRecord& rec)
   JWARNING(retval == MPI_SUCCESS)(group).Text("Error restoring MPI group incl");
   if (retval == MPI_SUCCESS) {
     MPI_Group oldgroup = rec.args(3);
-    UPDATE_COMM_MAP(oldgroup, newgroup);
+    UPDATE_GROUP_MAP(oldgroup, newgroup);
   }
   return retval;
 }
