@@ -32,6 +32,10 @@ USER_DEFINED_WRAPPER(int, Type_free, (MPI_Datatype *) type)
   retval = NEXT_FUNC(Type_free)(&realType);
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS && LOGGING()) {
+    // NOTE: We cannot remove the old type, since we'll need
+    // to replay this call to reconstruct any new type that might
+    // have been created using this type.
+    //
     // realType = REMOVE_OLD_TYPE(*type);
     LOG_CALL(restoreTypes, Type_free, type);
   }

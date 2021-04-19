@@ -42,6 +42,10 @@ USER_DEFINED_WRAPPER(int, Op_free, (MPI_Op*) op)
   retval = NEXT_FUNC(Op_free)(&realOp);
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS && LOGGING()) {
+    // NOTE: We cannot remove the old op, since we'll need
+    // to replay this call to reconstruct any new op that might
+    // have been created using this op.
+    //
     // realOp = REMOVE_OLD_OP(*op);
     LOG_CALL(restoreOps, Op_free, op);
   }
