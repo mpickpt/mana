@@ -430,6 +430,7 @@ namespace dmtcp_mpi
         return !_replayOn;
       }
 
+      void printRecords(bool print);
     private:
       // Pvt. constructor
       MpiRecordReplay()
@@ -446,6 +447,7 @@ namespace dmtcp_mpi
       // Lock on list
       mutex_t _mutex;
   }; // class MpiRecordReplay
+
 
   // Restores the MPI communicators and returns MPI_SUCCESS on success
   extern int restoreComms(const MpiRecord& );
