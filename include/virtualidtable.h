@@ -194,7 +194,7 @@ class VirtualIdTable
       _do_unlock_tbl();
     }
 
-    void printMaps()
+    void printMaps(bool print = false)
     {
       ostringstream out;
 
@@ -205,7 +205,17 @@ class VirtualIdTable
         IdType realId = i->second;
         out << "\t" << virtualId << "\t->   " << realId << "\n";
       }
-      JNOTE("Virtual To Real Mappings:") (_idMapTable.size()) (out.str());
+      JTRACE("Virtual To Real Mappings:") (_idMapTable.size()) (out.str());
+      if (print) {
+	// print to stdout for debugging in GDB
+	// FIXME: 
+	// dmtcp_mpi::MpiVirtualization::instance("MpiGroup", 1)._vIdTable.printMaps(true)
+	// to access _virTableMpiGroup in GDB.
+	// We need a cleaner way to access it.
+	string ss = out.str();
+	printf("Virtual To Real Mappings:\n_idMapTable.size(): %d\n%s\n",
+	       _idMapTable.size(), ss.c_str());
+      }
     }
 
     vector<IdType>getIdVector()
