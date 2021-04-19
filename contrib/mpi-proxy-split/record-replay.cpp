@@ -276,7 +276,12 @@ restoreCommFree(const MpiRecord& rec)
   retval = FNC_CALL(Comm_free, rec)(&comm);
   JWARNING(retval == MPI_SUCCESS)(comm).Text("Error freeing MPI comm");
   if (retval == MPI_SUCCESS) {
-    MPI_Comm oldcomm = REMOVE_OLD_COMM(comm);
+    // See mpi_comm_wrappers.cpp:Comm_free
+    // NOTE: We cannot remove the old comm from the map, since
+    // we'll need to replay this call to reconstruct any other comms that
+    // might have been created using this comm.
+    //
+    // MPI_Comm oldcomm = REMOVE_OLD_COMM(comm);
   }
   return retval;
 }
@@ -328,7 +333,12 @@ restoreGroupFree(const MpiRecord& rec)
   retval = FNC_CALL(Group_free, rec)(&group);
   JWARNING(retval == MPI_SUCCESS)(group).Text("Error restoring MPI group free");
   if (retval == MPI_SUCCESS) {
-    REMOVE_OLD_GROUP(group);
+    // See mpi_group_wrappers.cpp:Group_free
+    // NOTE: We cannot remove the old group, since we'll need
+    // to replay this call to reconstruct any comms that might
+    // have been created using this group.
+    //
+    // REMOVE_OLD_GROUP(group);
   }
   return retval;
 }
@@ -437,7 +447,12 @@ restoreTypeFree(const MpiRecord& rec)
   retval = FNC_CALL(Type_free, rec)(&type);
   JWARNING(retval == MPI_SUCCESS)(type).Text("Could not free MPI datatype");
   if (retval == MPI_SUCCESS) {
-    MPI_Datatype realType = REMOVE_OLD_TYPE(type);
+    // See mpi_type_wrappers.cpp:Type_free
+    // NOTE: We cannot remove the old type from the map, since
+    // we'll need to replay this call to reconstruct any other type that
+    // might have been created using this type.
+    //
+    // MPI_Datatype realType = REMOVE_OLD_TYPE(type);
   }
   return retval;
 }
@@ -540,7 +555,12 @@ restoreOpFree(const MpiRecord& rec)
   MPI_Op realOp = VIRTUAL_TO_REAL_OP(op);
   retval = FNC_CALL(Op_free, rec)(&realOp);
   if (retval == MPI_SUCCESS) {
-    realOp = REMOVE_OLD_OP(op);
+    // See mpi_op_wrappers.cpp:Op_free
+    // NOTE: We cannot remove the old op from the map, since
+    // we'll need to replay this call to reconstruct any other op that
+    // might have been created using this op.
+    //
+    // realOp = REMOVE_OLD_OP(op);
   }
   return retval;
 }
