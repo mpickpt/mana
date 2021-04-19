@@ -7,6 +7,7 @@
 
 #define GENERATE_ENUM(ENUM)    MPI_Fnc_##ENUM
 #define GENERATE_FNC_PTR(FNC)  &MPI_##FNC
+#define GENERATE_FNC_STRING(FNC)  "MPI_" #FNC
 #define PAGE_SIZE              0x1000
 #define HUGE_PAGE              0x200000
 
@@ -73,6 +74,13 @@ enum MPI_Fncs {
   FOREACH_FNC(GENERATE_ENUM)
   MPI_Fnc_Invalid,
 };
+
+static const char *MPI_Fnc_strings[] = {
+  "MPI_Fnc_NULL",
+  FOREACH_FNC(GENERATE_FNC_STRING)
+  "MPI_Fnc_Invalid"
+};
+
 
 // Useful type definitions
 

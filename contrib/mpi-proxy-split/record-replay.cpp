@@ -396,7 +396,20 @@ restoreTypeVector(const MpiRecord& rec)
   return retval;
 }
 
-static int
+void MpiRecordReplay::printRecords(bool print)
+{
+  JNOTE("Printing _records");
+  for(MpiRecord* record : _records) {
+    int fnc_idx = record->getType();
+    if (print) {
+      printf("%s\n", MPI_Fnc_strings[fnc_idx]);
+    } else {
+      JNOTE("") (MPI_Fnc_strings[fnc_idx]);
+    }
+  }
+}
+
+ static int
 restoreTypeIndexed(const MpiRecord& rec)
 {
   int retval;
