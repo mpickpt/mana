@@ -128,6 +128,13 @@ ${_hooksdir}/%: util/hooks/%
 #   after examining an old revision when this really existed), then some
 #   source code would pull in src/config.h in preference to include/config.h
 dmtcp:
+	@ if test -n "$$HUGETLB_DEFAULT_PAGE_SIZE"; then \
+	  echo '** Env. var. HUGETLB_DEFAULT_PAGE_SIZE detected.'; \
+	  echo '**   Currently, DMTCP can support targets that use HUGEPAGES.';\
+	  echo '**   But DMTCP itself must be built without HUGEPAGES.'; \
+	  echo '**   Please temporarily do: "module unload *hugepages*"'; \
+	  exit 1; \
+	fi
 	rm -f src/config.h
 	cd src && $(MAKE)
 
