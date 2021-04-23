@@ -36,7 +36,7 @@ static unsigned long origPhdr;
 
 static void patchAuxv(ElfW(auxv_t) *, unsigned long , unsigned long , int );
 static int mmap_iov(const struct iovec *, int );
-static int read_proxy_bits(pid_t );
+static int read_lh_proxy_bits(pid_t );
 static pid_t startProxy(char *argv0, char **envp);
 static int initializeLowerHalf(void);
 static MemRange_t setLhMemRange(void);
@@ -51,7 +51,8 @@ splitProcess(char *argv0, char **envp)
   pid_t childpid = startProxy(argv0, envp);
   int ret = -1;
   if (childpid > 0) {
-    ret = read_proxy_bits(childpid);
+    // Parent has read from pipefd_out; child is ready.
+    ret = read_lh_proxy_bits(childpid);
     mtcp_sys_kill(childpid, SIGKILL);
     mtcp_sys_wait4(childpid, NULL, 0, NULL);
   }
@@ -106,7 +107,7 @@ mmap_iov(const struct iovec *iov, int prot)
 }
 
 static int
-read_proxy_bits(pid_t childpid)
+read_lh_proxy_bits(pid_t childpid)
 {
   int ret = -1;
   const int IOV_SZ = 2;
@@ -125,7 +126,7 @@ read_proxy_bits(pid_t childpid)
   // NOTE:  This requires same privilege as ptrace_attach (valid for child)
   int i = 0;
   for (i = 0; i < IOV_SZ; i++) {
-    DPRINTF("Reading segment from proxy: %p, %lu Bytes\n",
+    DPRINTF("Reading segment from lh proxy: %p, %lu Bytes\n",
             remote_iov[i].iov_base, remote_iov[i].iov_len);
     ret = mtcp_sys_process_vm_readv(childpid, remote_iov + i /* local_iov */,
                                     1, remote_iov + i, 1, 0);
@@ -158,6 +159,14 @@ startProxy(char *argv0, char **envp)
     return -1;
   }
 
+  // See "Lower-half loading and initialization" from MANA documentation
+  //
+  // Child does execve to lh_proxy from mpi-split-process/lower-half.
+  // lh_proxy executes the constructor in libproxy.c that intializes lh_info
+  // and writes lh_info to the stdout, which was redirected to pipefd_in.
+  // Parent reads lh_info from child through pipefd_out. 
+  // Parent calls read_lh_proxy_bits, which calls procss_vm_read on child.
+  // Then the parent kills the child.
   int childpid = mtcp_sys_fork();
   switch (childpid) {
     case -1:
