@@ -668,7 +668,7 @@ main(int argc, char *argv[], char **environ)
 
     // Refer to "blocked memory" in MANA Plugin Documentation for the addresses
 #if 1
-# define GB (1024 * 1024)
+# define GB (1024 * 1024 * 1024)
     // FIXME:  Rewrite this logic more carefully.
     char *start1, *start2, *end1, *end2;
     if (libsEnd + 1 * GB < highMemStart /* end of stack of upper half */) {
@@ -732,6 +732,7 @@ main(int argc, char *argv[], char **environ)
 #endif
     typedef int (*getRankFptr_t)(void);
     int rank = -1;
+    end1 += 4000000;
     beforeLoadingGniDriverBlockAddressRanges(start1, end1, start2, end2);
     JUMP_TO_LOWER_HALF(lh_info.fsaddr);
     rank = ((getRankFptr_t)lh_info.getRankFptr)();
