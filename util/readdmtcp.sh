@@ -12,6 +12,11 @@ if file $1 | grep gzip > /dev/null; then
   echo '***' $1 is a gzipped file.  Will uncompress it into ckpt_tmp.dmcp first.
   gzip -dc $1 > ckpt_tmp.dmtcp
   set ckpt_tmp.dmtcp
+elif echo $1 | grep '.dmtcp$'; then
+  true # Pass
+else
+  echo '***' $1 is neither a gzipped file or a .dmtcp file.  Exiting.;
+  exit 1;
 fi
 
 dir=`dirname $0`
