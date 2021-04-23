@@ -214,7 +214,7 @@ read_lh_proxy_bits(pid_t childpid)
   // NOTE:  For the process_vm_readv call, the local_iov will be same as
   //        remote_iov, since we are just duplicating child processes memory.
   // NOTE:  This requires same privilege as ptrace_attach (valid for child).
-  //        Anecdotally, in containers, we've seen a case where this erros out
+  //        Anecdotally, in containers, we've seen a case where this errors out
   //        with ESRCH (no such proc.); it may need CAP_SYS_PTRACE privilege??
   for (int i = 0; i < IOV_SZ; i++) {
     JTRACE("Reading segment from lh_proxy")
