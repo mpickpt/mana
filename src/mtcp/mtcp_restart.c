@@ -1135,7 +1135,7 @@ mtcp_simulateread(int fd, MtcpHeader *mtcpHdr)
     }
     if ((area.properties & DMTCP_ZERO_PAGE) == 0 &&
         (area.properties & DMTCP_SKIP_WRITING_TEXT_SEGMENTS) == 0) {
-      void *addr = mmap_fixed_noreplace(0, area.size, PROT_WRITE | PROT_READ,
+      void *addr = mtcp_sys_mmap(0, area.size, PROT_WRITE | PROT_READ,
                                  MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
       if (addr == MAP_FAILED) {
         MTCP_PRINTF("***Error: mmap failed; errno: %d\n", mtcp_sys_errno);
