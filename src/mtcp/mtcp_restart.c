@@ -882,7 +882,7 @@ restore_brk(VA saved_brk, VA restore_begin, VA restore_end)
               new_brk, saved_brk);
     } else {
       if (new_brk == current_brk) {
-        MTCP_PRINTF("error: new/current break (%p) != saved break (%p)\n",
+        MTCP_PRINTF("warning: new/current break (%p) != saved break (%p)\n",
                     current_brk, saved_brk);
       } else {
         MTCP_PRINTF("error: new break (%p) != current break (%p)\n",
@@ -1612,7 +1612,7 @@ read_one_memory_area(int fd, VA endOfStack)
                               area.flags | MAP_FIXED, -1, 0);
 
     if (mmappedat != area.addr) {
-      DPRINTF("error %d mapping %p bytes at %p\n",
+      MTCP_PRINTF("error %d mapping %p bytes at %p\n",
               mtcp_sys_errno, area.size, area.addr);
       mtcp_abort();
     }
