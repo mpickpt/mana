@@ -45,7 +45,13 @@ int main(int argc, char** argv)
          processor_name, world_rank, world_size);
 
   printf("Will now sleep for 500 seconds ...\n");
-  sleep(500);
+  unsigned int remaining = 300;
+  while (remaining > 0) {
+    remaining = sleep(remaining);
+    if (remaining > 0) {
+      printf("Signal received; continuing sleep for %d seconds.\n", remaining);
+    }
+  }
   printf("**** %s is now exiting.\n", argv[0]);
 
   // Finalize the MPI environment. No more MPI calls can be made after this
