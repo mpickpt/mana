@@ -97,8 +97,7 @@ check: ${TESTS_DUMMY}
 	done
 
 integrated_dmtcp_test: integrated_dmtcp_test.c
-	${MPICC}  -I${DMTCP_INCLUDE} -I${JALIB_INCLUDE} -DDMTCP \
-		  -fPIC -g3 -O0 -o $@ $<
+	${MPICC} -I${DMTCP_INCLUDE} -I${JALIB_INCLUDE} -DDMTCP -g3 -O0 -o $@ $<
 
 check-integrated_dmtcp_text: tidy integrated_dmtcp_test
 	${DMTCP_ROOT}/bin/dmtcp_launch --port ${DEMO_PORT}\
@@ -108,16 +107,16 @@ check-integrated_dmtcp_text: tidy integrated_dmtcp_test
           ckpt*.dmtcp
 
 %.o: %.c
-	 $(MPICC)  -fPIC -g3 -O0 -c -o $@ $< $(MPI_CFLAGS)
+	 $(MPICC) -g3 -O0 -c -o $@ $< $(MPI_CFLAGS)
 
 %.exe: %.o
-	 $(MPICC)  -o $@ $< ${MPI_LDFLAGS}
+	 $(MPICC) -o $@ $< ${MPI_LDFLAGS}
 
 %.mana.exe: %.o
-	 $(CC)  -o $@ $< ${MPI_LDFLAGS} ${LDFLAGS_DUMMY}
+	 $(CC) -o $@ $< ${MPI_LDFLAGS} ${LDFLAGS_DUMMY}
 
 %.exe: %.cpp
-	$(MPICXX)  -fPIC -g3 -O0 -o $@ $< $(MPI_CXXFLAGS)
+	$(MPICXX) -g3 -O0 -o $@ $< $(MPI_CXXFLAGS)
 
 tidy:
 	rm -f ckpt_*.dmtcp dmtcp_restart_script* \
