@@ -223,10 +223,30 @@ extern int mtcp_sys_errno;
  * page.
  */
 struct linux_dirent {
-  long d_ino;
-  off_t d_off;
-  unsigned short d_reclen;
-  char d_name[];
+  long           d_ino;    /* Inode number */
+  off_t          d_off;    /* Offset to next linux_dirent */
+  unsigned short d_reclen; /* Length of this linux_dirent */
+  char           d_name[]; /* Filename (null-terminated) */
+                    /* length is actually (d_reclen - 2 -
+                       offsetof(struct linux_dirent, d_name)) */
+  /*
+  char           pad;     // Zero padding byte    
+  char           d_type   // File type (only since Linux
+                          // 2.6.4); offset is (d_reclen - 1)
+  */
+};
+
+/* getdents64() fills up the buffer not with 'struct dirent's as might be
+ * expected, but with custom 'struct linux_dirent64's.  This structure, however,
+ * must be manually defined.  This definition is taken from the getdents(2) man
+ * page.
+ */
+struct linux_dirent64 {
+  u_int64_t      d_ino;    /* 64-bit inode number */
+  int64_t        d_off;    /* 64-bit offset to next structure */
+  unsigned short d_reclen; /* Size of this dirent */
+  unsigned char  d_type;   /* File type */
+  char           d_name[]; /* Filename (null-terminated) */
 };
 
 // ==================================================================
