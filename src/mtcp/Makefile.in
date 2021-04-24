@@ -57,7 +57,7 @@ DMTCP_INCLUDE_PATH = $(top_srcdir)/include
 
 INCLUDES = -I$(DMTCP_INCLUDE_PATH) -I$(srcdir)
 
-ifneq (${MANA_USE_LH_FIXED_ADDRESS},"")
+ifneq (${MANA_USE_LH_FIXED_ADDRESS},)
   CFLAGS += -DMANA_USE_LH_FIXED_ADDRESS
 endif
 
