@@ -56,6 +56,7 @@ using namespace dmtcp;
 static void setEnvironFd();
 
 string tmpDir = "/DMTCP/Uninitialized/Tmp/Dir";
+string restartDir;
 
 // gcc-4.3.4 -Wformat=2 issues false positives for warnings unless the format
 // string has at least one format specifier with corresponding format argument.
@@ -105,6 +106,7 @@ static const char *theUsage =
   "  --ckptdir (environment variable DMTCP_CHECKPOINT_DIR):\n"
   "              Directory to store checkpoint images\n"
   "              (default: use the same dir used in previous checkpoint)\n"
+  "  --restartdir Directory that contains checkpoint image directories\n" 
   "  --mpi       Use as MPI proxy\n (default: no MPI proxy)"
   "  --tmpdir PATH (environment variable DMTCP_TMPDIR)\n"
   "              Directory to store temp files (default: $TMDPIR or /tmp)\n"
@@ -597,6 +599,10 @@ runMtcpRestart(int is32bitElf, int fd, ProcessInfo *pInfo)
     (char *)mtcprestart.c_str(),
     const_cast<char *>("--fd"), fdBuf,
     const_cast<char *>("--stderr-fd"), stderrFdBuf,
+    // TODO
+    // These two flag must be last, since they may become NULL
+    ( !restartDir.empty() ? const_cast<char *>("--restartdir") : NULL ),
+    ( !restartDir.empty() ? const_cast<char *>(restartDir.c_str()) : NULL ),
     // These two flag must be last, since they may become NULL
     ( mtcp_restart_pause ? const_cast<char *>("--mtcp-restart-pause") : NULL ),
     ( mtcp_restart_pause ? pause_param : NULL ),
@@ -859,7 +865,7 @@ main(int argc, char **argv)
 
   // process args
   shift;
-  while (true) {
+  while (argc > 0) {
     string s = argc > 0 ? argv[0] : "--help";
     if (s == "--help" && argc == 1) {
       printf("%s", theUsage);
@@ -916,6 +922,9 @@ main(int argc, char **argv)
     } else if (argc > 1 && (s == "-t" || s == "--tmpdir")) {
       tmpdir_arg = argv[1];
       shift; shift;
+    } else if (argc > 1 && (s == "-r" || s == "--restartdir")) {
+        restartDir = string(argv[1]);
+        shift; shift;
     } else if (argc > 1 && (s == "--gdb")) {
       requestedDebugLevel = atoi(argv[1]);
       shift; shift;
@@ -978,6 +987,10 @@ main(int argc, char **argv)
   mtcpArgList.push_back((char *)"--stderr-fd");
   sprintf(stderrFdBuf, "%d", PROTECTED_STDERR_FD);
   mtcpArgList.push_back(stderrFdBuf);
+  if(!restartDir.empty()) {
+    mtcpArgList.push_back((char *)"--restartdir");
+    mtcpArgList.push_back((char *)restartDir.c_str());
+  }
   for (; argc > 0; shift) {
     string restorename(argv[0]);
     struct stat buf;
@@ -1011,7 +1024,8 @@ main(int argc, char **argv)
 
     JTRACE("Will restart ckpt image") (argv[0]);
     if (runMpiProxy) {
-      mtcpArgList.push_back(argv[0]);
+        // TODO
+        if(restartDir.empty()) mtcpArgList.push_back(argv[0]);
     } else {
       RestoreTarget *t = new RestoreTarget(argv[0]);
       targets[t->upid()] = t;
@@ -1021,7 +1035,34 @@ main(int argc, char **argv)
     // Connect with coordinator using the first checkpoint image in the list
     // Also, create the DMTCP shared-memory area.
     WorkerState::setCurrentState(WorkerState::RESTARTING);
-    RestoreTarget *t = new RestoreTarget(mtcpArgList[3]);
+    RestoreTarget *t;
+    if(restartDir.empty()) {
+      t = new RestoreTarget(mtcpArgList[3]);
+    } else {
+        string image_zero = restartDir; // copy constructor called
+        if(image_zero.back() != '/') {
+            image_zero.append("/");
+        }
+        image_zero.append("ckpt_rank_0/");
+        DIR *dir;
+        struct dirent *entry;
+        bool success = false;
+        JASSERT((dir = opendir(image_zero.c_str())) != NULL)
+        .Text("Failed to open checkpoint rank 0 directory to find first checkpoint file!");
+        while((entry = readdir(dir)) != NULL) {
+            if(Util::strStartsWith(entry->d_name, "ckpt") 
+                    && Util::strEndsWith(entry->d_name, ".dmtcp")) {
+                image_zero.append(entry->d_name);
+                success = true;
+                break;
+            }
+        }
+        closedir(dir);
+        JASSERT(success).Text("Failed to locate first checkpoint file!");
+
+        // read dmtcp files off underlying filesystemj
+        t = new RestoreTarget(image_zero.c_str());
+    }
     t->initializeCoordConnection();
     delete t;
     // We can only call this Util method after having initialized
