@@ -732,7 +732,6 @@ main(int argc, char *argv[], char **environ)
 #endif
     typedef int (*getRankFptr_t)(void);
     int rank = -1;
-    end1 += 4000000;
     beforeLoadingGniDriverBlockAddressRanges(start1, end1, start2, end2);
     JUMP_TO_LOWER_HALF(lh_info.fsaddr);
     // MPI_Init is called here. GNI memory areas will be loaded by MPI_Init.
