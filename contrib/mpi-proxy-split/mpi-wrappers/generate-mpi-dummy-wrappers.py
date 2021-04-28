@@ -75,9 +75,12 @@ for decl in declarations:
     continue
 
   if decl.rstrip()[-1] != ')':
-    abort_decl(decl, "missing final ')'")
-  if '(' not in decl:
-    abort_decl(decl, "missing '('")
+    if '(' not in decl and ',' not in decl:
+      print(decl_oneline + ';')
+      continue
+    else:
+      abort_decl(decl, "missing ')'")
+
 
   # NOTE:
   # We replace actual args by zero args.  Our goal is simply to create
