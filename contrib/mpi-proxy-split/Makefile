@@ -42,9 +42,13 @@ override CXXFLAGS += -g3 -O0 -fPIC -I${DMTCP_INCLUDE} -I${JALIB_INCLUDE} \
                      -I${WRAPPERS_SRCDIR} -I. \
                      -I${DMTCP_ROOT}/src -I${LOWER_HALF_SRCDIR} -std=c++11
 
-default: ${LIBNAME}.so ${MANA_COORD_OBJS} ${LOWER_HALF_SRCDIR}/${PROXY_BIN} ${WRAPPERS_SRCDIR}/libmpidummy.so ${WRAPPERS_SRCDIR}/libmpich_intel.so.3
+default: ${LIBNAME}.so ${MANA_COORD_OBJS}
+	@make -C ${LOWER_HALF_SRCDIR} ${PROXY_BIN}
+	@make -C ${WRAPPERS_SRCDIR} libmpidummy.so
+	@make -C ${WRAPPERS_SRCDIR} libmpich_intel.so.3
 
-${LIBNAME}.so: ${LIBOBJS} ${WRAPPERS_SRCDIR}/${LIBWRAPPER}
+${LIBNAME}.so: ${LIBOBJS}
+	@make -C ${WRAPPERS_SRCDIR} ${LIBWRAPPER}
 	${CXX} -shared -fPIC -g3 -O0 -o $@ ${LIBOBJS} -Wl,--whole-archive ${WRAPPERS_SRCDIR}/${LIBWRAPPER} -Wl,--no-whole-archive
 
 mpi_unimplemented_wrappers.cpp: generate-mpi-unimplemented-wrappers.py mpi_unimplemented_wrappers.txt
@@ -56,23 +60,8 @@ mpi_unimplemented_wrappers.cpp: generate-mpi-unimplemented-wrappers.py mpi_unimp
 .cpp.o:
 	${MPICXX} ${CXXFLAGS} -g3 -O0 -c -o $@ $<
 
-${LOWER_HALF_SRCDIR}/procmapsutils.o:
+${LOWER_HALF_SRCDIR}/procmapsutils.o: ${LOWER_HALF_SRCDIR}/procmapsutils.c
 	@make -C ${LOWER_HALF_SRCDIR} procmapsutils.o
-
-${LOWER_HALF_SRCDIR}/${PROXY_BIN}: ${LOWER_HALF_SRCDIR}/${LIBPROXY}
-	@make -C ${LOWER_HALF_SRCDIR} ${PROXY_BIN}
-
-${LOWER_HALF_SRCDIR}/${LIBPROXY}:
-	@make -C ${LOWER_HALF_SRCDIR} ${LIBPROXY}
-
-${WRAPPERS_SRCDIR}/${LIBWRAPPER}:
-	@make -C ${WRAPPERS_SRCDIR} ${LIBWRAPPER}
-
-${WRAPPERS_SRCDIR}/libmpidummy.so:
-	@make -C ${WRAPPERS_SRCDIR} libmpidummy.so
-
-${WRAPPERS_SRCDIR}/libmpich_intel.so.3:
-	@make -C ${WRAPPERS_SRCDIR} libmpich_intel.so.3
 
 vi vim: ${FILE}
 	vim $<
@@ -93,8 +82,10 @@ check: ${LIBNAME}.so ${LOWER_HALF_SRCDIR}/${PROXY_BIN} ./autotest.py
 check-unit: ${LIBNAME}.so
 	@make -C unit-test/ check
 
-install: ${LOWER_HALF_SRCDIR}/${PROXY_BIN} ${LIBNAME}.so ${WRAPPERS_SRCDIR}/libmpich_intel.so.3
+install: ${LIBNAME}.so
+	@make -C ${LOWER_HALF_SRCDIR} ${PROXY_BIN}
 	@make -C ${LOWER_HALF_SRCDIR} install
+	@make -C ${WRAPPERS_SRCDIR} libmpich_intel.so.3
 	cp ${LIBNAME}.so ${DMTCP_ROOT}/lib/dmtcp
 	@cd ${WRAPPERS_SRCDIR} && make install
 
