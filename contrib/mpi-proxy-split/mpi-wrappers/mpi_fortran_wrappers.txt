@@ -8,7 +8,6 @@ int MPI_Finalized(int* flag);
 int MPI_Get_processor_name(char* name, int* resultlen);
 double MPI_Wtime();
 int MPI_Initialized(int* flag);
-int MPI_Init_thread(int* argc, char*** argv, int required, int* provided);
 int MPI_Get_count(const MPI_Status* status, MPI_Datatype datatype, int* count);
 
 int MPI_Bcast(void* buffer, int count, MPI_Datatype datatype, int root, MPI_Comm comm);
