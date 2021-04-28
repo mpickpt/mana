@@ -90,6 +90,7 @@ clean: tidy
 	rm -f ${LIBNAME}.a libmpidummy.so
 	rm -f mpi_dummy_wrappers.c
 	rm -f mpi_unimplemented_wrappers.cpp
+	rm -f mpi_fortran_wrappers.cpp
 	rm -f libmpich_intel.so.3.0.1 libmpich_intel.so.3
 
 distclean: clean
