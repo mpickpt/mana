@@ -67,19 +67,20 @@ def emit_wrapper(decl, ret_type, fnc, args, arg_vars):
     # try:
     types = arg.split(' ')
     iden = types[-1]
+    assert '*' not in iden
     typ = " ".join(types[:-1])
     # except:
     #   print("Error:")
     #   print(fnc)
     #   print(arg)
     #   sys.exit(0);
-    if i == len(args.split(',')) - 1:
-      if len(iden.strip()) > 0 and len(typ.strip()) > 0:
-        fargs += "%s%s %s, int *ierr" % (typ, '' if '*' in typ else '*', iden)
-        cargs += "%s%s" % ('' if '*' in typ else '*', iden)
-    else:
+    if len(iden.strip()) > 0 and len(typ.strip()) > 0:
       fargs += "%s%s %s, " % (typ, '' if '*' in typ else '*', iden)
       cargs += "%s%s, " % ('' if '*' in typ else '*', iden)
+  # add ierr as the last argument for Fortran
+  fargs += "int *ierr"
+  if cargs.endswith(", "):
+    cargs = cargs[:-2]
   
   if fargs == '' and not(fnc in ['MPI_Wtime', 'MPI_Wtick']):
     print("EXTERNC " + ret_type + " " + fnc.lower() + "_ (int* ierr) {")
@@ -93,12 +94,25 @@ def emit_wrapper(decl, ret_type, fnc, args, arg_vars):
   print("}")
   # print(ret_type + " " + fnc.lower() + "_ (" + args + ") __attribute__ ((weak, alias (\"" + fnc + "\")));")
 
+# FIXME: declare local variables argc and argv,
+#        get values from /proc/self/cmdline.
 def emit_mpi_init():
-  print("EXTERNC int mpi_init_ (int *ierr, int* argc,  char*** argv) {")
-  print("  *ierr = MPI_Init(argc, argv);")
+  print("EXTERNC int mpi_init_ (int *ierr) {")
+  print("  int argc = 0;")
+  print("  char **argv;")
+  print("  *ierr = MPI_Init(&argc, &argv);")
   print("  return *ierr;")
   print("}")
 
+# FIXME: declare local variables argc and argv,
+#        get values from /proc/self/cmdline.
+def emit_mpi_init_thread():
+  print("EXTERNC int mpi_init_thread_ (int* required, int* provided, int *ierr) {")
+  print("  int argc = 0;")
+  print("  char **argv;")
+  print("  *ierr = MPI_Init_thread(&argc, &argv, *required, provided);")
+  print("  return *ierr;")
+  print("}")
 
 for decl in declarations:
   # check for header file
@@ -127,3 +141,4 @@ for decl in declarations:
   emit_wrapper(decl_oneline, ret_type, fnc, args, arg_vars)
   print("")  # emit a newline
 emit_mpi_init()
+emit_mpi_init_thread()
