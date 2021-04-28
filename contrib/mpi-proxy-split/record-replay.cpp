@@ -26,6 +26,7 @@ static int restoreTypeCommit(const MpiRecord& rec);
 static int restoreTypeVector(const MpiRecord& rec);
 static int restoreTypeIndexed(const MpiRecord& rec);
 static int restoreTypeFree(const MpiRecord& rec);
+static int restoreTypeCreateStruct(const MpiRecord& rec);
 
 static int restoreCartCreate(const MpiRecord& rec);
 static int restoreCartMap(const MpiRecord& rec);
@@ -137,6 +138,10 @@ dmtcp_mpi::restoreTypes(const MpiRecord &rec)
     case GENERATE_ENUM(Type_free):
       JTRACE("restoreTypeFree");
       rc = restoreTypeFree(rec);
+      break;
+    case GENERATE_ENUM(Type_create_struct):
+      JTRACE("restoreTypeCreateStruct");
+      rc = restoreTypeCreateStruct(rec);
       break;
     default:
       JWARNING(false)(rec.getType()).Text("Unknown call");
@@ -453,6 +458,27 @@ restoreTypeFree(const MpiRecord& rec)
     // might have been created using this type.
     //
     // MPI_Datatype realType = REMOVE_OLD_TYPE(type);
+  }
+  return retval;
+}
+
+static int
+restoreTypeCreateStruct(const MpiRecord& rec)
+{
+  int retval;
+  int count = rec.args(0);
+  int *blocklengths = rec.args(1);
+  void *tmpConversion = rec.args(2);
+  MPI_Aint *displs = (MPI_Aint*) tmpConversion;
+  MPI_Datatype *types = rec.args(3);
+  MPI_Datatype newtype = MPI_DATATYPE_NULL;
+  retval = FNC_CALL(Type_create_struct, rec)(count, blocklengths,
+                                       displs, types, &newtype);
+  JWARNING(retval == MPI_SUCCESS)(types)
+          .Text("Could not restore MPI struct datatype");
+  if (retval == MPI_SUCCESS) {
+    MPI_Datatype virtType = rec.args(4);
+    UPDATE_TYPE_MAP(virtType, newtype);
   }
   return retval;
 }
