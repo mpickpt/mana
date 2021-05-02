@@ -49,7 +49,9 @@ bin_PROGRAMS = $(d_bindir)/dmtcp_launch \
 	       $(d_bindir)/dmtcp_restart \
 	       $(d_bindir)/dmtcp_nocheckpoint \
 	       $(d_bindir)/mana_launch \
-	       $(d_bindir)/mana_restart
+	       $(d_bindir)/mana_restart \
+	       $(d_bindir)/mana_coordinator \
+	       $(d_bindir)/mana_status
 dmtcplib_PROGRAMS = $(d_libdir)/libdmtcp.so
 include_HEADERS = $(srcdir)/../include/dmtcp.h
 
@@ -136,6 +138,11 @@ __d_bindir__dmtcp_launch_SOURCES = dmtcp_launch.cpp
 ${manaplugindir}/mana_coordinator.o: ${manaplugindir}/mana_coordinator.cpp
 	cd ${manaplugindir} && ${MAKE} mana_coordinator.o
 	cp ${manaplugindir}/mana_coordinator.o ./
+${d_bindir}/mana_coordinator: ${srcdir}/mana_coordinator.sh
+	ln -s ${d_bindir}/mana_coordinator ${srcdir}/mana_coordinator.sh
+	ln -s ${d_bindir}/mana_start_coordinator ${srcdir}/mana_coordinator.sh
+${d_bindir}/mana_status: ${srcdir}/mana_status.sh
+	ln -s ${d_bindir}/mana_status ${srcdir}/mana_status.sh
 ${d_bindir}/mana_launch: ${srcdir}/mana_launch.sh
 	ln -s ${d_bindir}/mana_launch ${srcdir}/mana_launch.sh
 ${d_bindir}/mana_restart: ${srcdir}/mana_restart.sh
