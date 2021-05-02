@@ -71,12 +71,18 @@ endif
 
 all: default
 
-mana: default bin/mana_launch bin/mana_restart
+mana: default bin/mana_launch bin/mana_restart bin/mana_coordinator \
+	                                                     bin/mana_status
 	cd contrib/mpi-proxy-split && make install && make -j tests
 ${targetdir}/bin/mana_launch: src/mana_launch.sh
 	cp src/mana_launch.sh ${targetdir}/bin/
 ${targetdir}/bin/mana_restart: src/mana_restart.sh
 	cp src/mana_restart.sh ${targetdir}/bin/
+${targetdir}/bin/mana_coordinator: src/mana_coordinator.sh
+	cp src/mana_coordinator.sh ${targetdir}/bin/mana_coordinator
+	cp src/mana_coordinator.sh ${targetdir}/bin/mana_start_coordinator
+${targetdir}/bin/mana_status: src/mana_status.sh
+	cp src/mana_status.sh ${targetdir}/bin/
 
 display-build-env: display-config display-release
 	@- uname -a
