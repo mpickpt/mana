@@ -62,7 +62,10 @@ getLocalRankInfo()
     JASSERT(MPI_Comm_rank(MPI_COMM_WORLD, &g_world_rank) == MPI_SUCCESS &&
             g_world_rank != -1);
   }
-  localSrCount.rank = g_world_rank;
+  { // open new scope for lock object so it doesn't last longer than needed
+    lock_t srLock(srMutex);
+    localSrCount.rank = g_world_rank;
+  }
   if (g_world_size == -1) {
     JASSERT(MPI_Comm_size(MPI_COMM_WORLD, &g_world_size) == MPI_SUCCESS &&
             g_world_size != -1);
@@ -152,41 +155,90 @@ replayMpiOnRestart()
   MPI_Request *request = NULL;
   mpi_async_call_t *message = NULL;
   JTRACE("Replaying unserviced isend/irecv calls");
+  lock_t logLock(logMutex);
 
-  for (request_to_async_call_map_pair_t it : g_async_calls) {
+  for(request_to_async_call_map_iterator_t it = g_async_calls.begin(); it!= g_async_calls.end();) {
+  /* for (request_to_async_call_map_pair_t it : g_async_calls) { */
     MPI_Status status;
     int retval = 0;
     int flag = 0;
-    request = it.first;
-    message = it.second;
+    request = it->first;
+    message = it->second;
 
     if (message->serviced)
       continue;
 
     switch (message->type) {
       case IRECV_REQUEST:
+      {
         JTRACE("Replaying Irecv call")(message->params.remote_node);
+        // Irecv wrapper makes calls to isServicedRequest (checked above),
+        // isBufferedPacket (dependant on isServicedRequest being true),
+        // and modifies g_async_calls by trying to add this message to it.
+        // To avoid this we just do the relevant bits directly and avoid deadlock.
+        /*
+        logLock.unlock();
         retval = MPI_Irecv(message->recvbuf, message->params.count,
                            message->params.datatype,
                            message->params.remote_node,
                            message->params.tag, message->params.comm,
                            request);
+        logLock.lock();
+        */
+
+        DMTCP_PLUGIN_DISABLE_CKPT();
+        MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(message->params.comm);
+        MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(message->params.datatype);
+        JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+        retval = NEXT_FUNC(Irecv)(message->recvbuf, message->params.count,
+                                  realType, message->params.remote_node,
+                                  message->params.tag, realComm, request);
+        RETURN_TO_UPPER_HALF();
+        DMTCP_PLUGIN_ENABLE_CKPT();
         JASSERT(retval == MPI_SUCCESS).Text("Error while replaying recv");
         break;
+      }
       case ISEND_REQUEST:
+      {
         // This case should never happen. All unserviced sends need to be
         // serviced at checkpoint time.
         JWARNING(false).Text("Unexpected unserviced send on restart");
+        // MPI_Isend wrapper tries to modify the g_async_calls list to add this message
+        // to it. It also checks if it has completed before returning to
+        // remove it from this list. Again we avoid the wrapper and do the
+        // logic here to avoid these issues and prevent deadlock.
+        /*
+        logLock.unlock();
         retval = MPI_Isend(message->sendbuf, message->params.count,
                            message->params.datatype,
                            message->params.remote_node, message->params.tag,
                            message->params.comm, request);
+        logLock.lock();
+        */
+        DMTCP_PLUGIN_DISABLE_CKPT();
+        MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(message->params.comm);
+        MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(message->params.datatype);
+        JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+        retval = NEXT_FUNC(Isend)(message->sendbuf, message->params.count,
+                                  realType, message->params.remote_node,
+                                  message->params.tag, realComm, request);
+        RETURN_TO_UPPER_HALF();
+        updateLocalSends(message->params.count);
+        DMTCP_PLUGIN_ENABLE_CKPT();
         JASSERT(retval == MPI_SUCCESS).Text("Error while replaying send");
+        if(MPI_Request_get_status(*request, &flag, &status) == MPI_SUCCESS && flag){
+          it = g_async_calls.erase(it);
+          continue;
+        }
         break;
+      }
       default:
         JWARNING(false)(message->type).Text("Unhandled replay call");
         break;
     }
+    // Increment here so that if erase is called in the ISEND_REQUEST case
+    // we don't skip an element
+    ++it;
   }
 }
 
@@ -195,6 +247,7 @@ registerLocalSendsAndRecvs()
 {
   static bool firstTime = true;
   bool unsvcdIsends = resolve_async_messages();
+  lock_t srLock(srMutex);
 
   int rc = dmtcp_send_key_val_pair_to_coordinator(MPI_SEND_RECV_DB,
                                                   &(localSrCount.rank),
@@ -364,6 +417,9 @@ consumeBufferedPacket(void *buf, int count, MPI_Datatype datatype,
 void
 resetDrainCounters()
 {
+  lock_t srLock(srMutex, std::defer_lock);
+  lock_t logLock(logMutex, std::defer_lock);
+  std::lock(srLock, logLock); // prevent deadlock while aquiring multiple mutexes
   memset(&localSrCount, 0, sizeof(localSrCount));
   g_async_calls.clear();
   g_unsvcd_sends.clear();
@@ -436,18 +492,40 @@ resolve_async_messages()
   int unserviced_isends = 0;
   MPI_Request *request;
   mpi_async_call_t *call;
+  lock_t logLock(logMutex);
 
-  for (request_to_async_call_map_pair_t it : g_async_calls) {
+  for(request_to_async_call_map_iterator_t it = g_async_calls.begin(); it != g_async_calls.end();) {
+  /* for (request_to_async_call_map_pair_t it : g_async_calls) { */
     MPI_Status status;
     int retval = 0;
     int flag = 0;
-    request = it.first;
-    call = it.second;
+    request = it->first;
+    call = it->second;
 
-    if (call->serviced)
+    if (call->serviced) {
+      // drop serviced requests from the list
+      it = g_async_calls.erase(it);
+      JALLOC_HELPER_FREE(call);
       continue;
+    }
 
+    // MPI_Test internally calls isServicedRequest which needs the same lock,
+    // and whose logic is encapsulated in the above if. It also tries to remove
+    // this value frpm g_async_calls if it is complete, and free call. To avoid
+    // issues we simply avoid the wrapper and move the logic here, also avoiding
+    // deadlock.
+    /*
+    logLock.unlock();
     retval = MPI_Test(request, &call->flag, &call->status);
+    logLock.lock();
+    */
+    DMTCP_PLUGIN_DISABLE_CKPT();
+    JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+    // MPI_Test can change the *request argument
+    retval = NEXT_FUNC(Test)(request, &call->flag, &call->status);
+    RETURN_TO_UPPER_HALF();
+    DMTCP_PLUGIN_ENABLE_CKPT();
+
     JWARNING(retval == MPI_SUCCESS)(call->type)
             .Text("MPI_Test call failed?");
     if (retval == MPI_SUCCESS) {
@@ -470,15 +548,23 @@ resolve_async_messages()
                                                               sizeof(p)) == 0;
                                               }));
         }
+        // remove successful requests from this list
+        it = g_async_calls.erase(it);
+        JALLOC_HELPER_FREE(call);
+        continue;
       } else {
         JTRACE("Unserviced request")(call->type);
         if (call->type == ISEND_REQUEST) {
           unserviced_isends++;
           g_unsvcd_sends.push_back(call->params);
+          lock_t srLock(srMutex);
           localSrCount.countSends++;
         }
       }
     }
+    // increment iterator here so that if erase is used we don't
+    // skip an element
+    ++it;
   }
   return unserviced_isends != 0;
 }
