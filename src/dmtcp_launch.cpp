@@ -60,7 +60,6 @@ static void setLDPreloadLibs(bool is32bitElf);
 static const char *theUsage =
   "Usage: dmtcp_launch [OPTIONS] <command> [args...]\n"
   "Start a process under DMTCP control.\n\n"
-  "Connecting to the DMTCP Coordinator:\n"
   "  -h, --coord-host HOSTNAME (environment variable DMTCP_COORD_HOST)\n"
   "              Hostname where dmtcp_coordinator is run (default: localhost)\n"
   "  -p, --coord-port PORT_NUM (environment variable DMTCP_COORD_PORT)\n"
