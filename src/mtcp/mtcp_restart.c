@@ -618,7 +618,7 @@ main(int argc, char *argv[], char **environ)
       }
     }
 
-    MTCP_PRINTF("vdsoStart: %p\n", mygetauxval(environ, AT_SYSINFO_EHDR));
+    DPRINTF("vdsoStart: %p\n", mygetauxval(environ, AT_SYSINFO_EHDR));
     // We could have read /proc/self/maps for vdsoStart, etc.  But that code
     //   is long, and is used to discover many things about the maps.
     //   By using mygetauxval(), we have a much shorter mechanism now.
