@@ -64,7 +64,6 @@ string restartDir;
 static const char *theUsage =
   "Usage: dmtcp_restart [OPTIONS] <ckpt1.dmtcp> [ckpt2.dmtcp...]\n\n"
   "Restart processes from a checkpoint image.\n\n"
-  "Connecting to the DMTCP Coordinator:\n"
   "  -h, --coord-host HOSTNAME (environment variable DMTCP_COORD_HOST)\n"
   "              Hostname where dmtcp_coordinator is run (default: localhost)\n"
   "  -p, --coord-port PORT_NUM (environment variable DMTCP_COORD_PORT)\n"
