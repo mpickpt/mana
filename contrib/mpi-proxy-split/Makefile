@@ -86,6 +86,7 @@ install: ${LIBNAME}.so
 	@make -C ${LOWER_HALF_SRCDIR} ${PROXY_BIN}
 	@make -C ${LOWER_HALF_SRCDIR} install
 	@make -C ${WRAPPERS_SRCDIR} libmpich_intel.so.3
+	@make -C ${WRAPPERS_SRCDIR} libpmi.so.0
 	cp ${LIBNAME}.so ${DMTCP_ROOT}/lib/dmtcp
 	@cd ${WRAPPERS_SRCDIR} && make install
 

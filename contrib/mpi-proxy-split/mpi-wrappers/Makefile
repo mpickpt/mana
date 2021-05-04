@@ -32,7 +32,7 @@ override CXXFLAGS += -g3 -O0 -fPIC -I${DMTCP_INCLUDE} -I${JALIB_INCLUDE} \
                      -I${LOWER_HALF_SRCDIR} -std=c++11
 
 # We don't build libmpiwrappers.a.  Instead, we use *.o to build libmana.so.
-default: ${LIBNAME}.a libmpidummy.so libmpich_intel.so.3
+default: ${LIBNAME}.a libmpidummy.so libmpich_intel.so.3 libpmi.so.0
 
 ${LIBNAME}.a: ${LIBWRAPPER_OBJS}
 	ar cr $@ $^
@@ -76,6 +76,12 @@ libmpich_intel.so.3.0.1: libmpidummy.so
 libmpich_intel.so.3: libmpich_intel.so.3.0.1
 	ln -sf $< $@
 
+libpmi.so.0.5.0: libmpidummy.so
+	cp -f $< $@
+
+libpmi.so.0: libpmi.so.0.5.0
+	ln -sf $< $@
+
 tidy:
 	rm -f *~ .*.swp dmtcp_restart_script*.sh ckpt_*.dmtcp
 	rm -rf ckpt_rank_*
@@ -84,6 +90,8 @@ install: ${WRAPPERS_SRCDIR}/libmpich_intel.so.3
 	cp libmpidummy.so ${DMTCP_ROOT}/lib/dmtcp
 	cp -a libmpich_intel.so.3 ${DMTCP_ROOT}/lib/dmtcp
 	cp libmpich_intel.so.3.0.1 ${DMTCP_ROOT}/lib/dmtcp
+	cp -a libpmi.so.0 ${DMTCP_ROOT}/lib/dmtcp
+	cp libpmi.so.0.5.0 ${DMTCP_ROOT}/lib/dmtcp
 
 clean: tidy
 	rm -f ${LIBWRAPPER_OBJS}
