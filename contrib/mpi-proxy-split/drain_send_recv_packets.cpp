@@ -164,6 +164,11 @@ replayMpiOnRestart()
       continue;
 
     switch (message->type) {
+      case IBARRIER_REQUEST:
+        JTRACE("Replaying Ibarrier call")(message->params.remote_node);
+        retval = MPI_Ibarrier(message->params.comm, request);
+        JASSERT(retval == MPI_SUCCESS).Text("Error while replaying ibarrier");
+        break;
       case IRECV_REQUEST:
         JTRACE("Replaying Irecv call")(message->params.remote_node);
         retval = MPI_Irecv(message->recvbuf, message->params.count,
@@ -470,8 +475,11 @@ resolve_async_messages()
                                                               sizeof(p)) == 0;
                                               }));
         }
+      } else if (call->type == IBARRIER_REQUEST) {
+        // FIXME: Check if this enough
       } else {
         JTRACE("Unserviced request")(call->type);
+        // FIXME: Why ISEND_REQUEST is checked twice?
         if (call->type == ISEND_REQUEST) {
           unserviced_isends++;
           g_unsvcd_sends.push_back(call->params);

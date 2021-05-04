@@ -6,6 +6,7 @@
 #include "protectedfds.h"
 
 #include "mpi_plugin.h"
+#include "drain_send_recv_packets.h"
 #include "mpi_nextfunc.h"
 #include "two-phase-algo.h"
 #include "virtual-ids.h"
@@ -38,6 +39,29 @@ USER_DEFINED_WRAPPER(int, Barrier, (MPI_Comm) comm)
     retval = NEXT_FUNC(Barrier)(realComm);
     RETURN_TO_UPPER_HALF();
     DMTCP_PLUGIN_ENABLE_CKPT();
+    return retval;
+  };
+  return twoPhaseCommit(comm, realBarrierCb);
+}
+
+// FIXME: We need to create a test case for this
+USER_DEFINED_WRAPPER(int, Ibarrier, (MPI_Comm) comm, (MPI_Request *) request)
+{
+  std::function<int()> realBarrierCb = [=]() {
+    int retval;
+    DMTCP_PLUGIN_DISABLE_CKPT();
+    MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+    JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+    retval = NEXT_FUNC(Ibarrier)(realComm, request);
+    RETURN_TO_UPPER_HALF();
+    // FIXME: Do we need to log MPI_IBarrier?
+    // addPendingRequestToLog(IBARRIER_REQUEST, comm, request);
+    DMTCP_PLUGIN_ENABLE_CKPT();
+    int flag = 0;
+    MPI_Status st;
+    if (MPI_Request_get_status(*request, &flag, &st) == MPI_SUCCESS && flag) {
+      clearPendingRequestFromLog(request, *request);
+    }
     return retval;
   };
   return twoPhaseCommit(comm, realBarrierCb);
@@ -282,6 +306,7 @@ USER_DEFINED_WRAPPER(int, Scan, (const void *) sendbuf, (void *) recvbuf,
 PMPI_IMPL(int, MPI_Bcast, void *buffer, int count, MPI_Datatype datatype,
           int root, MPI_Comm comm)
 PMPI_IMPL(int, MPI_Barrier, MPI_Comm comm)
+PMPI_IMPL(int, MPI_Ibarrier, MPI_Comm comm, MPI_Request * request)
 PMPI_IMPL(int, MPI_Allreduce, const void *sendbuf, void *recvbuf, int count,
           MPI_Datatype datatype, MPI_Op op, MPI_Comm comm)
 PMPI_IMPL(int, MPI_Reduce, const void *sendbuf, void *recvbuf, int count,
