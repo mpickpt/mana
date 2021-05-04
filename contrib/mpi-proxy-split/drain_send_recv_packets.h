@@ -15,6 +15,7 @@ typedef enum __mpi_req
 {
   ISEND_REQUEST,
   IRECV_REQUEST,
+  IBARRIER_REQUEST,
   DRAINED_EARLY,
 } mpi_req_t;
 
@@ -46,7 +47,7 @@ typedef struct __mpi_async_call
 {
   // control data
   bool serviced;   // True if the message was drained successfully
-  mpi_req_t type;  // ISEND_REQUEST or IRECV_REQUEST
+  mpi_req_t type;  // ISEND_REQUEST, IRECV_REQUEST or IBARRIER_REQUEST
   // request parameters
   const void *sendbuf;
   void *recvbuf;
