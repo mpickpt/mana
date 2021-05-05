@@ -312,6 +312,7 @@ int my_memcmp(const void *buffer1, const void *buffer2, size_t len) {
   return 0;
 }
 
+// FIXME: Many style rules broken.  Code never reviewed by skilled programmer.
 int getCkptImageByDir(char *buffer, size_t buflen, int rank) {
   if(!rinfo.restart_dir) {
     MTCP_PRINTF("***ERROR No restart directory found - cannot find checkpoint image by directory!");
@@ -327,12 +328,12 @@ int getCkptImageByDir(char *buffer, size_t buflen, int rank) {
 
   // ensure directory ends with /
   if(buffer[len - 1] != '/') {
-    if(len + 1 >= buflen){
+    if(len + 2 > buflen){ // Make room for buffer(strlen:len) + '/' + '\0'
       MTCP_PRINTF("***ERROR Restart directory would overflow given buffer!");
       return -1;
     }
-    buffer[len - 1] = '/';
-    buffer[len] = '\0';
+    buffer[len] = '/';
+    buffer[len+1] = '\0';
     len += 1;
   }
 
