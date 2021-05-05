@@ -25,6 +25,12 @@ resetTwoPhaseState()
   TwoPhaseAlgo::instance().resetStateAfterCkpt();
 }
 
+// FIXME: We removed almost all locks in the 2pc algorithm to avoid
+// race conditions and high overhead. This is a temporary fix because 
+// MPI is usually used in only one thread. We need to add these locks
+// back to allow multiple threads use MPI at the same time. We can use 
+// git diff to find which locks were removed.
+
 // There can be multiple communicators, each with their own N (N = comm. size).
 //
 // The coordinator can initiate the checkpoint when none of the communicators
@@ -229,7 +235,6 @@ TwoPhaseAlgo::informCoordinatorOfCurrState(const DmtcpMessage& msg,
 void
 TwoPhaseAlgo::wrapperEntry(MPI_Comm comm)
 {
-  lock_t lock(_wrapperMutex);
   _inWrapper = true;
   _comm = comm;
 }
@@ -237,7 +242,6 @@ TwoPhaseAlgo::wrapperEntry(MPI_Comm comm)
 void
 TwoPhaseAlgo::wrapperExit()
 {
-  lock_t lock(_wrapperMutex);
   _inWrapper = false;
   _comm = MPI_COMM_NULL;
 }
