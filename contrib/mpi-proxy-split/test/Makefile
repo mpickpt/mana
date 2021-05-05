@@ -18,6 +18,7 @@ DEMO_PORT=7787
 ## Reordering the tests:
 FILES=mpi_hello_world \
       hello_mpi_init_thread \
+      keyval_test \
       send_recv send_recv_many ping_pong Comm_dup_test Sendrecv_test \
       Barrier_test Bcast_test Comm_split_test Reduce_test \
       Waitall_test \
