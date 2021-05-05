@@ -11,6 +11,7 @@
 
 // Convenience macros
 #define MpiCommList  dmtcp_mpi::MpiVirtualization
+#define MpiCommKeyvalList    dmtcp_mpi::MpiVirtualization
 #define MpiGroupList dmtcp_mpi::MpiVirtualization
 #define MpiTypeList  dmtcp_mpi::MpiVirtualization
 #define MpiOpList    dmtcp_mpi::MpiVirtualization
@@ -59,6 +60,17 @@
 #define UPDATE_OP_MAP(v, r) \
   MpiOpList::instance("MpiOp", MPI_OP_NULL).updateMapping(v, r)
 
+#define REAL_TO_VIRTUAL_COMM_KEYVAL(id) \
+  MpiOpList::instance("MpiCommKeyval", MPI_OP_NULL).realToVirtual(id)
+#define VIRTUAL_TO_REAL_COMM_KEYVAL(id) \
+  MpiOpList::instance("MpiCommKeyval", MPI_OP_NULL).virtualToReal(id)
+#define ADD_NEW_COMM_KEYVAL(id) \
+  MpiOpList::instance("MpiCommKeyval", MPI_OP_NULL).onCreate(id)
+#define REMOVE_OLD_COMM_KEYVAL(id) \
+  MpiOpList::instance("MpiCommKeyval", MPI_OP_NULL).onRemove(id)
+#define UPDATE_COMM_KEYVAL_MAP(v, r) \
+  MpiOpList::instance("MpiCommKeyval", MPI_OP_NULL).updateMapping(v, r)
+
 namespace dmtcp_mpi
 {
 
@@ -89,6 +101,9 @@ namespace dmtcp_mpi
 	  static MpiVirtualization _virTableMpiGroup(name, nullId);
 	  return _virTableMpiGroup;
 	} else if (strcmp(name, "MpiType") == 0) {
+	  static MpiVirtualization _virTableMpiType(name, nullId);
+	  return _virTableMpiType;
+	} else if (strcmp(name, "MpiCommKeyval") == 0) {
 	  static MpiVirtualization _virTableMpiType(name, nullId);
 	  return _virTableMpiType;
 	}
