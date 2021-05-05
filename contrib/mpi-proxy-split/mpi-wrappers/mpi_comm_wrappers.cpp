@@ -191,8 +191,9 @@ USER_DEFINED_WRAPPER(int, Attr_get, (MPI_Comm) comm, (int) keyval,
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+  int realCommKeyval = VIRTUAL_TO_REAL_COMM_KEYVAL(keyval);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  retval = NEXT_FUNC(Attr_get)(realComm, keyval, attribute_val, flag);
+  retval = NEXT_FUNC(Attr_get)(realComm, realCommKeyval, attribute_val, flag);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -203,8 +204,9 @@ USER_DEFINED_WRAPPER(int, Attr_delete, (MPI_Comm) comm, (int) keyval)
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+  int realCommKeyval = VIRTUAL_TO_REAL_COMM_KEYVAL(keyval);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  retval = NEXT_FUNC(Attr_delete)(realComm, keyval);
+  retval = NEXT_FUNC(Attr_delete)(realComm, realCommKeyval);
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS && LOGGING()) {
     LOG_CALL(restoreComms, Attr_delete, &comm, &keyval);
@@ -219,12 +221,56 @@ USER_DEFINED_WRAPPER(int, Attr_put, (MPI_Comm) comm,
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+  int realCommKeyval = VIRTUAL_TO_REAL_COMM_KEYVAL(keyval);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  retval = NEXT_FUNC(Attr_put)(realComm, keyval, attribute_val);
+  retval = NEXT_FUNC(Attr_put)(realComm, realCommKeyval, attribute_val);
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS && LOGGING()) {
     uint64_t val = (uint64_t)attribute_val;
     LOG_CALL(restoreComms, Attr_put, &comm, &keyval, &val);
+  }
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return retval;
+}
+
+USER_DEFINED_WRAPPER(int, Comm_create_keyval,
+                     (MPI_Comm_copy_attr_function *) comm_copy_attr_fn,
+                     (MPI_Comm_delete_attr_function *) comm_delete_attr_fn,
+                     (int *) comm_keyval, (void *) extra_state)
+{
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  retval = NEXT_FUNC(Comm_create_keyval)(comm_copy_attr_fn,
+                                         comm_delete_attr_fn,
+                                         comm_keyval, extra_state);
+  RETURN_TO_UPPER_HALF();
+  if (retval == MPI_SUCCESS && LOGGING()) {
+    int virtCommKeyval = ADD_NEW_COMM_KEYVAL(*comm_keyval);
+    *comm_keyval = virtCommKeyval;
+    uint64_t cfn = (uint64_t)comm_copy_attr_fn;
+    uint64_t dfn = (uint64_t)comm_delete_attr_fn;
+    uint64_t es = (uint64_t)extra_state;
+    LOG_CALL(restoreComms, Comm_create_keyval,
+             &cfn, &dfn, &virtCommKeyval, &es);
+  }
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return retval;
+}
+
+USER_DEFINED_WRAPPER(int, Comm_free_keyval, (int *) comm_keyval)
+{
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  int realCommKeyval = VIRTUAL_TO_REAL_COMM_KEYVAL(*comm_keyval);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  retval = NEXT_FUNC(Comm_free_keyval)(&realCommKeyval);
+  RETURN_TO_UPPER_HALF();
+  if (retval == MPI_SUCCESS && LOGGING()) {
+    // NOTE: We cannot remove the old comm_keyval from the map, since
+    // we'll need to replay this call to reconstruct any other comms that
+    // might have been created using this comm_keyval.
+    LOG_CALL(restoreComms, Comm_free_keyval, comm_keyval);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -249,3 +295,8 @@ PMPI_IMPL(int, MPI_Attr_get, MPI_Comm comm, int keyval,
           void *attribute_val, int *flag)
 PMPI_IMPL(int, MPI_Attr_delete, MPI_Comm comm, int keyval)
 PMPI_IMPL(int, MPI_Attr_put, MPI_Comm comm, int keyval, void *attribute_val)
+PMPI_IMPL(int, MPI_Comm_create_keyval,
+          MPI_Comm_copy_attr_function * comm_copy_attr_fn,
+          MPI_Comm_delete_attr_function * comm_delete_attr_fn,
+          int *comm_keyval, void *extra_state)
+PMPI_IMPL(int, MPI_Comm_free_keyval, int *comm_keyval)
