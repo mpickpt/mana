@@ -65,6 +65,8 @@ namespace dmtcp_mpi
   using mpi_record_vector_iterator_t = dmtcp::vector<MpiRecord*>::iterator;
 
   // Struct for saving arbitrary function arguments
+  // FIXME: When two types has the same length, this will not distinguish
+  // e.g. unsigned long and int*
   struct FncArg
   {
     void *_buf;

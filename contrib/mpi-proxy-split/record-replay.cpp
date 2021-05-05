@@ -16,6 +16,8 @@ static int restoreCommErrHandler(const MpiRecord& rec);
 static int restoreCommFree(const MpiRecord& rec);
 static int restoreAttrPut(const MpiRecord& rec);
 static int restoreAttrDelete(const MpiRecord& rec);
+static int restoreCommCreateKeyval(const MpiRecord& rec);
+static int restoreCommFreeKeyval(const MpiRecord& rec);
 
 static int restoreCommGroup(const MpiRecord& rec);
 static int restoreGroupFree(const MpiRecord& rec);
@@ -80,6 +82,14 @@ dmtcp_mpi::restoreComms(const MpiRecord &rec)
     case GENERATE_ENUM(Attr_delete):
       JTRACE("restoreAtrrDelete");
       rc = restoreAttrDelete(rec);
+      break;
+    case GENERATE_ENUM(Comm_create_keyval):
+      JTRACE("restoreCommCreateKeyval");
+      rc = restoreCommCreateKeyval(rec);
+      break;
+    case GENERATE_ENUM(Comm_free_keyval):
+      JTRACE("restoreCommFreeKeyval");
+      rc = restoreCommFreeKeyval(rec);
       break;
     default:
       JWARNING(false)(rec.getType()).Text("Unknown call");
@@ -297,7 +307,10 @@ restoreAttrPut(const MpiRecord& rec)
   int retval;
   MPI_Comm comm = rec.args(0);
   int key = rec.args(1);
-  uint64_t val = rec.args(2);
+  // This is a temporary fix. rec.args(2) returns a FncArg struct,
+  // but it can't be cast into uint64_t correctly. We need to manually
+  // cast the void *_buf field into a uint64_t
+  uint64_t val = *(uint64_t*) rec.args(2)._buf;
   retval = FNC_CALL(Attr_put, rec)(comm, key, (void*)val);
   JWARNING(retval == MPI_SUCCESS)(comm)
           .Text("Error restoring MPI attribute-put");
@@ -312,6 +325,37 @@ restoreAttrDelete(const MpiRecord& rec)
   int key = rec.args(1);
   retval = FNC_CALL(Attr_delete, rec)(comm, key);
   JWARNING(retval == MPI_SUCCESS)(comm).Text("Error deleting MPI attribute");
+  return retval;
+}
+
+static int
+restoreCommCreateKeyval(const MpiRecord& rec)
+{
+  int retval;
+  void *cfn_tmp = rec.args(0);
+  void *dfn_tmp = rec.args(1);
+  MPI_Comm_copy_attr_function *cfn = (MPI_Comm_copy_attr_function*) cfn_tmp;
+  MPI_Comm_delete_attr_function *dfn = (MPI_Comm_delete_attr_function*) dfn_tmp;
+  int newkey = 0;
+  uint64_t extra_state = *(uint64_t*) rec.args(3)._buf;
+  retval = FNC_CALL(Comm_create_keyval, rec)(cfn, dfn, &newkey,
+                                             (void*)extra_state);
+  if (retval == MPI_SUCCESS) {
+    int oldkey = rec.args(2);
+    UPDATE_COMM_KEYVAL_MAP(oldkey, newkey);
+  }
+  return retval;
+}
+
+static int
+restoreCommFreeKeyval(const MpiRecord& rec)
+{
+  int retval;
+  int *key = rec.args(0);
+  retval = FNC_CALL(Comm_free_keyval, rec)(key);
+  JWARNING(retval == MPI_SUCCESS)(key).Text("Error deleting MPI Comm Keyval");
+  // See mpi_comm_wrappers.cpp:Comm_free_keyval
+  // We don't remove item from virtual-id tables
   return retval;
 }
 
