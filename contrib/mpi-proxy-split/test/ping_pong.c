@@ -39,17 +39,22 @@ int main(int argc, char** argv) {
       ping_pong_count++;
       printf("[%d] Sending %d to %d\n",
              world_rank, ping_pong_count, partner_rank); fflush(stdout);
+      fflush(stdout);
       MPI_Send(&ping_pong_count, 1, MPI_INT, partner_rank, 0, MPI_COMM_WORLD);
       printf("[%d] Sent ping_pong_count %d to %d\n",
              world_rank, ping_pong_count, partner_rank); fflush(stdout);
+      fflush(stdout);
     } else {
       printf("[%d] Receiving from %d\n",
              world_rank, partner_rank); fflush(stdout);
+      fflush(stdout);
       MPI_Recv(&ping_pong_count, 1, MPI_INT, partner_rank, 0, MPI_COMM_WORLD,
                MPI_STATUS_IGNORE);
+      fflush(stdout);
       assert((world_rank + ping_pong_count) % 2 != 0);
       printf("[%d] Received ping_pong_count %d from %d\n",
              world_rank, ping_pong_count, partner_rank); fflush(stdout);
+      fflush(stdout);
     }
     sleep(5);
   }

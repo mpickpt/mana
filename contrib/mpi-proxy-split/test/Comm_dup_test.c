@@ -22,7 +22,7 @@ int main(int argc, char* argv[] )
         printf( "incorrect rank in world comm: %d\n", rank );fflush(stdout);
         MPI_Abort(MPI_COMM_WORLD, 3001 );
     }
-    printf("[Rank %d] \n", rank);
+    printf("[Rank %d] \n", rank);fflush(stdout);
     MPI_Finalize();
     return 0;
 }

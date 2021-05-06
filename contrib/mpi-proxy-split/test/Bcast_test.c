@@ -42,6 +42,6 @@ char *argv[];
       assert(buffer[i] == expected_output[i]);
       printf(" %d", buffer[i]);
     }
-    printf("\n");
+    printf("\n");fflush(stdout);
     MPI_Finalize();
 }
