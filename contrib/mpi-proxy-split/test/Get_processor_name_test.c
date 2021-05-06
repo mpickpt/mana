@@ -14,7 +14,8 @@ int main(int argc, char *argv[])
   MPI_Comm_size(MPI_COMM_WORLD,&nprocs);
   MPI_Comm_rank(MPI_COMM_WORLD,&rank);
   MPI_Get_processor_name(name, &len);
-  printf("Hello, world.  I am %d of %d on %s with length %d\n", rank, nprocs, name, len);
+  printf("Hello, world.  I am %d of %d on %s with length %d\n",
+         rank, nprocs, name, len);
   fflush(stdout);
   MPI_Finalize();
   return 0;

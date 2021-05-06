@@ -30,8 +30,9 @@ int main( int argc, char *argv[] )
       MPI_Reduce( sendbuf, recvbuf, count, MPI_INT, MPI_SUM, root, comm );
       if (rank == root) {
         for (i=0; i<count; i++) {
-          printf("[Rank = %d]: recvd = %d, expected = %d", rank, recvbuf[i],
-                 i * size);
+          printf("[Rank = %d]: recvd = %d, expected = %d\n",
+                 rank, recvbuf[i], i * size);
+          fflush(stdout);
           assert(recvbuf[i] == i * size);
         }
       }

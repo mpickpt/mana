@@ -27,7 +27,9 @@ int main(int argc, char *argv[])
   {
     MPI_Recv(buf, 1, type, 0, 123, MPI_COMM_WORLD, &status);
     for (int i = 0; i < 10 ; i++) {
-      printf("[Rank = %d] got => %d \t expected => %d \n", myrank, buf[i], buffer[i]);
+      printf("[Rank = %d] got => %d \t expected => %d \n",
+             myrank, buf[i], buffer[i]);
+      fflush(stdout);
       assert(buffer[i] == buf[i]);
     }
   }

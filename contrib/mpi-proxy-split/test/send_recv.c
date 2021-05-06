@@ -36,6 +36,7 @@ int main(int argc, char** argv) {
     MPI_Recv(&number, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     printf("Process 1 received number %d from process 0; Expected number = 3\n",
            number);
+    fflush(stdout);
     assert(number == 3);
   }
   MPI_Finalize();

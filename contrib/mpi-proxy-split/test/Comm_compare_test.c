@@ -12,8 +12,8 @@ int main()
   MPI_Comm_size( comm, &size );
   MPI_Comm_compare(MPI_COMM_WORLD, comm, &result);
   if (!result) {
-    printf("[Rank = %d] Comm compare fail! comm = %d, MPI_COMM_WORLD = %d\n" \
-           , rank, comm, MPI_COMM_WORLD);
+    printf("[Rank = %d] Comm compare fail! comm = %d, MPI_COMM_WORLD = %d\n",
+           rank, comm, MPI_COMM_WORLD);
     assert(0);
   }
   MPI_Finalize();
