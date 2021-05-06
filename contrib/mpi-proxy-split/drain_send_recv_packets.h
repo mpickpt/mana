@@ -15,7 +15,9 @@ typedef enum __mpi_req
 {
   ISEND_REQUEST,
   IRECV_REQUEST,
+  IBCAST_REQUEST,
   IBARRIER_REQUEST,
+  IREDUCE_REQUEST,
   DRAINED_EARLY,
 } mpi_req_t;
 
@@ -40,6 +42,8 @@ typedef struct __mpi_call_params
   MPI_Comm comm;    // MPI communicator
   int remote_node;  // Can be dest or source depending on the the call type
   int tag;          // MPI message tag
+  MPI_Op op;        // Used in Ireduce
+  int root;         // Used in Ireduce and Ibcast
 } mpi_call_params_t;
 
 // Struct to store the metadata of an async MPI send/recv call
@@ -47,7 +51,7 @@ typedef struct __mpi_async_call
 {
   // control data
   bool serviced;   // True if the message was drained successfully
-  mpi_req_t type;  // ISEND_REQUEST, IRECV_REQUEST or IBARRIER_REQUEST
+  mpi_req_t type;  // See enum __mpi_req
   // request parameters
   const void *sendbuf;
   void *recvbuf;
@@ -98,6 +102,14 @@ extern void resetDrainCounters();
 extern void addPendingRequestToLog(mpi_req_t , const void* , void* , int ,
                                    MPI_Datatype , int , int ,
                                    MPI_Comm, MPI_Request* );
+extern void addPendingIbarrierToLog(mpi_req_t req, MPI_Comm comm,
+                                   MPI_Request* rq);
+extern void addPendingIbcastToLog(mpi_req_t req, void* buffer, int cnt,
+                                   MPI_Datatype type, int root,
+                                   MPI_Comm comm, MPI_Request* rq);
+extern void addPendingIreduceToLog(mpi_req_t req, const void* sbuf, void* rbuf,
+                                   int cnt, MPI_Datatype type, MPI_Op op,
+                                   int root, MPI_Comm comm, MPI_Request* rq);
 
 // Removes the async send/recv call corresponding to the given MPI_Request
 // object 'req' from the global map, 'g_async_calls'
