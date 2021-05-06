@@ -29,6 +29,33 @@ USER_DEFINED_WRAPPER(int, Bcast,
   return twoPhaseCommit(comm, realBarrierCb);
 }
 
+USER_DEFINED_WRAPPER(int, Ibcast,
+                     (void *) buffer, (int) count, (MPI_Datatype) datatype,
+                     (int) root, (MPI_Comm) comm, (MPI_Request *) request)
+{
+  std::function<int()> realBarrierCb = [=]() {
+    int retval;
+    DMTCP_PLUGIN_DISABLE_CKPT();
+    MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+    MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
+    JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+    retval = NEXT_FUNC(Ibcast)(buffer, count, realType,
+                               root, realComm, request);
+    RETURN_TO_UPPER_HALF();
+    addPendingIbcastToLog(IBCAST_REQUEST, buffer, count, datatype,
+                           root, comm, request);
+    DMTCP_PLUGIN_ENABLE_CKPT();
+    // FIXME: Examine this logic
+    /* int flag = 0; */
+    /* MPI_Status st; */
+    /* if (MPI_Request_get_status(*request, &flag, &st) == MPI_SUCCESS && flag) { */
+    /*   clearPendingRequestFromLog(request, *request); */
+    /* } */
+    return retval;
+  };
+  return twoPhaseCommit(comm, realBarrierCb);
+}
+
 USER_DEFINED_WRAPPER(int, Barrier, (MPI_Comm) comm)
 {
   std::function<int()> realBarrierCb = [=]() {
@@ -54,14 +81,13 @@ USER_DEFINED_WRAPPER(int, Ibarrier, (MPI_Comm) comm, (MPI_Request *) request)
     JUMP_TO_LOWER_HALF(lh_info.fsaddr);
     retval = NEXT_FUNC(Ibarrier)(realComm, request);
     RETURN_TO_UPPER_HALF();
-    // FIXME: Do we need to log MPI_IBarrier?
-    // addPendingRequestToLog(IBARRIER_REQUEST, comm, request);
+    addPendingIbarrierToLog(IBARRIER_REQUEST, comm, request);
     DMTCP_PLUGIN_ENABLE_CKPT();
-    int flag = 0;
-    MPI_Status st;
-    if (MPI_Request_get_status(*request, &flag, &st) == MPI_SUCCESS && flag) {
-      clearPendingRequestFromLog(request, *request);
-    }
+    /* int flag = 0; */
+    /* MPI_Status st; */
+    /* if (MPI_Request_get_status(*request, &flag, &st) == MPI_SUCCESS && flag) { */
+    /*   clearPendingRequestFromLog(request, *request); */
+    /* } */
     return retval;
   };
   return twoPhaseCommit(comm, realBarrierCb);
@@ -104,6 +130,34 @@ USER_DEFINED_WRAPPER(int, Reduce,
                                realType, realOp, root, realComm);
     RETURN_TO_UPPER_HALF();
     DMTCP_PLUGIN_ENABLE_CKPT();
+    return retval;
+  };
+  return twoPhaseCommit(comm, realBarrierCb);
+}
+
+USER_DEFINED_WRAPPER(int, Ireduce,
+                     (const void *) sendbuf, (void *) recvbuf, (int) count,
+                     (MPI_Datatype) datatype, (MPI_Op) op,
+                     (int) root, (MPI_Comm) comm, (MPI_Request *) request)
+{
+  std::function<int()> realBarrierCb = [=]() {
+    int retval;
+    DMTCP_PLUGIN_DISABLE_CKPT();
+    MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+    MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
+    MPI_Op realOp = VIRTUAL_TO_REAL_OP(op);
+    JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+    retval = NEXT_FUNC(Ireduce)(sendbuf, recvbuf, count,
+                               realType, realOp, root, realComm, request);
+    RETURN_TO_UPPER_HALF();
+    addPendingIreduceToLog(IREDUCE_REQUEST, sendbuf, recvbuf, count, 
+                           datatype, op, root, comm, request);
+    DMTCP_PLUGIN_ENABLE_CKPT();
+    /* int flag = 0; */
+    /* MPI_Status st; */
+    /* if (MPI_Request_get_status(*request, &flag, &st) == MPI_SUCCESS && flag) { */
+    /*   clearPendingRequestFromLog(request, *request); */
+    /* } */
     return retval;
   };
   return twoPhaseCommit(comm, realBarrierCb);
@@ -305,12 +359,17 @@ USER_DEFINED_WRAPPER(int, Scan, (const void *) sendbuf, (void *) recvbuf,
 
 PMPI_IMPL(int, MPI_Bcast, void *buffer, int count, MPI_Datatype datatype,
           int root, MPI_Comm comm)
+PMPI_IMPL(int, MPI_Ibcast, void *buffer, int count, MPI_Datatype datatype,
+          int root, MPI_Comm comm, MPI_Request *request)
 PMPI_IMPL(int, MPI_Barrier, MPI_Comm comm)
 PMPI_IMPL(int, MPI_Ibarrier, MPI_Comm comm, MPI_Request * request)
 PMPI_IMPL(int, MPI_Allreduce, const void *sendbuf, void *recvbuf, int count,
           MPI_Datatype datatype, MPI_Op op, MPI_Comm comm)
 PMPI_IMPL(int, MPI_Reduce, const void *sendbuf, void *recvbuf, int count,
           MPI_Datatype datatype, MPI_Op op, int root, MPI_Comm comm)
+PMPI_IMPL(int, MPI_Ireduce, const void *sendbuf, void *recvbuf, int count,
+          MPI_Datatype datatype, MPI_Op op, int root, MPI_Comm comm,
+          MPI_Request *request)
 PMPI_IMPL(int, MPI_Alltoall, const void *sendbuf, int sendcount,
           MPI_Datatype sendtype, void *recvbuf, int recvcount,
           MPI_Datatype recvtype, MPI_Comm comm)

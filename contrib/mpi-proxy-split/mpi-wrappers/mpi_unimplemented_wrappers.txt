@@ -44,8 +44,6 @@ int MPI_Ialltoallw(const void *sendbuf, const int sendcounts[],
                             MPI_Comm comm, MPI_Request *request);
 int MPI_Bsend(const void *buf, int count, MPI_Datatype datatype,
                        int dest, int tag, MPI_Comm comm);
-int MPI_Ibcast(void *buffer, int count, MPI_Datatype datatype,
-                        int root, MPI_Comm comm, MPI_Request *request);
 int MPI_Bsend_init(const void *buf, int count, MPI_Datatype datatype,
                             int dest, int tag, MPI_Comm comm,
                             MPI_Request *request);
@@ -229,7 +227,6 @@ int MPI_Put(const void *origin_addr, int origin_count, MPI_Datatype origin_datat
 int MPI_Query_thread(int *provided);
 int MPI_Raccumulate(const void *origin_addr, int origin_count, MPI_Datatype origin_datatype, int target_rank, MPI_Aint target_disp, int target_count, MPI_Datatype target_datatype, MPI_Op op, MPI_Win win, MPI_Request *request);
 int MPI_Recv_init(void *buf, int count, MPI_Datatype datatype, int source, int tag, MPI_Comm comm, MPI_Request *request);
-int MPI_Ireduce(const void *sendbuf, void *recvbuf, int count, MPI_Datatype datatype, MPI_Op op, int root, MPI_Comm comm, MPI_Request *request);
 int MPI_Reduce_local(const void *inbuf, void *inoutbuf, int count, MPI_Datatype datatype, MPI_Op op);
 int MPI_Reduce_scatter(const void *sendbuf, void *recvbuf, const int recvcounts[], MPI_Datatype datatype, MPI_Op op, MPI_Comm comm);
 int MPI_Ireduce_scatter(const void *sendbuf, void *recvbuf, const int recvcounts[], MPI_Datatype datatype, MPI_Op op, MPI_Comm comm, MPI_Request *request);
