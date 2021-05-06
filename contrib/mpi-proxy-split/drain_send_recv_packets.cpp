@@ -164,11 +164,6 @@ replayMpiOnRestart()
       continue;
 
     switch (message->type) {
-      case IBARRIER_REQUEST:
-        JTRACE("Replaying Ibarrier call")(message->params.remote_node);
-        retval = MPI_Ibarrier(message->params.comm, request);
-        JASSERT(retval == MPI_SUCCESS).Text("Error while replaying ibarrier");
-        break;
       case IRECV_REQUEST:
         JTRACE("Replaying Irecv call")(message->params.remote_node);
         retval = MPI_Irecv(message->recvbuf, message->params.count,
@@ -187,6 +182,31 @@ replayMpiOnRestart()
                            message->params.remote_node, message->params.tag,
                            message->params.comm, request);
         JASSERT(retval == MPI_SUCCESS).Text("Error while replaying send");
+        break;
+      case IBARRIER_REQUEST:
+        JTRACE("Replaying Ibarrier call")(message->params.comm);
+        retval = MPI_Ibarrier(message->params.comm, request);
+        JASSERT(retval == MPI_SUCCESS).Text("Error while replaying Ibarrier");
+        break;
+      case IBCAST_REQUEST:
+        JTRACE("Replaying Ibcast call")(message->params.comm);
+        retval = MPI_Ibcast(message->recvbuf, message->params.count,
+                           message->params.datatype,
+                           message->params.root,
+                           message->params.comm,
+                           request);
+        JASSERT(retval == MPI_SUCCESS).Text("Error while replaying ibcast");
+        break;
+      case IREDUCE_REQUEST:
+        JTRACE("Replaying Ireduce call")(message->params.comm);
+        retval = MPI_Ireduce(message->sendbuf, message->recvbuf,
+                           message->params.count,
+                           message->params.datatype,
+                           message->params.op,
+                           message->params.root,
+                           message->params.comm,
+                           request);
+        JASSERT(retval == MPI_SUCCESS).Text("Error while replaying ierduce");
         break;
       default:
         JWARNING(false)(message->type).Text("Unhandled replay call");
@@ -245,6 +265,7 @@ updateLocalRecvs(int count)
   localSrCount.recvCounts += count;
 }
 
+// For send/recv
 void
 addPendingRequestToLog(mpi_req_t req, const void* sbuf, void* rbuf, int cnt,
                        MPI_Datatype type, int remote, int tag,
@@ -270,6 +291,71 @@ addPendingRequestToLog(mpi_req_t req, const void* sbuf, void* rbuf, int cnt,
   g_async_calls[rq] = call;
 }
 
+// For Ibarrier
+void
+addPendingIbarrierToLog(mpi_req_t req, MPI_Comm comm, MPI_Request* rq)
+{
+  mpi_async_call_t *call =
+        (mpi_async_call_t*)JALLOC_HELPER_MALLOC(sizeof(mpi_async_call_t));
+  call->serviced = false;
+  call->type = req;
+  call->params.comm = comm;
+  call->request = rq;
+  call->req = *rq;
+  call->flag = false;
+  memset(&call->status, 0, sizeof(call->status));
+  lock_t lock(logMutex);
+  g_async_calls[rq] = call;
+}
+
+// For Ibcast
+void
+addPendingIbcastToLog(mpi_req_t req, void* buffer, int cnt,
+                      MPI_Datatype type, int root,
+                      MPI_Comm comm, MPI_Request* rq)
+{
+  mpi_async_call_t *call =
+        (mpi_async_call_t*)JALLOC_HELPER_MALLOC(sizeof(mpi_async_call_t));
+  call->serviced = false;
+  call->type = req;
+  call->recvbuf = buffer;
+  call->params.count = cnt;
+  call->params.datatype = type;
+  call->params.root = root;
+  call->params.comm = comm;
+  call->request = rq;
+  call->req = *rq;
+  call->flag = false;
+  memset(&call->status, 0, sizeof(call->status));
+  lock_t lock(logMutex);
+  g_async_calls[rq] = call;
+}
+
+// For Ireduce
+void
+addPendingIreduceToLog(mpi_req_t req, const void* sbuf, void* rbuf, int cnt,
+                       MPI_Datatype type, MPI_Op op, int root,
+                       MPI_Comm comm, MPI_Request* rq)
+{
+  mpi_async_call_t *call =
+        (mpi_async_call_t*)JALLOC_HELPER_MALLOC(sizeof(mpi_async_call_t));
+  call->serviced = false;
+  call->type = req;
+  call->sendbuf = sbuf;
+  call->recvbuf = rbuf;
+  call->params.count = cnt;
+  call->params.datatype = type;
+  call->params.op = op;
+  call->params.root = root;
+  call->params.comm = comm;
+  call->request = rq;
+  call->req = *rq;
+  call->flag = false;
+  memset(&call->status, 0, sizeof(call->status));
+  lock_t lock(logMutex);
+  g_async_calls[rq] = call;
+}
+
 void
 clearPendingRequestFromLog(MPI_Request* req, MPI_Request orig)
 {
@@ -284,6 +370,7 @@ clearPendingRequestFromLog(MPI_Request* req, MPI_Request orig)
       JALLOC_HELPER_FREE(call);
     }
   }
+  // FIXME: Is this doing the same thing as the previous find() above?
   dmtcp::map<MPI_Request* const, mpi_async_call_t*>::iterator iter;
   for (iter = g_async_calls.begin(); iter != g_async_calls.end();) {
     mpi_async_call_t *call = iter->second;
@@ -475,8 +562,6 @@ resolve_async_messages()
                                                               sizeof(p)) == 0;
                                               }));
         }
-      } else if (call->type == IBARRIER_REQUEST) {
-        // FIXME: Check if this enough
       } else {
         JTRACE("Unserviced request")(call->type);
         // FIXME: Why ISEND_REQUEST is checked twice?
