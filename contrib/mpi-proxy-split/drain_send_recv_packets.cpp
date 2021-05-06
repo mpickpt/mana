@@ -122,8 +122,8 @@ updateCkptDirByRank()
 
   if (!g_list || g_numMmaps == 0) return;
   o << "/lhregions.dat";
-  const char *fname = o.str().c_str();
-  int fd = open(fname, O_CREAT | O_WRONLY);
+  dmtcp::string fname = o.str();
+  int fd = open(fname.c_str(), O_CREAT | O_WRONLY);
 #if 0
   // g_range (lh_memory_range) was written for debugging here.
   Util::writeAll(fd, g_range, sizeof(*g_range));
