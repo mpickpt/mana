@@ -40,13 +40,16 @@ int main(int argc, char** argv)
   // Print off a hello world message
   printf("Hello world from processor %s, rank %d out of %d processors\n",
          processor_name, world_rank, world_size);
+  fflush(stdout);
 
   printf("Will now sleep for 500 seconds ...\n");
+  fflush(stdout);
   unsigned int remaining = 300;
   while (remaining > 0) {
     remaining = sleep(remaining);
     if (remaining > 0) {
       printf("Signal received; continuing sleep for %d seconds.\n", remaining);
+      fflush(stdout);
     }
   }
   printf("**** %s is now exiting.\n", argv[0]);

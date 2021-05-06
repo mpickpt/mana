@@ -25,6 +25,7 @@ int main( int argc, char *argv[] )
     MPI_Attr_put( comm, key[i], &attrval[i] );
     MPI_Attr_get(comm, key[i], &val, &flag);
     printf("keyval: %lx, attrval: %d\n", key[i], *val);
+    fflush(stdout);
   }
 
   printf("Will now sleep for 20 seconds ...\n");
@@ -41,6 +42,7 @@ int main( int argc, char *argv[] )
   for (i = 0; i < 3; i++) {
     MPI_Attr_get(comm, key[i], &val, &flag);
     printf("keyval: %lx, attrval: %d\n", key[i], *val);
+    fflush(stdout);
   }
 
   printf("**** %s is now exiting.\n", argv[0]);
