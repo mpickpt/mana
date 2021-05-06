@@ -57,7 +57,8 @@ int main( int argc, char *argv[] )
 //        printf(" %d", sb[i]);
 //      }
   status = MPI_Alltoall(sb, chunk, MPI_INT, rb, chunk, MPI_INT, MPI_COMM_WORLD);
-//  printf("[Rank = %d] Status = %d, size = %d, chunk = %d\n", rank, status, size, chunk);
+//  printf("[Rank = %d] Status = %d, size = %d, chunk = %d\n",
+//         rank, status, size, chunk);fflush(stdout);
   MPI_Allreduce( &status, &gstatus, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD );
   for ( i=0 ; i < size*chunk ; ++i ) {
      assert(rb[i] == (int)(i/chunk) + 1);
@@ -74,7 +75,7 @@ int main( int argc, char *argv[] )
       }
     }
   }
-  printf("[Rank %d]: Test Passed!\n", rank);
+  printf("[Rank %d]: Test Passed!\n", rank);fflush(stdout);
   free(sb);
   free(rb);
   MPI_Finalize();

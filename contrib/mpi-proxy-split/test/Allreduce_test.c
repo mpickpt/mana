@@ -28,8 +28,9 @@ int main(int argc, char *argv[])
   MPI_Allreduce( in, out, count, MPI_INT, MPI_SUM, MPI_COMM_WORLD );
   for (i=0; i<count; i++)
   {
-    printf("[Rank = %d] At index = %d: In = %d, Out = %d, Expected Out = %d \n", rank,
-           i, *(in + i), *(out + i), *(sol + i));
+    printf("[Rank = %d] At index = %d: In = %d, Out = %d, Expected Out = %d \n",
+           rank, i, *(in + i), *(out + i), *(sol + i));
+    fflush(stdout);
 
     assert((*(out + i) == *(sol + i)));
     if (*(out + i) != *(sol + i))

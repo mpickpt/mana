@@ -38,7 +38,8 @@ int main(int argc, char **argv) {
   assert( row_size == 4);
   assert( row_rank == world_rank % 4);
   printf("WORLD RANK/SIZE: %d/%d --- ROW RANK/SIZE: %d/%d\n",
-      world_rank, world_size, row_rank, row_size);
+         world_rank, world_size, row_rank, row_size);
+  fflush(stdout);
 
   MPI_Comm_free(&row_comm);
 

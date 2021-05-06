@@ -25,16 +25,20 @@ int main( int argc, char **argv )
   MPI_Group_rank( basegroup, &grp_rank );
   if (grp_rank != rank) {
     errs++;
-    fprintf( stdout, "group rank %d != comm rank %d\n", grp_rank, rank );fflush(stdout);
+    fprintf( stdout, "group rank %d != comm rank %d\n",
+                     grp_rank, rank );fflush(stdout);
+    fflush(stdout);
   }
   MPI_Group_size( basegroup, &grp_size );
   if (grp_size != size) {
     errs++;
     fprintf( stdout, "group size %d != comm size %d\n", grp_size, size );
+    fflush(stdout);
   }
   assert(errs == 0);
   if (rank == 0) {
     printf("Test passed!\n");
+    fflush(stdout);
   }
   return 0;
 }

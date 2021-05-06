@@ -12,6 +12,7 @@ int main(int argc, char *argv[])
     sleep(rank);
     MPI_Barrier(MPI_COMM_WORLD);
     printf("Everyone should be entered by now. If not then Test Failed!\n");
+    fflush(stdout);
     MPI_Finalize();
     return 0;
 }

@@ -23,7 +23,8 @@ int main( int argc, char *argv[] )
   if (rank > 0) {
     if (newrank != MPI_UNDEFINED) {
       errs++;
-      printf( "rank outside of input communicator not UNDEFINED\n" );fflush(stdout);
+      printf( "rank outside of input communicator not UNDEFINED\n" );
+      fflush(stdout);
     }
   }
   else {

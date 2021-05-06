@@ -16,7 +16,8 @@ int main(int argc, char ** argv)
   for (int i = 0; i <= rank; i++) {
     expected_sum += i;
   }
-  printf("[Rank %d] => recveived sum = %d, expected sum = %d\n", rank, recv, expected_sum);
+  printf("[Rank %d] => recveived sum = %d, expected sum = %d\n",
+         rank, recv, expected_sum);
   fflush(stdout);
   assert(recv == expected_sum);
   MPI_Finalize();
