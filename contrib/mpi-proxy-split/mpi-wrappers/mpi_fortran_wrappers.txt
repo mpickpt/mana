@@ -84,3 +84,6 @@ int MPI_Irecv(void* buf, int count, MPI_Datatype datatype, int source, int tag, 
 int MPI_Sendrecv(const void* sendbuf, int sendcount, MPI_Datatype sendtype, int dest, int sendtag, void* recvbuf, int recvcount, MPI_Datatype recvtype, int source, int recvtag, MPI_Comm comm, MPI_Status* status);
 int MPI_Sendrecv_replace(void* buf, int count, MPI_Datatype datatype, int dest, int sendtag, int source, int recvtag, MPI_Comm comm, MPI_Status* status);
 int MPI_Rsend(const void* ibuf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm);
+int MPI_Ibarrier(MPI_Comm comm, MPI_Request* request);
+int MPI_Ibcast(void* buffer, int count, MPI_Datatype datatype, int root, MPI_Comm comm, MPI_Request* request);
+int MPI_Ireduce(const void* sendbuf, void* recvbuf, int count, MPI_Datatype datatype, MPI_Op op, int root, MPI_Comm comm, MPI_Request* request);
