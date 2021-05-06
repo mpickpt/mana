@@ -27,11 +27,12 @@ int main(int argc, char *argv[])
       buffer[i] = 5 * (i + 1);
       buffer2[i] = -1;
     }
-//  printf("[Rank = %d]: left = %d right = %d buffer = %s\n", myid, left, right,
-//         buffer);
+//  printf("[Rank = %d]: left = %d right = %d buffer = %s\n",
+//         myid, left, right, buffer); fflush(stdout);
     for (int i = 0; i < send_recv_count; i++) {
-      printf("Before: [Rank = %d]: buffer = %d  buffer2 = %d\n", myid,
-             buffer[i], buffer2[i]);
+      printf("Before: [Rank = %d]: buffer = %d  buffer2 = %d\n",
+             myid, buffer[i], buffer2[i]);
+      fflush(stdout);
     }
     MPI_Sendrecv(buffer, send_recv_count, MPI_INT, left, 123, buffer2,
                  send_recv_count, MPI_INT, right, 123, MPI_COMM_WORLD, &status);

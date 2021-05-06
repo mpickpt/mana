@@ -30,12 +30,13 @@ int main( int argc, char *argv[] )
   MPI_Comm_size(MPI_COMM_WORLD,&nprocs);
   MPI_Comm_rank(MPI_COMM_WORLD,&rank);
   printf("Hello, world.  I am %d of %d\n", rank, nprocs);fflush(stdout);
-  printf("Will now sleep for 500 seconds ...\n");
+  printf("Will now sleep for 500 seconds ...\n");fflush(stdout);
   unsigned int remaining = 300;
   while (remaining > 0) {
     remaining = sleep(remaining);
     if (remaining > 0) {
       printf("Signal received; continuing sleep for %d seconds.\n", remaining);
+      fflush(stdout);
     }
   }
   printf("**** %s is now exiting.\n", argv[0]);
