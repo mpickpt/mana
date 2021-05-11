@@ -11,10 +11,13 @@
 #include "dmtcpmessagetypes.h"
 #include "workerstate.h"
 #include "mana_coord_proto.h"
+#include "split_process.h"
 
 // Convenience macro
 #define twoPhaseCommit(comm, fnc) \
         dmtcp_mpi::TwoPhaseAlgo::instance().commit(comm, __FUNCTION__, fnc)
+
+#define COMM_HISTORY_MAX 1000
 
 using namespace dmtcp;
 
@@ -95,7 +98,8 @@ namespace dmtcp_mpi
           _freePassCv(), _phaseCv(),
           _comm(MPI_COMM_NULL),
           _freePass(false), _inWrapper(false),
-          _ckptPending(false), _recvdCkptMsg(false)
+          _ckptPending(false), _recvdCkptMsg(false),
+          _commHistorySize(0)
       {
       }
 
@@ -128,6 +132,29 @@ namespace dmtcp_mpi
       {
         lock_t lock(_ckptPendingMutex);
         return _ckptPending;
+      }
+
+      // Return true if a communicator is already in the history list.
+      bool inCommHistory(MPI_Comm comm) {
+        for (int i = 0; i < _commHistorySize; i++) {
+          if (comm == _commHistory[i]) {
+            return true;
+          }
+        }
+        return false;
+      }
+
+      // FIXME: if 1000 is not enough, we need to dynamically extend the 
+      // size of the array.
+      // Add a communicator in the history list. Return -1 if the history
+      // list is full.
+      int addCommHistory(MPI_Comm comm) {
+        if (_commHistorySize < COMM_HISTORY_MAX) {
+          _commHistorySize++;
+          _commHistory[_commHistorySize] = comm;
+          return 0;
+        }
+        return -1;
       }
 
       // Sets '_ckptPending' to true to indicate that a checkpoint intent
@@ -247,6 +274,14 @@ namespace dmtcp_mpi
       // coordinator, indicating that we have reached a safe state globally
       // TODO: Use C++ atomics
       bool _recvdCkptMsg;
+
+      // If a free pass is given out so that all ranks can progress to
+      // PHASE_2, the wrapper (commit function) will employ a
+      // trivial barrier the next time that ranks enter a wrapper using that
+      // communicator. This list saves a history of communicators in this
+      // checkpointing session.
+      MPI_Comm _commHistory[COMM_HISTORY_MAX];
+      int _commHistorySize;
   };
 };
 

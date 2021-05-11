@@ -87,7 +87,7 @@ namespace dmtcp_mpi
 #endif
       static MpiVirtualization& instance(const char *name, int nullId)
       {
-	// FIXME: 
+	// FIXME:
 	// dmtcp_mpi::MpiVirtualization::instance("MpiGroup", 1)._vIdTable.printMaps(true)
 	// to access _virTableMpiGroup in GDB.
 	// We need a cleaner way to access it.
@@ -216,6 +216,40 @@ namespace dmtcp_mpi
       int _nullId;
   }; // class MpiId
 
+  class VirtualGlobalCommId {
+    public:
+      int getNewGlobalId(MPI_Comm comm) {
+        int gid = 0;
+        int worldRank, commSize;
+        MPI_Comm_rank(MPI_COMM_WORLD, &worldRank);
+        MPI_Comm_size(comm, &commSize);
+        int rbuf[commSize];
+        MPI_Allgather(&worldRank, 1, MPI_INT, rbuf, 1, MPI_INT, comm);
+        for (int i = 0; i < commSize; i++) {
+          gid ^= hash(rbuf[i]);
+        }
+        for (
+        // while (1) {
+        //   if () {
+        //     break;
+        //   }
+        //   gid++;
+        // }
+        globalIdTable[comm] = gid;
+        return gid;
+      }
+    private:
+      VirtualGlobalCommId()
+      {
+      }
+
+      // from https://stackoverflow.com/questions/664014/
+      // what-integer-hash-function-are-good-that-accepts-an-integer-hash-key
+      int hash(int i) {
+        return i * 2654435761 % ((unsigned long)1 << 32);
+      }
+      std::map<MPI_Comm, int globalId> globalIdTable;
+  }
 };  // namespace dmtcp_mpi
 
 #endif // ifndef MPI_VIRTUAL_IDS_H

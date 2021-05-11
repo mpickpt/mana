@@ -4,6 +4,7 @@
 #include "record-replay.h"
 #include "two-phase-algo.h"
 #include "virtual-ids.h"
+#include "mpi_nextfunc.h"
 
 using namespace dmtcp_mpi;
 
@@ -81,6 +82,17 @@ TwoPhaseAlgo::commit(MPI_Comm comm, const char *collectiveFnc,
 {
   wrapperEntry(comm);
   JTRACE("Invoking 2PC for")(collectiveFnc);
+
+  // Call the trivial barrier if it's the second time this
+  // communicator enters a wrapper after get a free pass
+  // from PHASE_2
+  if (inCommHistory(comm)) {
+    setCurrState(READY_FOR_CKPT);
+    MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+    JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+    NEXT_FUNC(Barrier)(realComm);
+    RETURN_TO_UPPER_HALF();
+  }
 
   int retval;
 
@@ -164,6 +176,12 @@ TwoPhaseAlgo::stop(MPI_Comm comm, phase_t p)
   // Now, we must wait for a free pass from the coordinator; a free pass
   // indicates that all our peers are either ready or stuck in collective call
   waitForFreePass(comm);
+
+  // If we are in PHASE_2, we will call the trivial barrier the next time we
+  // enter a wrapper with the same communicator
+  if (p == PHASE_2) {
+    addCommHistory(comm);
+  }
 
   // Finally, we wait for a ckpt msg from the coordinator if we are
   // in a checkpoint-able state.
