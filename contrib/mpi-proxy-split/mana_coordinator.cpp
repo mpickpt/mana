@@ -189,7 +189,7 @@ processPreSuspendClientMsgHelper(DmtcpCoordinator *coord,
     coord->startCheckpoint();
     goto done;
   }
-
+  JTRACE("Checking if we can send the checkpoint message");
   // We are ready! If all clients responded with IN_READY, inform the
   // ranks of the imminent checkpoint msg and wait for their final approvals...
   if (allRanksReady(clientStates, status.numPeers)) {
@@ -198,6 +198,7 @@ processPreSuspendClientMsgHelper(DmtcpCoordinator *coord,
     coord->broadcastMessage(DMT_DO_PRE_SUSPEND, sizeof q, &q);
     goto done;
   }
+  JTRACE("Checking if some ranks are in critical section");
 
   // Nothing to do if no rank is in critical section
   if (noRanksInCriticalSection(clientStates)) {
@@ -206,6 +207,7 @@ processPreSuspendClientMsgHelper(DmtcpCoordinator *coord,
     coord->broadcastMessage(DMT_DO_PRE_SUSPEND, sizeof q, &q);
     goto done;
   }
+  JTRACE("Trying to unblocks ranks in PHASE_1 and PHASE_2");
 
   // Finally, if there are ranks stuck in PHASE_1 or in PHASE_2 (is PHASE_2
   // required??), unblock them. This can happen only if there are ranks
@@ -286,11 +288,27 @@ unblockRanks(const ClientToStateMap& clientStates, long int size)
   int count = 0;
   for (RankKVPair c : clientStates) {
     DmtcpMessage msg(DMT_DO_PRE_SUSPEND);
-    if (c.second.st == PHASE_1 || c.second.st == PHASE_2) {
-      // For ranks in PHASE_1 or in PHASE_2, send them a free pass to unblock
-      // them.
+    if (c.second.st == PHASE_1) {
+      // For ranks in PHASE_1, only send a free pass if someone else in the
+      // same communicator is in the critical section.
+      for (RankKVPair other : clientStates) {
+        if (other.second.comm == c.second.comm &&
+            other.second.st == IN_CS &&
+            other.first->identity() != c.first->identity()) {
+          JTRACE("Sending free pass to client")
+                (c.first->identity())
+                (c.second.rank)(c.second.st)(c.second.comm);
+          query_t q(FREE_PASS);
+          msg.extraBytes = sizeof q;
+          c.first->sock() << msg;
+          c.first->sock().writeAll((const char*)&q, msg.extraBytes);
+          break;
+        }
+      }
+    } else if (c.second.st == PHASE_2) {
+      // For ranks in PHASE_2, send them a free pass to unblock them.
       JTRACE("Sending free pass to client")
-            (c.first->identity())(c.second.rank)(c.second.st);
+            (c.first->identity())(c.second.rank)(c.second.st)(c.second.comm);
       query_t q(FREE_PASS);
       msg.extraBytes = sizeof q;
       c.first->sock() << msg;
@@ -299,6 +317,8 @@ unblockRanks(const ClientToStateMap& clientStates, long int size)
     } else if (c.second.st == IN_CS || c.second.st == IS_READY) {
       // For other ranks in critical section or in ready state, just send
       // them an info msg.
+      JTRACE("Sending get status to client")
+            (c.first->identity())(c.second.rank)(c.second.st)(c.second.comm);
       query_t q(GET_STATUS);
       msg.extraBytes = sizeof q;
       c.first->sock() << msg;

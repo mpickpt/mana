@@ -44,6 +44,8 @@ int main( int argc, char *argv[] )
   MPI_Comm comm2; // Set to MPI_COMM_NULL by default.
   MPI_Comm_create(MPI_COMM_WORLD, group1, &comm1);
   MPI_Comm_create(MPI_COMM_WORLD, group2, &comm2);
+  printf("rank: %d, group1: %x, comm1: %x\n", rank, group1, comm1); 
+  printf("rank: %d, group2: %x, comm2: %x\n", rank, group2, comm2); 
 
   //===============================================================
   // Coll. 1:    === |
