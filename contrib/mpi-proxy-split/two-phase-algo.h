@@ -47,6 +47,7 @@ namespace dmtcp_mpi
       // finished successfully
       void clearCkptPending()
       {
+        lock_t lock(_ckptPendingMutex);
         _ckptPending = false;
       }
 
@@ -65,6 +66,7 @@ namespace dmtcp_mpi
         phase_t tmp = getCurrState();
         JASSERT(tmp == PHASE_1 || tmp == PHASE_2 || forCkpt)(tmp)
                .Text("Received free pass in wrong state!");
+        lg_t lock(_freePassMutex);
         _freePass = true;
         _freePassCv.notify_one();
       }
@@ -72,6 +74,7 @@ namespace dmtcp_mpi
       // Sets '_freePass' to false
       void clearFreePass()
       {
+        lock_t lock(_freePassMutex);
         _freePass = false;
       }
 
@@ -99,6 +102,7 @@ namespace dmtcp_mpi
       // Returns the current checkpointing state: '_currState' of the rank
       phase_t getCurrState()
       {
+        lock_t lock(_phaseMutex);
         return _currState;
       }
 
@@ -106,6 +110,7 @@ namespace dmtcp_mpi
       // given state 'st'
       void setCurrState(phase_t st)
       {
+        lock_t lock(_phaseMutex);
         _currState = st;
         _phaseCv.notify_one();
       }
@@ -121,6 +126,7 @@ namespace dmtcp_mpi
       // coordinator and we haven't yet finished checkpointing
       bool isCkptPending()
       {
+        lock_t lock(_ckptPendingMutex);
         return _ckptPending;
       }
 
@@ -128,6 +134,7 @@ namespace dmtcp_mpi
       // message was received from the the coordinator
       void setCkptPending()
       {
+        lock_t lock(_ckptPendingMutex);
         _ckptPending = true;
         setCurrentState(WorkerState::PRE_SUSPEND);
       }
@@ -135,18 +142,21 @@ namespace dmtcp_mpi
       // Sets '_recvdCkptMsg' to true
       void setRecvdCkptMsg()
       {
+        lock_t lock(_ckptMsgMutex);
         _recvdCkptMsg = true;
       }
 
       // Sets '_recvdCkptMsg' to false
       void clearCkptMsg()
       {
+        lock_t lock(_ckptMsgMutex);
         _recvdCkptMsg = false;
       }
 
       // Returns the value of '_recvdCkptMsg'
       bool recvdCkptMsg()
       {
+        lock_t lock(_ckptMsgMutex);
         return _recvdCkptMsg;
       }
 
