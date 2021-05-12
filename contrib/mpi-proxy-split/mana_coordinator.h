@@ -6,7 +6,7 @@
 #include "lookup_service.h"
 
 void printNonReadyRanks();
-dmtcp::string getClientPhase(dmtcp::CoordClient* client);
+dmtcp::string getClientState(dmtcp::CoordClient* client);
 void printMpiDrainStatus(const dmtcp::LookupService& lookupService);
 void processPreSuspendClientMsgHelper(dmtcp::DmtcpCoordinator *coord,
                                       dmtcp::CoordClient *client,

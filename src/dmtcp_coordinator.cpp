@@ -438,7 +438,12 @@ DmtcpCoordinator::printList()
   ostringstream o;
 
   o << "Client List:\n";
-  o << "#, PROG[virtPID:realPID]@HOST, DMTCP-UNIQUEPID, STATE\n";
+  if (mpiMode) {
+    o << "#, PROG[virtPID:realPID]@HOST, DMTCP-UNIQUEPID, STATE,"
+	                                              " rank/ckptState/comm\n";
+  } else {
+    o << "#, PROG[virtPID:realPID]@HOST, DMTCP-UNIQUEPID, STATE\n";
+  }
   for (size_t i = 0; i < clients.size(); i++) {
     o << clients[i]->clientNumber()
       << ", " << clients[i]->progname()
@@ -450,7 +455,7 @@ DmtcpCoordinator::printList()
       << ", " << clients[i]->identity()
       << ", " << clients[i]->state();
     if (mpiMode) {
-      o << getClientPhase(clients[i]);
+      o << getClientState(clients[i]);
     }
     o << '\n';
   }
