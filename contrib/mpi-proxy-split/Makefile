@@ -5,8 +5,8 @@ include Makefile_config
 # These are needed for libmana.so, since the wrapper functions there will
 # call the lower half.  That requires temporarily changing the FS register,
 # and apparently, glibc detects this as an attempt to do stack smashing.
-CFLAGS=-fno-stack-protector
-CXXFLAGS=-fno-stack-protector
+override CFLAGS += -fno-stack-protector
+override CXXFLAGS += -fno-stack-protector
 
 # The name will be the same as the current directory name.
 NAME=${shell basename $$PWD}
@@ -37,8 +37,8 @@ endif
 DMTCP_INCLUDE=${DMTCP_ROOT}/include
 JALIB_INCLUDE=${DMTCP_ROOT}/jalib
 
-override CFLAGS += -g3 -O0 -fPIC -I${DMTCP_INCLUDE} -I${LOWER_HALF_SRCDIR} -std=gnu11
-override CXXFLAGS += -g3 -O0 -fPIC -I${DMTCP_INCLUDE} -I${JALIB_INCLUDE} \
+override CFLAGS += -fPIC -I${DMTCP_INCLUDE} -I${LOWER_HALF_SRCDIR} -std=gnu11
+override CXXFLAGS += -fPIC -I${DMTCP_INCLUDE} -I${JALIB_INCLUDE} \
                      -I${WRAPPERS_SRCDIR} -I. \
                      -I${DMTCP_ROOT}/src -I${LOWER_HALF_SRCDIR} -std=c++11
 
@@ -55,10 +55,10 @@ mpi_unimplemented_wrappers.cpp: generate-mpi-unimplemented-wrappers.py mpi_unimp
 	python $^ > $@
 
 .c.o:
-	${MPICC} ${CFLAGS} -g3 -O0 -c -o $@ $<
+	${MPICC} ${CFLAGS} -c -o $@ $<
 
 .cpp.o:
-	${MPICXX} ${CXXFLAGS} -g3 -O0 -c -o $@ $<
+	${MPICXX} ${CXXFLAGS} -c -o $@ $<
 
 ${LOWER_HALF_SRCDIR}/procmapsutils.o: ${LOWER_HALF_SRCDIR}/procmapsutils.c
 	@make -C ${LOWER_HALF_SRCDIR} procmapsutils.o
