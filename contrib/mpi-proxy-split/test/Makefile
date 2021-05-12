@@ -33,7 +33,26 @@ TESTS_DUMMY=$(addsuffix .mana.exe, ${FILES})
 TESTS=$(addsuffix .exe, ${FILES})
 LDFLAGS_DUMMY=-L$$PWD/../mpi-wrappers -lmpidummy
 
-default: ${TESTS} ${TESTS_DUMMY}
+default: default_prereqs
+	$(MAKE) default_part2
+
+default_part2: ${TESTS} ${TESTS_DUMMY}
+
+default_prereqs:
+	@ # The darshan module is used at NERSC.
+	@ if command -v module >/dev/null && module list 2>&1| grep -q darshan;\
+	  then \
+	    echo '** DMTCP is incompatible with the darshan module.'; \
+	    echo '** Please do "module unload darshan" before building DMTCP.';\
+	    exit 1; \
+	fi
+	@ # The altd module is used at NERSC.
+	@ if command -v module >/dev/null && module list 2>&1| grep -q altd;\
+	  then \
+	    echo '** DMTCP is incompatible with the altd module.'; \
+	    echo '** Please do "module unload altd" before building DMTCP.';\
+	    exit 1; \
+	fi
 
 # This doesn't work well yet, but it's a work in progress.
 # PROBLEM WITH UNAVAILABLE NODES:
