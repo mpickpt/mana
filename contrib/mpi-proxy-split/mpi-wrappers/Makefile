@@ -71,13 +71,13 @@ libmpidummy.so: mpi_dummy_wrappers.o
 	${CC} -fPIC -g3 -O0 $< -shared -o $@
 
 libmpich_intel.so.3.0.1: libmpidummy.so
-	cp -f $< $@
+	ln -sf $< $@
 
 libmpich_intel.so.3: libmpich_intel.so.3.0.1
 	ln -sf $< $@
 
 libpmi.so.0.5.0: libmpidummy.so
-	cp -f $< $@
+	ln -sf $< $@
 
 libpmi.so.0: libpmi.so.0.5.0
 	ln -sf $< $@
@@ -88,18 +88,23 @@ tidy:
 
 install: ${WRAPPERS_SRCDIR}/libmpich_intel.so.3 
 	cp libmpidummy.so ${DMTCP_ROOT}/lib/dmtcp
-	cp -a libmpich_intel.so.3 ${DMTCP_ROOT}/lib/dmtcp
-	cp libmpich_intel.so.3.0.1 ${DMTCP_ROOT}/lib/dmtcp
-	cp -a libpmi.so.0 ${DMTCP_ROOT}/lib/dmtcp
-	cp libpmi.so.0.5.0 ${DMTCP_ROOT}/lib/dmtcp
+	cd ${DMTCP_ROOT}/lib/dmtcp && \
+		ln -sf libmpidummy.so libmpich_intel.so.3.0.1 && \
+		ln -sf libmpich_intel.so.3.0.1 libmpich_intel.so.3
+	cd ${DMTCP_ROOT}/lib/dmtcp && \
+		ln -sf libmpidummy.so libpmi.so.0.5.0 && \
+		ln -sf libpmi.so.0.5.0 libpmi.so.0
 
 clean: tidy
 	rm -f ${LIBWRAPPER_OBJS}
 	rm -f ${LIBNAME}.a libmpidummy.so
+	rm -f ${DMTCP_ROOT}/lib/dmtcp/libmpidummy.so
 	rm -f mpi_dummy_wrappers.c
 	rm -f mpi_unimplemented_wrappers.cpp
 	rm -f mpi_fortran_wrappers.cpp
 	rm -f libmpich_intel.so.3.0.1 libmpich_intel.so.3
+	rm -f libpmi.so.3.0.1 libpmi.so.0
+	cd ${DMTCP_ROOT}/lib/dmtcp && rm -f libmpich_intel.so.* libpmi.so.*
 
 distclean: clean
 

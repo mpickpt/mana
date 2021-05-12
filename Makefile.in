@@ -243,7 +243,7 @@ clean: tidy
 	- cd src && $(MAKE) clean
 	- cd plugin && $(MAKE) clean
 	- cd contrib && $(MAKE) clean
-	- cd test  && $(MAKE) clean
+	- cd test && $(MAKE) clean
 	- if test -z "$$DMTCP_TMPDIR"; then \
 	   if test -z "$$TMPDIR"; then \
 	     DMTCP_TMPDIR=/tmp/dmtcp-$$USER@`/bin/hostname`; \
@@ -252,6 +252,9 @@ clean: tidy
 	   fi; \
 	 fi; \
 	 rm -rf $$DMTCP_TMPDIR
+	- if test -e contrib/mpi-proxy-split; then \
+	   cd contrib/mpi-proxy-split && make clean; \
+	  fi
 
 # Obsolete, remove in 2.5.0.
 clean-64: clean
