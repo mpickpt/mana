@@ -98,6 +98,7 @@ clean: tidy
 	@cd ${LOWER_HALF_SRCDIR} && make clean
 	rm -f ${LIBOBJS} ${MANA_COORD_OBJS}
 	rm -f ${LIBNAME}.so
+	rm -f ${DMTCP_ROOT}/lib/dmtcp/${LIBNAME}.so
 	@cd ${WRAPPERS_SRCDIR} && make clean
 
 distclean: clean
