@@ -253,6 +253,9 @@ clean: tidy
 	   fi; \
 	 fi; \
 	 rm -rf $$DMTCP_TMPDIR
+	- if test -e contrib/mpi-proxy-split; then \
+	   cd contrib/mpi-proxy-split && make clean; \
+	  fi
 
 # Obsolete, remove in 2.5.0.
 clean-64: clean
