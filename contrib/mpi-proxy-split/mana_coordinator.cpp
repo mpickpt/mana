@@ -139,10 +139,12 @@ printMpiDrainStatus(const LookupService& lookupService)
 }
 
 string
-getClientPhase(CoordClient *client)
+getClientState(CoordClient *client)
 {
   ostringstream o;
-  o << ", " << clientPhases[client];
+  o << ", " << clientStates[client].rank
+    << "/" << clientStates[client].st
+    << "/" << (void *)clientStates[client].comm;
   return o.str();
 }
 
