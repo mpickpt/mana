@@ -1180,9 +1180,15 @@ DmtcpCoordinator::startCheckpoint()
   // happen from processPreSuspendClientMsg(), we go ahead and do the
   // checkpoint.
   if (mpiMode && !sentIntentMsg) {
-    sendCkptIntentMsg(this);
-    sentIntentMsg = true;
-    return true; // Our caller should know that the checkpoint has begun.
+    ComputationStatus s = getStatus();
+    if ((s.minimumState == WorkerState::RUNNING ||
+         s.minimumState == WorkerState::PRE_SUSPEND) &&
+        s.minimumStateUnanimous &&
+        !workersRunningAndSuspendMsgSent) {
+      sendCkptIntentMsg(this);
+      sentIntentMsg = true;
+      return true; // Our caller should know that the checkpoint has begun.
+    } // else fall through, and return 'false' (can't checkpoint now)
   }
 
   uniqueCkptFilenames = false;
