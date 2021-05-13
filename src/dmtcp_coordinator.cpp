@@ -589,7 +589,9 @@ DmtcpCoordinator::processPreSuspendClientMsg(CoordClient *client,
                                              const DmtcpMessage& msg,
                                              const void *extraData)
 {
-  processPreSuspendClientMsgHelper(this, client, workersAtCurrentBarrier, msg, extraData);
+  // Calls startCheckpoint() again after first time (DMT_PRE_SUSPEND_RESPONSE).
+  processPreSuspendClientMsgHelper(this, client, workersAtCurrentBarrier,
+		                   msg, extraData);
 }
 
 void
@@ -1180,7 +1182,7 @@ DmtcpCoordinator::startCheckpoint()
   if (mpiMode && !sentIntentMsg) {
     sendCkptIntentMsg(this);
     sentIntentMsg = true;
-    return false;
+    return true; // Our caller should know that the checkpoint has begun.
   }
 
   uniqueCkptFilenames = false;
