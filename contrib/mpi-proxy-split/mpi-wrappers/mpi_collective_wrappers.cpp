@@ -56,6 +56,7 @@ USER_DEFINED_WRAPPER(int, Ibcast,
   return twoPhaseCommit(comm, realBarrierCb);
 }
 
+#if 1
 USER_DEFINED_WRAPPER(int, Barrier, (MPI_Comm) comm)
 {
   std::function<int()> realBarrierCb = [=]() {
@@ -70,6 +71,24 @@ USER_DEFINED_WRAPPER(int, Barrier, (MPI_Comm) comm)
   };
   return twoPhaseCommit(comm, realBarrierCb);
 }
+#else
+USER_DEFINED_WRAPPER(int, Barrier, (MPI_Comm) comm)
+{
+  JTRACE("Invoking 2PC for MPI_Barrier");
+  dmtcp_mpi::TwoPhaseAlgo::instance().commit_begin(comm);
+
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  retval = NEXT_FUNC(Barrier)(realComm);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+
+  dmtcp_mpi::TwoPhaseAlgo::instance().commit_finish();
+  return retval;
+}
+#endif
 
 // FIXME: We need to create a test case for this
 USER_DEFINED_WRAPPER(int, Ibarrier, (MPI_Comm) comm, (MPI_Request *) request)
