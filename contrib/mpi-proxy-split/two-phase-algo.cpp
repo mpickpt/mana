@@ -1,10 +1,65 @@
+#include <ucontext.h>
 #include "dmtcp.h"
 #include "coordinatorapi.h"
 
 #include "record-replay.h"
 #include "two-phase-algo.h"
 #include "virtual-ids.h"
-#include "mpi_nextfunc.h"
+#include "siginfo.h"
+#if 0
+#include "split-process.h"
+#else
+
+#ifndef _SPLIT_PROCESS_H
+#define _SPLIT_PROCESS_H
+
+// Helper class to save and restore context (in particular, the FS register),
+// when switching between the upper half and the lower half. In the current
+// design, the caller would generally be the upper half, trying to jump into
+// the lower half. An example would be calling a real function defined in the
+// lower half from a function wrapper defined in the upper half.
+// Example usage:
+//   int function_wrapper()
+//   {
+//     SwitchContext ctx;
+//     return _real_function();
+//   }
+// The idea is to leverage the C++ language semantics to help us automatically
+// restore the context when the object goes out of scope.
+class SwitchContext
+{
+  private:
+    unsigned long upperHalfFs; // The base value of the FS register of the upper half thread
+    unsigned long lowerHalfFs; // The base value of the FS register of the lower half
+
+  public:
+    // Saves the current FS register value to 'upperHalfFs' and then
+    // changes the value of the FS register to the given 'lowerHalfFs'
+    explicit SwitchContext(unsigned long );
+
+    // Restores the FS register value to 'upperHalfFs'
+    ~SwitchContext();
+};
+
+// Helper macro to be used whenever making a jump from the upper half to
+// the lower half.
+#define JUMP_TO_LOWER_HALF(lhFs) \
+  do { \
+    SwitchContext ctx((unsigned long)lhFs)
+
+// Helper macro to be used whenever making a returning from the lower half to
+// the upper half.
+#define RETURN_TO_UPPER_HALF() \
+  } while (0)
+
+// This function splits the process by initializing the lower half with the
+// lh_proxy code. It returns 0 on success.
+extern int splitProcess();
+
+#endif // ifndef _SPLIT_PROCESS_H
+#endif
+
+
 
 using namespace dmtcp_mpi;
 
@@ -25,6 +80,8 @@ resetTwoPhaseState()
 {
   TwoPhaseAlgo::instance().resetStateAfterCkpt();
 }
+
+unsigned long upperHalfFs;
 
 // There can be multiple communicators, each with their own N (N = comm. size).
 //
@@ -81,35 +138,99 @@ TwoPhaseAlgo::commit(MPI_Comm comm, const char *collectiveFnc,
                      std::function<int(void)>doRealCollectiveComm)
 {
   wrapperEntry(comm);
+  addCommHistory(comm);
   JTRACE("Invoking 2PC for")(collectiveFnc);
+
+  getcontext(&beforeTrivialBarrier);
+
+  // Call the trivial barrier
+  if (true /*isCkptPending() && inCommHistory(comm)*/) {
+    inTrivialBarrierOrPhase1 = true;
+    setCurrState(IN_TRIVIAL_BARRIER);
+    MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+    MPI_Request request;
+    int flag = 0;
+    DMTCP_PLUGIN_DISABLE_CKPT();
+    JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+    NEXT_FUNC(Ibarrier)(realComm, &request);
+    RETURN_TO_UPPER_HALF();
+    DMTCP_PLUGIN_ENABLE_CKPT();
+    while (!flag) {
+      DMTCP_PLUGIN_DISABLE_CKPT();
+      JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+      NEXT_FUNC(Test)(&request, &flag, MPI_STATUS_IGNORE);
+      RETURN_TO_UPPER_HALF();
+      DMTCP_PLUGIN_ENABLE_CKPT();
+      // FIXME: make this smaller
+      sleep(1);
+    }
+  }
+
+  entering_phase1 = true;
+  if (isCkptPending()) {
+    stop(comm);
+  }
+  inTrivialBarrierOrPhase1 = false;
+  entering_phase1 = false;
+  setCurrState(IN_CS);
+  int retval = doRealCollectiveComm();
+  // INVARIANT: All of our peers have executed the real collective comm.
+  // Now, we can re-enable checkpointing
+  // setCurrState(PHASE_2);
+  // if (isCkptPending()) {
+  //   stop(comm, PHASE_2);
+  // }
+  setCurrState(IS_READY);
+  wrapperExit();
+  return retval;
+}
+
+void
+TwoPhaseAlgo::commit_begin(MPI_Comm comm)
+{
+  wrapperEntry(comm);
+
+#if 0
+  getcontext(&beforeTrivialBarrier);
+  // inTrivialBarrier should be false, unless we are jumping from
+  // the setcontext in threadlist.cpp:stopthisthread because the
+  // checkpoint signal was received from the trivial barrier.
+  if (inTrivialBarrier) {
+    inTrivialBarrier = false;
+    raise(CKPT_SIGNAL); // resend the checkpoint signal to this thread
+  }
+
+#endif
 
   // Call the trivial barrier if it's the second time this
   // communicator enters a wrapper after get a free pass
   // from PHASE_2
-  if (inCommHistory(comm)) {
-    setCurrState(READY_FOR_CKPT);
+  if (true /*isCkptPending() && inCommHistory(comm)*/) {
+    inTrivialBarrierOrPhase1 = true;
+    setCurrState(IN_TRIVIAL_BARRIER);
     MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-    JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+    // JUMP_TO_LOWER_HALF(lh_info.fsaddr);
     NEXT_FUNC(Barrier)(realComm);
-    RETURN_TO_UPPER_HALF();
+    // RETURN_TO_UPPER_HALF();
+    inTrivialBarrierOrPhase1 = false;
   }
 
-  int retval;
-
   if (isCkptPending()) {
-    stop(comm, PHASE_1);
+    stop(comm);
   }
   setCurrState(IN_CS);
-  retval = doRealCollectiveComm();
+}
+
+void
+TwoPhaseAlgo::commit_finish() {
   // INVARIANT: All of our peers have executed the real collective comm.
   // Now, we can re-enable checkpointing
-  setCurrState(OUT_CS);
-  if (isCkptPending()) {
-    stop(comm, PHASE_2);
-  }
+  // setCurrState(PHASE_2);
+  // if (isCkptPending()) {
+  //   stop(comm, PHASE_2);
+  // }
   setCurrState(IS_READY);
   wrapperExit();
-  return retval;
 }
 
 void
@@ -130,31 +251,55 @@ TwoPhaseAlgo::preSuspendBarrier(const void *data)
   switch (query) {
     case INTENT:
       setCkptPending();
+      if (entering_phase1) {
+        while (_currState != PHASE_1 && _currState != IN_CS) {
+          sleep(1);
+        }
+      }
+#if 0
     case GET_STATUS:
       if (isInWrapper()) {
         st = waitForSafeState();
       }
+#endif
       break;
     case FREE_PASS:
-      JASSERT(isInWrapper() && (st == PHASE_1 || st == PHASE_2))
-             (procRank)(isInWrapper())(st);
-      notifyFreePass();
-      st = waitForFreePassToTakeEffect(st);
+      phase1_freepass = true;
+      // FIXME: if we have the freepass and we are in the trivial barrier or
+      // phase 1, we can report that we are in the critical section, because
+      // we will be soon.
+      while (_currState == PHASE_1) {
+        sleep(1);
+      }
       break;
+#if 0
     case CKPT:
       setRecvdCkptMsg();
-      notifyFreePass(true);
+      phase1_freepass = true;
       if (isInWrapper()) {
-        st = waitForFreePassToTakeEffect(st);
+        if (isInBarrier()) {
+          setCurrState(READY_FOR_CKPT);
+        } else {
+          st = waitForFreePassToTakeEffect(st);
+        }
       } else {
         setCurrState(READY_FOR_CKPT);
       }
+      break;
+#endif
+    case WAIT_STRAGGLER:
+      sleep(1);
       break;
     default:
       JWARNING(false)(query).Text("Unknown query from coordinatory");
       break;
   }
-  rank_state_t state = { .rank = procRank, .comm = _comm, .st = st};
+  int gid = VirtualGlobalCommId::instance().getGlobalId(_comm);
+  JASSERT(gid != MPI_COMM_NULL || _currState == IS_READY)(gid)(_currState);
+  st = getCurrState();
+  rank_state_t state = { .rank = procRank, .comm = gid, .st = st};
+  JASSERT(state.comm != MPI_COMM_NULL || state.st == IS_READY)(state.comm)(state.st)(gid)(_currState);
+  JTRACE("Sending DMT_PRE_SUSPEND_RESPONSE message")(procRank)(gid)(st);
   msg.extraBytes = sizeof state;
   informCoordinatorOfCurrState(msg, &state);
 }
@@ -162,32 +307,34 @@ TwoPhaseAlgo::preSuspendBarrier(const void *data)
 
 // Local functions
 
+bool
+TwoPhaseAlgo::isInBarrier() {
+  lock_t lock(_phaseMutex);
+  return _currState == IN_TRIVIAL_BARRIER;
+}
+
 void
-TwoPhaseAlgo::stop(MPI_Comm comm, phase_t p)
+TwoPhaseAlgo::stop(MPI_Comm comm)
 {
   // We got here because we must have received a ckpt-intent msg from
   // the coordinator
-  // INVARIANT: We can checkpoint only within stop()
-  JASSERT(p == PHASE_1 || p == PHASE_2);
   // INVARIANT: Ckpt should be pending when we get here
   JASSERT(isCkptPending());
-  setCurrState(p);
+  setCurrState(PHASE_1);
+  entering_phase1 = false;
 
-  // Now, we must wait for a free pass from the coordinator; a free pass
-  // indicates that all our peers are either ready or stuck in collective call
-  waitForFreePass(comm);
-
-  // If we are in PHASE_2, we will call the trivial barrier the next time we
-  // enter a wrapper with the same communicator
-  if (p == PHASE_2) {
-    addCommHistory(comm);
+  while (isCkptPending() && !phase1_freepass) {
+    sleep(1);
   }
+  phase1_freepass = false;
+#if 0
 
-  // Finally, we wait for a ckpt msg from the coordinator if we are
-  // in a checkpoint-able state.
+  Finally, we wait for a ckpt msg from the coordinator if we are
+  in a checkpoint-able state.
   if (isCkptPending() && getCurrState() != IN_CS && recvdCkptMsg()) {
     waitForCkpt();
   }
+#endif
 }
 
 bool
@@ -214,10 +361,9 @@ phase_t
 TwoPhaseAlgo::waitForSafeState()
 {
   lock_t lock(_phaseMutex);
-  _phaseCv.wait(lock, [this]{ return _currState == PHASE_1 ||
-                                     _currState == PHASE_2 ||
-                                     _currState == READY_FOR_CKPT ||
-                                     _currState == IN_CS;});
+  // FIXME: remove some unnecessary states
+  _phaseCv.wait(lock, [this]{ return _currState == IN_TRIVIAL_BARRIER ||
+                                     _currState == PHASE_1;});
   return _currState;
 }
 
@@ -231,7 +377,8 @@ TwoPhaseAlgo::waitForFreePassToTakeEffect(phase_t oldState)
                                                 _currState == PHASE_1) ||
                                                (oldState == PHASE_1 &&
                                                 _currState == PHASE_2) ||
-                                               _currState == IS_READY;});
+                                               _currState == IS_READY ||
+                                               _currState == IN_TRIVIAL_BARRIER;});
   return _currState;
 }
 
@@ -256,6 +403,7 @@ void
 TwoPhaseAlgo::wrapperExit()
 {
   lock_t lock(_wrapperMutex);
+  JASSERT(_currState == IS_READY);
   _inWrapper = false;
   _comm = MPI_COMM_NULL;
 }

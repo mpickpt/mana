@@ -18,12 +18,12 @@
 typedef enum __phase_t
 {
   UNKNOWN = -1,
-  IS_READY,
+  IN_TRIVIAL_BARRIER,
   PHASE_1,
   IN_CS,
-  OUT_CS,
-  READY_FOR_CKPT,
   PHASE_2,
+  IS_READY,
+  READY_FOR_CKPT,
 } phase_t;
 
 typedef enum __query_t
@@ -33,6 +33,7 @@ typedef enum __query_t
   GET_STATUS,
   FREE_PASS,
   CKPT,
+  WAIT_STRAGGLER,
 } query_t;
 
 // Struct to encapsulate the checkpointing state of a rank
