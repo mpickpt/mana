@@ -58,7 +58,7 @@ ${LIBPROXY}.a: ${LIBPROXY_OBJS}
 	ar cr $@ $^
 
 install: ${PROXY_BIN}
-	cp $< ${DMTCP_ROOT}/bin/
+	cp -f $< ${DMTCP_ROOT}/bin/
 
 tidy:
 	rm -f *~ .*.swp dmtcp_restart_script*.sh ckpt_*.dmtcp
