@@ -13,4 +13,7 @@ void saveSigHandlers();
 void restoreSigHandlers();
 }
 }
+
+extern bool inTrivialBarrierOrPhase1;
+extern ucontext_t beforeTrivialBarrier;
 #endif // ifndef SIGINFO_H

@@ -15,6 +15,15 @@
 #define MpiGroupList dmtcp_mpi::MpiVirtualization
 #define MpiTypeList  dmtcp_mpi::MpiVirtualization
 #define MpiOpList    dmtcp_mpi::MpiVirtualization
+# define NEXT_FUNC(func)                                                       \
+  ({                                                                           \
+    static __typeof__(&MPI_##func)_real_MPI_## func =                          \
+                                                (__typeof__(&MPI_##func)) - 1; \
+    if (_real_MPI_ ## func == (__typeof__(&MPI_##func)) - 1) {                 \
+      _real_MPI_ ## func = (__typeof__(&MPI_##func))pdlsym(MPI_Fnc_##func);    \
+    }                                                                          \
+    _real_MPI_ ## func;                                                        \
+  })
 
 #define REAL_TO_VIRTUAL_COMM(id) \
   MpiCommList::instance("MpiComm", MPI_COMM_NULL).realToVirtual(id)
@@ -218,38 +227,91 @@ namespace dmtcp_mpi
 
   class VirtualGlobalCommId {
     public:
-      int getNewGlobalId(MPI_Comm comm) {
-        int gid = 0;
+      unsigned int createGlobalId(MPI_Comm comm) {
+        if (comm == MPI_COMM_NULL) {
+          return comm;
+        }
+        unsigned int gid = 0;
         int worldRank, commSize;
+        int realComm = VIRTUAL_TO_REAL_COMM(comm);
         MPI_Comm_rank(MPI_COMM_WORLD, &worldRank);
         MPI_Comm_size(comm, &commSize);
         int rbuf[commSize];
+        // FIXME: cray cc complains "catastrophic error" that can't find
+        // split-process.h
+        // JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+        // NEXT_FUNC(Allgather)(&worldRank, 1, MPI_INT,
+        //                      rbuf, 1, MPI_INT, realComm);
+        // RETURN_TO_UPPER_HALF();
         MPI_Allgather(&worldRank, 1, MPI_INT, rbuf, 1, MPI_INT, comm);
+        printf("GID ranks: ");
         for (int i = 0; i < commSize; i++) {
+          printf("%d, ", rbuf[i]);
           gid ^= hash(rbuf[i]);
         }
-        for (
-        // while (1) {
-        //   if () {
-        //     break;
-        //   }
-        //   gid++;
-        // }
+        // FIXME: Some code can create new communicators during execution,
+        // and so hash conflict may occur later.
+        // if the new gid already exists in the map, add one and test again
+        while (1) {
+          bool found = false;
+          for (std::pair<MPI_Comm, unsigned int> idPair : globalIdTable) {
+            if (idPair.second == gid) {
+              found = true;
+              break;
+            }
+          }
+          if (found) {
+            gid++;
+          } else {
+            break;
+          }
+        }
+        printf("; Computed global id is: %x\n", gid);
+        fflush(stdout);
         globalIdTable[comm] = gid;
         return gid;
       }
+
+      unsigned int getGlobalId(MPI_Comm comm) {
+        std::map<MPI_Comm, unsigned int>::iterator it = globalIdTable.find(comm);
+        JASSERT(it != globalIdTable.end())(comm)
+          .Text("Can't find communicator in the global id table");
+        return it->second;
+      }
+
+      static VirtualGlobalCommId& instance() {
+        static VirtualGlobalCommId _vGlobalId;
+        return _vGlobalId;
+      }
+
     private:
       VirtualGlobalCommId()
       {
+          globalIdTable[MPI_COMM_NULL] = MPI_COMM_NULL;
+          globalIdTable[MPI_COMM_WORLD] = MPI_COMM_WORLD;
       }
 
+      void printMap(bool flag = false) {
+        for (std::pair<MPI_Comm, int> idPair : globalIdTable) {
+          if (flag) {
+            printf("virtual comm: %lx, real comm: %lx, global id: %lx\n",
+                   idPair.first, VIRTUAL_TO_REAL_COMM(idPair.first),
+                   idPair.second);
+            fflush(stdout);
+          } else {
+            JTRACE("Print global id mapping")((void*) idPair.first)
+                      ((void*) VIRTUAL_TO_REAL_COMM(idPair.first))
+                      ((void*) idPair.second);
+          }
+        }
+      }
       // from https://stackoverflow.com/questions/664014/
       // what-integer-hash-function-are-good-that-accepts-an-integer-hash-key
       int hash(int i) {
         return i * 2654435761 % ((unsigned long)1 << 32);
       }
-      std::map<MPI_Comm, int globalId> globalIdTable;
-  }
+      std::map<MPI_Comm, unsigned int> globalIdTable;
+  };
 };  // namespace dmtcp_mpi
 
 #endif // ifndef MPI_VIRTUAL_IDS_H

@@ -54,6 +54,12 @@ namespace dmtcp_mpi
         _ckptPending = false;
       }
 
+      // Clean communicator history after a checkpoint session is finished
+      void clearCommHistory() {
+        memset(_commHistory, 0, _commHistorySize);
+        _commHistorySize = 0;
+      }
+
       // Resets the client state after a checkpoint.
       void resetStateAfterCkpt()
       {
@@ -81,8 +87,16 @@ namespace dmtcp_mpi
         _freePass = false;
       }
 
+      // Return true if _currState == IN_BARRIER
+      bool isInBarrier();
+      
       // The main function of the two-phase protocol for MPI collectives
       int commit(MPI_Comm , const char* , std::function<int(void)> );
+
+      // FIXME: A new way to call the original commit function,
+      // without the lambda function.
+      void commit_begin(MPI_Comm);
+      void commit_finish();
 
       // Implements the pre-suspend checkpointing protocol for coordination
       // between DMTCP coordinator and peers
@@ -99,7 +113,7 @@ namespace dmtcp_mpi
           _comm(MPI_COMM_NULL),
           _freePass(false), _inWrapper(false),
           _ckptPending(false), _recvdCkptMsg(false),
-          _commHistorySize(0)
+          _commHistorySize(0), phase1_freepass(false), entering_phase1(false)
       {
       }
 
@@ -150,8 +164,8 @@ namespace dmtcp_mpi
       // list is full.
       int addCommHistory(MPI_Comm comm) {
         if (_commHistorySize < COMM_HISTORY_MAX) {
-          _commHistorySize++;
           _commHistory[_commHistorySize] = comm;
+          _commHistorySize++;
           return 0;
         }
         return -1;
@@ -191,7 +205,7 @@ namespace dmtcp_mpi
       // collective call to avoid domino effect and provide bounds on
       // checkpointing time. 'comm' indicates the MPI communicator used
       // for the collective call, and 'p' is the current phase.
-      void stop(MPI_Comm , phase_t );
+      void stop(MPI_Comm);
 
       // Blocks until a free pass message is received from the coordinator
       bool waitForFreePass(MPI_Comm );
@@ -274,6 +288,12 @@ namespace dmtcp_mpi
       // coordinator, indicating that we have reached a safe state globally
       // TODO: Use C++ atomics
       bool _recvdCkptMsg;
+
+      // True if a freepass is given by the coordinator
+      bool phase1_freepass;
+
+      // True is this rank is leaving the trivial barrier and entering phase_1
+      bool entering_phase1;
 
       // If a free pass is given out so that all ranks can progress to
       // PHASE_2, the wrapper (commit function) will employ a

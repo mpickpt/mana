@@ -156,7 +156,8 @@ static bool exitAfterCkptOnce = false;
 static int blockUntilDoneRemote = -1;
 static bool mpiMode = false;
 
-static DmtcpCoordinator prog;
+// FIXME: for debugging, restore it after debugging
+DmtcpCoordinator prog;
 
 /* The coordinator can receive a second checkpoint request while processing the
  * first one.  If the second request comes at a point where the coordinator has
