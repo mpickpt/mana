@@ -137,6 +137,10 @@ int
 TwoPhaseAlgo::commit(MPI_Comm comm, const char *collectiveFnc,
                      std::function<int(void)>doRealCollectiveComm)
 {
+  if (comm == MPI_COMM_NULL) {
+    return doRealCollectiveComm(); // lambda function: already captured args
+  }
+
   wrapperEntry(comm);
   addCommHistory(comm);
   JTRACE("Invoking 2PC for")(collectiveFnc);
@@ -152,17 +156,20 @@ TwoPhaseAlgo::commit(MPI_Comm comm, const char *collectiveFnc,
     int flag = 0;
     DMTCP_PLUGIN_DISABLE_CKPT();
     JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-    NEXT_FUNC(Ibarrier)(realComm, &request);
+    int retval = NEXT_FUNC(Ibarrier)(realComm, &request);
+    JASSERT(retval == MPI_SUCCESS)(retval)(realComm)(request)(comm);
     RETURN_TO_UPPER_HALF();
     DMTCP_PLUGIN_ENABLE_CKPT();
     while (!flag) {
+      struct timespec test_interval = {.tv_sec = 0, .tv_nsec = 100000};
       DMTCP_PLUGIN_DISABLE_CKPT();
       JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-      NEXT_FUNC(Test)(&request, &flag, MPI_STATUS_IGNORE);
+      int rc = NEXT_FUNC(Test)(&request, &flag, MPI_STATUS_IGNORE);
+      JASSERT(rc == MPI_SUCCESS)(rc)(realComm)(request)(comm);
       RETURN_TO_UPPER_HALF();
       DMTCP_PLUGIN_ENABLE_CKPT();
       // FIXME: make this smaller
-      sleep(1);
+      nanosleep(&test_interval, NULL);
     }
   }
 
@@ -251,10 +258,9 @@ TwoPhaseAlgo::preSuspendBarrier(const void *data)
   switch (query) {
     case INTENT:
       setCkptPending();
+      // FIXME: review and add comment
       if (entering_phase1) {
-        while (_currState != PHASE_1 && _currState != IN_CS) {
-          sleep(1);
-        }
+        while (waitForSafeState() != PHASE_1 && waitForSafeState() != IN_CS);
       }
 #if 0
     case GET_STATUS:
@@ -268,9 +274,7 @@ TwoPhaseAlgo::preSuspendBarrier(const void *data)
       // FIXME: if we have the freepass and we are in the trivial barrier or
       // phase 1, we can report that we are in the critical section, because
       // we will be soon.
-      while (_currState == PHASE_1) {
-        sleep(1);
-      }
+      while (waitForSafeState() == PHASE_1);
       break;
 #if 0
     case CKPT:
@@ -288,17 +292,21 @@ TwoPhaseAlgo::preSuspendBarrier(const void *data)
       break;
 #endif
     case WAIT_STRAGGLER:
-      sleep(1);
+      waitForSafeState();
       break;
     default:
       JWARNING(false)(query).Text("Unknown query from coordinatory");
       break;
   }
-  int gid = VirtualGlobalCommId::instance().getGlobalId(_comm);
-  JASSERT(gid != MPI_COMM_NULL || _currState == IS_READY)(gid)(_currState);
   st = getCurrState();
+  // Maybe the user thread enters the wrapper only here.
+  // So, we report an obsolete state (IS_READY).  But it is still
+  // a consistent snapshot.  If IS_READY, we ignore the _comm.
+  // FIXME: This assumes sequential memory consistency.  Maybe add fence()?
+  int gid = VirtualGlobalCommId::instance().getGlobalId(_comm);
   rank_state_t state = { .rank = procRank, .comm = gid, .st = st};
-  JASSERT(state.comm != MPI_COMM_NULL || state.st == IS_READY)(state.comm)(state.st)(gid)(_currState);
+  JASSERT(state.comm != MPI_COMM_NULL || state.st == IS_READY)
+	 (state.comm)(state.st)(gid)(_currState)(query);
   JTRACE("Sending DMT_PRE_SUSPEND_RESPONSE message")(procRank)(gid)(st);
   msg.extraBytes = sizeof state;
   informCoordinatorOfCurrState(msg, &state);
@@ -337,6 +345,7 @@ TwoPhaseAlgo::stop(MPI_Comm comm)
 #endif
 }
 
+// FIXME: not used, remove when code is stable
 bool
 TwoPhaseAlgo::waitForFreePass(MPI_Comm comm)
 {
@@ -348,6 +357,7 @@ TwoPhaseAlgo::waitForFreePass(MPI_Comm comm)
   return tmp;
 }
 
+// FIXME: not used, remove when code is stable
 void
 TwoPhaseAlgo::waitForCkpt()
 {
@@ -361,12 +371,15 @@ phase_t
 TwoPhaseAlgo::waitForSafeState()
 {
   lock_t lock(_phaseMutex);
-  // FIXME: remove some unnecessary states
+  // The user thread will notify us if transition to any of these states
   _phaseCv.wait(lock, [this]{ return _currState == IN_TRIVIAL_BARRIER ||
-                                     _currState == PHASE_1;});
+                                     _currState == PHASE_1 ||
+                                     _currState == IN_CS ||
+                                     _currState == IS_READY; });
   return _currState;
 }
 
+// FIXME: not used, remove when code is stable
 phase_t
 TwoPhaseAlgo::waitForFreePassToTakeEffect(phase_t oldState)
 {
