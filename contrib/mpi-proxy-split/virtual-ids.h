@@ -8,6 +8,8 @@
 #include "virtualidtable.h"
 #include "jassert.h"
 #include "jconvert.h"
+#include "split_process.h"
+#include "dmtcp.h"
 
 // Convenience macros
 #define MpiCommList  dmtcp_mpi::MpiVirtualization
@@ -239,11 +241,16 @@ namespace dmtcp_mpi
         int rbuf[commSize];
         // FIXME: cray cc complains "catastrophic error" that can't find
         // split-process.h
-        // JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-        // NEXT_FUNC(Allgather)(&worldRank, 1, MPI_INT,
-        //                      rbuf, 1, MPI_INT, realComm);
-        // RETURN_TO_UPPER_HALF();
+#if 1
+        DMTCP_PLUGIN_DISABLE_CKPT();
+        JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+        NEXT_FUNC(Allgather)(&worldRank, 1, MPI_INT,
+                             rbuf, 1, MPI_INT, realComm);
+        RETURN_TO_UPPER_HALF();
+        DMTCP_PLUGIN_ENABLE_CKPT();
+#else
         MPI_Allgather(&worldRank, 1, MPI_INT, rbuf, 1, MPI_INT, comm);
+#endif
         printf("GID ranks: ");
         for (int i = 0; i < commSize; i++) {
           printf("%d, ", rbuf[i]);
