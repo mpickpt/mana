@@ -10,6 +10,7 @@
 #include "mpi_nextfunc.h"
 #include "virtual-ids.h"
 
+EXTERNC
 USER_DEFINED_WRAPPER(int, Test, (MPI_Request*) request,
                      (int*) flag, (MPI_Status*) status)
 {
