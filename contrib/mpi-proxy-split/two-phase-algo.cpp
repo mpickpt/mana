@@ -156,19 +156,32 @@ TwoPhaseAlgo::commit(MPI_Comm comm, const char *collectiveFnc,
     int flag = 0;
     DMTCP_PLUGIN_DISABLE_CKPT();
     JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-    int retval = NEXT_FUNC(Ibarrier)(realComm, &request);
-    JASSERT(retval == MPI_SUCCESS)(retval)(realComm)(request)(comm);
+    NEXT_FUNC(Ibarrier)(realComm, &request);
     RETURN_TO_UPPER_HALF();
     DMTCP_PLUGIN_ENABLE_CKPT();
     while (!flag) {
-      struct timespec test_interval = {.tv_sec = 0, .tv_nsec = 100000};
+      // Different MPI implementations have different rules for MPI_Test
+      // and MPI_REQUEST_NULL. For OpenMPI, it's allowed to call MPI_TEST
+      // with MPI_REQUEST_NULL, and the flag will always be true. But for
+      // MPICH, it will cause a fatal error that the request is invalid.
+      // So we check the value of request before doing the MPI_Test. If
+      // it's MPI_REQUEST_NULL, then we break. This will work with both
+      // rules.
+      if (request == MPI_REQUEST_NULL) {
+        JWARNING(false)(request)(flag)(realComm)
+                .Text("Trivial barrier request is null");
+        break;
+      }
       DMTCP_PLUGIN_DISABLE_CKPT();
       JUMP_TO_LOWER_HALF(lh_info.fsaddr);
       int rc = NEXT_FUNC(Test)(&request, &flag, MPI_STATUS_IGNORE);
+#ifdef DEBUG
       JASSERT(rc == MPI_SUCCESS)(rc)(realComm)(request)(comm);
+#endif
       RETURN_TO_UPPER_HALF();
       DMTCP_PLUGIN_ENABLE_CKPT();
       // FIXME: make this smaller
+      struct timespec test_interval = {.tv_sec = 0, .tv_nsec = 100000};
       nanosleep(&test_interval, NULL);
     }
   }
