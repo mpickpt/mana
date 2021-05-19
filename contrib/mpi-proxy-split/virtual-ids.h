@@ -252,11 +252,13 @@ namespace dmtcp_mpi
 #else
         MPI_Allgather(&worldRank, 1, MPI_INT, rbuf, 1, MPI_INT, comm);
 #endif
+#ifdef DEBUG
         printf("GID ranks: ");
         for (int i = 0; i < commSize; i++) {
           printf("%d, ", rbuf[i]);
           gid ^= hash(rbuf[i]);
         }
+#endif
         // FIXME: Some code can create new communicators during execution,
         // and so hash conflict may occur later.
         // if the new gid already exists in the map, add one and test again
@@ -274,14 +276,17 @@ namespace dmtcp_mpi
             break;
           }
         }
+#ifdef DEBUG
         printf("; Computed global id is: %x\n", gid);
+#endif
         fflush(stdout);
         globalIdTable[comm] = gid;
         return gid;
       }
 
       unsigned int getGlobalId(MPI_Comm comm) {
-        std::map<MPI_Comm, unsigned int>::iterator it = globalIdTable.find(comm);
+        std::map<MPI_Comm, unsigned int>::iterator it = 
+          globalIdTable.find(comm);
         JASSERT(it != globalIdTable.end())(comm)
           .Text("Can't find communicator in the global id table");
         return it->second;
