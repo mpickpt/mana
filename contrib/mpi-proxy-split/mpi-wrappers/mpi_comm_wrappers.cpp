@@ -68,43 +68,6 @@ USER_DEFINED_WRAPPER(int, Abort, (MPI_Comm) comm, (int) errorcode)
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, Comm_split, (MPI_Comm) comm, (int) color, (int) key,
-                     (MPI_Comm *) newcomm)
-{
-  int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  retval = NEXT_FUNC(Comm_split)(realComm, color, key, newcomm);
-  RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && LOGGING()) {
-    MPI_Comm virtComm = ADD_NEW_COMM(*newcomm);
-    VirtualGlobalCommId::instance().createGlobalId(virtComm);
-    *newcomm = virtComm;
-    LOG_CALL(restoreComms, Comm_split, &comm, &color, &key, &virtComm);
-  }
-  DMTCP_PLUGIN_ENABLE_CKPT();
-  return retval;
-}
-
-USER_DEFINED_WRAPPER(int, Comm_dup, (MPI_Comm) comm, (MPI_Comm *) newcomm)
-{
-  int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  retval = NEXT_FUNC(Comm_dup)(realComm, newcomm);
-  RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && LOGGING()) {
-    MPI_Comm virtComm = ADD_NEW_COMM(*newcomm);
-    VirtualGlobalCommId::instance().createGlobalId(virtComm);
-    *newcomm = virtComm;
-    LOG_CALL(restoreComms, Comm_dup, &comm, &virtComm);
-  }
-  DMTCP_PLUGIN_ENABLE_CKPT();
-  return retval;
-}
-
 USER_DEFINED_WRAPPER(int, Comm_compare,
                      (MPI_Comm) comm1, (MPI_Comm) comm2, (int*) result)
 {
@@ -283,9 +246,6 @@ USER_DEFINED_WRAPPER(int, Comm_free_keyval, (int *) comm_keyval)
 PMPI_IMPL(int, MPI_Comm_size, MPI_Comm comm, int *world_size)
 PMPI_IMPL(int, MPI_Comm_rank, MPI_Group group, int *world_rank)
 PMPI_IMPL(int, MPI_Abort, MPI_Comm comm, int errorcode)
-PMPI_IMPL(int, MPI_Comm_split, MPI_Comm comm, int color, int key,
-          MPI_Comm *newcomm)
-PMPI_IMPL(int, MPI_Comm_dup, MPI_Comm comm, MPI_Comm *newcomm)
 PMPI_IMPL(int, MPI_Comm_create, MPI_Comm comm, MPI_Group group,
           MPI_Comm *newcomm)
 PMPI_IMPL(int, MPI_Comm_compare, MPI_Comm comm1, MPI_Comm comm2, int *result)

@@ -7,9 +7,12 @@
 
 #include "mpi_plugin.h"
 #include "drain_send_recv_packets.h"
+#include "record-replay.h"
 #include "mpi_nextfunc.h"
 #include "two-phase-algo.h"
 #include "virtual-ids.h"
+
+using namespace dmtcp_mpi;
 
 USER_DEFINED_WRAPPER(int, Bcast,
                      (void *) buffer, (int) count, (MPI_Datatype) datatype,
@@ -377,6 +380,51 @@ USER_DEFINED_WRAPPER(int, Scan, (const void *) sendbuf, (void *) recvbuf,
   return twoPhaseCommit(comm, realBarrierCb);
 }
 
+// FIXME: Also check the MPI_Cart family, if they use collective communications.
+USER_DEFINED_WRAPPER(int, Comm_split, (MPI_Comm) comm, (int) color, (int) key,
+    (MPI_Comm *) newcomm)
+{
+  std::function<int()> realBarrierCb = [=]() {
+    int retval;
+    DMTCP_PLUGIN_DISABLE_CKPT();
+    MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+    JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+    retval = NEXT_FUNC(Comm_split)(realComm, color, key, newcomm);
+    RETURN_TO_UPPER_HALF();
+    if (retval == MPI_SUCCESS && LOGGING()) {
+      MPI_Comm virtComm = ADD_NEW_COMM(*newcomm);
+      VirtualGlobalCommId::instance().createGlobalId(virtComm);
+      *newcomm = virtComm;
+      LOG_CALL(restoreComms, Comm_split, &comm, &color, &key, &virtComm);
+    }
+    DMTCP_PLUGIN_ENABLE_CKPT();
+    return retval;
+  };
+  return twoPhaseCommit(comm, realBarrierCb);
+}
+
+USER_DEFINED_WRAPPER(int, Comm_dup, (MPI_Comm) comm, (MPI_Comm *) newcomm)
+{
+  std::function<int()> realBarrierCb = [=]() {
+    int retval;
+    DMTCP_PLUGIN_DISABLE_CKPT();
+    MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+    JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+    retval = NEXT_FUNC(Comm_dup)(realComm, newcomm);
+    RETURN_TO_UPPER_HALF();
+    if (retval == MPI_SUCCESS && LOGGING()) {
+      MPI_Comm virtComm = ADD_NEW_COMM(*newcomm);
+      VirtualGlobalCommId::instance().createGlobalId(virtComm);
+      *newcomm = virtComm;
+      LOG_CALL(restoreComms, Comm_dup, &comm, &virtComm);
+    }
+    DMTCP_PLUGIN_ENABLE_CKPT();
+    return retval;
+  };
+  return twoPhaseCommit(comm, realBarrierCb);
+}
+
+
 PMPI_IMPL(int, MPI_Bcast, void *buffer, int count, MPI_Datatype datatype,
           int root, MPI_Comm comm)
 PMPI_IMPL(int, MPI_Ibcast, void *buffer, int count, MPI_Datatype datatype,
@@ -417,3 +465,6 @@ PMPI_IMPL(int, MPI_Scatterv, const void *sendbuf, const int sendcounts[],
           int recvcount, MPI_Datatype recvtype, int root, MPI_Comm comm)
 PMPI_IMPL(int, MPI_Scan, const void *sendbuf, void *recvbuf, int count,
           MPI_Datatype datatype, MPI_Op op, MPI_Comm comm)
+PMPI_IMPL(int, MPI_Comm_split, MPI_Comm comm, int color, int key,
+          MPI_Comm *newcomm)
+PMPI_IMPL(int, MPI_Comm_dup, MPI_Comm comm, MPI_Comm *newcomm)
