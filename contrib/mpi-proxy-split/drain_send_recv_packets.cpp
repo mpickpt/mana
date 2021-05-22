@@ -115,8 +115,9 @@ drainMpiPackets()
       break;
     }
     if (iterations != 0 && iterations % 20 == 0 && g_world_rank == 0) {
-      JNOTE("Trying to drain MPI network packets; will time out & ckpt after:")
-           (120 - iterations);
+      fprintf(stderr, "Trying to drain MPI network packets; will time out"
+              " & ckpt after:\n  %d iterations\n", 120 - iterations);
+      fflush(stdout);
     }
     sleep(1);
     iterations++;
