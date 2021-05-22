@@ -168,8 +168,7 @@ TwoPhaseAlgo::commit(MPI_Comm comm, const char *collectiveFnc,
       // it's MPI_REQUEST_NULL, then we break. This will work with both
       // rules.
       if (request == MPI_REQUEST_NULL) {
-        JWARNING(false)(request)(flag)(realComm)
-                .Text("Trivial barrier request is null");
+        JTRACE("Trivial barrier request is null")(request)(flag)(realComm);
         break;
       }
       DMTCP_PLUGIN_DISABLE_CKPT();
