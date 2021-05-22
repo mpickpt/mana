@@ -77,12 +77,12 @@ drainMpiPackets()
   // call at checkpoint time, any pending sends and received would have been
   // completed. This is because MPI guarantees FIFO ordering on messages.
   dmtcp::vector<mpi_call_params_t> totalUnsvcdSends;
-  uint64_t totalSends = 0, totalRecvs = 0, totalSendCount = 0, totalRecvCount = 0; 
+  uint64_t totalSends = 0, totalRecvs = 0, totalSendCount = 0, totalRecvCount = 0;
   int iterations = 0;
 
   // Get updated info from central db
   get_remote_sr_counts(&totalSends, &totalRecvs, &totalSendCount, &totalRecvCount, totalUnsvcdSends);
-  
+
   // FIXME: this timeout is a temporary fix, we need to change the way we mark a
   // message serviced or unserviced.
   time_t start_time = time(NULL);
@@ -99,13 +99,24 @@ drainMpiPackets()
     // of all the proxies, since we're not the only one waiting
     registerLocalSendsAndRecvs();
 
+    // TODO: This could be replaced with a dmtcp_global_barrier()
+    JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+    NEXT_FUNC(Barrier)(MPI_COMM_WORLD);
+    RETURN_TO_UPPER_HALF();
+
     // FIXME: see the FIXME before the while loop
     // if we waited more than 2 mins, set the breakout flag to 1.
     // If all ranks agree to breakout, break this while loop and
     // continue checkpointing.
     if (iterations > 120) {
-      JWARNING(false)("Drain MPI packet timeout");
+      if (g_world_rank == 0) {
+        JNOTE("Drain MPI packets: timeout");
+      }
       break;
+    }
+    if (iterations != 0 && iterations % 20 == 0 && g_world_rank == 0) {
+      JNOTE("Trying to drain mpi packets in the network, will time out after:")
+           (120 - iterations);
     }
     sleep(1);
     iterations++;
@@ -114,7 +125,8 @@ drainMpiPackets()
     totalSendCount = totalRecvCount = 0;
     totalUnsvcdSends.clear();
     // Get updated info from central db
-    get_remote_sr_counts(&totalSends, &totalRecvs, &totalSendCount, &totalRecvCount, totalUnsvcdSends);
+    get_remote_sr_counts(&totalSends, &totalRecvs, &totalSendCount,
+                         &totalRecvCount, totalUnsvcdSends);
   }
 }
 
