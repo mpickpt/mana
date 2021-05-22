@@ -35,8 +35,8 @@ static unsigned long origPhnum;
 static unsigned long origPhdr;
 
 static void patchAuxv(ElfW(auxv_t) *, unsigned long , unsigned long , int );
-static int mmap_iov(const struct iovec *, int );
-static int read_lh_proxy_bits(pid_t );
+static int mmap_iov(const struct iovec *iov, int prot, char *argv0);
+static int read_lh_proxy_bits(pid_t childpid, char *argv0);
 static pid_t startProxy(char *argv0, char **envp);
 static int initializeLowerHalf(void);
 static MemRange_t setLhMemRange(void);
@@ -52,7 +52,7 @@ splitProcess(char *argv0, char **envp)
   int ret = -1;
   if (childpid > 0) {
     // Parent has read from pipefd_out; child is ready.
-    ret = read_lh_proxy_bits(childpid);
+    ret = read_lh_proxy_bits(childpid, argv0);
     mtcp_sys_kill(childpid, SIGKILL);
     mtcp_sys_wait4(childpid, NULL, 0, NULL);
   }
@@ -91,23 +91,35 @@ patchAuxv(ElfW(auxv_t) *av, unsigned long phnum, unsigned long phdr, int save)
 }
 
 static int
-mmap_iov(const struct iovec *iov, int prot)
+mmap_iov(const struct iovec *iov, int prot, char *argv0)
 {
   int mtcp_sys_errno;
   void *base = (void *)ROUND_DOWN(iov->iov_base);
   size_t len = ROUND_UP(iov->iov_len);
   int flags =  MAP_PRIVATE | MAP_FIXED | MAP_ANONYMOUS;
-  void *addr = mtcp_sys_mmap(base, len, prot, flags, -1, 0);
+  // Get fd for "lh_proxy", for use in mmap().  Kernel will then
+  //   display the lh_proxy pathname in /proc/PID/maps.
+  char *last_component = mtcp_strrchr(argv0, '/');
+  MTCP_ASSERT(mtcp_strlen("lh_proxy") <= mtcp_strlen(last_component+1));
+  mtcp_strcpy(last_component+1, "lh_proxy");
+  int imagefd = mtcp_sys_open(argv0, O_RDONLY, 0);
+  if (imagefd == -1) {
+    MTCP_PRINTF("Error opening %s: %d\n", argv0, mtcp_sys_errno);
+    return -1;
+  }
+  flags ^= MAP_ANONYMOUS;
+  void *addr = mtcp_sys_mmap(base, len, prot, flags, imagefd, 0);
   if (addr == MAP_FAILED) {
     MTCP_PRINTF("Error mmaping memory: %p, %lu Bytes, %d", base, len,
                 mtcp_sys_errno);
     return -1;
   }
+  mtcp_sys_close(imagefd);
   return 0;
 }
 
 static int
-read_lh_proxy_bits(pid_t childpid)
+read_lh_proxy_bits(pid_t childpid, char *argv0)
 {
   int ret = -1;
   const int IOV_SZ = 2;
@@ -116,12 +128,12 @@ read_lh_proxy_bits(pid_t childpid)
   remote_iov[0].iov_base = lh_info.startText;
   remote_iov[0].iov_len = (unsigned long)lh_info.endText -
                           (unsigned long)lh_info.startText;
-  ret = mmap_iov(&remote_iov[0], PROT_READ|PROT_EXEC|PROT_WRITE);
+  ret = mmap_iov(&remote_iov[0], PROT_READ|PROT_EXEC|PROT_WRITE, argv0);
   // data segment
   remote_iov[1].iov_base = lh_info.startData;
   remote_iov[1].iov_len = (unsigned long)lh_info.endOfHeap -
                           (unsigned long)lh_info.startData;
-  ret = mmap_iov(&remote_iov[1], PROT_READ|PROT_WRITE);
+  ret = mmap_iov(&remote_iov[1], PROT_READ|PROT_WRITE, argv0);
   // NOTE:  In our case local_iov will be same as remote_iov.
   // NOTE:  This requires same privilege as ptrace_attach (valid for child)
   int i = 0;
