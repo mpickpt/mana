@@ -119,7 +119,16 @@ if [ "$verbose" == 1 ]; then
   set -x
 fi
 
-$dir/dmtcp_launch  --coord-host $submissionHost \
+# TEMPORARY WORKAROUND:  set MPICH_SMP_SINGLE_COPY_OFF=1
+#   In VASP5 with RPA, it failed on restart, trying to copy to a
+#   /SYSV0* file (created by shmat or XPMEM), but mpi_plugin.cpp says that
+#   /SYSV0* is not saved at ckpt, and so its data is not saved and restored.
+#   NOTE: The upper half should not know about this file. Why do we
+#         need to restore pre-ckpt data on a new MPICH in the lower half? 
+#         (We could create xpmam plugin for DMTCP, but it shouldn't be needed.)
+
+env MPICH_SMP_SINGLE_COPY_OFF=1 \
+  $dir/dmtcp_launch  --coord-host $submissionHost \
           --coord-port $submissionPort --no-gzip \
           --join-coordinator --disable-dl-plugin \
           --with-plugin $plugindir/lib/dmtcp/libmana.so $options
