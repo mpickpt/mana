@@ -179,9 +179,17 @@ mmap_iov(const struct iovec *iov, int prot)
   void *base = (void *)ROUND_DOWN(iov->iov_base);
   size_t len = ROUND_UP(iov->iov_len);
   int flags =  MAP_PRIVATE | MAP_FIXED | MAP_ANONYMOUS;
-  void *ret = mmap(base, len, prot, flags, -1, 0);
+  // Get fd for "lh_proxy", for use in mmap().  Kernel will then
+  //   display the lh_proxy pathname in /proc/PID/maps.
+  dmtcp::string progname = dmtcp::Util::getPath("lh_proxy");
+  int imagefd = open(progname.c_str(), O_RDONLY);
+  JASSERT(imagefd != -1)
+	 (JASSERT_ERRNO)(progname.c_str()).Text("Failed to open file");
+  flags ^= MAP_ANONYMOUS;
+  void *ret = mmap(base, len, prot, flags, imagefd, 0);
   JWARNING(ret != MAP_FAILED)
           (JASSERT_ERRNO)(base)(len)(prot).Text("Error mmaping memory");
+  close(imagefd);
   return ret == MAP_FAILED;
 }
 
