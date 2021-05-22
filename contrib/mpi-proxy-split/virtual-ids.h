@@ -227,6 +227,7 @@ namespace dmtcp_mpi
       int _nullId;
   }; // class MpiId
 
+  // FIXME: The new name should be: GlobalIdOfSimiliarComm
   class VirtualGlobalCommId {
     public:
       unsigned int createGlobalId(MPI_Comm comm) {
@@ -239,6 +240,9 @@ namespace dmtcp_mpi
         MPI_Comm_rank(MPI_COMM_WORLD, &worldRank);
         MPI_Comm_size(comm, &commSize);
         int rbuf[commSize];
+        // FIXME: Use MPI_Group_translate_ranks instead of Allgather.
+        // MPI_Group_translate_ranks only execute localy, so we can avoid
+        // the cost of collective communication
         // FIXME: cray cc complains "catastrophic error" that can't find
         // split-process.h
 #if 1
@@ -260,6 +264,16 @@ namespace dmtcp_mpi
         for (int i = 0; i < commSize; i++) {
           gid ^= hash(rbuf[i]);
         }
+        // FIXME: We assume the hash collision between communicators who
+        // have different members is low.
+        // FIXME: We want to prune virtual communicators to avoid long 
+        // restart time.
+        // FIXME: In VASP we observed that for the same virtual communicator
+        // (adding 1 to each new communicator with the same rank members),
+        // the virtual group can change over time, using:
+        // virtual Comm -> real Comm -> real Group -> virtual Group
+        // We don't understand why since vasp does not seem to free groups.
+#if 0
         // FIXME: Some code can create new communicators during execution,
         // and so hash conflict may occur later.
         // if the new gid already exists in the map, add one and test again
@@ -277,6 +291,7 @@ namespace dmtcp_mpi
             break;
           }
         }
+#endif
 #ifdef DEBUG
         printf("; Computed global id is: %x\n", gid);
 #endif
