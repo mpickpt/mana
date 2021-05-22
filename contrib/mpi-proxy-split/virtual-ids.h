@@ -256,9 +256,11 @@ namespace dmtcp_mpi
         printf("GID ranks: ");
         for (int i = 0; i < commSize; i++) {
           printf("%d, ", rbuf[i]);
-          gid ^= hash(rbuf[i]);
         }
 #endif
+        for (int i = 0; i < commSize; i++) {
+          gid ^= hash(rbuf[i]);
+        }
         // FIXME: Some code can create new communicators during execution,
         // and so hash conflict may occur later.
         // if the new gid already exists in the map, add one and test again
