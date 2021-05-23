@@ -281,7 +281,10 @@ class Semaphore : public SysVObj
     static void operator delete(void *p) { JALLOC_HELPER_DELETE(p); }
 #endif // ifdef JALIB_ALLOCATOR
     Semaphore(int semid, int realSemid, key_t key, int nsems, int semflg);
-    ~Semaphore() { delete _semval; delete _semadj; }
+    ~Semaphore() {
+      JALLOC_HELPER_FREE(_semval);
+      JALLOC_HELPER_FREE(_semadj);
+    }
 
     void on_semop(struct sembuf *sops, unsigned nsops);
 
