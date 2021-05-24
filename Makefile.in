@@ -78,14 +78,14 @@ mana_part2: default \
 	cd contrib/mpi-proxy-split && make install && make -j tests
 
 ${targetdir}/bin/mana_launch: src/mana_launch.sh
-	cp src/mana_launch.sh ${targetdir}/bin/
+	cp src/mana_launch.sh ${targetdir}/bin/mana_launch
 ${targetdir}/bin/mana_restart: src/mana_restart.sh
-	cp src/mana_restart.sh ${targetdir}/bin/
+	cp src/mana_restart.sh ${targetdir}/bin/mana_restart
 ${targetdir}/bin/mana_coordinator: src/mana_coordinator.sh
 	cp src/mana_coordinator.sh ${targetdir}/bin/mana_coordinator
 	cp src/mana_coordinator.sh ${targetdir}/bin/mana_start_coordinator
 ${targetdir}/bin/mana_status: src/mana_status.sh
-	cp src/mana_status.sh ${targetdir}/bin/
+	cp src/mana_status.sh ${targetdir}/bin/mana_status
 
 mana_prereqs:
 	@ if test -n "$$HUGETLB_DEFAULT_PAGE_SIZE"; then \
