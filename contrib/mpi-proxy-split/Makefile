@@ -73,10 +73,10 @@ gdb: ${basename lh_proxy.c ${FILE}}
 	$@ $<
 
 tests:
-	@make -C test/
+	@make -C test/ default
 
 check: ${LIBNAME}.so ${LOWER_HALF_SRCDIR}/${PROXY_BIN} ./autotest.py
-	@make -C test/
+	@make -C test/ default
 	@python ./autotest.py
 
 check-unit: ${LIBNAME}.so
