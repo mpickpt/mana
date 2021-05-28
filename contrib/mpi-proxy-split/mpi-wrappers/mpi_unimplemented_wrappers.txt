@@ -296,7 +296,6 @@ int MPI_Unpack_external (const char datarep[], const void *inbuf, MPI_Aint insiz
 int MPI_Waitany(int count, MPI_Request array_of_requests[], int *index, MPI_Status *status);
 int MPI_Waitsome(int incount, MPI_Request array_of_requests[], int *outcount, int array_of_indices[], MPI_Status array_of_statuses[]);
 int MPI_Win_allocate(MPI_Aint size, int disp_unit, MPI_Info info, MPI_Comm comm, void *baseptr, MPI_Win *win);
-int MPI_Win_allocate_shared(MPI_Aint size, int disp_unit, MPI_Info info, MPI_Comm comm, void *baseptr, MPI_Win *win);
 int MPI_Win_attach(MPI_Win win, void *base, MPI_Aint size);
 
 int MPI_Win_call_errhandler(MPI_Win win, int errorcode);
@@ -332,8 +331,6 @@ int MPI_Win_set_attr(MPI_Win win, int win_keyval, void *attribute_val);
 int MPI_Win_set_errhandler(MPI_Win win, MPI_Errhandler errhandler);
 int MPI_Win_set_info(MPI_Win win, MPI_Info info);
 int MPI_Win_set_name(MPI_Win win, const char *win_name);
-int MPI_Win_shared_query(MPI_Win win, int rank, MPI_Aint *size,
-                                  int *disp_unit, void *baseptr);
 int MPI_Win_start(MPI_Group group, int assert, MPI_Win win);
 int MPI_Win_sync(MPI_Win win);
 int MPI_Win_test(MPI_Win win, int *flag);

@@ -132,26 +132,6 @@ USER_DEFINED_WRAPPER(int, Topo_test,
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, Comm_split_type, (MPI_Comm) comm, (int) split_type,
-                     (int) key, (MPI_Info) inf, (MPI_Comm*) newcomm)
-{
-  int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  retval = NEXT_FUNC(Comm_split_type)(realComm, split_type, key, inf, newcomm);
-  RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && LOGGING()) {
-    MPI_Comm virtComm = ADD_NEW_COMM(*newcomm);
-    VirtualGlobalCommId::instance().createGlobalId(virtComm);
-    *newcomm = virtComm;
-    LOG_CALL(restoreComms, Comm_split_type, &comm,
-             &split_type, &key, &inf, &virtComm);
-  }
-  DMTCP_PLUGIN_ENABLE_CKPT();
-  return retval;
-}
-
 USER_DEFINED_WRAPPER(int, Attr_get, (MPI_Comm) comm, (int) keyval,
                      (void*) attribute_val, (int*) flag)
 {
@@ -253,8 +233,6 @@ PMPI_IMPL(int, MPI_Comm_free, MPI_Comm *comm)
 PMPI_IMPL(int, MPI_Comm_set_errhandler, MPI_Comm comm,
           MPI_Errhandler errhandler)
 PMPI_IMPL(int, MPI_Topo_test, MPI_Comm comm, int* status)
-PMPI_IMPL(int, MPI_Comm_split_type, MPI_Comm comm, int split_type, int key,
-          MPI_Info info, MPI_Comm *newcomm)
 PMPI_IMPL(int, MPI_Attr_get, MPI_Comm comm, int keyval,
           void *attribute_val, int *flag)
 PMPI_IMPL(int, MPI_Attr_delete, MPI_Comm comm, int keyval)

@@ -12,6 +12,7 @@ PLUGIN_HALF_SRCDIR=..
 
 # As you add new files to your plugin library, add the object file names here.
 LIBWRAPPER_OBJS = mpi_p2p_wrappers.o mpi_collective_wrappers.o \
+		  mpi_win_wrappers.o \
                   mpi_request_wrappers.o mpi_type_wrappers.o \
                   mpi_comm_wrappers.o mpi_group_wrappers.o \
                   mpi_cart_wrappers.o mpi_op_wrappers.o \

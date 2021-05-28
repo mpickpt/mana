@@ -173,7 +173,7 @@ USER_DEFINED_WRAPPER(int, Ireduce,
     retval = NEXT_FUNC(Ireduce)(sendbuf, recvbuf, count,
                                realType, realOp, root, realComm, request);
     RETURN_TO_UPPER_HALF();
-    addPendingIreduceToLog(IREDUCE_REQUEST, sendbuf, recvbuf, count, 
+    addPendingIreduceToLog(IREDUCE_REQUEST, sendbuf, recvbuf, count,
                            datatype, op, root, comm, request);
     DMTCP_PLUGIN_ENABLE_CKPT();
     /* int flag = 0; */
@@ -403,6 +403,35 @@ USER_DEFINED_WRAPPER(int, Comm_split, (MPI_Comm) comm, (int) color, (int) key,
   return twoPhaseCommit(comm, realBarrierCb);
 }
 
+// FIXME:  This depends on the restart topology satisfying the
+//         requirements for MPI_COMM_TYPE_SHARE .  We should verify
+//         that the Gl;obalIdForSimilarComm is the same before ckpt
+//         and after restart.
+USER_DEFINED_WRAPPER(int, Comm_split_type, (MPI_Comm) comm, (int) split_type,
+                     (int) key, (MPI_Info) info, (MPI_Comm *) newcomm)
+{
+  std::function<int()> realBarrierCb = [=]() {
+    int retval;
+    DMTCP_PLUGIN_DISABLE_CKPT();
+    MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+    JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+    // FIXME:  Must virtualize info, or pass in null info & verify compatibility
+    retval = NEXT_FUNC(Comm_split_type)(realComm, split_type, key,
+                                        info, newcomm);
+    RETURN_TO_UPPER_HALF();
+    if (retval == MPI_SUCCESS && LOGGING()) {
+      MPI_Comm virtComm = ADD_NEW_COMM(*newcomm);
+      VirtualGlobalCommId::instance().createGlobalId(virtComm);
+      *newcomm = virtComm;
+      LOG_CALL(restoreComms, Comm_split_type, &comm, &split_type, &key,
+               &info, &virtComm);
+    }
+    DMTCP_PLUGIN_ENABLE_CKPT();
+    return retval;
+  };
+  return twoPhaseCommit(comm, realBarrierCb);
+}
+
 USER_DEFINED_WRAPPER(int, Comm_dup, (MPI_Comm) comm, (MPI_Comm *) newcomm)
 {
   std::function<int()> realBarrierCb = [=]() {
@@ -467,4 +496,6 @@ PMPI_IMPL(int, MPI_Scan, const void *sendbuf, void *recvbuf, int count,
           MPI_Datatype datatype, MPI_Op op, MPI_Comm comm)
 PMPI_IMPL(int, MPI_Comm_split, MPI_Comm comm, int color, int key,
           MPI_Comm *newcomm)
+PMPI_IMPL(int, MPI_Comm_split_type, MPI_Comm comm, int split_type,
+          int key, MPI_Info info, MPI_Comm *newcomm)
 PMPI_IMPL(int, MPI_Comm_dup, MPI_Comm comm, MPI_Comm *newcomm)
