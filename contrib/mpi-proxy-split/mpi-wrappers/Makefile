@@ -44,12 +44,17 @@ mpi_unimplemented_wrappers.cpp: generate-mpi-unimplemented-wrappers.py \
 .c.o:
 	${MPICC} ${CFLAGS} -g3 -O0 -c -o $@ $<
 
-.cpp.o:
+.cpp.o: ../virtual-ids.h
 	${MPICXX} ${CXXFLAGS} -g3 -O0 -c -o $@ $<
 
-mpi_collective_wrappers.o: mpi_collective_wrappers.cpp
-	CC -Wall -g3 -O0 -DDEBUG -fPIC -I../../../include -I../../../jalib \
-	-I.. -I../../../src -I../lower-half -std=c++11 -g3 -O3 -c -o $@ $<
+mpi_collective_wrappers.o: mpi_collective_wrappers.cpp ../virtual-ids.h
+	${MPICXX} ${CXXFLAGS} -Wall -g3 -O0 -DDEBUG -fPIC -I../../../include \
+	-I../../../jalib -I.. -I../../../src -I../lower-half -std=c++11 -c $<
+
+# Some of these functions are also collective; e.g., MPI_Win_allocate_shared
+mpi_win_wrappers.o: mpi_win_wrappers.cpp ../virtual-ids.h
+	${MPICXX} ${CXXFLAGS} -Wall -g3 -O0 -DDEBUG -fPIC -I../../../include \
+	-I../../../jalib -I.. -I../../../src -I../lower-half -std=c++11 -c $<
 
 # We need to write to mpi_dummy_wrappers.c.tmp.$$ first, in case of 'make -j'.
 # The parallel make would generate mpi_dummy_wrappers.c 3 times, and overwrite.
