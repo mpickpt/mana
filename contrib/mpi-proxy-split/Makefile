@@ -57,8 +57,8 @@ mpi_unimplemented_wrappers.cpp: generate-mpi-unimplemented-wrappers.py mpi_unimp
 .c.o:
 	${MPICC} ${CFLAGS} -g3 -O0 -c -o $@ $<
 
-.cpp.o:
-	${MPICXX} ${CXXFLAGS} -g3 -O0 -c -o $@ $<
+.cpp.o: virtual-ids.h
+	${MPICXX} ${CXXFLAGS} -c -o $@ $<
 
 ${LOWER_HALF_SRCDIR}/procmapsutils.o: ${LOWER_HALF_SRCDIR}/procmapsutils.c
 	@make -C ${LOWER_HALF_SRCDIR} procmapsutils.o
