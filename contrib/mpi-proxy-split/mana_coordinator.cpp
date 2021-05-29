@@ -160,7 +160,7 @@ getClientState(CoordClient *client)
 # else
   o << ", " << clientRanks[client]
     << "/" << clientPhases[client]
-    << "/" << (void *)clientGids[client];
+    << "/" << (void *)(unsigned long)clientGids[client];
 # endif
   return o.str();
 }
