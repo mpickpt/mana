@@ -100,7 +100,8 @@ namespace dmtcp_mpi
       static MpiVirtualization& instance(const char *name, T nullId)
       {
 	// FIXME:
-	// dmtcp_mpi::MpiVirtualization::instance("MpiGroup", 1)._vIdTable.printMaps(true)
+	// dmtcp_mpi::MpiVirtualization::instance("MpiGroup", 1)
+	//                                       ._vIdTable.printMaps(true)
 	// to access _virTableMpiGroup in GDB.
 	// We need a cleaner way to access it.
 	if (strcmp(name, "MpiOp") == 0) {
@@ -116,10 +117,12 @@ namespace dmtcp_mpi
 	  static MpiVirtualization<T> _virTableMpiType(name, nullId);
 	  return _virTableMpiType;
 	} else if (strcmp(name, "MpiCommKeyval") == 0) {
-	  static MpiVirtualization _virTableMpiType(name, nullId);
-	  return _virTableMpiType;
+	  static MpiVirtualization _virTableMpiCommKeyval(name, nullId);
+	  return _virTableMpiCommKeyval;
 	}
 	JWARNING(false)(name)(nullId).Text("Unhandled type");
+	static MpiVirtualization _virTableNoSuchObject(name, nullId);
+	return _virTableNoSuchObject;
       }
 
       T virtualToReal(T virt)
@@ -314,7 +317,7 @@ namespace dmtcp_mpi
       void printMap(bool flag = false) {
         for (std::pair<MPI_Comm, int> idPair : globalIdTable) {
           if (flag) {
-            printf("virtual comm: %lx, real comm: %lx, global id: %lx\n",
+            printf("virtual comm: %x, real comm: %x, global id: %x\n",
                    idPair.first, VIRTUAL_TO_REAL_COMM(idPair.first),
                    idPair.second);
             fflush(stdout);
