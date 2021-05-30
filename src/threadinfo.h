@@ -83,9 +83,15 @@ struct Thread {
 
   // JA: new code ported from v54b
 #ifdef SETJMP
+  // DON'T USE:  sigsetjmp obfuscates canary of -fstack-protector.
   sigjmp_buf jmpbuf;     // sigjmp_buf saved by sigsetjmp on ckpt
 #else // ifdef SETJMP
   ucontext_t savctx;     // context saved on suspend
+  // fxsave needs 512 bytes;  So, 2*1024 bytes for xsave should be plenty.
+  // We add 64, because we must extract a 64-byte aligned buffer from this.
+  // FIXME:  We should make assembly calls to decide what should be
+  //         the max. size of the buffer.
+  char xsave_buf[16*1024 + 64];
 #endif // ifdef SETJMP
 
   /* This field is used by the ckpt thread to store and print the time

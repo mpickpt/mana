@@ -46,6 +46,41 @@
 #include <ucontext.h>
 #endif  // ifdef SETJMP
 
+// The state components of the CPU are saved to xsave_area in memory.
+// (fxsave uses just 512 bits, but xsave saves extra registers like AVX.)
+// This is same as icc intrinsic, _xsave, with save_mask set to ~0 (-1)
+inline char *XSAVE_aligned_area(char *buf) {
+  // We must return a 64-byte aligned area for xsave assembly instruction.
+  unsigned long tmp = (unsigned long)buf;
+  char *xsave_area = (char *)(tmp + 64 - tmp % 64);
+  JASSERT(buf <= xsave_area && xsave_area <= buf+64);
+  return xsave_area;
+}
+
+inline void XSAVE(char *xsave_area) {
+  JASSERT((long int)xsave_area % 64 == 0);
+  asm volatile (
+    "# xsave uses EDX:EAX mask to save MMX/SSE/etc. to mem.  We set all bits.\n"
+    "movq      $-1, %%rax   \n"
+    "movq      %%rax, %%rdx \n"
+    "shrq      $32, %%rdx   \n"
+    "xsave     (%%rcx)      \n"
+    /* CONSTRAINTS : output constraint : input constraint : clobber list */
+    : :  "rcx" (xsave_area), "m" (*xsave_area) : "rax", "rdx", "memory");
+}
+
+inline void XRSTOR(char *xsave_area) {
+  JASSERT((long int)xsave_area % 64 == 0);
+  asm volatile (
+    "# xrstor uses EDX:EAX mask to restore MMX/SSE/etc. to mem. \n"
+    "movq      $-1, %%rax   \n"
+    "movq      %%rax, %%rdx \n"
+    "shrq      $32, %%rdx   \n"
+    "xrstor    (%%rcx)      \n"
+    /* CONSTRAINTS : output constraint : input constraint : clobber list */
+    : :  "rcx" (xsave_area), "m" (*xsave_area) : "rax", "rdx", "memory");
+}
+
 using namespace dmtcp;
 
 // Globals
@@ -486,8 +521,11 @@ checkpointhread(void *dummy)
 
   /* Set up our restart point.  I.e., we get jumped to here after a restore. */
 #ifdef SETJMP
-  JASSERT(sigsetjmp(ckptThread->jmpbuf, 1) >= 0) (JASSERT_ERRNO);
+  JASSERT(sigsetjmp(ckptThread->jmpbuf, 1) >= 0) (JASSERT_ERRNO); // deprecated
 #else // ifdef SETJMP
+# ifdef __x86_64__
+  XSAVE( XSAVE_aligned_area(ckptThread->xsave_buf) );
+# endif
   JASSERT(getcontext(&ckptThread->savctx) == 0) (JASSERT_ERRNO);
 #endif // ifdef SETJMP
   save_sp(&ckptThread->saved_sp);
@@ -655,6 +693,7 @@ stopthisthread(int signum)
   // checkpointing is finished, we return to the point before entering the
   // trivial barrier and continue the user thread.
   if (inTrivialBarrier) {
+    // No need for XRSTOR().  None of extended MMX/SSE registers were changed.
     setcontext(&beforeTrivialBarrier);
   }
 #endif
@@ -689,10 +728,13 @@ stopthisthread(int signum)
     TLSInfo_SaveTLSState(&curThread->tlsInfo); // save thread local storage
                                                // state
 
-    /* Set up our restart point, ie, we get jumped to here after a restore */
+    /* Set up our restart point, i.e., we get jumped to here after a restore */
 #ifdef SETJMP
     JASSERT(sigsetjmp(curThread->jmpbuf, 1) >= 0);
 #else // ifdef SETJMP
+# ifdef __x86_64__
+    XSAVE( XSAVE_aligned_area(curThread->xsave_buf) );
+# endif
     JASSERT(getcontext(&curThread->savctx) == 0);
 #endif // ifdef SETJMP
     save_sp(&curThread->saved_sp);
@@ -760,6 +802,7 @@ stopthisthread(int signum)
       if (inTrivialBarrierOrPhase1) {
         JTRACE("User thread returning to before trivial barrier")
               (curThread->tid);
+        // No need for XRSTOR().  None of extended MMX/SSE registers changed.
         setcontext(&beforeTrivialBarrier);
       }
     }
@@ -992,6 +1035,9 @@ restarthread(void *threadv)
 #ifdef SETJMP
   siglongjmp(thread->jmpbuf, 1); /* Shouldn't return */
 #else // ifdef SETJMP
+# ifdef __x86_64__
+  XRSTOR( XSAVE_aligned_area(thread->xsave_buf) );
+# endif
   setcontext(&thread->savctx); /* Shouldn't return */
 #endif // ifdef SETJMP
   JASSERT(false);
