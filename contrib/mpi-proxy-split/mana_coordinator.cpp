@@ -267,7 +267,8 @@ static std::ostream&
 operator<<(std::ostream &os, const phase_t &st)
 {
   switch (st) {
-    case UNKNOWN            : os << "UNKNOWN"; break;
+    case ST_ERROR           : os << "ST_ERROR"; break;
+    case ST_UNKNOWN         : os << "ST_UNKNOWN"; break;
     case IS_READY           : os << "IS_READY"; break;
     case PHASE_1            : os << "PHASE_1"; break;
     case IN_CS              : os << "IN_CS"; break;
