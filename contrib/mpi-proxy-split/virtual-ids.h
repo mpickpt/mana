@@ -10,10 +10,10 @@
 #include "jconvert.h"
 
 // Convenience macros
-#define MpiCommList  dmtcp_mpi::MpiVirtualization
-#define MpiGroupList dmtcp_mpi::MpiVirtualization
-#define MpiTypeList  dmtcp_mpi::MpiVirtualization
-#define MpiOpList    dmtcp_mpi::MpiVirtualization
+#define MpiCommList  dmtcp_mpi::MpiVirtualization<MPI_Comm>
+#define MpiGroupList dmtcp_mpi::MpiVirtualization<MPI_Group>
+#define MpiTypeList  dmtcp_mpi::MpiVirtualization<MPI_Datatype>
+#define MpiOpList    dmtcp_mpi::MpiVirtualization<MPI_Op>
 
 #define REAL_TO_VIRTUAL_COMM(id) \
   MpiCommList::instance("MpiComm", MPI_COMM_NULL).realToVirtual(id)
@@ -62,6 +62,7 @@
 namespace dmtcp_mpi
 {
 
+  template<typename T>
   class MpiVirtualization
   {
     using mutex_t = std::mutex;
@@ -73,29 +74,29 @@ namespace dmtcp_mpi
       static void* operator new(size_t nbytes) { JALLOC_HELPER_NEW(nbytes); }
       static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
 #endif
-      static MpiVirtualization& instance(const char *name, int nullId)
+      static MpiVirtualization& instance(const char *name, T nullId)
       {
 	// FIXME: 
 	// dmtcp_mpi::MpiVirtualization::instance("MpiGroup", 1)._vIdTable.printMaps(true)
 	// to access _virTableMpiGroup in GDB.
 	// We need a cleaner way to access it.
 	if (strcmp(name, "MpiOp") == 0) {
-	  static MpiVirtualization _virTableMpiOp(name, nullId);
+	  static MpiVirtualization<T> _virTableMpiOp(name, nullId);
 	  return _virTableMpiOp;
 	} else if (strcmp(name, "MpiComm") == 0) {
-	  static MpiVirtualization _virTableMpiComm(name, nullId);
+	  static MpiVirtualization<T> _virTableMpiComm(name, nullId);
 	  return _virTableMpiComm;
 	} else if (strcmp(name, "MpiGroup") == 0) {
-	  static MpiVirtualization _virTableMpiGroup(name, nullId);
+	  static MpiVirtualization<T> _virTableMpiGroup(name, nullId);
 	  return _virTableMpiGroup;
 	} else if (strcmp(name, "MpiType") == 0) {
-	  static MpiVirtualization _virTableMpiType(name, nullId);
+	  static MpiVirtualization<T> _virTableMpiType(name, nullId);
 	  return _virTableMpiType;
 	}
 	JWARNING(false)(name)(nullId).Text("Unhandled type");
       }
 
-      int virtualToReal(int virt)
+      T virtualToReal(T virt)
       {
         // Don't need to virtualize the null id
         if (virt == _nullId) {
@@ -106,7 +107,7 @@ namespace dmtcp_mpi
         return _vIdTable.virtualToReal(virt);
       }
 
-      int realToVirtual(int real)
+      T realToVirtual(T real)
       {
         // Don't need to virtualize the null id
         if (real == _nullId) {
@@ -120,9 +121,9 @@ namespace dmtcp_mpi
       // Adds the given real id to the virtual id table and creates a new
       // corresponding virtual id.
       // Returns the new virtual id on success, null id otherwise
-      int onCreate(int real)
+      T onCreate(T real)
       {
-        int vId = _nullId;
+        T vId = _nullId;
         // Don't need to virtualize the null id
         if (real == _nullId) {
           return vId;
@@ -146,9 +147,9 @@ namespace dmtcp_mpi
       // Removes virtual id from table and returns the real id corresponding
       // to the virtual id; if the virtual id does not exist in the table,
       // returns null id.
-      int onRemove(int virt)
+      T onRemove(T virt)
       {
-        int realId = _nullId;
+        T realId = _nullId;
         // Don't need to virtualize the null id
         if (virt == _nullId) {
           return realId;
@@ -166,9 +167,9 @@ namespace dmtcp_mpi
 
       // Updates the mapping for the given virtual id to the given real id.
       // Returns virtual id on success, null-id otherwise
-      int updateMapping(int virt, int real)
+      T updateMapping(T virt, T real)
       {
-        int vId = _nullId;
+        T vId = _nullId;
         // Don't need to virtualize the null id
         if (virt == _nullId || real == _nullId) {
           return vId;
@@ -186,19 +187,19 @@ namespace dmtcp_mpi
 
     private:
       // Pvt. constructor
-      MpiVirtualization(const char *name, int nullId)
-        : _vIdTable(name, 0, 999999),
+      MpiVirtualization(const char *name, T nullId)
+        : _vIdTable(name, (T)0, (T)999999),
           _nullId(nullId),
           _mutex()
       {
       }
 
       // Virtual Ids Table
-      dmtcp::VirtualIdTable<int> _vIdTable;
+      dmtcp::VirtualIdTable<T> _vIdTable;
       // Lock on list
       mutex_t _mutex;
       // Default "NULL" value for id
-      int _nullId;
+      T _nullId;
   }; // class MpiId
 
 };  // namespace dmtcp_mpi
