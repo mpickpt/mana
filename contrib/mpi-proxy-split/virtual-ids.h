@@ -256,12 +256,6 @@ namespace dmtcp_mpi
 #else
         MPI_Allgather(&worldRank, 1, MPI_INT, rbuf, 1, MPI_INT, comm);
 #endif
-#ifdef DEBUG
-        printf("GID ranks: ");
-        for (int i = 0; i < commSize; i++) {
-          printf("%d, ", rbuf[i]);
-        }
-#endif
         for (int i = 0; i < commSize; i++) {
           gid ^= hash(rbuf[i]);
         }
@@ -293,10 +287,6 @@ namespace dmtcp_mpi
           }
         }
 #endif
-#ifdef DEBUG
-        printf("; Computed global id is: %x\n", gid);
-#endif
-        fflush(stdout);
         globalIdTable[comm] = gid;
         return gid;
       }
