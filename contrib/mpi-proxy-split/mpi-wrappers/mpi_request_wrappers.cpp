@@ -20,6 +20,7 @@ USER_DEFINED_WRAPPER(int, Test, (MPI_Request*) request,
     DMTCP_PLUGIN_ENABLE_CKPT();
   } else {
     MPI_Request req = *request;
+    JASSERT(req != MPI_REQUEST_NULL)(request)(*request);
     JUMP_TO_LOWER_HALF(lh_info.fsaddr);
     // MPI_Test can change the *request argument
     retval = NEXT_FUNC(Test)(request, flag, status);
