@@ -173,6 +173,7 @@ TwoPhaseAlgo::commit(MPI_Comm comm, const char *collectiveFnc,
       }
       DMTCP_PLUGIN_DISABLE_CKPT();
       JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+      JASSERT(request != MPI_REQUEST_NULL)(request)(flag)(realComm);
       int rc = NEXT_FUNC(Test)(&request, &flag, MPI_STATUS_IGNORE);
 #ifdef DEBUG
       JASSERT(rc == MPI_SUCCESS)(rc)(realComm)(request)(comm);
