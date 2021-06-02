@@ -157,6 +157,7 @@ int
 TwoPhaseAlgo::commit(MPI_Comm comm, const char *collectiveFnc,
                      std::function<int(void)>doRealCollectiveComm)
 {
+  return doRealCollectiveComm(); 
   if (comm == MPI_COMM_NULL) {
     return doRealCollectiveComm(); // lambda function: already captured args
   }
@@ -251,7 +252,7 @@ TwoPhaseAlgo::commit_begin(MPI_Comm comm)
     int flag = 0;
     DMTCP_PLUGIN_DISABLE_CKPT();
     // FIXME: use JUMP_TO_LOWER_HALF after the FSGSBASE patch is ready
-#if 1
+#if 0
     SET_LOWER_HALF_FS_CONTEXT();
     NEXT_FUNC(Ibarrier)(realComm, &request);
     RESTORE_UPPER_HALF_FS_CONTEXT();
@@ -264,7 +265,6 @@ TwoPhaseAlgo::commit_begin(MPI_Comm comm)
     while (!flag) {
       DMTCP_PLUGIN_DISABLE_CKPT();
       JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-      JASSERT(request != MPI_REQUEST_NULL)(request)(flag)(realComm);
       int rc = NEXT_FUNC(Test)(&request, &flag, MPI_STATUS_IGNORE);
 #ifdef DEBUG
       JASSERT(rc == MPI_SUCCESS)(rc)(realComm)(request)(comm);

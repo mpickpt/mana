@@ -14,7 +14,6 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <ucontext.h>
-#include <sys/syscall.h>
 #include <sys/uio.h>
 #include <fcntl.h>
 

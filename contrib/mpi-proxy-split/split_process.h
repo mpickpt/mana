@@ -1,6 +1,14 @@
 #ifndef _SPLIT_PROCESS_H
 #define _SPLIT_PROCESS_H
 
+#ifndef _GNU_SOURCE
+# define _GNU_SOURCE         /* See feature_test_macros(7) */
+#endif
+#include <asm/prctl.h>
+#include <sys/prctl.h>
+#include <unistd.h>
+#include <sys/syscall.h>
+
 #include <string.h>
 #include <pthread.h>
 
@@ -50,8 +58,8 @@ class SwitchContext
 static void* lh_fsaddr;
 static void *uh_fsaddr;
 static int fsaddr_initialized = 0;
-// #define BUF_SIZE 1024
-#define BUF_SIZE 720
+#define BUF_SIZE 1024
+// #define BUF_SIZE 720
 // #define BUF_SIZE 512
 // #define BUF_SIZE 256
 // #define BUF_SIZE 128
@@ -62,8 +70,9 @@ static inline void SET_LOWER_HALF_FS_CONTEXT() {
   // Compute the upper-half and lower-half fs addresses
   if (!fsaddr_initialized) {
     fsaddr_initialized = 1;
-    lh_fsaddr = lh_info.fsaddr - 64;
-    uh_fsaddr = (void*)pthread_self() - 64;
+    lh_fsaddr = lh_info.fsaddr - BUF_SIZE;
+    syscall(SYS_arch_prctl, ARCH_GET_FS, &uh_fsaddr);
+    uh_fsaddr = uh_fsaddr - BUF_SIZE;
   }
   memcpy(fsaddr_buf, uh_fsaddr, BUF_SIZE);
   memcpy(uh_fsaddr, lh_fsaddr, BUF_SIZE);
