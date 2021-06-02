@@ -235,47 +235,59 @@ TwoPhaseAlgo::commit(MPI_Comm comm, const char *collectiveFnc,
 void
 TwoPhaseAlgo::commit_begin(MPI_Comm comm)
 {
-  wrapperEntry(comm);
-
-#if 0
-  getcontext(&beforeTrivialBarrier);
-  // inTrivialBarrier should be false, unless we are jumping from
-  // the setcontext in threadlist.cpp:stopthisthread because the
-  // checkpoint signal was received from the trivial barrier.
-  if (inTrivialBarrier) {
-    inTrivialBarrier = false;
-    raise(CKPT_SIGNAL); // resend the checkpoint signal to this thread
+  if (comm == MPI_COMM_NULL) {
+    return; 
   }
 
-#endif
+  wrapperEntry(comm);
+  getcontext(&beforeTrivialBarrier);
 
-  // Call the trivial barrier if it's the second time this
-  // communicator enters a wrapper after get a free pass
-  // from PHASE_2
-  if (true /*isCkptPending() && inCommHistory(comm)*/) {
+  // Call the trivial barrier
+  if (true /*isCkptPending()*/) {
     inTrivialBarrierOrPhase1 = true;
     setCurrState(IN_TRIVIAL_BARRIER);
     MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-    // JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-    NEXT_FUNC(Barrier)(realComm);
-    // RETURN_TO_UPPER_HALF();
-    inTrivialBarrierOrPhase1 = false;
+    MPI_Request request;
+    int flag = 0;
+    DMTCP_PLUGIN_DISABLE_CKPT();
+    // FIXME: use JUMP_TO_LOWER_HALF after the FSGSBASE patch is ready
+#if 1
+    SET_LOWER_HALF_FS_CONTEXT();
+    NEXT_FUNC(Ibarrier)(realComm, &request);
+    RESTORE_UPPER_HALF_FS_CONTEXT();
+#else
+    JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+    NEXT_FUNC(Ibarrier)(realComm, &request);
+    RETURN_TO_UPPER_HALF();
+#endif
+    DMTCP_PLUGIN_ENABLE_CKPT();
+    while (!flag) {
+      DMTCP_PLUGIN_DISABLE_CKPT();
+      JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+      JASSERT(request != MPI_REQUEST_NULL)(request)(flag)(realComm);
+      int rc = NEXT_FUNC(Test)(&request, &flag, MPI_STATUS_IGNORE);
+#ifdef DEBUG
+      JASSERT(rc == MPI_SUCCESS)(rc)(realComm)(request)(comm);
+#endif
+      RETURN_TO_UPPER_HALF();
+      DMTCP_PLUGIN_ENABLE_CKPT();
+      // Delay in case we need to retry
+      struct timespec test_interval = {.tv_sec = 0, .tv_nsec = 50000};
+      nanosleep(&test_interval, NULL);
+    }
   }
 
+  entering_phase1 = true;
   if (isCkptPending()) {
     stop(comm);
   }
+  inTrivialBarrierOrPhase1 = false;
+  entering_phase1 = false;
   setCurrState(IN_CS);
 }
 
 void
 TwoPhaseAlgo::commit_finish() {
-  // INVARIANT: All of our peers have executed the real collective comm.
-  // Now, we can re-enable checkpointing
-  // setCurrState(PHASE_2);
-  // if (isCkptPending()) {
-  //   stop(comm, PHASE_2);
-  // }
   setCurrState(IS_READY);
   wrapperExit();
 }
