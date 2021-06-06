@@ -17,6 +17,7 @@
 #define MpiTypeList  dmtcp_mpi::MpiVirtualization<MPI_Datatype>
 #define MpiOpList    dmtcp_mpi::MpiVirtualization<MPI_Op>
 #define MpiCommKeyvalList    dmtcp_mpi::MpiVirtualization<int>
+#define MpiRequestList    dmtcp_mpi::MpiVirtualization<MPI_Request>
 # define NEXT_FUNC(func)                                                       \
   ({                                                                           \
     static __typeof__(&MPI_##func)_real_MPI_## func =                          \
@@ -72,15 +73,26 @@
   MpiOpList::instance("MpiOp", MPI_OP_NULL).updateMapping(v, r)
 
 #define REAL_TO_VIRTUAL_COMM_KEYVAL(id) \
-  MpiOpList::instance("MpiCommKeyval", MPI_OP_NULL).realToVirtual(id)
+  MpiOpList::instance("MpiCommKeyval", 0).realToVirtual(id)
 #define VIRTUAL_TO_REAL_COMM_KEYVAL(id) \
-  MpiOpList::instance("MpiCommKeyval", MPI_OP_NULL).virtualToReal(id)
+  MpiOpList::instance("MpiCommKeyval", 0).virtualToReal(id)
 #define ADD_NEW_COMM_KEYVAL(id) \
-  MpiOpList::instance("MpiCommKeyval", MPI_OP_NULL).onCreate(id)
+  MpiOpList::instance("MpiCommKeyval", 0).onCreate(id)
 #define REMOVE_OLD_COMM_KEYVAL(id) \
-  MpiOpList::instance("MpiCommKeyval", MPI_OP_NULL).onRemove(id)
+  MpiOpList::instance("MpiCommKeyval", 0).onRemove(id)
 #define UPDATE_COMM_KEYVAL_MAP(v, r) \
-  MpiOpList::instance("MpiCommKeyval", MPI_OP_NULL).updateMapping(v, r)
+  MpiOpList::instance("MpiCommKeyval", 0).updateMapping(v, r)
+
+#define REAL_TO_VIRTUAL_REQUEST(id) \
+  MpiRequestList::instance("MpiRequest", MPI_REQUEST_NULL).realToVirtual(id)
+#define VIRTUAL_TO_REAL_REQUEST(id) \
+  MpiRequestList::instance("MpiRequest", MPI_REQUEST_NULL).virtualToReal(id)
+#define ADD_NEW_REQUEST(id) \
+  MpiRequestList::instance("MpiRequest", MPI_REQUEST_NULL).onCreate(id)
+#define REMOVE_OLD_REQUEST(id) \
+  MpiRequestList::instance("MpiRequest", MPI_REQUEST_NULL).onRemove(id)
+#define UPDATE_REQUEST_MAP(v, r) \
+  MpiRequestList::instance("MpiRequest", MPI_REQUEST_NULL).updateMapping(v, r)
 
 namespace dmtcp_mpi
 {
@@ -119,6 +131,9 @@ namespace dmtcp_mpi
 	} else if (strcmp(name, "MpiCommKeyval") == 0) {
 	  static MpiVirtualization _virTableMpiCommKeyval(name, nullId);
 	  return _virTableMpiCommKeyval;
+	} else if (strcmp(name, "MpiRequest") == 0) {
+	  static MpiVirtualization _virTableMpiRequest(name, nullId);
+	  return _virTableMpiRequest;
 	}
 	JWARNING(false)(name)(nullId).Text("Unhandled type");
 	static MpiVirtualization _virTableNoSuchObject(name, nullId);
