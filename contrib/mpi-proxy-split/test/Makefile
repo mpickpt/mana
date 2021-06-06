@@ -23,7 +23,7 @@ FILES=mpi_hello_world \
       Barrier_test Bcast_test Comm_split_test Reduce_test \
       Waitall_test \
       two-phase-commit-1 two-phase-commit-2 \
-      Ibcast_test \
+      Ibcast_test Ibarrier_test \
       Abort_test Allreduce_test Alltoall_test Alltoallv_test \
       Allgather_test Group_size_rank Type_commit_contiguous
 
