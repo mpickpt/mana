@@ -185,6 +185,7 @@ replayMpiOnRestart()
     int retval = 0;
     int flag = 0;
     request = it.first;
+    MPI_Request virtRequest = *request;
     message = it.second;
 
     if (message->serviced)
@@ -212,7 +213,14 @@ replayMpiOnRestart()
         break;
       case IBARRIER_REQUEST:
         JTRACE("Replaying Ibarrier call")(message->params.comm);
-        retval = MPI_Ibarrier(message->params.comm, request);
+        DMTCP_PLUGIN_DISABLE_CKPT();
+        MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(message->params.comm);
+        JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+        retval = NEXT_FUNC(Ibarrier)(realComm, request);
+        RETURN_TO_UPPER_HALF();
+        UPDATE_REQUEST_MAP(virtRequest, *request);
+        *request = virtRequest;
+        DMTCP_PLUGIN_ENABLE_CKPT();
         JASSERT(retval == MPI_SUCCESS).Text("Error while replaying Ibarrier");
         break;
       case IBCAST_REQUEST:
