@@ -113,7 +113,8 @@ namespace dmtcp_mpi
           _comm(MPI_COMM_NULL),
           _freePass(false), _inWrapper(false),
           _ckptPending(false), _recvdCkptMsg(false),
-          _commHistorySize(0), phase1_freepass(false), entering_phase1(false)
+          _commHistorySize(0), phase1_freepass(false), entering_phase1(false),
+          _commAndStateMutex()
       {
       }
 
@@ -262,6 +263,9 @@ namespace dmtcp_mpi
 
       // Lock to protect accesses to '_recvdCkptMsg'
       mutex_t _ckptMsgMutex;
+
+      // lock to make atomic read/write for comm and state
+      mutex_t _commAndStateMutex;
 
       // Condition variable to wait-signal based on the state of '_freePass'
       cv_t _freePassCv;
