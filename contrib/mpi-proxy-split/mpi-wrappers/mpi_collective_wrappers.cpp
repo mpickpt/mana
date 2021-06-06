@@ -45,6 +45,8 @@ USER_DEFINED_WRAPPER(int, Ibcast,
     retval = NEXT_FUNC(Ibcast)(buffer, count, realType,
                                root, realComm, request);
     RETURN_TO_UPPER_HALF();
+    MPI_Request virtRequest = ADD_NEW_REQUEST(*request);
+    *request = virtRequest;
     addPendingIbcastToLog(IBCAST_REQUEST, buffer, count, datatype,
                            root, comm, request);
     DMTCP_PLUGIN_ENABLE_CKPT();
@@ -104,6 +106,8 @@ USER_DEFINED_WRAPPER(int, Ibarrier, (MPI_Comm) comm, (MPI_Request *) request)
     JUMP_TO_LOWER_HALF(lh_info.fsaddr);
     retval = NEXT_FUNC(Ibarrier)(realComm, request);
     RETURN_TO_UPPER_HALF();
+    MPI_Request virtRequest = ADD_NEW_REQUEST(*request);
+    *request = virtRequest;
     addPendingIbarrierToLog(IBARRIER_REQUEST, comm, request);
     DMTCP_PLUGIN_ENABLE_CKPT();
     /* int flag = 0; */
@@ -173,6 +177,8 @@ USER_DEFINED_WRAPPER(int, Ireduce,
     retval = NEXT_FUNC(Ireduce)(sendbuf, recvbuf, count,
                                realType, realOp, root, realComm, request);
     RETURN_TO_UPPER_HALF();
+    MPI_Request virtRequest = ADD_NEW_REQUEST(*request);
+    *request = virtRequest;
     addPendingIreduceToLog(IREDUCE_REQUEST, sendbuf, recvbuf, count, 
                            datatype, op, root, comm, request);
     DMTCP_PLUGIN_ENABLE_CKPT();

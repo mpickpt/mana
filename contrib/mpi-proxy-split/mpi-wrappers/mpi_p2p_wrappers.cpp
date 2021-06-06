@@ -52,6 +52,8 @@ USER_DEFINED_WRAPPER(int, Isend,
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Isend)(buf, count, realType, dest, tag, realComm, request);
   RETURN_TO_UPPER_HALF();
+  MPI_Request virtRequest = ADD_NEW_REQUEST(*request);
+  *request = virtRequest;
   addPendingRequestToLog(ISEND_REQUEST, buf, NULL, count,
                          datatype, dest, tag, comm, request);
   updateLocalSends(count);
@@ -138,6 +140,8 @@ USER_DEFINED_WRAPPER(int, Irecv,
   retval = NEXT_FUNC(Irecv)(buf, count, realType,
                             source, tag, realComm, request);
   RETURN_TO_UPPER_HALF();
+  MPI_Request virtRequest = ADD_NEW_REQUEST(*request);
+  *request = virtRequest;
   addPendingRequestToLog(IRECV_REQUEST, NULL, buf, count,
                          datatype, source, tag, comm, request);
   DMTCP_PLUGIN_ENABLE_CKPT();

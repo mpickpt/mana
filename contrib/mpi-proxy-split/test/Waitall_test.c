@@ -3,6 +3,7 @@
 */
 #include <mpi.h>
 #include <stdio.h>
+#include <unistd.h>
 #include <assert.h>
 
 int main(int argc, char *argv[])
@@ -33,9 +34,11 @@ int main(int argc, char *argv[])
                       &request[i]);
         }
         MPI_Waitall(size-1, request, status);
+        sleep(10);
     }
     else
     {
+        sleep(10);
         MPI_Recv(buffer, 100, MPI_INT, 0, 123, MPI_COMM_WORLD, &status[0]);
         printf("%d: buffer[0] = %d\n", rank, buffer[0]);fflush(stdout);
         assert(buffer[0] == rank - 1);
