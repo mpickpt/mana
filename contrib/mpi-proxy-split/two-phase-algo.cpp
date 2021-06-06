@@ -140,8 +140,13 @@ TwoPhaseAlgo::commit(MPI_Comm comm, const char *collectiveFnc,
   if (comm == MPI_COMM_NULL) {
     return doRealCollectiveComm(); // lambda function: already captured args
   }
-
+ 
+  _commAndStateMutex.lock();
+  // maintain consistent view for DMTCP coordinator
   wrapperEntry(comm);
+  setCurrState(IN_TRIVIAL_BARRIER);
+  _commAndStateMutex.unlock();
+
   addCommHistory(comm);
   JTRACE("Invoking 2PC for")(collectiveFnc);
 
@@ -150,6 +155,7 @@ TwoPhaseAlgo::commit(MPI_Comm comm, const char *collectiveFnc,
   // Call the trivial barrier
   if (true /*isCkptPending() && inCommHistory(comm)*/) {
     inTrivialBarrierOrPhase1 = true;
+    // Set state again incase we returned from beforeTrivialBarrier
     setCurrState(IN_TRIVIAL_BARRIER);
     MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
     MPI_Request request;
@@ -200,8 +206,11 @@ TwoPhaseAlgo::commit(MPI_Comm comm, const char *collectiveFnc,
   // if (isCkptPending()) {
   //   stop(comm, PHASE_2);
   // }
+  _commAndStateMutex.lock();
+  // maintain consistent view for DMTCP coordinator
   setCurrState(IS_READY);
   wrapperExit();
+  _commAndStateMutex.unlock();
   return retval;
 }
 
@@ -311,12 +320,15 @@ TwoPhaseAlgo::preSuspendBarrier(const void *data)
       JWARNING(false)(query).Text("Unknown query from coordinatory");
       break;
   }
+  _commAndStateMutex.lock();
+  // maintain consistent view for DMTCP coordinator
   st = getCurrState();
   // Maybe the user thread enters the wrapper only here.
   // So, we report an obsolete state (IS_READY).  But it is still
   // a consistent snapshot.  If IS_READY, we ignore the _comm.
   // FIXME: This assumes sequential memory consistency.  Maybe add fence()?
   int gid = VirtualGlobalCommId::instance().getGlobalId(_comm);
+  _commAndStateMutex.unlock();
   rank_state_t state = { .rank = procRank, .comm = gid, .st = st};
   JASSERT(state.comm != MPI_COMM_NULL || state.st == IS_READY)
 	 (state.comm)(state.st)(gid)(_currState)(query);
