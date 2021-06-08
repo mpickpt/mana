@@ -24,7 +24,7 @@ USER_DEFINED_WRAPPER(int, Op_create,
   if (retval == MPI_SUCCESS && LOGGING()) {
     MPI_Op virtOp = ADD_NEW_OP(*op);
     *op = virtOp;
-    LOG_CALL(restoreOps, Op_create, &user_fn, &commute, &virtOp);
+    LOG_CALL(restoreOps, Op_create, user_fn, commute, virtOp);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -47,7 +47,7 @@ USER_DEFINED_WRAPPER(int, Op_free, (MPI_Op*) op)
     // have been created using this op.
     //
     // realOp = REMOVE_OLD_OP(*op);
-    LOG_CALL(restoreOps, Op_free, op);
+    LOG_CALL(restoreOps, Op_free, *op);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;

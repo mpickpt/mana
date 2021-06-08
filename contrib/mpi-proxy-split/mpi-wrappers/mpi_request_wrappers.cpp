@@ -21,13 +21,13 @@ USER_DEFINED_WRAPPER(int, Test, (MPI_Request*) request,
   } else {
     MPI_Request req = *request;
     MPI_Request realRequest = VIRTUAL_TO_REAL_REQUEST(*request);
-    JASSERT(req != MPI_REQUEST_NULL)(request)(*request)(realRequest);
     JUMP_TO_LOWER_HALF(lh_info.fsaddr);
     // MPI_Test can change the *request argument
     retval = NEXT_FUNC(Test)(&realRequest, flag, status);
     RETURN_TO_UPPER_HALF();
     if (retval == MPI_SUCCESS && *flag) {
       clearPendingRequestFromLog(request, req);
+      *request = MPI_REQUEST_NULL;
     }
     DMTCP_PLUGIN_ENABLE_CKPT();
   }
