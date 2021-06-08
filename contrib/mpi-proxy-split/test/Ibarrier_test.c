@@ -32,12 +32,12 @@ char *argv[];
     MPI_Init(&argc,&argv);
     MPI_Comm_size(MPI_COMM_WORLD,&numprocs);
     MPI_Comm_rank(MPI_COMM_WORLD,&myid);
-    iterations = 100;
+    iterations = 100000;
     for (iter = 0; iter < iterations; iter++) {
         MPI_Ibarrier(MPI_COMM_WORLD, &request);
-        printf("[Rank = %d]\n", myid);
-        fflush(stdout);
-        sleep(1); // The checkpoint is likely to occur here.
+        // printf("[Rank = %d]\n", myid);
+        // fflush(stdout);
+        // sleep(1); // The checkpoint is likely to occur here.
 #ifdef MPI_TEST
         while (1) {
           int flag = 0;

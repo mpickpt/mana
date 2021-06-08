@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <mpi.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 int main(int argc, char *argv[])
 {
@@ -35,6 +36,7 @@ int main(int argc, char *argv[])
   MPI_Comm_rank(commcol, &colID);
   MPI_Cart_coords(commcol, colID, 1, coords1D);
 
+  sleep(5);
   MPI_Barrier(MPI_COMM_WORLD);
 
   /* aij = (i+1)*10 + j + 1; 1 matrix element to each proc */
