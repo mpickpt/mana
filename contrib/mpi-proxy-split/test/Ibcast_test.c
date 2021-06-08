@@ -60,8 +60,8 @@ char *argv[];
         MPI_Wait(&request, &status);
 #endif
         for (i=0;i<count;i++) {
+          printf(" %d %d", buffer[i], expected_output[i]);
           assert(buffer[i] == expected_output[i]);
-          printf(" %d", buffer[i]);
         }
         printf("\n");
         fflush(stdout);
