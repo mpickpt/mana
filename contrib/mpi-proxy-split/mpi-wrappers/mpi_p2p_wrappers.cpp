@@ -9,6 +9,7 @@
 #include "protectedfds.h"
 #include "mpi_nextfunc.h"
 #include "virtual-ids.h"
+#include "record-replay.h"
 
 wr_counts_t g_counts = {0};
 
@@ -52,16 +53,20 @@ USER_DEFINED_WRAPPER(int, Isend,
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Isend)(buf, count, realType, dest, tag, realComm, request);
   RETURN_TO_UPPER_HALF();
-  MPI_Request virtRequest = ADD_NEW_REQUEST(*request);
-  *request = virtRequest;
-  addPendingRequestToLog(ISEND_REQUEST, buf, NULL, count,
-                         datatype, dest, tag, comm, request);
-  updateLocalSends(count);
+  if (retval == MPI_SUCCESS && LOGGING()) {
+    MPI_Request virtRequest = ADD_NEW_REQUEST(*request);
+    *request = virtRequest;
+    addPendingRequestToLog(ISEND_REQUEST, buf, NULL, count,
+                           datatype, dest, tag, comm, request);
+    updateLocalSends(count);
+  }
   DMTCP_PLUGIN_ENABLE_CKPT();
-  int flag = 0;
-  MPI_Status st;
-  if (MPI_Request_get_status(*request, &flag, &st) == MPI_SUCCESS && flag) {
-    clearPendingRequestFromLog(request, *request);
+  if (retval == MPI_SUCCESS && LOGGING()) {
+    int flag = 0;
+    MPI_Status st;
+    if (MPI_Request_get_status(*request, &flag, &st) == MPI_SUCCESS && flag) {
+      clearPendingRequestFromLog(request, *request);
+    }
   }
   return retval;
 }
@@ -140,10 +145,12 @@ USER_DEFINED_WRAPPER(int, Irecv,
   retval = NEXT_FUNC(Irecv)(buf, count, realType,
                             source, tag, realComm, request);
   RETURN_TO_UPPER_HALF();
-  MPI_Request virtRequest = ADD_NEW_REQUEST(*request);
-  *request = virtRequest;
-  addPendingRequestToLog(IRECV_REQUEST, NULL, buf, count,
-                         datatype, source, tag, comm, request);
+  if (retval == MPI_SUCCESS && LOGGING()) {
+    MPI_Request virtRequest = ADD_NEW_REQUEST(*request);
+    *request = virtRequest;
+    addPendingRequestToLog(IRECV_REQUEST, NULL, buf, count,
+                           datatype, source, tag, comm, request);
+  }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }

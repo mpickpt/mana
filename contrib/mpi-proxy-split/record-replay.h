@@ -64,45 +64,111 @@ namespace dmtcp_mpi
   using fcb_t   = std::function<int(const MpiRecord&)>;
   using mpi_record_vector_iterator_t = dmtcp::vector<MpiRecord*>::iterator;
 
+  enum TYPE {
+    TYPE_INT,
+    TYPE_INT_PTR,
+    TYPE_INT_ARRAY,
+    TYPE_VOID_PTR,
+    TYPE_MPI_USER_FNC,
+  };
+
   // Struct for saving arbitrary function arguments
-  // FIXME: When two types has the same length, this will not distinguish
-  // e.g. unsigned long and int*
   struct FncArg
   {
-    void *_buf;
+    void *_data;
+    enum TYPE _type;
 
-    FncArg(const void *buf, size_t len)
-      : _buf(JALLOC_HELPER_MALLOC(len))
+    FncArg(const void *data, size_t len, dmtcp_mpi::TYPE type)
+      : _data(JALLOC_HELPER_MALLOC(len))
     {
-      if (_buf && buf) {
-        memcpy(_buf, buf, len);
+      _type = type;
+      if (_data && data) {
+        memcpy(_data, data, len);
+      }
+    }
+
+    // This constructor is only used by CREATE_LOG_BUF
+    FncArg(const void *data, size_t len)
+      : _data(JALLOC_HELPER_MALLOC(len))
+    {
+      // Default _type set to TYPE_INT_ARRAY because this constructor is used
+      // by CREATE_LOG_BUF in MPI_Cart functions.
+      _type = dmtcp_mpi::TYPE_INT_ARRAY;
+      if (_data && data) {
+        memcpy(_data, data, len);
       }
     }
 
     ~FncArg()
     {
-      if (!_buf) {
-        JALLOC_HELPER_FREE(_buf);
+      if (!_data) {
+        JALLOC_HELPER_FREE(_data);
       }
     }
+
+    // On restart, we will use the restore family of functions in
+    // record-replay.cpp. A typical line of code there is:
+    //   int arg = rec.args(n);
+    // rec.args() returns a 'const FncArg&'.
+    // The copy constructor for arg will invokes one of these casts
+    // from FncArg to the type for arg. So in this example, the code
+    // is invoking the 'int cast operator', resulting in:
+    //   int arg = *(int*)(((FncArg)rec.args(n))._data);
 
     // Returns an int corresponding to the saved argument
     operator int() const
     {
-      return *(int*)_buf;
+      return *(int*)_data;
     }
 
     // Returns an int pointer to saved argument
     operator int*() const
     {
-      return (int*)_buf;
+      if (_type == dmtcp_mpi::TYPE_INT_ARRAY) {
+        return (int*)_data;
+      } else if (_type == dmtcp_mpi::TYPE_INT_PTR) {
+        return *(int**)_data;
+      } else {
+        JASSERT(false).Text("Unsupported arg type");
+        return NULL;
+      }
+    }
+
+    // Returns an void pointer to saved argument
+    operator void*() const
+    {
+      return *(void**)_data;
     }
 
     operator MPI_User_function*() const
     {
-      return (MPI_User_function*)_buf;
+      return *(MPI_User_function**)_data;
     }
   };
+
+  template<typename T>
+  FncArg FncArgTyped(T data)
+  {
+    int a;
+    int *b;
+    void *c;
+    MPI_User_function *d;
+
+    if (typeid(data) == typeid(a)) {
+      return FncArg(&data, sizeof(data), TYPE_INT);
+    }
+    if (typeid(data) == typeid(b)) {
+      return FncArg(&data, sizeof(data), TYPE_INT_PTR);
+    }
+    if (typeid(data) == typeid(c)) {
+      return FncArg(&data, sizeof(data), TYPE_VOID_PTR);
+    }
+    if (typeid(data) == typeid(d)) {
+      return FncArg(&data, sizeof(data), TYPE_MPI_USER_FNC);
+    }
+    JASSERT(false).Text("Unkown type for FncArg");
+    return FncArgTyped(-1);
+  }
 
   // Represent a single call record
   class MpiRecord
@@ -129,27 +195,27 @@ namespace dmtcp_mpi
       }
 
       // Handle one complex argument
-      void addArgs(const FncArg *arg)
+      void addArgs(const FncArg arg)
       {
-        _args.push_back(*arg);
+        _args.push_back(arg);
       }
 
       // Handle one MPI_User_function argument
       void addArgs(MPI_User_function *arg)
       {
-        _args.push_back(FncArg((void*)arg, sizeof(void*)));
+        _args.push_back(FncArgTyped((void*)arg));
       }
 
       // Handle one simple argument
       template<typename T>
-      void addArgs(const T* arg)
+      void addArgs(const T arg)
       {
-        _args.push_back(FncArg(arg, sizeof(T)));
+        _args.push_back(FncArgTyped(arg));
       }
 
       // Handle list of arguments
       template<typename T, typename... Targs>
-      void addArgs(const T* car, const Targs*... cdr)
+      void addArgs(const T car, const Targs... cdr)
       {
         addArgs(car);
         addArgs(cdr...);
@@ -211,7 +277,7 @@ namespace dmtcp_mpi
       // of the call).
       template<typename T, typename... Targs>
       MpiRecord* record(fcb_t cb, MPI_Fncs type,
-                        const T fPtr, const Targs*... args)
+                        const T fPtr, const Targs... args)
       {
         lock_t lock(_mutex);
         MpiRecord *rec = new MpiRecord(cb, type, (void*)fPtr);
@@ -465,6 +531,10 @@ namespace dmtcp_mpi
 
   // Restores the MPI ops and returns MPI_SUCCESS on success
   extern int restoreOps(const MpiRecord& );
+
+  // Restores the MPI requests and returns MPI_SUCCESS on success
+  extern int restoreRequests(const MpiRecord& );
+
 }; // namespace dmtcp_mpi
 
 // Restores the MPI state by recreating the communicator, groups, types, etc.

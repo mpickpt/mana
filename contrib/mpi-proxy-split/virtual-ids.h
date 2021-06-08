@@ -83,6 +83,7 @@
 #define UPDATE_COMM_KEYVAL_MAP(v, r) \
   MpiOpList::instance("MpiCommKeyval", 0).updateMapping(v, r)
 
+#if 1
 #define REAL_TO_VIRTUAL_REQUEST(id) \
   MpiRequestList::instance("MpiRequest", MPI_REQUEST_NULL).realToVirtual(id)
 #define VIRTUAL_TO_REAL_REQUEST(id) \
@@ -93,6 +94,11 @@
   MpiRequestList::instance("MpiRequest", MPI_REQUEST_NULL).onRemove(id)
 #define UPDATE_REQUEST_MAP(v, r) \
   MpiRequestList::instance("MpiRequest", MPI_REQUEST_NULL).updateMapping(v, r)
+#else
+#define VIRTUAL_TO_REAL_REQUEST(id) id
+#define ADD_NEW_REQUEST(id) id
+#define UPDATE_REQUEST_MAP(v, r) r
+#endif
 
 namespace dmtcp_mpi
 {
@@ -226,7 +232,7 @@ namespace dmtcp_mpi
           return vId;
         }
         _vIdTable.updateMapping(virt, real);
-        return vId;
+        return virt;
       }
 
     private:
@@ -279,7 +285,7 @@ namespace dmtcp_mpi
         }
         // FIXME: We assume the hash collision between communicators who
         // have different members is low.
-        // FIXME: We want to prune virtual communicators to avoid long 
+        // FIXME: We want to prune virtual communicators to avoid long
         // restart time.
         // FIXME: In VASP we observed that for the same virtual communicator
         // (adding 1 to each new communicator with the same rank members),
@@ -310,7 +316,7 @@ namespace dmtcp_mpi
       }
 
       unsigned int getGlobalId(MPI_Comm comm) {
-        std::map<MPI_Comm, unsigned int>::iterator it = 
+        std::map<MPI_Comm, unsigned int>::iterator it =
           globalIdTable.find(comm);
         JASSERT(it != globalIdTable.end())(comm)
           .Text("Can't find communicator in the global id table");
