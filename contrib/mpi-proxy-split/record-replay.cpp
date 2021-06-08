@@ -38,10 +38,16 @@ static int restoreCartSub(const MpiRecord& rec);
 static int restoreOpCreate(const MpiRecord& rec);
 static int restoreOpFree(const MpiRecord& rec);
 
+static int restoreIsend(const MpiRecord& rec);
+static int restoreIrecv(const MpiRecord& rec);
+static int restoreIbcast(const MpiRecord& rec);
+static int restoreIreduce(const MpiRecord& rec);
+static int restoreIbarrier(const MpiRecord& rec);
+
 void
 restoreMpiState()
 {
-  JWARNING(RESTORE_MPI_STATE() == MPI_SUCCESS)
+  JASSERT(RESTORE_MPI_STATE() == MPI_SUCCESS)
           .Text("Failed to restore MPI state");
 }
 
@@ -210,6 +216,31 @@ dmtcp_mpi::restoreOps(const MpiRecord &rec)
   return rc;
 }
 
+int
+dmtcp_mpi::restoreRequests(const MpiRecord &rec)
+{
+  int rc = -1;
+  JTRACE("Restoring MPI Requests");
+  switch (rec.getType()) {
+    case GENERATE_ENUM(Ibarrier):
+      JTRACE("restoreIbarrier");
+      rc = restoreIbarrier(rec);
+      break;
+    case GENERATE_ENUM(Ireduce):
+      JTRACE("restoreIreduce");
+      rc = restoreIreduce(rec);
+      break;
+    case GENERATE_ENUM(Ibcast):
+      JTRACE("restoreIbcast");
+      rc = restoreIbcast(rec);
+      break;
+    default:
+      JWARNING(false)(rec.getType()).Text("Unknown call");
+      break;
+  }
+  return rc;
+}
+
 static int
 restoreCommSplit(const MpiRecord& rec)
 {
@@ -307,11 +338,8 @@ restoreAttrPut(const MpiRecord& rec)
   int retval;
   MPI_Comm comm = rec.args(0);
   int key = rec.args(1);
-  // This is a temporary fix. rec.args(2) returns a FncArg struct,
-  // but it can't be cast into uint64_t correctly. We need to manually
-  // cast the void *_buf field into a uint64_t
-  uint64_t val = *(uint64_t*) rec.args(2)._buf;
-  retval = FNC_CALL(Attr_put, rec)(comm, key, (void*)val);
+  void *val = rec.args(2);
+  retval = FNC_CALL(Attr_put, rec)(comm, key, val);
   JWARNING(retval == MPI_SUCCESS)(comm)
           .Text("Error restoring MPI attribute-put");
   return retval;
@@ -337,9 +365,8 @@ restoreCommCreateKeyval(const MpiRecord& rec)
   MPI_Comm_copy_attr_function *cfn = (MPI_Comm_copy_attr_function*) cfn_tmp;
   MPI_Comm_delete_attr_function *dfn = (MPI_Comm_delete_attr_function*) dfn_tmp;
   int newkey = 0;
-  uint64_t extra_state = *(uint64_t*) rec.args(3)._buf;
-  retval = FNC_CALL(Comm_create_keyval, rec)(cfn, dfn, &newkey,
-                                             (void*)extra_state);
+  void *extra_state = rec.args(3);
+  retval = FNC_CALL(Comm_create_keyval, rec)(cfn, dfn, &newkey, extra_state);
   if (retval == MPI_SUCCESS) {
     int oldkey = rec.args(2);
     UPDATE_COMM_KEYVAL_MAP(oldkey, newkey);
@@ -593,7 +620,7 @@ restoreCartSub(const MpiRecord& rec)
   // int ndims = rec.args(1);
   int *remain_dims = rec.args(2);
   MPI_Comm newcomm = MPI_COMM_NULL;
-  // LOG_CALL(restoreCarts, Cart_sub, &comm, &ndims, &rs, &virtComm);
+  // LOG_CALL(restoreCarts, Cart_sub, comm, ndims, rs, virtComm);
   retval = FNC_CALL(Cart_sub, rec)(comm, remain_dims, &newcomm);
   if (retval == MPI_SUCCESS) {
     MPI_Comm virtComm = rec.args(3);
@@ -631,6 +658,54 @@ restoreOpFree(const MpiRecord& rec)
     // might have been created using this op.
     //
     // realOp = REMOVE_OLD_OP(op);
+  }
+  return retval;
+}
+
+static int restoreIbcast(const MpiRecord& rec) {
+  int retval = -1;
+  void *buf = rec.args(0);
+  int count = rec.args(1);
+  MPI_Datatype datatype = rec.args(2);
+  int root = rec.args(3);
+  MPI_Comm comm = rec.args(4);
+  MPI_Request newRequest = MPI_REQUEST_NULL;
+  retval = FNC_CALL(Ibcast, rec)(buf, count, datatype, root, comm,
+                                 &newRequest);
+  if (retval == MPI_SUCCESS) {
+    MPI_Request oldRequest = rec.args(5);
+    UPDATE_REQUEST_MAP(oldRequest, newRequest);
+  }
+  return retval;
+}
+
+static int restoreIreduce(const MpiRecord& rec) {
+  int retval = -1;
+  void *sendbuf = rec.args(0);
+  void *recvbuf = rec.args(1);
+  int count = rec.args(2);
+  MPI_Datatype datatype = rec.args(3);
+  MPI_Op op = rec.args(4);
+  int root = rec.args(5);
+  MPI_Comm comm = rec.args(6);
+  MPI_Request newRequest = MPI_REQUEST_NULL;
+  retval = FNC_CALL(Ireduce, rec)(sendbuf, recvbuf, count,
+                                  datatype, op, root, comm, &newRequest);
+  if (retval == MPI_SUCCESS) {
+    MPI_Request oldRequest = rec.args(7);
+    UPDATE_REQUEST_MAP(oldRequest, newRequest);
+  }
+  return retval;
+}
+
+static int restoreIbarrier(const MpiRecord& rec) {
+  int retval = -1;
+  MPI_Comm comm = rec.args(0);
+  MPI_Request newRequest = MPI_REQUEST_NULL;
+  retval = FNC_CALL(Ibarrier, rec)(comm, &newRequest);
+  if (retval == MPI_SUCCESS) {
+    MPI_Request oldRequest = rec.args(1);
+    UPDATE_REQUEST_MAP(oldRequest, newRequest);
   }
   return retval;
 }

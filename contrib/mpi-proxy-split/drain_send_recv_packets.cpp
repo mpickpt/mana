@@ -185,8 +185,12 @@ replayMpiOnRestart()
     int retval = 0;
     int flag = 0;
     request = it.first;
+    JASSERT(*request != 0)(request);
     MPI_Request virtRequest = *request;
     message = it.second;
+    MPI_Comm realComm;
+    MPI_Datatype realType;
+    MPI_Op realOp;
 
     if (message->serviced)
       continue;
@@ -199,6 +203,8 @@ replayMpiOnRestart()
                            message->params.remote_node,
                            message->params.tag, message->params.comm,
                            request);
+        UPDATE_REQUEST_MAP(virtRequest, *request);
+        *request = virtRequest;
         JASSERT(retval == MPI_SUCCESS).Text("Error while replaying recv");
         break;
       case ISEND_REQUEST:
@@ -209,40 +215,61 @@ replayMpiOnRestart()
                            message->params.datatype,
                            message->params.remote_node, message->params.tag,
                            message->params.comm, request);
-        JASSERT(retval == MPI_SUCCESS).Text("Error while replaying send");
-        break;
-      case IBARRIER_REQUEST:
-        JTRACE("Replaying Ibarrier call")(message->params.comm);
-        DMTCP_PLUGIN_DISABLE_CKPT();
-        MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(message->params.comm);
-        JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-        retval = NEXT_FUNC(Ibarrier)(realComm, request);
-        RETURN_TO_UPPER_HALF();
         UPDATE_REQUEST_MAP(virtRequest, *request);
         *request = virtRequest;
-        DMTCP_PLUGIN_ENABLE_CKPT();
+        JASSERT(retval == MPI_SUCCESS).Text("Error while replaying send");
+        break;
+#if 0
+      case IBARRIER_REQUEST:
+        JTRACE("Replaying Ibarrier call")(message->params.comm);
+        {
+          DMTCP_PLUGIN_DISABLE_CKPT();
+          realComm = VIRTUAL_TO_REAL_COMM(message->params.comm);
+          JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+          retval = NEXT_FUNC(Ibarrier)(realComm, request);
+          RETURN_TO_UPPER_HALF();
+          UPDATE_REQUEST_MAP(virtRequest, *request);
+          *request = virtRequest;
+          DMTCP_PLUGIN_ENABLE_CKPT();
+        }
         JASSERT(retval == MPI_SUCCESS).Text("Error while replaying Ibarrier");
         break;
       case IBCAST_REQUEST:
         JTRACE("Replaying Ibcast call")(message->params.comm);
-        retval = MPI_Ibcast(message->recvbuf, message->params.count,
-                           message->params.datatype,
-                           message->params.root,
-                           message->params.comm,
-                           request);
+        {
+          DMTCP_PLUGIN_DISABLE_CKPT();
+          realComm = VIRTUAL_TO_REAL_COMM(message->params.comm);
+          realType = VIRTUAL_TO_REAL_TYPE(message->params.datatype);
+          JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+          retval = NEXT_FUNC(Ibcast)(message->recvbuf, message->params.count,
+              realType, message->params.root, realComm,
+              request);
+          RETURN_TO_UPPER_HALF();
+          UPDATE_REQUEST_MAP(virtRequest, *request);
+          *request = virtRequest;
+          DMTCP_PLUGIN_ENABLE_CKPT();
+        }
         JASSERT(retval == MPI_SUCCESS).Text("Error while replaying ibcast");
         break;
       case IREDUCE_REQUEST:
         JTRACE("Replaying Ireduce call")(message->params.comm);
-        retval = MPI_Ireduce(message->sendbuf, message->recvbuf,
-                           message->params.count,
-                           message->params.datatype,
-                           message->params.op,
-                           message->params.root,
-                           message->params.comm,
-                           request);
+        {
+          DMTCP_PLUGIN_DISABLE_CKPT();
+          realComm = VIRTUAL_TO_REAL_COMM(message->params.comm);
+          realType = VIRTUAL_TO_REAL_TYPE(message->params.datatype);
+          realOp = VIRTUAL_TO_REAL_OP(message->params.op);
+          JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+          retval = NEXT_FUNC(Ireduce)(message->sendbuf, message->recvbuf,
+              message->params.count, realType, realOp,
+              message->params.root, realComm, request);
+          RETURN_TO_UPPER_HALF();
+          UPDATE_REQUEST_MAP(virtRequest, *request);
+          *request = virtRequest;
+          DMTCP_PLUGIN_ENABLE_CKPT();
+        }
         JASSERT(retval == MPI_SUCCESS).Text("Error while replaying ierduce");
         break;
+#endif
       default:
         JWARNING(false)(message->type).Text("Unhandled replay call");
         break;
@@ -318,14 +345,16 @@ addPendingRequestToLog(mpi_req_t req, const void* sbuf, void* rbuf, int cnt,
   call->params.remote_node = remote;
   call->params.tag = tag;
   call->params.comm = comm;
-  call->request = rq;
+  call->request = rq; // For debugging only
   call->req = *rq;
+  JASSERT(*rq != 0)(rq);
   call->flag = false;
   memset(&call->status, 0, sizeof(call->status));
   lock_t lock(logMutex);
   g_async_calls[rq] = call;
 }
 
+#if 0
 // For Ibarrier
 void
 addPendingIbarrierToLog(mpi_req_t req, MPI_Comm comm, MPI_Request* rq)
@@ -390,6 +419,7 @@ addPendingIreduceToLog(mpi_req_t req, const void* sbuf, void* rbuf, int cnt,
   lock_t lock(logMutex);
   g_async_calls[rq] = call;
 }
+#endif
 
 void
 clearPendingRequestFromLog(MPI_Request* req, MPI_Request orig)
@@ -588,6 +618,7 @@ resolve_async_messages()
           updateLocalRecvs(call->params.count);
         } else if (call->type == ISEND_REQUEST) {
           // Send completed successfully
+#if 1
           g_unsvcd_sends.erase(std::remove_if(g_unsvcd_sends.begin(),
                                               g_unsvcd_sends.end(),
                                               [call](const mpi_call_params_t &p)
@@ -595,7 +626,25 @@ resolve_async_messages()
                                                 return memcmp(&p,
                                                               &call->params,
                                                               sizeof(p)) == 0;
-                                              }));
+                                              }),
+                               g_unsvcd_sends.end());
+#else
+          // This expanded version is better for debugging
+          dmtcp::vector<mpi_call_params_t>::iterator first =
+            g_unsvcd_sends.begin();
+          dmtcp::vector<mpi_call_params_t>::iterator last =
+            g_unsvcd_sends.end();
+          dmtcp::vector<mpi_call_params_t>::iterator result = first;
+          while (first != last) {
+            if (memcmp(&*first, &call->params, sizeof(first) != 0)) {
+              if (result != first)
+                *result = *first;
+              ++result;
+            }
+            ++first;
+          }
+          g_unsvcd_sends.erase(result, last);
+#endif
         }
       } else {
         JTRACE("Unserviced request")(call->type);

@@ -50,7 +50,7 @@ USER_DEFINED_WRAPPER(int, Comm_create, (MPI_Comm) comm, (MPI_Group) group,
     MPI_Comm virtComm = ADD_NEW_COMM(*newcomm);
     VirtualGlobalCommId::instance().createGlobalId(virtComm);
     *newcomm = virtComm;
-    LOG_CALL(restoreComms, Comm_create, &comm, &group, &virtComm);
+    LOG_CALL(restoreComms, Comm_create, comm, group, virtComm);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -97,7 +97,7 @@ USER_DEFINED_WRAPPER(int, Comm_free, (MPI_Comm *) comm)
     //
     // realComm = REMOVE_OLD_COMM(*comm);
     // CLEAR_COMM_LOGS(*comm);
-    LOG_CALL(restoreComms, Comm_free, comm);
+    LOG_CALL(restoreComms, Comm_free, *comm);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -113,7 +113,7 @@ USER_DEFINED_WRAPPER(int, Comm_set_errhandler,
   retval = NEXT_FUNC(Comm_set_errhandler)(realComm, errhandler);
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS && LOGGING()) {
-    LOG_CALL(restoreComms, Comm_set_errhandler, &comm, &errhandler);
+    LOG_CALL(restoreComms, Comm_set_errhandler, comm, errhandler);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -145,8 +145,8 @@ USER_DEFINED_WRAPPER(int, Comm_split_type, (MPI_Comm) comm, (int) split_type,
     MPI_Comm virtComm = ADD_NEW_COMM(*newcomm);
     VirtualGlobalCommId::instance().createGlobalId(virtComm);
     *newcomm = virtComm;
-    LOG_CALL(restoreComms, Comm_split_type, &comm,
-             &split_type, &key, &inf, &virtComm);
+    LOG_CALL(restoreComms, Comm_split_type, comm,
+             split_type, key, inf, virtComm);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -176,7 +176,7 @@ USER_DEFINED_WRAPPER(int, Attr_delete, (MPI_Comm) comm, (int) keyval)
   retval = NEXT_FUNC(Attr_delete)(realComm, realCommKeyval);
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS && LOGGING()) {
-    LOG_CALL(restoreComms, Attr_delete, &comm, &keyval);
+    LOG_CALL(restoreComms, Attr_delete, comm, keyval);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -194,7 +194,7 @@ USER_DEFINED_WRAPPER(int, Attr_put, (MPI_Comm) comm,
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS && LOGGING()) {
     uint64_t val = (uint64_t)attribute_val;
-    LOG_CALL(restoreComms, Attr_put, &comm, &keyval, &val);
+    LOG_CALL(restoreComms, Attr_put, comm, keyval, val);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -219,7 +219,7 @@ USER_DEFINED_WRAPPER(int, Comm_create_keyval,
     uint64_t dfn = (uint64_t)comm_delete_attr_fn;
     uint64_t es = (uint64_t)extra_state;
     LOG_CALL(restoreComms, Comm_create_keyval,
-             &cfn, &dfn, &virtCommKeyval, &es);
+             cfn, dfn, virtCommKeyval, es);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;

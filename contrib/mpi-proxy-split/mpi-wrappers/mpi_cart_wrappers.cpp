@@ -42,8 +42,8 @@ USER_DEFINED_WRAPPER(int, Cart_create, (MPI_Comm) old_comm, (int) ndims,
     *comm_cart = virtComm;
     FncArg ds = CREATE_LOG_BUF(dims, ndims * sizeof(int));
     FncArg ps = CREATE_LOG_BUF(periods, ndims * sizeof(int));
-    LOG_CALL(restoreCarts, Cart_create, &old_comm, &ndims,
-             &ds, &ps, &reorder, &virtComm);
+    LOG_CALL(restoreCarts, Cart_create, old_comm, ndims,
+             ds, ps, reorder, virtComm);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -75,7 +75,7 @@ USER_DEFINED_WRAPPER(int, Cart_map, (MPI_Comm) comm, (int) ndims,
   if (retval == MPI_SUCCESS && LOGGING()) {
     FncArg ds = CREATE_LOG_BUF(dims, ndims * sizeof(int));
     FncArg ps = CREATE_LOG_BUF(periods, ndims * sizeof(int));
-    LOG_CALL(restoreCarts, Cart_map, &comm, &ndims, &ds, &ps, newrank);
+    LOG_CALL(restoreCarts, Cart_map, comm, ndims, ds, ps, newrank);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -105,8 +105,8 @@ USER_DEFINED_WRAPPER(int, Cart_shift, (MPI_Comm) comm, (int) direction,
                                  disp, rank_source, rank_dest);
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS && LOGGING()) {
-    LOG_CALL(restoreCarts, Cart_shift, &comm, &direction,
-             &disp, rank_source, rank_dest);
+    LOG_CALL(restoreCarts, Cart_shift, comm, direction,
+             disp, rank_source, rank_dest);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -129,7 +129,7 @@ USER_DEFINED_WRAPPER(int, Cart_sub, (MPI_Comm) comm,
     VirtualGlobalCommId::instance().createGlobalId(virtComm);
     *new_comm = virtComm;
     FncArg rs = CREATE_LOG_BUF(remain_dims, ndims * sizeof(int));
-    LOG_CALL(restoreCarts, Cart_sub, &comm, &ndims, &rs, &virtComm);
+    LOG_CALL(restoreCarts, Cart_sub, comm, ndims, rs, virtComm);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;

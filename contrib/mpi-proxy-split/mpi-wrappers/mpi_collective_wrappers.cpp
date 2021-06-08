@@ -36,29 +36,22 @@ USER_DEFINED_WRAPPER(int, Ibcast,
                      (void *) buffer, (int) count, (MPI_Datatype) datatype,
                      (int) root, (MPI_Comm) comm, (MPI_Request *) request)
 {
-  std::function<int()> realBarrierCb = [=]() {
-    int retval;
-    DMTCP_PLUGIN_DISABLE_CKPT();
-    MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-    MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
-    JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-    retval = NEXT_FUNC(Ibcast)(buffer, count, realType,
-                               root, realComm, request);
-    RETURN_TO_UPPER_HALF();
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+  MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  retval = NEXT_FUNC(Ibcast)(buffer, count, realType,
+      root, realComm, request);
+  RETURN_TO_UPPER_HALF();
+  if (retval == MPI_SUCCESS && LOGGING()) {
     MPI_Request virtRequest = ADD_NEW_REQUEST(*request);
     *request = virtRequest;
-    addPendingIbcastToLog(IBCAST_REQUEST, buffer, count, datatype,
-                           root, comm, request);
-    DMTCP_PLUGIN_ENABLE_CKPT();
-    // FIXME: Examine this logic
-    /* int flag = 0; */
-    /* MPI_Status st; */
-    /* if (MPI_Request_get_status(*request, &flag, &st) == MPI_SUCCESS && flag) { */
-    /*   clearPendingRequestFromLog(request, *request); */
-    /* } */
-    return retval;
-  };
-  return twoPhaseCommit(comm, realBarrierCb);
+    LOG_CALL(restoreRequests, Ibcast, buffer, count, datatype,
+             root, comm, virtRequest);
+  }
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return retval;
 }
 
 #if 1
@@ -81,7 +74,7 @@ USER_DEFINED_WRAPPER(int, Barrier, (MPI_Comm) comm)
 {
   JTRACE("Invoking 2PC for MPI_Barrier");
   dmtcp_mpi::TwoPhaseAlgo::instance().commit_begin(comm);
-
+          
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
@@ -99,25 +92,19 @@ USER_DEFINED_WRAPPER(int, Barrier, (MPI_Comm) comm)
 EXTERNC
 USER_DEFINED_WRAPPER(int, Ibarrier, (MPI_Comm) comm, (MPI_Request *) request)
 {
-  std::function<int()> realBarrierCb = [=]() {
-    int retval;
-    DMTCP_PLUGIN_DISABLE_CKPT();
-    MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-    JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-    retval = NEXT_FUNC(Ibarrier)(realComm, request);
-    RETURN_TO_UPPER_HALF();
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  retval = NEXT_FUNC(Ibarrier)(realComm, request);
+  RETURN_TO_UPPER_HALF();
+  if (retval == MPI_SUCCESS && LOGGING()) {
     MPI_Request virtRequest = ADD_NEW_REQUEST(*request);
     *request = virtRequest;
-    addPendingIbarrierToLog(IBARRIER_REQUEST, comm, request);
-    DMTCP_PLUGIN_ENABLE_CKPT();
-    /* int flag = 0; */
-    /* MPI_Status st; */
-    /* if (MPI_Request_get_status(*request, &flag, &st) == MPI_SUCCESS && flag) { */
-    /*   clearPendingRequestFromLog(request, *request); */
-    /* } */
-    return retval;
-  };
-  return twoPhaseCommit(comm, realBarrierCb);
+    LOG_CALL(restoreRequests, Ibarrier, comm, virtRequest);
+  }
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return retval;
 }
 
 USER_DEFINED_WRAPPER(int, Allreduce,
@@ -167,29 +154,25 @@ USER_DEFINED_WRAPPER(int, Ireduce,
                      (MPI_Datatype) datatype, (MPI_Op) op,
                      (int) root, (MPI_Comm) comm, (MPI_Request *) request)
 {
-  std::function<int()> realBarrierCb = [=]() {
-    int retval;
-    DMTCP_PLUGIN_DISABLE_CKPT();
-    MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-    MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
-    MPI_Op realOp = VIRTUAL_TO_REAL_OP(op);
-    JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-    retval = NEXT_FUNC(Ireduce)(sendbuf, recvbuf, count,
-                               realType, realOp, root, realComm, request);
-    RETURN_TO_UPPER_HALF();
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+  MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
+  MPI_Op realOp = VIRTUAL_TO_REAL_OP(op);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  retval = NEXT_FUNC(Ireduce)(sendbuf, recvbuf, count,
+      realType, realOp, root, realComm, request);
+  RETURN_TO_UPPER_HALF();
+  if (retval == MPI_SUCCESS && LOGGING()) {
     MPI_Request virtRequest = ADD_NEW_REQUEST(*request);
     *request = virtRequest;
-    addPendingIreduceToLog(IREDUCE_REQUEST, sendbuf, recvbuf, count, 
-                           datatype, op, root, comm, request);
-    DMTCP_PLUGIN_ENABLE_CKPT();
-    /* int flag = 0; */
-    /* MPI_Status st; */
-    /* if (MPI_Request_get_status(*request, &flag, &st) == MPI_SUCCESS && flag) { */
-    /*   clearPendingRequestFromLog(request, *request); */
-    /* } */
-    return retval;
-  };
-  return twoPhaseCommit(comm, realBarrierCb);
+    uint64_t sb = (uint64_t) sendbuf;
+    uint64_t rb = (uint64_t) recvbuf;
+    LOG_CALL(restoreRequests, Ireduce, sb, rb,
+        count, datatype, op, root, comm, virtRequest);
+  }
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return retval;
 }
 
 USER_DEFINED_WRAPPER(int, Alltoall,
@@ -401,7 +384,7 @@ USER_DEFINED_WRAPPER(int, Comm_split, (MPI_Comm) comm, (int) color, (int) key,
       MPI_Comm virtComm = ADD_NEW_COMM(*newcomm);
       VirtualGlobalCommId::instance().createGlobalId(virtComm);
       *newcomm = virtComm;
-      LOG_CALL(restoreComms, Comm_split, &comm, &color, &key, &virtComm);
+      LOG_CALL(restoreComms, Comm_split, comm, color, key, virtComm);
     }
     DMTCP_PLUGIN_ENABLE_CKPT();
     return retval;
@@ -422,7 +405,7 @@ USER_DEFINED_WRAPPER(int, Comm_dup, (MPI_Comm) comm, (MPI_Comm *) newcomm)
       MPI_Comm virtComm = ADD_NEW_COMM(*newcomm);
       VirtualGlobalCommId::instance().createGlobalId(virtComm);
       *newcomm = virtComm;
-      LOG_CALL(restoreComms, Comm_dup, &comm, &virtComm);
+      LOG_CALL(restoreComms, Comm_dup, comm, virtComm);
     }
     DMTCP_PLUGIN_ENABLE_CKPT();
     return retval;

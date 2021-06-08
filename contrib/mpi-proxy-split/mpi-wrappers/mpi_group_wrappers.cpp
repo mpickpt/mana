@@ -23,7 +23,7 @@ USER_DEFINED_WRAPPER(int, Comm_group, (MPI_Comm) comm, (MPI_Group *) group)
   if (retval == MPI_SUCCESS && LOGGING()) {
     MPI_Group virtGroup = ADD_NEW_GROUP(*group);
     *group = virtGroup;
-    LOG_CALL(restoreGroups, Comm_group, &comm, &virtGroup);
+    LOG_CALL(restoreGroups, Comm_group, comm, virtGroup);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -56,7 +56,7 @@ USER_DEFINED_WRAPPER(int, Group_free, (MPI_Group *) group)
     //
     // realGroup = REMOVE_OLD_GROUP(*group);
     // CLEAR_GROUP_LOGS(*group);
-    LOG_CALL(restoreGroups, Group_free, group);
+    LOG_CALL(restoreGroups, Group_free, *group);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -101,7 +101,7 @@ USER_DEFINED_WRAPPER(int, Group_incl, (MPI_Group) group, (int) n,
     MPI_Group virtGroup = ADD_NEW_GROUP(*newgroup);
     *newgroup = virtGroup;
     FncArg rs = CREATE_LOG_BUF(ranks, n * sizeof(int));
-    LOG_CALL(restoreGroups, Group_incl, &group, &n, &rs, &virtGroup);
+    LOG_CALL(restoreGroups, Group_incl, group, n, rs, virtGroup);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
