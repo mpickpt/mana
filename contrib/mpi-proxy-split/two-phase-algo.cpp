@@ -192,7 +192,9 @@ TwoPhaseAlgo::commit(MPI_Comm comm, const char *collectiveFnc,
     JASSERT(tb_rc == MPI_SUCCESS)
       .Text("The trivial barrier in two-phase-commit algorithm failed");
     DMTCP_PLUGIN_ENABLE_CKPT();
-    while (!flag) {
+    // MPI_Ibarrier can set request MPI_REQUEST_NULL on success if
+    // all ranks are present. Does the MPI standard allow this?
+    while (!flag && request != MPI_REQUEST_NULL) {
       DMTCP_PLUGIN_DISABLE_CKPT();
       int rc;
       JUMP_TO_LOWER_HALF(lh_info.fsaddr);
