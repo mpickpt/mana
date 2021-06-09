@@ -220,6 +220,8 @@ namespace dmtcp_mpi
       T updateMapping(T virt, T real)
       {
         T vId = _nullId;
+        // If virt is not _nullId, then real should not be _nullId.
+        JASSERT(real != _nullId || virt == _nullId)(real)(virt);
         // Don't need to virtualize the null id
         if (virt == _nullId || real == _nullId) {
           return vId;

@@ -320,4 +320,9 @@ extern void clearPendingCkpt();
 // algo
 extern void resetTwoPhaseState();
 
+// Save and restore global variables that may be changed during
+// restart events. These are called from mpi_plugin.cpp using
+// DMTCP_PRIVATE_BARRIER_RESTART.
+extern void save2pcGlobals();
+extern void restore2pcGlobals();
 #endif // ifndef TWO_PHASE_ALGO_H
