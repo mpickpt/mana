@@ -42,7 +42,7 @@ dmtcp_skip_memory_region_ckpting(const ProcMapsArea *area)
       strstr(area->name, "/dev/kgni") ||
       // FIXME: must comment out for VASP 5/RPA jobs on 2 knl nodes,
       // don't know why.
-      // strstr(area->name, "/SYSV") ||
+      strstr(area->name, "/SYSV") ||
       strstr(area->name, "/dev/xpmem") ||
       strstr(area->name, "/dev/shm") ||
       area->addr == lh_info.startData) {
@@ -154,6 +154,8 @@ static DmtcpBarrier mpiPluginBarriers[] = {
     "Clear-Pending-Ckpt-Msg"},
   { DMTCP_PRIVATE_BARRIER_RESUME, resetTwoPhaseState,
     "Reset-Two-Phase-State"},
+  { DMTCP_PRIVATE_BARRIER_RESTART, save2pcGlobals,
+    "save-global-variables-in-2pc" },
   { DMTCP_PRIVATE_BARRIER_RESTART, updateLhEnviron,
     "updateEnviron" },
   { DMTCP_PRIVATE_BARRIER_RESTART, clearPendingCkpt,
@@ -166,6 +168,8 @@ static DmtcpBarrier mpiPluginBarriers[] = {
     "restoreMpiState"},
   { DMTCP_GLOBAL_BARRIER_RESTART, replayMpiOnRestart,
     "replay-async-receives" },
+  { DMTCP_PRIVATE_BARRIER_RESTART, restore2pcGlobals,
+    "restore-global-variables-in-2pc" },
 };
 
 DmtcpPluginDescriptor_t mpi_plugin = {
