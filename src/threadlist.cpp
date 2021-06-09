@@ -59,7 +59,7 @@ Thread *activeThreads = NULL;
 void *saved_sysinfo;
 MYINFO_GS_T myinfo_gs __attribute__((visibility("hidden")));
 #ifdef MPI
-bool inTrivialBarrierOrPhase1 = false;
+volatile bool inTrivialBarrierOrPhase1 = false;
 ucontext_t beforeTrivialBarrier;
 #endif
 

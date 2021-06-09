@@ -81,6 +81,26 @@ resetTwoPhaseState()
   TwoPhaseAlgo::instance().resetStateAfterCkpt();
 }
 
+// Save and restore global variables that may be changed during
+// restart events. These are called from mpi_plugin.cpp using
+// DMTCP_PRIVATE_BARRIER_RESTART.
+int inTrivialBarrierOrPhase1_copy = -1;
+ucontext_t beforeTrivialBarrier_copy;
+
+void
+save2pcGlobals()
+{
+  inTrivialBarrierOrPhase1_copy = inTrivialBarrierOrPhase1;
+  beforeTrivialBarrier_copy = beforeTrivialBarrier;
+}
+
+void
+restore2pcGlobals()
+{
+  inTrivialBarrierOrPhase1 = inTrivialBarrierOrPhase1_copy;
+  beforeTrivialBarrier = beforeTrivialBarrier_copy;
+}
+
 unsigned long upperHalfFs;
 
 // There can be multiple communicators, each with their own N (N = comm. size).
@@ -140,7 +160,7 @@ TwoPhaseAlgo::commit(MPI_Comm comm, const char *collectiveFnc,
   if (comm == MPI_COMM_NULL) {
     return doRealCollectiveComm(); // lambda function: already captured args
   }
- 
+
   _commAndStateMutex.lock();
   // maintain consistent view for DMTCP coordinator
   wrapperEntry(comm);
@@ -150,6 +170,10 @@ TwoPhaseAlgo::commit(MPI_Comm comm, const char *collectiveFnc,
   addCommHistory(comm);
   JTRACE("Invoking 2PC for")(collectiveFnc);
 
+  // FIXME:  When the MPI_Ibarrier reliazly uses virtualized requests,
+  //         we can replace 'beforeTrivialBarrier' by a more robust scheme:
+  //         Call MPI_Ibarrier wrapper instead of internal MPI_Ibarrier
+  //         and it will be safe to restart within that code.
   getcontext(&beforeTrivialBarrier);
 
   // Call the trivial barrier
@@ -160,31 +184,23 @@ TwoPhaseAlgo::commit(MPI_Comm comm, const char *collectiveFnc,
     MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
     MPI_Request request;
     int flag = 0;
+    int tb_rc = -1;
     DMTCP_PLUGIN_DISABLE_CKPT();
     JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-    NEXT_FUNC(Ibarrier)(realComm, &request);
+    tb_rc = NEXT_FUNC(Ibarrier)(realComm, &request);
     RETURN_TO_UPPER_HALF();
+    JASSERT(tb_rc == MPI_SUCCESS)
+      .Text("The trivial barrier in two-phase-commit algorithm failed");
     DMTCP_PLUGIN_ENABLE_CKPT();
     while (!flag) {
-      // Different MPI implementations have different rules for MPI_Test
-      // and MPI_REQUEST_NULL. For OpenMPI, it's allowed to call MPI_TEST
-      // with MPI_REQUEST_NULL, and the flag will always be true. But for
-      // MPICH, it will cause a fatal error that the request is invalid.
-      // So we check the value of request before doing the MPI_Test. If
-      // it's MPI_REQUEST_NULL, then we break. This will work with both
-      // rules.
-      if (request == MPI_REQUEST_NULL) {
-        JTRACE("Trivial barrier request is null")(request)(flag)(realComm);
-        break;
-      }
       DMTCP_PLUGIN_DISABLE_CKPT();
+      int rc;
       JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-      JASSERT(request != MPI_REQUEST_NULL)(request)(flag)(realComm);
-      int rc = NEXT_FUNC(Test)(&request, &flag, MPI_STATUS_IGNORE);
+      rc = NEXT_FUNC(Test)(&request, &flag, MPI_STATUS_IGNORE);
+      RETURN_TO_UPPER_HALF();
 #ifdef DEBUG
       JASSERT(rc == MPI_SUCCESS)(rc)(realComm)(request)(comm);
 #endif
-      RETURN_TO_UPPER_HALF();
       DMTCP_PLUGIN_ENABLE_CKPT();
       // FIXME: make this smaller
       struct timespec test_interval = {.tv_sec = 0, .tv_nsec = 100000};
