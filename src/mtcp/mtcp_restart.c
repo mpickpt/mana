@@ -1270,7 +1270,7 @@ restorememoryareas(RestoreInfo *rinfo_ptr, LowerHalfInfo_t *linfo_ptr)
       "  (gdb) list\n"
       "  (gdb) p dummy = 0\n"
       "  # Since Linux 3.10 (prctl:PR_SET_MM), you will also need to do:\n"
-      "  (gdb) source DMTCP_ROOT/util/gdb-add-symbol-files-all\n",
+      "  (gdb) source DMTCP_ROOT/util/gdb-add-symbol-files-all\n"
       "  (gdb) add-symbol-files-all\n",
       mtcp_sys_getpid()
     );
