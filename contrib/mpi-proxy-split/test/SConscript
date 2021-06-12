@@ -1,0 +1,18 @@
+import os
+import sys
+import platform
+
+"""
+Import("*")
+
+env.Append(LIBS = [File('#src/libefence.a')])
+
+if env['PLATFORM'] == 'posix':
+	env.Append(LIBS = ["pthread"])
+
+eftest = env.Clone()
+eftest.Program(target = 'eftest', source = ['eftest.c'])
+
+tstheap = env.Clone()
+tstheap.Program(target = 'tstheap', source = ['tstheap.c'])
+"""
