@@ -1,0 +1,51 @@
+import os
+import sys
+import subprocess
+import platform as _platform
+Import("ENV") # Inherit Linux process environment
+Import("env") # Inherit 'env' from parent directory
+# env['platform'] = _platform.system().lower();
+
+Default("lh_proxy")
+
+# NOTE: Needed for env.Command() to discover implicit dependencies on .h files.
+env.Append(SCANNERS = SourceFileScanner)
+
+# === GET DEFAULT FROM ENVIRONMENT, CONFIGURE ===
+
+env.Append(CFLAGS = "-fPIC -g3 -O0 -std=gnu11".split())
+env.Append(CXXFLAGS = "-fPIC -g3 -O0 -std=c++11".split())
+# These are the include directories:
+env["CPPPATH"] = ". #/include #/jalib #/src".split()
+env["LDFLAGS"] = "-static -Wl,-Ttext-segment -Wl,0xE000000 -Wl,--wrap -Wl,__munmap -Wl,--wrap -Wl,shmat -Wl,--wrap -Wl,shmget".split()
+env["PROXY_LD_FLAGS"] = "-static -Wl,-Ttext-segment -Wl,0xE000000 -Wl,--wrap -Wl,__munmap -Wl,--wrap -Wl,shmat -Wl,--wrap -Wl,shmget".split()
+
+rc = subprocess.call(env["MPICC"] + " -v 2>&1 | grep -q 'MPICH version'",
+                     shell=True)
+env_lh_proxy = env.Clone()
+if rc == 0:
+  env_lh_proxy.Command("lh_proxy",
+                       ("libproxy.a" + "  libproxy.o procmapsutils.o sbrk.o" +
+                        "   mmap64.o  munmap.o shmat.o shmget.o").split(),
+     """   rm -f tmp.sh
+           $MPICC -show $PROXY_LD_FLAGS -o $TARGET $SOURCES $MPI_LD_FLAG \
+             -lrt -lpthread -lc libproxy.a | \
+             sed -e 's^-lunwind ^ ^'> tmp.sh
+           sh tmp.sh
+           rm -f tmp.sh
+     """)
+else:
+  env_lh_proxy.Command("lh_proxy",
+                       ("libproxy.a lh_proxy.o" +
+                        "  libproxy.o procmapsutils.o sbrk.o" +
+                        "   mmap64.o  munmap.o shmat.o shmget.o").split(),
+            "$MPICC $PROXY_LD_FLAGS -o $TARGET $SOURCES $MPI_LD_FLAG" +
+	    " -lrt -lpthread -lc " + os.getcwd() + "/libproxy.a")
+
+env.StaticLibrary("libproxy.a", ("libproxy.o procmapsutils.o sbrk.o mmap64.o" +
+                                 " munmap.o shmat.o shmget.o").split())
+
+for file in Glob("*.c", strings=True):
+  env.Command(file.replace(".c", ".o"),
+              file,
+              "$MPICC $_CPPINCFLAGS $CFLAGS -g3 -O0 -c -o $TARGET $SOURCE")
