@@ -69,7 +69,7 @@ USER_DEFINED_WRAPPER(int, Ibcast,
     MPI_Request virtRequest = ADD_NEW_REQUEST(*request);
     *request = virtRequest;
     LOG_CALL(restoreRequests, Ibcast, buffer, count, datatype,
-             root, comm, virtRequest);
+             root, comm, *request);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -122,7 +122,7 @@ USER_DEFINED_WRAPPER(int, Ibarrier, (MPI_Comm) comm, (MPI_Request *) request)
   if (retval == MPI_SUCCESS && LOGGING()) {
     MPI_Request virtRequest = ADD_NEW_REQUEST(*request);
     *request = virtRequest;
-    LOG_CALL(restoreRequests, Ibarrier, comm, virtRequest);
+    LOG_CALL(restoreRequests, Ibarrier, comm, *request);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -187,10 +187,8 @@ USER_DEFINED_WRAPPER(int, Ireduce,
   if (retval == MPI_SUCCESS && LOGGING()) {
     MPI_Request virtRequest = ADD_NEW_REQUEST(*request);
     *request = virtRequest;
-    uint64_t sb = (uint64_t) sendbuf;
-    uint64_t rb = (uint64_t) recvbuf;
-    LOG_CALL(restoreRequests, Ireduce, sb, rb,
-        count, datatype, op, root, comm, virtRequest);
+    LOG_CALL(restoreRequests, Ireduce, sendbuf, recvbuf,
+        count, datatype, op, root, comm, *request);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -405,7 +403,7 @@ USER_DEFINED_WRAPPER(int, Comm_split, (MPI_Comm) comm, (int) color, (int) key,
       MPI_Comm virtComm = ADD_NEW_COMM(*newcomm);
       VirtualGlobalCommId::instance().createGlobalId(virtComm);
       *newcomm = virtComm;
-      LOG_CALL(restoreComms, Comm_split, comm, color, key, virtComm);
+      LOG_CALL(restoreComms, Comm_split, comm, color, key, *newcomm);
     }
     DMTCP_PLUGIN_ENABLE_CKPT();
     return retval;
@@ -426,7 +424,7 @@ USER_DEFINED_WRAPPER(int, Comm_dup, (MPI_Comm) comm, (MPI_Comm *) newcomm)
       MPI_Comm virtComm = ADD_NEW_COMM(*newcomm);
       VirtualGlobalCommId::instance().createGlobalId(virtComm);
       *newcomm = virtComm;
-      LOG_CALL(restoreComms, Comm_dup, comm, virtComm);
+      LOG_CALL(restoreComms, Comm_dup, comm, *newcomm);
     }
     DMTCP_PLUGIN_ENABLE_CKPT();
     return retval;
