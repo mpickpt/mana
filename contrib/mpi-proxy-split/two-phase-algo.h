@@ -109,12 +109,12 @@ namespace dmtcp_mpi
         : _currState(IS_READY),
           _ckptPendingMutex(), _phaseMutex(), _freePassMutex(),
           _wrapperMutex(), _ckptMsgMutex(),
+          _commAndStateMutex(),
           _freePassCv(), _phaseCv(),
           _comm(MPI_COMM_NULL),
           _freePass(false), _inWrapper(false),
           _ckptPending(false), _recvdCkptMsg(false),
-          _commHistorySize(0), phase1_freepass(false), entering_phase1(false),
-          _commAndStateMutex()
+          _commHistorySize(0), phase1_freepass(false), entering_phase1(false)
       {
       }
 
@@ -293,12 +293,6 @@ namespace dmtcp_mpi
       // TODO: Use C++ atomics
       bool _recvdCkptMsg;
 
-      // True if a freepass is given by the coordinator
-      bool phase1_freepass;
-
-      // True is this rank is leaving the trivial barrier and entering phase_1
-      bool entering_phase1;
-
       // If a free pass is given out so that all ranks can progress to
       // PHASE_2, the wrapper (commit function) will employ a
       // trivial barrier the next time that ranks enter a wrapper using that
@@ -306,6 +300,12 @@ namespace dmtcp_mpi
       // checkpointing session.
       MPI_Comm _commHistory[COMM_HISTORY_MAX];
       int _commHistorySize;
+
+      // True if a freepass is given by the coordinator
+      bool phase1_freepass;
+
+      // True is this rank is leaving the trivial barrier and entering phase_1
+      bool entering_phase1;
   };
 };
 

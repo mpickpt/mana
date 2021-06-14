@@ -403,13 +403,13 @@ namespace dmtcp_mpi
               }
               case GENERATE_ENUM(Comm_group):
               {
-                MPI_Comm comm = rec->args(0);
+                // MPI_Comm comm = rec->args(0);
                 MPI_Group g = rec->args(1);
                 return group == g;
               }
               case GENERATE_ENUM(Comm_create):
               {
-                MPI_Comm comm = rec->args(0);
+                // MPI_Comm comm = rec->args(0);
                 MPI_Group g = rec->args(1);
                 MPI_Comm oldcomm = rec->args(2);
                 if (group == g) {
