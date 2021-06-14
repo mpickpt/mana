@@ -34,9 +34,6 @@ static ClientToStateMap clientStates;
 static ClientToPhaseMap clientPhases;
 
 static std::ostream& operator<<(std::ostream &os, const phase_t &st);
-static bool noRanksInCriticalSection(const ClientToStateMap& clientStates);
-static bool allRanksReadyForCkpt(const ClientToStateMap& clientStates,
-                                 long int size);
 static bool allRanksReady(const ClientToStateMap& clientStates, long int size);
 static void unblockRanks(const ClientToStateMap& clientStates, long int size);
 
@@ -214,14 +211,6 @@ processPreSuspendClientMsgHelper(DmtcpCoordinator *coord,
   JTRACE("Received pre-suspend response from all ranks");
   printf("%s\n", prog.printList().c_str());
 
-  // Initiate checkpointing, if all clients are ready and have
-  // responded with their approvals.
-  // if (allRanksReadyForCkpt(clientStates, status.numPeers)) {
-  //   JTRACE("All ranks ready for checkpoint; broadcasting suspend msg...");
-  //   JTIMER_STOP(twoPc);
-  //   coord->startCheckpoint();
-  //   goto done;
-  // }
   JTRACE("Checking if we can send the checkpoint message");
   // We are ready! If all clients responded with IN_READY, inform the
   // ranks of the imminent checkpoint msg and wait for their final approvals...
@@ -236,15 +225,6 @@ processPreSuspendClientMsgHelper(DmtcpCoordinator *coord,
   }
   JTRACE("Checking if some ranks are in critical section");
 
-  // Nothing to do if no rank is in critical section
-#if 0
-  if (noRanksInCriticalSection(clientStates)) {
-    JTRACE("No ranks in critical section; nothing to do...");
-    query_t q(GET_STATUS);
-    coord->broadcastMessage(DMT_DO_PRE_SUSPEND, sizeof q, &q);
-    goto done;
-  }
-#endif
   JTRACE("Trying to unblocks ranks in PHASE_1 and PHASE_2");
 
   // Finally, if there are ranks stuck in PHASE_1 or in PHASE_2 (is PHASE_2
@@ -281,133 +261,16 @@ operator<<(std::ostream &os, const phase_t &st)
 }
 
 static bool
-noRanksInCriticalSection(const ClientToStateMap& clientStates)
-{
-  RankMapConstIterator req =
-    std::find_if(clientStates.begin(), clientStates.end(),
-                 [](const RankKVPair& elt)
-                 { return elt.second.st == IN_CS; });
-  return req == std::end(clientStates);
-}
-
-static bool
-allRanksReadyForCkpt(const ClientToStateMap& clientStates, long int size)
-{
-  int numReadyRanks =
-        std::count_if(clientStates.begin(), clientStates.end(),
-                      [](const RankKVPair& elt)
-                      { return elt.second.st == READY_FOR_CKPT; });
-  JTRACE("Ranks ready for ckpting")(numReadyRanks)(size);
-  return numReadyRanks == size;
-}
-
-static bool
 allRanksReady(const ClientToStateMap& clientStates, long int size)
 {
-#if 0
-  int numReadyRanks =
-        std::count_if(clientStates.begin(), clientStates.end(),
-                      [](const RankKVPair& elt)
-                      { return elt.second.st == IS_READY; });
-  int numPhase1Ranks =
-        std::count_if(clientStates.begin(), clientStates.end(),
-                      [](const RankKVPair& elt)
-                      { return elt.second.st == PHASE_1; });
-  int numPhase2Ranks =
-        std::count_if(clientStates.begin(), clientStates.end(),
-                      [](const RankKVPair& elt)
-                      { return elt.second.st == PHASE_2; });
-  int numBarrierRanks =
-        std::count_if(clientStates.begin(), clientStates.end(),
-                      [](const RankKVPair& elt)
-                      { return elt.second.st == IN_TRIVIAL_BARRIER; });
-  return ((numReadyRanks + numPhase1Ranks + numBarrierRanks) == size) ||
-         ((numReadyRanks + numPhase1Ranks +
-           numPhase2Ranks + numBarrierRanks) == size) ||
-         (numPhase2Ranks + numBarrierRanks == size);
-#else
   for (RankKVPair c : clientStates) {
     if (c.second.st == IN_CS) {
       return false;
     }
   }
   return true;
-#endif
 }
 
-
-#if 0
-static void
-unblockRanks(const ClientToStateMap& clientStates, long int size)
-{
-  int count = 0;
-  for (RankKVPair c : clientStates) {
-    DmtcpMessage msg(DMT_DO_PRE_SUSPEND);
-# if 0
-    if (c.second.st == PHASE_1) {
-      // For ranks in PHASE_1, only send a free pass if someone else in the
-      // same communicator is in the critical section.
-      bool hasFreePass = false;
-      for (RankKVPair other : clientStates) {
-        if (other.second.comm == c.second.comm &&
-            other.second.st == IN_CS &&
-            other.first->identity() != c.first->identity()) {
-          JTRACE("Sending free pass to client")
-                (c.first->identity())
-                (c.second.rank)(c.second.st)(c.second.comm);
-          query_t q(FREE_PASS);
-          msg.extraBytes = sizeof q;
-          c.first->sock() << msg;
-          c.first->sock().writeAll((const char*)&q, msg.extraBytes);
-          hasFreePass = true;
-          count++;
-          break;
-        }
-      }
-      // if we don't want to give a free pass, then just send a GET_STATUS
-      // message to that rank
-      if (!hasFreePass) {
-        JTRACE("Sending get status to client")
-          (c.first->identity())(c.second.rank)(c.second.st)(c.second.comm);
-        query_t q(GET_STATUS);
-        msg.extraBytes = sizeof q;
-        c.first->sock() << msg;
-        c.first->sock().writeAll((const char*)&q, msg.extraBytes);
-        count++;
-      }
-    } else if (c.second.st == PHASE_2) {
-# else
-    if (c.second.st == PHASE_1) {
-# endif
-      // For ranks in PHASE_2, send them a free pass to unblock them.
-      JTRACE("Sending free pass to client")
-            (c.first->identity())(c.second.rank)(c.second.st)(c.second.comm);
-      query_t q(FREE_PASS);
-      msg.extraBytes = sizeof q;
-      c.first->sock() << msg;
-      c.first->sock().writeAll((const char*)&q, msg.extraBytes);
-      count++;
-    } else if (c.second.st == IN_CS ||
-               c.second.st == PHASE_2 ||
-               c.second.st == IS_READY ||
-               c.second.st == IN_TRIVIAL_BARRIER) {
-      // For other ranks in critical section or in ready state, just send
-      // them an info msg.
-      JTRACE("Sending get status to client")
-            (c.first->identity())(c.second.rank)(c.second.st)(c.second.comm);
-      query_t q(GET_STATUS);
-      msg.extraBytes = sizeof q;
-      c.first->sock() << msg;
-      c.first->sock().writeAll((const char*)&q, msg.extraBytes);
-      count++;
-    } else {
-      JWARNING(false)(c.first->identity())(c.second.st)(c.second.rank)
-              .Text("Rank in unhandled state");
-    }
-  }
-  JTRACE("Unblocked ranks")(count);
-}
-#else
 static void
 unblockRanks(const ClientToStateMap& clientStates, long int size)
 {
@@ -452,4 +315,3 @@ unblockRanks(const ClientToStateMap& clientStates, long int size)
   }
   free(queries);
 }
-#endif
