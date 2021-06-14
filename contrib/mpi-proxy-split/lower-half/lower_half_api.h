@@ -75,6 +75,7 @@ enum MPI_Fncs {
   MPI_Fnc_Invalid,
 };
 
+__attribute__ ((unused))
 static const char *MPI_Fnc_strings[] = {
   "MPI_Fnc_NULL",
   FOREACH_FNC(GENERATE_FNC_STRING)

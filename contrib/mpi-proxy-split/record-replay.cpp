@@ -38,8 +38,6 @@ static int restoreCartSub(const MpiRecord& rec);
 static int restoreOpCreate(const MpiRecord& rec);
 static int restoreOpFree(const MpiRecord& rec);
 
-static int restoreIsend(const MpiRecord& rec);
-static int restoreIrecv(const MpiRecord& rec);
 static int restoreIbcast(const MpiRecord& rec);
 static int restoreIreduce(const MpiRecord& rec);
 static int restoreIbarrier(const MpiRecord& rec);
@@ -378,8 +376,8 @@ static int
 restoreCommFreeKeyval(const MpiRecord& rec)
 {
   int retval;
-  int *key = rec.args(0);
-  retval = FNC_CALL(Comm_free_keyval, rec)(key);
+  int key = rec.args(0);
+  retval = FNC_CALL(Comm_free_keyval, rec)(&key);
   JWARNING(retval == MPI_SUCCESS)(key).Text("Error deleting MPI Comm Keyval");
   // See mpi_comm_wrappers.cpp:Comm_free_keyval
   // We don't remove item from virtual-id tables

@@ -245,8 +245,6 @@ startProxy()
 {
   int pipefd_in[2] = {0};
   int pipefd_out[2] = {0};
-  int ret = -1;
-  int mtcp_sys_errno;
 
   if (pipe(pipefd_in) < 0) {
     JWARNING(false)(JASSERT_ERRNO).Text("Failed to create pipe");
@@ -298,6 +296,7 @@ startProxy()
       close(pipefd_in[1]); // close writing end of pipe
       // Read from stdout of lh_proxy full lh_info struct, including orig memRange.
       close(pipefd_out[1]); // close write end of pipe
+      // FIXME: should be a readall. Check for return error code.
       if (read(pipefd_out[0], &lh_info, sizeof lh_info) < sizeof lh_info) {
         JWARNING(false)(JASSERT_ERRNO) .Text("Read fewer bytes than expected");
         break;
