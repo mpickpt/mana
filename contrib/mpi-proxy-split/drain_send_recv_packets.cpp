@@ -85,7 +85,6 @@ drainMpiPackets()
 
   // FIXME: this timeout is a temporary fix, we need to change the way we mark a
   // message serviced or unserviced.
-  time_t start_time = time(NULL);
   //FIXME: If this works, delete (totalSends > toalrevcs) condition.
   while (totalSends > totalRecvs && totalSendCount > totalRecvCount) {
     JTRACE("drain mpi packets")(totalSends)(totalRecvs)
@@ -181,16 +180,11 @@ replayMpiOnRestart()
   JTRACE("Replaying unserviced isend/irecv calls");
 
   for (request_to_async_call_map_pair_t it : g_async_calls) {
-    MPI_Status status;
     int retval = 0;
-    int flag = 0;
     request = it.first;
     JASSERT(*request != 0)(request);
     MPI_Request virtRequest = *request;
     message = it.second;
-    MPI_Comm realComm;
-    MPI_Datatype realType;
-    MPI_Op realOp;
 
     if (message->serviced)
       continue;
@@ -219,57 +213,6 @@ replayMpiOnRestart()
         *request = virtRequest;
         JASSERT(retval == MPI_SUCCESS).Text("Error while replaying send");
         break;
-#if 0
-      case IBARRIER_REQUEST:
-        JTRACE("Replaying Ibarrier call")(message->params.comm);
-        {
-          DMTCP_PLUGIN_DISABLE_CKPT();
-          realComm = VIRTUAL_TO_REAL_COMM(message->params.comm);
-          JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-          retval = NEXT_FUNC(Ibarrier)(realComm, request);
-          RETURN_TO_UPPER_HALF();
-          UPDATE_REQUEST_MAP(virtRequest, *request);
-          *request = virtRequest;
-          DMTCP_PLUGIN_ENABLE_CKPT();
-        }
-        JASSERT(retval == MPI_SUCCESS).Text("Error while replaying Ibarrier");
-        break;
-      case IBCAST_REQUEST:
-        JTRACE("Replaying Ibcast call")(message->params.comm);
-        {
-          DMTCP_PLUGIN_DISABLE_CKPT();
-          realComm = VIRTUAL_TO_REAL_COMM(message->params.comm);
-          realType = VIRTUAL_TO_REAL_TYPE(message->params.datatype);
-          JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-          retval = NEXT_FUNC(Ibcast)(message->recvbuf, message->params.count,
-              realType, message->params.root, realComm,
-              request);
-          RETURN_TO_UPPER_HALF();
-          UPDATE_REQUEST_MAP(virtRequest, *request);
-          *request = virtRequest;
-          DMTCP_PLUGIN_ENABLE_CKPT();
-        }
-        JASSERT(retval == MPI_SUCCESS).Text("Error while replaying ibcast");
-        break;
-      case IREDUCE_REQUEST:
-        JTRACE("Replaying Ireduce call")(message->params.comm);
-        {
-          DMTCP_PLUGIN_DISABLE_CKPT();
-          realComm = VIRTUAL_TO_REAL_COMM(message->params.comm);
-          realType = VIRTUAL_TO_REAL_TYPE(message->params.datatype);
-          realOp = VIRTUAL_TO_REAL_OP(message->params.op);
-          JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-          retval = NEXT_FUNC(Ireduce)(message->sendbuf, message->recvbuf,
-              message->params.count, realType, realOp,
-              message->params.root, realComm, request);
-          RETURN_TO_UPPER_HALF();
-          UPDATE_REQUEST_MAP(virtRequest, *request);
-          *request = virtRequest;
-          DMTCP_PLUGIN_ENABLE_CKPT();
-        }
-        JASSERT(retval == MPI_SUCCESS).Text("Error while replaying ierduce");
-        break;
-#endif
       default:
         JWARNING(false)(message->type).Text("Unhandled replay call");
         break;
@@ -595,9 +538,7 @@ resolve_async_messages()
   mpi_async_call_t *call;
 
   for (request_to_async_call_map_pair_t it : g_async_calls) {
-    MPI_Status status;
     int retval = 0;
-    int flag = 0;
     request = it.first;
     call = it.second;
 

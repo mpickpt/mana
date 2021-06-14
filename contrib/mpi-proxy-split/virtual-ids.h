@@ -241,8 +241,8 @@ namespace dmtcp_mpi
       // Pvt. constructor
       MpiVirtualization(const char *name, T nullId)
         : _vIdTable(name, (T)0, (T)999999),
-          _nullId(nullId),
-          _mutex()
+          _mutex(),
+          _nullId(nullId)
       {
       }
 
@@ -345,9 +345,9 @@ namespace dmtcp_mpi
                    idPair.second);
             fflush(stdout);
           } else {
-            JTRACE("Print global id mapping")((void*) idPair.first)
-                      ((void*) VIRTUAL_TO_REAL_COMM(idPair.first))
-                      ((void*) idPair.second);
+            JTRACE("Print global id mapping")((void*) (uint64_t) idPair.first)
+                      ((void*) (uint64_t) VIRTUAL_TO_REAL_COMM(idPair.first))
+                      ((void*) (uint64_t) idPair.second);
           }
         }
       }
