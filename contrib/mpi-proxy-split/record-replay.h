@@ -539,6 +539,6 @@ namespace dmtcp_mpi
 
 // Restores the MPI state by recreating the communicator, groups, types, etc.
 // post restart
-extern void restoreMpiState();
+extern void restoreMpiLogState();
 
 #endif // ifndef MPI_RECORD_REPLAY_H

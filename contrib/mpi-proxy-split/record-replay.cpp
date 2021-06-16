@@ -43,7 +43,7 @@ static int restoreIreduce(const MpiRecord& rec);
 static int restoreIbarrier(const MpiRecord& rec);
 
 void
-restoreMpiState()
+restoreMpiLogState()
 {
   JASSERT(RESTORE_MPI_STATE() == MPI_SUCCESS)
           .Text("Failed to restore MPI state");
