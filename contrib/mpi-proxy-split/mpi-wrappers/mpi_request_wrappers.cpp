@@ -10,6 +10,8 @@
 #include "mpi_nextfunc.h"
 #include "virtual-ids.h"
 
+#define SET_FS_CONTEXT
+
 EXTERNC
 USER_DEFINED_WRAPPER(int, Test, (MPI_Request*) request,
                      (int*) flag, (MPI_Status*) status)
@@ -21,12 +23,22 @@ USER_DEFINED_WRAPPER(int, Test, (MPI_Request*) request,
   } else {
     MPI_Request req = *request;
     MPI_Request realRequest = VIRTUAL_TO_REAL_REQUEST(*request);
+#ifdef SET_FS_CONTEXT
+    SET_LOWER_HALF_FS_CONTEXT();
+#else
     JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-    // MPI_Test can change the *request argument
+#endif
     retval = NEXT_FUNC(Test)(&realRequest, flag, status);
+#ifdef SET_FS_CONTEXT
+    RESTORE_UPPER_HALF_FS_CONTEXT();
+#else
     RETURN_TO_UPPER_HALF();
+#endif
     if (retval == MPI_SUCCESS && *flag) {
       clearPendingRequestFromLog(request, req);
+      // Technically *request is the virtual request for MPI_REQUEST_NULL,
+      // but it's the same as the real MPI_REQUEST_NULL.
+      REMOVE_OLD_REQUEST(*request);
       *request = MPI_REQUEST_NULL;
     }
     DMTCP_PLUGIN_ENABLE_CKPT();
@@ -106,11 +118,23 @@ USER_DEFINED_WRAPPER(int, Wait, (MPI_Request*) request, (MPI_Status*) status)
     }
     MPI_Request req = *request;
     MPI_Request realRequest = VIRTUAL_TO_REAL_REQUEST(*request);
+#ifdef SET_FS_CONTEXT
+    SET_LOWER_HALF_FS_CONTEXT();
+#else
     JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+#endif
     retval = NEXT_FUNC(Test)(&realRequest, &flag, status);
+#ifdef SET_FS_CONTEXT
+    RESTORE_UPPER_HALF_FS_CONTEXT();
+#else
     RETURN_TO_UPPER_HALF();
+#endif
     if (flag) {
       clearPendingRequestFromLog(request, req);
+      // Technically *request is the virtual request for MPI_REQUEST_NULL,
+      // but it's the same as the real MPI_REQUEST_NULL.
+      REMOVE_OLD_REQUEST(*request);
+      *request = MPI_REQUEST_NULL;
     }
     DMTCP_PLUGIN_ENABLE_CKPT();
   }
