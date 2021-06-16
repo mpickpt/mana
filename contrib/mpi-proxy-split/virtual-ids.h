@@ -173,6 +173,10 @@ namespace dmtcp_mpi
       // Returns the new virtual id on success, null id otherwise
       T onCreate(T real)
       {
+        if (_vIdTable.size() % 10000 == 0 && _vIdTable.size() != 0) {
+          printf("Virtual id table size: %d\n", _vIdTable.size());
+          fflush(stdout);
+        }
         T vId = _nullId;
         // Don't need to virtualize the null id
         if (real == _nullId) {
@@ -206,8 +210,11 @@ namespace dmtcp_mpi
         }
         lock_t lock(_mutex);
         if (_vIdTable.virtualIdExists(virt)) {
+          int sizeBeforeErase = _vIdTable.size();
           realId = _vIdTable.virtualToReal(virt);
           _vIdTable.erase(virt);
+          int sizeAfterErase = _vIdTable.size();
+          JASSERT(sizeBeforeErase - 1 == sizeAfterErase);
         } else {
           JWARNING(false)(virt)(_vIdTable.getTypeStr())
                   .Text("Cannot delete non-existent virtual id");
