@@ -91,7 +91,7 @@ extern void verifyLocalInfoOnRestart();
 
 // Restores the state of MPI P2P communication by replaying any pending
 // MPI_Isend and MPI_Irecv requests post restart
-extern void replayMpiOnRestart();
+extern void replayMpiP2pOnRestart();
 
 // Resets the global counters to 0 and clears the global lists of saved MPI
 // messages and metadata
