@@ -145,7 +145,7 @@ USER_DEFINED_WRAPPER(int, Irecv,
   retval = NEXT_FUNC(Irecv)(buf, count, realType,
                             source, tag, realComm, request);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && LOGGING()) {
+  if (retval == MPI_SUCCESS) {
     MPI_Request virtRequest = ADD_NEW_REQUEST(*request);
     *request = virtRequest;
     addPendingRequestToLog(IRECV_REQUEST, NULL, buf, count,
