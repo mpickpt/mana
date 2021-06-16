@@ -173,7 +173,7 @@ verifyLocalInfoOnRestart()
 }
 
 void
-replayMpiOnRestart()
+replayMpiP2pOnRestart()
 {
   MPI_Request *request = NULL;
   mpi_async_call_t *message = NULL;
@@ -197,8 +197,6 @@ replayMpiOnRestart()
                            message->params.remote_node,
                            message->params.tag, message->params.comm,
                            request);
-        UPDATE_REQUEST_MAP(virtRequest, *request);
-        *request = virtRequest;
         JASSERT(retval == MPI_SUCCESS).Text("Error while replaying recv");
         break;
       case ISEND_REQUEST:
