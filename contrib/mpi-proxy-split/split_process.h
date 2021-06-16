@@ -58,13 +58,15 @@ class SwitchContext
 static void* lh_fsaddr;
 static void *uh_fsaddr;
 static int fsaddr_initialized = 0;
-#define BUF_SIZE 1024
+// FIXME:  Use GLIBC:include/link.h -- l_tls_initimage_size initimage_size
+//                             (or calc. it from phdr as in GLIBC:elf/dl-load.c)
+// #define BUF_SIZE 1024
 // #define BUF_SIZE 720
 // #define BUF_SIZE 512
 // #define BUF_SIZE 256
 // #define BUF_SIZE 128
-// #define BUF_SIZE 64
-static char *fsaddr_buf[BUF_SIZE];
+#define BUF_SIZE 64
+static char *fsaddr_buf[BUF_SIZE + 3 * sizeof(void *)];
 
 static inline void SET_LOWER_HALF_FS_CONTEXT() {
   // Compute the upper-half and lower-half fs addresses
@@ -74,12 +76,12 @@ static inline void SET_LOWER_HALF_FS_CONTEXT() {
     syscall(SYS_arch_prctl, ARCH_GET_FS, &uh_fsaddr);
     uh_fsaddr = uh_fsaddr - BUF_SIZE;
   }
-  memcpy(fsaddr_buf, uh_fsaddr, BUF_SIZE);
-  memcpy(uh_fsaddr, lh_fsaddr, BUF_SIZE);
+  memcpy(fsaddr_buf, uh_fsaddr, BUF_SIZE + 3*sizeof(void *)); // & 3 ptrs of TCB
+  memcpy(uh_fsaddr, lh_fsaddr, BUF_SIZE + 3*sizeof(void *));
 }
 
 static inline void RESTORE_UPPER_HALF_FS_CONTEXT() {
-  memcpy(uh_fsaddr, fsaddr_buf, BUF_SIZE);
+  memcpy(uh_fsaddr, fsaddr_buf, BUF_SIZE + 3*sizeof(void *));
 }
 
 // ===================================================
