@@ -63,6 +63,25 @@ extern int splitProcess();
 
 using namespace dmtcp_mpi;
 
+struct twoPhaseHistory {
+  int lineNo;
+  int _comm;
+  int comm;
+  phase_t state;
+  phase_t currState;
+};
+#define commStateHistoryLength 100
+struct twoPhaseHistory commStateHistory[commStateHistoryLength];
+int commStateHistoryLast = -1;
+// USAGE:
+//  commStateHistoryAdd(
+//    {.lineNo = __LINE__, .comm = comm, ._comm = _comm,
+//     .state = state, .currState = getCurrState()});
+//  Use _commAndStateMutex.lock/unlock if not already present.
+void commStateHistoryAdd(struct twoPhaseHistory item) {
+  commStateHistory[++commStateHistoryLast % commStateHistoryLength] = item;
+}
+
 void
 drainMpiCollectives(const void *data)
 {
@@ -163,8 +182,14 @@ TwoPhaseAlgo::commit(MPI_Comm comm, const char *collectiveFnc,
 
   _commAndStateMutex.lock();
   // maintain consistent view for DMTCP coordinator
+  commStateHistoryAdd(
+    {.lineNo = __LINE__, ._comm = _comm, .comm = -1,
+     .state = ST_UNKNOWN, .currState = getCurrState()});
   wrapperEntry(comm);
   setCurrState(IN_TRIVIAL_BARRIER);
+  commStateHistoryAdd(
+    {.lineNo = __LINE__, ._comm = _comm, .comm = -1,
+     .state = ST_UNKNOWN, .currState = getCurrState()});
   _commAndStateMutex.unlock();
 
   addCommHistory(comm);
@@ -226,8 +251,14 @@ TwoPhaseAlgo::commit(MPI_Comm comm, const char *collectiveFnc,
   // }
   _commAndStateMutex.lock();
   // maintain consistent view for DMTCP coordinator
+  commStateHistoryAdd(
+    {.lineNo = __LINE__, ._comm = _comm, .comm = -1,
+     .state = ST_UNKNOWN, .currState = getCurrState()});
   setCurrState(IS_READY);
   wrapperExit();
+  commStateHistoryAdd(
+    {.lineNo = __LINE__, ._comm = _comm, .comm = -1,
+     .state = ST_UNKNOWN, .currState = getCurrState()});
   _commAndStateMutex.unlock();
   return retval;
 }
@@ -339,6 +370,9 @@ TwoPhaseAlgo::preSuspendBarrier(const void *data)
       break;
   }
   _commAndStateMutex.lock();
+  commStateHistoryAdd(
+    {.lineNo = __LINE__, ._comm = _comm, .comm = -1,
+     .state = ST_UNKNOWN, .currState = getCurrState()});
   // maintain consistent view for DMTCP coordinator
   st = getCurrState();
   // Maybe the user thread enters the wrapper only here.
@@ -346,10 +380,21 @@ TwoPhaseAlgo::preSuspendBarrier(const void *data)
   // a consistent snapshot.  If IS_READY, we ignore the _comm.
   // FIXME: This assumes sequential memory consistency.  Maybe add fence()?
   int gid = VirtualGlobalCommId::instance().getGlobalId(_comm);
+  commStateHistoryAdd(
+    {.lineNo = __LINE__, ._comm = _comm, .comm = gid,
+     .state = st, .currState = getCurrState()});
   _commAndStateMutex.unlock();
   rank_state_t state = { .rank = procRank, .comm = gid, .st = st};
+  _commAndStateMutex.lock();
+  commStateHistoryAdd(
+    {.lineNo = __LINE__, ._comm = _comm, .comm = gid,
+     .state = st, .currState = getCurrState()});
   JASSERT(state.comm != MPI_COMM_NULL || state.st == IS_READY)
 	 (state.comm)(state.st)(gid)(_currState)(query);
+  commStateHistoryAdd(
+    {.lineNo = __LINE__, ._comm = _comm, .comm = gid,
+     .state = st, .currState = getCurrState()});
+  _commAndStateMutex.unlock();
   JTRACE("Sending DMT_PRE_SUSPEND_RESPONSE message")(procRank)(gid)(st);
   msg.extraBytes = sizeof state;
   informCoordinatorOfCurrState(msg, &state);
