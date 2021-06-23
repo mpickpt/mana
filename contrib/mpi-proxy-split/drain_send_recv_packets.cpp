@@ -376,7 +376,6 @@ clearPendingRequestFromLog(MPI_Request* req, MPI_Request orig)
       JALLOC_HELPER_FREE(call);
     }
   }
-  // FIXME: Is this doing the same thing as the previous find() above?
   dmtcp::map<MPI_Request* const, mpi_async_call_t*>::iterator iter;
   for (iter = g_async_calls.begin(); iter != g_async_calls.end();) {
     mpi_async_call_t *call = iter->second;
@@ -532,18 +531,18 @@ static bool
 resolve_async_messages()
 {
   int unserviced_isends = 0;
-  MPI_Request *request;
+  MPI_Request request;
   mpi_async_call_t *call;
 
   for (request_to_async_call_map_pair_t it : g_async_calls) {
     int retval = 0;
-    request = it.first;
     call = it.second;
+    request = call->req; 
 
     if (call->serviced)
       continue;
 
-    retval = MPI_Test(request, &call->flag, &call->status);
+    retval = MPI_Test(&request, &call->flag, &call->status);
     JWARNING(retval == MPI_SUCCESS)(call->type)
             .Text("MPI_Test call failed?");
     if (retval == MPI_SUCCESS) {
