@@ -111,6 +111,7 @@ USER_DEFINED_WRAPPER(int, Wait, (MPI_Request*) request, (MPI_Status*) status)
     RETURN_TO_UPPER_HALF();
     if (flag) {
       clearPendingRequestFromLog(request, req);
+      *request = MPI_REQUEST_NULL;
     }
     DMTCP_PLUGIN_ENABLE_CKPT();
   }
