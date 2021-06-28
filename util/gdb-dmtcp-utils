@@ -134,7 +134,8 @@ class AddSymbolFileFromSubstring(gdb.Command):
 
   def invoke(self, filename_substring, from_tty):
     (filename, base_addr, _) = memory_region(filename_substring)
-    add_symbol_files_from_filename(filename, base_addr)
+    if filename:
+      add_symbol_files_from_filename(filename, base_addr)
 # This will add the new gdb command: add-symbol-file-from-substring FILENAME
 AddSymbolFileFromSubstring()
 
@@ -196,6 +197,7 @@ class AddSymbolFileAtAddress(gdb.Command):
       gdb.execute('print "Process not yet started"', False, False)
     else:
       (filename, base_addr, _) = memory_region_at_address(address)
+      print(filename, base_addr)
       if filename.startswith("NOT_FOUND"):
         gdb.execute('print "*** Memory address ' + address + ' not found"',
                     False, False)
@@ -365,7 +367,7 @@ def procmap_filename_address(line):
   return (triple[-1],) + \
          tuple([int("0x"+elt, 16) for elt in triple[0].split("-")])
 def is_text_segment(procmap_line):
-  return "r-x" in procmap_line and \
+  return "/dev/" not in procmap_line and "r-x" in procmap_line and \
          (procmap_line == "" or procmap_line.isspace() or '/' in procmap_line)
 def memory_regions():
   if getpid() == 0:
@@ -377,15 +379,27 @@ def memory_regions():
                    for line in p.stdout.readlines()]
   if not procmap_lines:
     procmap_lines = gdb.execute("info proc mapping", False, True).split('\n')
-    return [procmap_filename_address(memory) for memory in procmap_lines
-                                             if " 0x" in memory]
-  return [procmap_filename_address(memory) for memory in procmap_lines
+    unfiltered = [procmap_filename_address(memory) for memory in procmap_lines
+                                  if " 0x" in memory and "/dev/" not in memory]
+  else:
+    unfiltered = [procmap_filename_address(memory) for memory in procmap_lines
                                            if is_text_segment(memory)]
+  unique_filenames = []
+  unique_regions = []
+  for memory in unfiltered:
+    if memory[0] not in unique_filenames:
+      unique_filenames.append(memory[0])
+      unique_regions.append(memory)
+  return unique_regions
 
 # Returns triple:  (filename, base_address, end_address)
 def memory_region(filename_substring):
   regions = memory_regions()
-  return [region for region in regions if filename_substring in region[0]][0]
+  tmp = [region for region in regions if filename_substring in region[0]]
+  if tmp:
+    return tmp[0]
+  else:
+    return ("", 0, 0)
 
 
 def memory_region_at_address(memory_address):
