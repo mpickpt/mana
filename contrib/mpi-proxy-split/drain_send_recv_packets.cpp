@@ -197,19 +197,33 @@ replayMpiP2pOnRestart()
                            message->params.remote_node,
                            message->params.tag, message->params.comm,
                            request);
+        // FIXME: This is a temporary fix, need a rewrite for p2p communications.
+        // At restart, we are not really really replaying MPI_Irecv. All msg
+        // buffers and status should be resolved and saved in internal buffers
+        // at checkpoint time. Therefore, replaying MPI_Irecv means looking up
+        // buffered data in memory instead of creating a new real request id.
+        // As a result, user's code or the MPI_Recv wrapper depends on request
+        // ids, which were created before checkpointing and are no longer valid.
+        // An alternative is to write the message buffer and status into the
+        // fields of the MPI_Irecv at checkpoint time, and keep some type of
+        // virtual MPI_Request so that after we restart MPI_Test and
+        // MPI_Requst_get_status do the right thing.
+        // For now, we just set the request to MPI_REQUEST_NULL so that MPI_Test
+        // in user's code or MPI_Recv wrapper can always return true.
+        *request = MPI_REQUEST_NULL;
         JASSERT(retval == MPI_SUCCESS).Text("Error while replaying recv");
         break;
       case ISEND_REQUEST:
         // This case should never happen. All unserviced sends need to be
         // serviced at checkpoint time.
         JWARNING(false).Text("Unexpected unserviced send on restart");
-        retval = MPI_Isend(message->sendbuf, message->params.count,
-                           message->params.datatype,
-                           message->params.remote_node, message->params.tag,
-                           message->params.comm, request);
-        UPDATE_REQUEST_MAP(virtRequest, *request);
-        *request = virtRequest;
-        JASSERT(retval == MPI_SUCCESS).Text("Error while replaying send");
+        // retval = MPI_Isend(message->sendbuf, message->params.count,
+        //                    message->params.datatype,
+        //                    message->params.remote_node, message->params.tag,
+        //                    message->params.comm, request);
+        // UPDATE_REQUEST_MAP(virtRequest, *request);
+        // *request = virtRequest;
+        // JASSERT(retval == MPI_SUCCESS).Text("Error while replaying send");
         break;
       default:
         JWARNING(false)(message->type).Text("Unhandled replay call");
@@ -537,7 +551,7 @@ resolve_async_messages()
   for (request_to_async_call_map_pair_t it : g_async_calls) {
     int retval = 0;
     call = it.second;
-    request = call->req; 
+    request = call->req;
 
     if (call->serviced)
       continue;

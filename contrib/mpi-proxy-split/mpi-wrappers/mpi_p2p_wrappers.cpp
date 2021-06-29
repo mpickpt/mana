@@ -81,7 +81,6 @@ USER_DEFINED_WRAPPER(int, Isend,
                            datatype, dest, tag, comm, request);
     updateLocalSends(count);
   }
-  DMTCP_PLUGIN_ENABLE_CKPT();
   if (retval == MPI_SUCCESS && LOGGING()) {
     int flag = 0;
     MPI_Status st;
@@ -89,6 +88,7 @@ USER_DEFINED_WRAPPER(int, Isend,
       clearPendingRequestFromLog(request, *request);
     }
   }
+  DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
 
