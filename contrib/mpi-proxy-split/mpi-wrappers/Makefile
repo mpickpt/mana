@@ -16,7 +16,7 @@ LIBWRAPPER_OBJS = mpi_p2p_wrappers.o mpi_collective_wrappers.o \
                   mpi_comm_wrappers.o mpi_group_wrappers.o \
                   mpi_cart_wrappers.o mpi_op_wrappers.o \
                   mpi_unimplemented_wrappers.o mpi_fortran_wrappers.o \
-                  mpi_wrappers.o
+                  mpi_wrappers.o get_fortran_constants.o fortran_constants.o
 
 # Modify if your DMTCP_ROOT is located elsewhere.
 ifndef DMTCP_ROOT
@@ -46,6 +46,9 @@ mpi_unimplemented_wrappers.cpp: generate-mpi-unimplemented-wrappers.py \
 
 .cpp.o: ../virtual-ids.h
 	${MPICXX} ${CXXFLAGS} -g3 -O0 -c -o $@ $<
+
+fortran_constants.o: fortran_constants.f90
+	${MPIFORTRAN} -fPIC -g3 -O0 -c -o $@ $< 
 
 mpi_collective_wrappers.o: mpi_collective_wrappers.cpp ../virtual-ids.h
 	${MPICXX} ${CXXFLAGS} -Wall -g3 -O0 -DDEBUG -fPIC -I../../../include \
