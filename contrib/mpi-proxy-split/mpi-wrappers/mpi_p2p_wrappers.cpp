@@ -136,6 +136,7 @@ USER_DEFINED_WRAPPER(int, Irecv,
       isBufferedPacket(source, tag, comm, &flag, &status, &retval)) {
     retval = consumeBufferedPacket(buf, count, datatype, source,
                                    tag, comm, &status, size);
+    *request = MPI_REQUEST_NULL;
     DMTCP_PLUGIN_ENABLE_CKPT();
     return retval;
   }
