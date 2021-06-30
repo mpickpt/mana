@@ -115,12 +115,18 @@ USER_DEFINED_WRAPPER(int, Allreduce,
   std::function<int()> realBarrierCb = [=]() {
     int retval;
     DMTCP_PLUGIN_DISABLE_CKPT();
+    get_fortran_constants();
     MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
     MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
     MPI_Op realOp = VIRTUAL_TO_REAL_OP(op);
     JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-    retval = NEXT_FUNC(Allreduce)(sendbuf, recvbuf, count,
-                                  realType, realOp, realComm);
+    if (sendbuf == FORTRAN_MPI_IN_PLACE) {
+      retval = NEXT_FUNC(Allreduce)(MPI_IN_PLACE, recvbuf, count,
+                                    realType, realOp, realComm);
+    } else {
+      retval = NEXT_FUNC(Allreduce)(sendbuf, recvbuf, count,
+                                    realType, realOp, realComm);
+    }
     RETURN_TO_UPPER_HALF();
     DMTCP_PLUGIN_ENABLE_CKPT();
     return retval;
