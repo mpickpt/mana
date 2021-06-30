@@ -8,6 +8,7 @@ CXXFLAGS = @CXXFLAGS@
 ifeq ($(findstring cori,$(PLATFORM)),cori)
   MPICC = cc
   MPICXX = CC
+  MPIFORTRAN = ftn
   MPI_LD_FLAG = -lmpich
   MPIRUN = srun
   MPI_CFLAGS?= -g3 -O0 -std=c99 -fPIC
@@ -27,6 +28,7 @@ else
   MPI_INCLUDE = @MPI_INCLUDE@
   MPICC = @MPICC@
   MPICXX = @MPICXX@
+  MPIFORTRAN = UNKNOWN
   MPIRUN = @MPIRUN@
   MPI_LD_FLAG = @MPI_LD_FLAG@
   MPI_CFLAGS?= @MPI_CFLAGS@
