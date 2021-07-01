@@ -219,19 +219,17 @@ namespace dmtcp_mpi
       // Returns virtual id on success, null-id otherwise
       T updateMapping(T virt, T real)
       {
-        T vId = _nullId;
-        // If virt is not _nullId, then real should not be _nullId.
-        JASSERT(real != _nullId || virt == _nullId)(real)(virt);
+        // If the virt is the null id, then return it directly.
         // Don't need to virtualize the null id
-        if (virt == _nullId || real == _nullId) {
-          return vId;
+        if (virt == _nullId) {
+          return _nullId;
         }
         lock_t lock(_mutex);
         if (!_vIdTable.virtualIdExists(virt)) {
           JWARNING(false)(virt)(real)(_vIdTable.getTypeStr())
                   (_vIdTable.realToVirtual(real))
                   .Text("Cannot update mapping for a non-existent virt. id");
-          return vId;
+          return _nullId;
         }
         _vIdTable.updateMapping(virt, real);
         return virt;
