@@ -182,7 +182,7 @@ replayMpiP2pOnRestart()
   for (request_to_async_call_map_pair_t it : g_async_calls) {
     int retval = 0;
     request = it.first;
-    JASSERT(*request != 0)(request);
+    JASSERT(request != 0)(request);
     MPI_Request virtRequest = *request;
     message = it.second;
 
@@ -437,6 +437,7 @@ isServicedRequest(MPI_Request *req, int *flag, MPI_Status *status)
   if (it != std::end(g_async_calls)) {
     ret = (*it).second->serviced;
     *flag = ret ? 1 : 0;
+    // FIXME: We also need to set the status if the request was serviced
   }
   return ret;
 }

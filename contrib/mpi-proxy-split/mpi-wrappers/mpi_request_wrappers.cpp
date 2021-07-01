@@ -21,12 +21,29 @@ USER_DEFINED_WRAPPER(int, Test, (MPI_Request*) request,
   } else {
     MPI_Request req = *request;
     MPI_Request realRequest = VIRTUAL_TO_REAL_REQUEST(*request);
+    // This is probably from MPI_Isend left over before checkpoint.
+    // The MPI_Isend happened before checkpoint, but there is no
+    // successful MPI_Test before checkpoint. So this unserviced 
+    // request was processed during drain_send_recv. The message
+    // was buffered in drain_send_recv. So since the MPI_Isend
+    // was resolved, the virtual request for MPI_Isend was mapped
+    // to MPI_REQUEST_NULL. Now after restart, the application is
+    // calling MPI_Test on that virtual request. It should succeed
+    // and now we should retire the virtual request.
+    if (*request != MPI_REQUEST_NULL && realRequest == MPI_REQUEST_NULL) {
+      *flag = 1;
+      REMOVE_OLD_REQUEST(*request);
+      // FIXME: We should also fill in the status
+      DMTCP_PLUGIN_ENABLE_CKPT();
+      return MPI_SUCCESS;
+    }
     JUMP_TO_LOWER_HALF(lh_info.fsaddr);
     // MPI_Test can change the *request argument
     retval = NEXT_FUNC(Test)(&realRequest, flag, status);
     RETURN_TO_UPPER_HALF();
     if (retval == MPI_SUCCESS && *flag) {
       clearPendingRequestFromLog(request, req);
+      UPDATE_REQUEST_MAP(req, MPI_REQUEST_NULL);
       *request = MPI_REQUEST_NULL;
     }
     DMTCP_PLUGIN_ENABLE_CKPT();
@@ -104,13 +121,31 @@ USER_DEFINED_WRAPPER(int, Wait, (MPI_Request*) request, (MPI_Status*) status)
       JWARNING(flag).Text("Unexpected buffered-yet-unserviced packet.");
       continue;
     }
+    // FIXME: Should we use the MPI_Test wrapper instead of the real MPI_Test?
+
     MPI_Request req = *request;
     MPI_Request realRequest = VIRTUAL_TO_REAL_REQUEST(*request);
+    // This is probably from MPI_Isend left over before checkpoint.
+    // The MPI_Isend happened before checkpoint, but there is no
+    // successful MPI_Test before checkpoint. So this unserviced 
+    // request was processed during drain_send_recv. The message
+    // was buffered in drain_send_recv. So since the MPI_Isend
+    // was resolved, the virtual request for MPI_Isend was mapped
+    // to MPI_REQUEST_NULL. Now after restart, the application is
+    // calling MPI_Test on that virtual request. It should succeed
+    // and now we should retire the virtual request.
+    if (*request != MPI_REQUEST_NULL && realRequest == MPI_REQUEST_NULL) {
+      REMOVE_OLD_REQUEST(*request);
+      // FIXME: We should also fill in the status
+      DMTCP_PLUGIN_ENABLE_CKPT();
+      return MPI_SUCCESS;
+    }
     JUMP_TO_LOWER_HALF(lh_info.fsaddr);
     retval = NEXT_FUNC(Test)(&realRequest, &flag, status);
     RETURN_TO_UPPER_HALF();
     if (flag) {
       clearPendingRequestFromLog(request, req);
+      UPDATE_REQUEST_MAP(req, MPI_REQUEST_NULL);
       *request = MPI_REQUEST_NULL;
     }
     DMTCP_PLUGIN_ENABLE_CKPT();
