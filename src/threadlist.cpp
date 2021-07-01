@@ -756,6 +756,21 @@ stopthisthread(int signum)
     // If we are in a restart, and the user thread was in the trivial barrier or
     // phase 1, we return to early in the call frame before the trivial barrier
     // was called.
+    char * pause_param = getenv("DMTCP_RESTART_PAUSE");
+    if (pause_param == NULL) {
+      pause_param = getenv("MTCP_RESTART_PAUSE");
+    }
+    if (pause_param != NULL && pause_param[0] == '5' &&
+        pause_param[1] == '\0') {
+#ifdef HAS_PR_SET_PTRACER
+      prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY, 0, 0, 0); // For: gdb attach
+#endif // ifdef HAS_PR_SET_PTRACER
+      int dummy = 1;
+      while (dummy);
+#ifdef HAS_PR_SET_PTRACER
+      prctl(PR_SET_PTRACER, 0, 0, 0, 0); // Revert permission to default.
+#endif // ifdef HAS_PR_SET_PTRACER
+    }
     if (restoreInProgress) {
       if (inTrivialBarrierOrPhase1) {
         JTRACE("User thread returning to before trivial barrier")
