@@ -58,10 +58,6 @@ sigset_t sigpending_global;
 Thread *activeThreads = NULL;
 void *saved_sysinfo;
 MYINFO_GS_T myinfo_gs __attribute__((visibility("hidden")));
-#ifdef MPI
-volatile bool inTrivialBarrierOrPhase1 = false;
-ucontext_t beforeTrivialBarrier;
-#endif
 
 static const char *DMTCP_PRGNAME_PREFIX = "DMTCP:";
 
@@ -644,22 +640,6 @@ stopthisthread(int signum)
     return;
   }
 
-#if 0
-#ifdef MPI
-  // If we are checkpointing when the user thread is in the trivial barrier
-  // (in lower half during the two-phase commit), we must abort the call to the
-  // trivial barrier.
-  // We will set the context to the point before entering the trivial barrier.
-  // Then the two-phase commit will set inTrivialBarrier to false, and raise
-  // the checkpoint signal again to start the checkpointing. After the
-  // checkpointing is finished, we return to the point before entering the
-  // trivial barrier and continue the user thread.
-  if (inTrivialBarrier) {
-    setcontext(&beforeTrivialBarrier);
-  }
-#endif
-#endif
-
   /* Possible state change scenarios:
    * 1. STOPSIGNAL received from ckpt-thread. In this case, the ckpt-thread
    * already changed the state to ST_SIGNALED. No need to check for locks.
@@ -770,13 +750,6 @@ stopthisthread(int signum)
 #ifdef HAS_PR_SET_PTRACER
       prctl(PR_SET_PTRACER, 0, 0, 0, 0); // Revert permission to default.
 #endif // ifdef HAS_PR_SET_PTRACER
-    }
-    if (restoreInProgress) {
-      if (inTrivialBarrierOrPhase1) {
-        JTRACE("User thread returning to before trivial barrier")
-              (curThread->tid);
-        setcontext(&beforeTrivialBarrier);
-      }
     }
 #endif
 

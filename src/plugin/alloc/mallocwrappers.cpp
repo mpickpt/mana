@@ -24,10 +24,6 @@
 #include "alloc.h"
 #include "dmtcp.h"
 
-#ifdef MPI
-extern bool inTrivialBarrierOrPhase1;
-#endif
-
 EXTERNC int
 dmtcp_alloc_enabled() { return 1; }
 
@@ -76,11 +72,6 @@ extern "C" void
 free(void *ptr)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
-  // Because we do setcontext to redo some execution, this can cause a
-  // double free error.
-#ifdef MPI
-  JASSERT(!inTrivialBarrierOrPhase1);
-#endif
   _real_free(ptr);
   DMTCP_PLUGIN_ENABLE_CKPT();
 }

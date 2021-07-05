@@ -44,7 +44,6 @@ USER_DEFINED_WRAPPER(int, Test, (MPI_Request*) request,
     if (retval == MPI_SUCCESS && *flag) {
       clearPendingRequestFromLog(request, req);
       UPDATE_REQUEST_MAP(req, MPI_REQUEST_NULL);
-      *request = MPI_REQUEST_NULL;
     }
     DMTCP_PLUGIN_ENABLE_CKPT();
   }

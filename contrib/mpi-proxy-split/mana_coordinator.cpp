@@ -47,7 +47,7 @@ printNonReadyRanks()
   for (PhaseKVPair c : clientPhases) {
     phase_t st = c.second;
     CoordClient *client = c.first;
-    if (st != IS_READY && st != READY_FOR_CKPT) {
+    if (st != IS_READY) {
       o << client->identity() << ": " << st << std::endl;
     }
   }
@@ -252,8 +252,6 @@ operator<<(std::ostream &os, const phase_t &st)
     case IS_READY           : os << "IS_READY"; break;
     case PHASE_1            : os << "PHASE_1"; break;
     case IN_CS              : os << "IN_CS"; break;
-    case READY_FOR_CKPT     : os << "READY_FOR_CKPT"; break;
-    case PHASE_2            : os << "PHASE_2"; break;
     case IN_TRIVIAL_BARRIER : os << "IN_TRIVIAL_BARRIER"; break;
     default                 : os << "Unknown state"; break;
   }

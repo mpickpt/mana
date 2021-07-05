@@ -154,8 +154,10 @@ static DmtcpBarrier mpiPluginBarriers[] = {
     "Clear-Pending-Ckpt-Msg"},
   { DMTCP_PRIVATE_BARRIER_RESUME, resetTwoPhaseState,
     "Reset-Two-Phase-State"},
+#if 0
   { DMTCP_PRIVATE_BARRIER_RESTART, save2pcGlobals,
     "save-global-variables-in-2pc" },
+#endif 
   { DMTCP_PRIVATE_BARRIER_RESTART, updateLhEnviron,
     "updateEnviron" },
   { DMTCP_PRIVATE_BARRIER_RESTART, clearPendingCkpt,
@@ -168,8 +170,10 @@ static DmtcpBarrier mpiPluginBarriers[] = {
     "restoreMpiLogState"},
   { DMTCP_GLOBAL_BARRIER_RESTART, replayMpiP2pOnRestart,
     "replay-async-receives" },
+#if 0
   { DMTCP_PRIVATE_BARRIER_RESTART, restore2pcGlobals,
     "restore-global-variables-in-2pc" },
+#endif
 };
 
 DmtcpPluginDescriptor_t mpi_plugin = {

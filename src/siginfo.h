@@ -14,6 +14,4 @@ void restoreSigHandlers();
 }
 }
 
-extern volatile bool inTrivialBarrierOrPhase1;
-extern ucontext_t beforeTrivialBarrier;
 #endif // ifndef SIGINFO_H
