@@ -22,9 +22,7 @@ typedef enum __phase_t
   IN_TRIVIAL_BARRIER,
   PHASE_1,
   IN_CS,
-  PHASE_2,
   IS_READY,
-  READY_FOR_CKPT,
 } phase_t;
 
 typedef enum __query_t
@@ -32,9 +30,7 @@ typedef enum __query_t
   NONE = -1,
   Q_UNKNOWN, /* State 0 shouldn't be confused with a state used in the algo. */
   INTENT,
-  GET_STATUS,
   FREE_PASS,
-  CKPT,
   WAIT_STRAGGLER,
 } query_t;
 
