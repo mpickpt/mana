@@ -7,8 +7,35 @@
 #include "protectedfds.h"
 #include "mpi_nextfunc.h"
 #include "virtual-ids.h"
+#include "p2p_drain_send_recv.h"
 
+#if 0
 DEFINE_FNC(int, Init, (int *) argc, (char ***) argv)
+DEFINE_FNC(int, Init_thread, (int *) argc, (char ***) argv,
+           (int) required, (int *) provided)
+#else
+USER_DEFINED_WRAPPER(int, Init, (int *) argc, (char ***) argv) {
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  retval = NEXT_FUNC(Init)(argc, argv);
+  RETURN_TO_UPPER_HALF();
+  initialize_drain_send_recv();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return retval;
+}
+USER_DEFINED_WRAPPER(int, Init_thread, (int *) argc, (char ***) argv,
+                     (int) required, (int *) provided) {
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  retval = NEXT_FUNC(Init_thread)(argc, argv, required, provided);
+  RETURN_TO_UPPER_HALF();
+  initialize_drain_send_recv();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return retval;
+}
+#endif
 // FIXME: See the comment in the wrapper function, defined
 // later in the file.
 // DEFINE_FNC(int, Finalize, (void))
@@ -16,8 +43,6 @@ DEFINE_FNC(double, Wtime, (void))
 DEFINE_FNC(int, Finalized, (int *) flag)
 DEFINE_FNC(int, Get_processor_name, (char *) name, (int *) resultlen)
 DEFINE_FNC(int, Initialized, (int *) flag)
-DEFINE_FNC(int, Init_thread, (int *) argc, (char ***) argv,
-           (int) required, (int *) provided)
 
 USER_DEFINED_WRAPPER(int, Finalize, (void))
 {

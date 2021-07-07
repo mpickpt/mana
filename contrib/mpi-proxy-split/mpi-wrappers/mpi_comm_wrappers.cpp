@@ -10,6 +10,7 @@
 #include "record-replay.h"
 #include "virtual-ids.h"
 #include "two-phase-algo.h"
+#include "p2p_drain_send_recv.h"
 
 using namespace dmtcp_mpi;
 
@@ -52,6 +53,7 @@ USER_DEFINED_WRAPPER(int, Comm_create, (MPI_Comm) comm, (MPI_Group) group,
       MPI_Comm virtComm = ADD_NEW_COMM(*newcomm);
       VirtualGlobalCommId::instance().createGlobalId(virtComm);
       *newcomm = virtComm;
+      active_comms.insert(virtComm);
       LOG_CALL(restoreComms, Comm_create, comm, group, virtComm);
     }
     DMTCP_PLUGIN_ENABLE_CKPT();
@@ -86,14 +88,21 @@ USER_DEFINED_WRAPPER(int, Comm_compare,
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, Comm_free, (MPI_Comm *) comm)
+int
+MPI_Comm_free_internal(MPI_Comm *comm)
 {
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(*comm);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Comm_free)(&realComm);
   RETURN_TO_UPPER_HALF();
+  return retval;
+}
+
+USER_DEFINED_WRAPPER(int, Comm_free, (MPI_Comm *) comm)
+{
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  int retval = MPI_Comm_free_internal(comm);
   if (retval == MPI_SUCCESS && LOGGING()) {
     // NOTE: We cannot remove the old comm from the map, since
     // we'll need to replay this call to reconstruct any other comms that
@@ -101,6 +110,7 @@ USER_DEFINED_WRAPPER(int, Comm_free, (MPI_Comm *) comm)
     //
     // realComm = REMOVE_OLD_COMM(*comm);
     // CLEAR_COMM_LOGS(*comm);
+    active_comms.erase(*comm);
     LOG_CALL(restoreComms, Comm_free, *comm);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -149,6 +159,7 @@ USER_DEFINED_WRAPPER(int, Comm_split_type, (MPI_Comm) comm, (int) split_type,
     MPI_Comm virtComm = ADD_NEW_COMM(*newcomm);
     VirtualGlobalCommId::instance().createGlobalId(virtComm);
     *newcomm = virtComm;
+    active_comms.insert(virtComm);
     LOG_CALL(restoreComms, Comm_split_type, comm,
              split_type, key, inf, virtComm);
   }
@@ -244,6 +255,38 @@ USER_DEFINED_WRAPPER(int, Comm_free_keyval, (int *) comm_keyval)
   return retval;
 }
 
+int
+MPI_Comm_create_group_internal(MPI_Comm comm, MPI_Group group, int tag,
+                               MPI_Comm *newcomm)
+{
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+  MPI_Group realGroup = VIRTUAL_TO_REAL_GROUP(group);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  retval = NEXT_FUNC(Comm_create_group)(realComm, realGroup, tag, newcomm);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return retval;
+}
+
+USER_DEFINED_WRAPPER(int, Comm_create_group, (MPI_Comm) comm,
+                     (MPI_Group) group, (int) tag, (MPI_Comm *) newcomm)
+{
+  std::function<int()> realBarrierCb = [=]() {
+    int retval = MPI_Comm_create_group_internal(comm, group, tag, newcomm);
+    if (retval == MPI_SUCCESS && LOGGING()) {
+      MPI_Comm virtComm = ADD_NEW_COMM(*newcomm);
+      VirtualGlobalCommId::instance().createGlobalId(virtComm);
+      *newcomm = virtComm;
+      active_comms.insert(virtComm);
+      LOG_CALL(restoreComms, Comm_create_group, comm, group, tag, virtComm);
+    }
+    return retval;
+  };
+  return twoPhaseCommit(comm, realBarrierCb);
+}
+
 PMPI_IMPL(int, MPI_Comm_size, MPI_Comm comm, int *world_size)
 PMPI_IMPL(int, MPI_Comm_rank, MPI_Group group, int *world_rank)
 PMPI_IMPL(int, MPI_Abort, MPI_Comm comm, int errorcode)
@@ -265,3 +308,5 @@ PMPI_IMPL(int, MPI_Comm_create_keyval,
           MPI_Comm_delete_attr_function * comm_delete_attr_fn,
           int *comm_keyval, void *extra_state)
 PMPI_IMPL(int, MPI_Comm_free_keyval, int *comm_keyval)
+PMPI_IMPL(int, MPI_Comm_create_group, MPI_Comm comm, MPI_Group group,
+          int tag, MPI_Comm *newcomm)

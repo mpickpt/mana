@@ -41,14 +41,21 @@ USER_DEFINED_WRAPPER(int, Group_size, (MPI_Group) group, (int *) size)
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, Group_free, (MPI_Group *) group)
+int
+MPI_Group_free_internal(MPI_Group *group)
 {
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Group realGroup = VIRTUAL_TO_REAL_GROUP(*group);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Group_free)(&realGroup);
   RETURN_TO_UPPER_HALF();
+  return retval;
+}
+
+USER_DEFINED_WRAPPER(int, Group_free, (MPI_Group *) group)
+{
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  int retval = MPI_Group_free_internal(group);
   if (retval == MPI_SUCCESS && LOGGING()) {
     // NOTE: We cannot remove the old group, since we'll need
     // to replay this call to reconstruct any comms that might

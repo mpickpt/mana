@@ -9,6 +9,7 @@
 #include "mpi_nextfunc.h"
 #include "record-replay.h"
 #include "virtual-ids.h"
+#include "p2p_drain_send_recv.h"
 
 using namespace dmtcp_mpi;
 
@@ -40,6 +41,7 @@ USER_DEFINED_WRAPPER(int, Cart_create, (MPI_Comm) old_comm, (int) ndims,
     MPI_Comm virtComm = ADD_NEW_COMM(*comm_cart);
     VirtualGlobalCommId::instance().createGlobalId(virtComm);
     *comm_cart = virtComm;
+    active_comms.insert(virtComm);
     FncArg ds = CREATE_LOG_BUF(dims, ndims * sizeof(int));
     FncArg ps = CREATE_LOG_BUF(periods, ndims * sizeof(int));
     LOG_CALL(restoreCarts, Cart_create, old_comm, ndims,
@@ -128,6 +130,7 @@ USER_DEFINED_WRAPPER(int, Cart_sub, (MPI_Comm) comm,
     MPI_Comm virtComm = ADD_NEW_COMM(*new_comm);
     VirtualGlobalCommId::instance().createGlobalId(virtComm);
     *new_comm = virtComm;
+    active_comms.insert(virtComm);
     FncArg rs = CREATE_LOG_BUF(remain_dims, ndims * sizeof(int));
     LOG_CALL(restoreCarts, Cart_sub, comm, ndims, rs, virtComm);
   }

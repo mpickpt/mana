@@ -6,7 +6,8 @@
 #include "protectedfds.h"
 
 #include "record-replay.h"
-#include "p2p_comm.h"
+#include "p2p_log_replay.h"
+#include "p2p_drain_send_recv.h"
 #include "mpi_plugin.h"
 #include "mpi_nextfunc.h"
 #include "virtual-ids.h"
@@ -30,6 +31,17 @@ USER_DEFINED_WRAPPER(int, Test, (MPI_Request*) request,
   // MPI_Test can change the *request argument
   retval = NEXT_FUNC(Test)(&realRequest, flag, status);
   RETURN_TO_UPPER_HALF();
+  // Updating global counter of recv bytes
+  if (*flag && *request != MPI_REQUEST_NULL) {
+    if (g_async_calls[*request]->type == IRECV_REQUEST) {
+      int count = 0;
+      int size = 0;
+      MPI_Get_count(status, MPI_BYTE, &count);
+      MPI_Type_size(MPI_BYTE, &size);
+      JASSERT(size == 1)(size);
+      g_recvBytesByRank[status->MPI_SOURCE] += count * size;
+    }
+  }
   if (retval == MPI_SUCCESS && *flag && LOGGING()) {
     clearPendingRequestFromLog(*request);
     UPDATE_REQUEST_MAP(*request, MPI_REQUEST_NULL);

@@ -12,19 +12,19 @@
 
 #include "mpi_plugin.h"
 #include "mpi_nextfunc.h"
-#include "p2p_comm.h"
+#include "p2p_log_replay.h"
+#include "p2p_drain_send_recv.h"
 #include "virtual-ids.h"
 
 using namespace dmtcp;
 
-// Map of unserviced irecv/isend requests to MPI call params
-static dmtcp::map<MPI_Request, mpi_async_call_t*> g_async_calls;
-static int g_world_rank = -1; // Global rank of the current process
-static int g_world_size = -1; // Total number of ranks in the current computation
+dmtcp::map<MPI_Request, mpi_async_call_t*> g_async_calls;
+int g_world_rank = -1; // Global rank of the current process
+int g_world_size = -1; // Total number of ranks in the current computation
 // Mutex protecting g_async_calls
 static pthread_mutex_t logMutex = PTHREAD_MUTEX_INITIALIZER;
 
-  void
+void
 getLocalRankInfo()
 {
   if (g_world_rank == -1) {
@@ -37,7 +37,7 @@ getLocalRankInfo()
   }
 }
 
-  void
+void
 updateCkptDirByRank()
 {
   const char *ckptDir = dmtcp_get_ckpt_dir();
@@ -143,16 +143,4 @@ replayMpiP2pOnRestart()
         break;
     }
   }
-}
-
-// Publishes the unserviced sends' metadata to the DMTCP coordinator.
-void
-registerUnservicedSends()
-{
-}
-
-// Publishes the count of drained sends to the DMTCP coordinator.
-void
-registerDrainedSends()
-{
 }

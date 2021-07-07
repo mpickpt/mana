@@ -10,6 +10,7 @@
 #include "mpi_nextfunc.h"
 #include "two-phase-algo.h"
 #include "virtual-ids.h"
+#include "p2p_drain_send_recv.h"
 
 using namespace dmtcp_mpi;
 
@@ -177,23 +178,32 @@ USER_DEFINED_WRAPPER(int, Ireduce,
   return retval;
 }
 
+int
+MPI_Alltoall_internal(const void *sendbuf, int sendcount,
+                      MPI_Datatype sendtype, void *recvbuf, int recvcount,
+                      MPI_Datatype recvtype, MPI_Comm comm)
+{
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+  MPI_Datatype realSendType = VIRTUAL_TO_REAL_TYPE(sendtype);
+  MPI_Datatype realRecvType = VIRTUAL_TO_REAL_TYPE(recvtype);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  retval = NEXT_FUNC(Alltoall)(sendbuf, sendcount, realSendType, recvbuf,
+      recvcount, realRecvType, realComm);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return retval;
+}
+
 USER_DEFINED_WRAPPER(int, Alltoall,
                      (const void *) sendbuf, (int) sendcount,
                      (MPI_Datatype) sendtype, (void *) recvbuf, (int) recvcount,
                      (MPI_Datatype) recvtype, (MPI_Comm) comm)
 {
   std::function<int()> realBarrierCb = [=]() {
-    int retval;
-    DMTCP_PLUGIN_DISABLE_CKPT();
-    MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-    MPI_Datatype realSendType = VIRTUAL_TO_REAL_TYPE(sendtype);
-    MPI_Datatype realRecvType = VIRTUAL_TO_REAL_TYPE(recvtype);
-    JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-    retval = NEXT_FUNC(Alltoall)(sendbuf, sendcount, realSendType, recvbuf,
-                                 recvcount, realRecvType, realComm);
-    RETURN_TO_UPPER_HALF();
-    DMTCP_PLUGIN_ENABLE_CKPT();
-    return retval;
+    return MPI_Alltoall_internal(sendbuf, sendcount, sendtype,
+                                 recvbuf, recvcount, recvtype, comm);
   };
   return twoPhaseCommit(comm, realBarrierCb);
 }
@@ -386,6 +396,7 @@ USER_DEFINED_WRAPPER(int, Comm_split, (MPI_Comm) comm, (int) color, (int) key,
       MPI_Comm virtComm = ADD_NEW_COMM(*newcomm);
       VirtualGlobalCommId::instance().createGlobalId(virtComm);
       *newcomm = virtComm;
+      active_comms.insert(virtComm);
       LOG_CALL(restoreComms, Comm_split, comm, color, key, *newcomm);
     }
     DMTCP_PLUGIN_ENABLE_CKPT();
@@ -407,6 +418,7 @@ USER_DEFINED_WRAPPER(int, Comm_dup, (MPI_Comm) comm, (MPI_Comm *) newcomm)
       MPI_Comm virtComm = ADD_NEW_COMM(*newcomm);
       VirtualGlobalCommId::instance().createGlobalId(virtComm);
       *newcomm = virtComm;
+      active_comms.insert(virtComm);
       LOG_CALL(restoreComms, Comm_dup, comm, *newcomm);
     }
     DMTCP_PLUGIN_ENABLE_CKPT();
