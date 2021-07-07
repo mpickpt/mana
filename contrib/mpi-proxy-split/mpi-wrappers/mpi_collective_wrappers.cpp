@@ -6,7 +6,6 @@
 #include "protectedfds.h"
 
 #include "mpi_plugin.h"
-#include "drain_send_recv_packets.h"
 #include "record-replay.h"
 #include "mpi_nextfunc.h"
 #include "two-phase-algo.h"

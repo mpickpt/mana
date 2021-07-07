@@ -145,7 +145,10 @@ TwoPhaseAlgo::commit(MPI_Comm comm, const char *collectiveFnc,
     return doRealCollectiveComm(); // lambda function: already captured args
   }
 
-  JTRACE("Invoking 2PC for")(collectiveFnc);
+  if (!LOGGING()) {
+    return doRealCollectiveComm();
+  }
+
   commit_begin(comm);
   int retval = doRealCollectiveComm();
   commit_finish();

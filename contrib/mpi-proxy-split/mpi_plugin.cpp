@@ -2,7 +2,7 @@
 
 #include "lower_half_api.h"
 #include "split_process.h"
-#include "drain_send_recv_packets.h"
+#include "p2p_comm.h"
 #include "record-replay.h"
 #include "two-phase-algo.h"
 
@@ -146,10 +146,6 @@ static DmtcpBarrier mpiPluginBarriers[] = {
     "GetLocalLhMmapList"},
   { DMTCP_PRIVATE_BARRIER_PRE_CKPT, getLocalRankInfo,
     "GetLocalRankInfo"},
-  { DMTCP_GLOBAL_BARRIER_PRE_CKPT, registerLocalSendsAndRecvs,
-    "Register-Local-Sends-Recvs" },
-  { DMTCP_GLOBAL_BARRIER_PRE_CKPT, drainMpiPackets,
-    "Drain-Data-From-Proxy" },
   { DMTCP_GLOBAL_BARRIER_PRE_CKPT, updateCkptDirByRank,
     "update-ckpt-dir-by-rank" },
   { DMTCP_PRIVATE_BARRIER_RESUME, clearPendingCkpt,
@@ -164,8 +160,6 @@ static DmtcpBarrier mpiPluginBarriers[] = {
     "Clear-Pending-Ckpt-Msg-Post-Restart"},
   { DMTCP_PRIVATE_BARRIER_RESTART, resetTwoPhaseState,
     "Reset-Two-Phase-State"},
-  { DMTCP_PRIVATE_BARRIER_RESTART, verifyLocalInfoOnRestart,
-    "VerifyLocalInfoOnRestart"},
   { DMTCP_GLOBAL_BARRIER_RESTART, restoreMpiLogState,
     "restoreMpiLogState"},
   { DMTCP_GLOBAL_BARRIER_RESTART, replayMpiP2pOnRestart,
