@@ -4,7 +4,8 @@
 #include "jassert.h"
 
 #include "mpi_plugin.h"
-#include "p2p_comm.h"
+#include "p2p_log_replay.h"
+#include "p2p_drain_send_recv.h"
 #include "jfilesystem.h"
 #include "protectedfds.h"
 #include "mpi_nextfunc.h"
@@ -50,6 +51,11 @@ USER_DEFINED_WRAPPER(int, Isend,
   retval = NEXT_FUNC(Isend)(buf, count, realType, dest, tag, realComm, request);
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS) {
+    // Updating global counter of send bytes
+    int size;
+    MPI_Type_size(datatype, &size);
+    g_sendBytesByRank[dest] += count * size;
+    // Virtualize request
     MPI_Request virtRequest = ADD_NEW_REQUEST(*request);
     *request = virtRequest;
     addPendingRequestToLog(ISEND_REQUEST, buf, NULL, count,
@@ -116,6 +122,14 @@ USER_DEFINED_WRAPPER(int, Irecv,
   size = size * count;
 
   DMTCP_PLUGIN_DISABLE_CKPT();
+  if (isBufferedPacket(source, tag, comm, &flag, &status)) {
+    consumeBufferedPacket(buf, count, datatype, source, tag, comm,
+                          &status, size);
+    *request = MPI_REQUEST_NULL;
+    retval = MPI_SUCCESS;
+    DMTCP_PLUGIN_ENABLE_CKPT();
+    return retval;
+  }
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
   MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);

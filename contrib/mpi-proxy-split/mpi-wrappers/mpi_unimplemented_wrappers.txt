@@ -56,7 +56,6 @@ int MPI_Comm_accept(const char *port_name, MPI_Info info, int root, MPI_Comm com
 int MPI_Comm_call_errhandler(MPI_Comm comm, int errorcode);
 int MPI_Comm_connect(const char *port_name, MPI_Info info, int root, MPI_Comm comm, MPI_Comm *newcomm);
 int MPI_Comm_create_errhandler(MPI_Comm_errhandler_function *function, MPI_Errhandler *errhandler);
-int MPI_Comm_create_group(MPI_Comm comm, MPI_Group group, int tag, MPI_Comm *newcomm);
 int MPI_Comm_delete_attr(MPI_Comm comm, int comm_keyval);
 int MPI_Comm_disconnect(MPI_Comm *comm);
 int MPI_Comm_idup(MPI_Comm comm, MPI_Comm *newcomm, MPI_Request *request);

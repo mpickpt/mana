@@ -12,6 +12,7 @@ static int restoreCommSplit(const MpiRecord& rec);
 static int restoreCommSplitType(const MpiRecord& rec);
 static int restoreCommDup(const MpiRecord& rec);
 static int restoreCommCreate(const MpiRecord& rec);
+static int restoreCommCreateGroup(const MpiRecord& rec);
 static int restoreCommErrHandler(const MpiRecord& rec);
 static int restoreCommFree(const MpiRecord& rec);
 static int restoreAttrPut(const MpiRecord& rec);
@@ -70,6 +71,10 @@ dmtcp_mpi::restoreComms(const MpiRecord &rec)
     case GENERATE_ENUM(Comm_create):
       JTRACE("restoreCommCreate");
       rc = restoreCommCreate(rec);
+      break;
+    case GENERATE_ENUM(Comm_create_group):
+      JTRACE("restoreCommCreateGroup");
+      rc = restoreCommCreateGroup(rec);
       break;
     case GENERATE_ENUM(Comm_set_errhandler):
       JTRACE("restoreCommErrHandler");
@@ -296,6 +301,22 @@ restoreCommCreate(const MpiRecord& rec)
   retval = FNC_CALL(Comm_create, rec)(comm, group, &newcomm);
   if (retval == MPI_SUCCESS) {
     MPI_Comm oldcomm = rec.args(2);
+    UPDATE_COMM_MAP(oldcomm, newcomm);
+  }
+  return retval;
+}
+
+static int
+restoreCommCreateGroup(const MpiRecord& rec)
+{
+  int retval;
+  MPI_Comm comm = rec.args(0);
+  MPI_Group group = rec.args(1);
+  int tag = rec.args(2);
+  MPI_Comm newcomm = MPI_COMM_NULL;
+  retval = FNC_CALL(Comm_create_group, rec)(comm, group, tag, &newcomm);
+  if (retval == MPI_SUCCESS) {
+    MPI_Comm oldcomm = rec.args(3);
     UPDATE_COMM_MAP(oldcomm, newcomm);
   }
   return retval;
