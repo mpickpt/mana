@@ -122,54 +122,6 @@ restore2pcGlobals()
 
 unsigned long upperHalfFs;
 
-// There can be multiple communicators, each with their own N (N = comm. size).
-//
-// The coordinator can initiate the checkpoint when none of the communicators
-// are "blocked".
-//
-// General Properties:
-// 0. For each collective call, we need to communicate the size of the comm
-//    with the coordinator. The coordinator will use this information to
-//    figure out the status of the ranks in the set.
-// 1. If any rank in a communicator, executes a collective call, this implies
-//    that all ranks in the communicator must eventually execute the collective
-//    call.
-//
-// Properties of Phase-1:
-// 2. If a rank has entered the trivial barrier, then it's safe to abort
-//    the trivial barrier and restart the call later.
-// 3. If a rank has exited the trivial barrier, then it's safe to wait until
-//    all ranks exit the trivial barrier. (Conclusion: The wait won't be too
-//    long, since no rank is blocked inside the barrier.)
-// 4. INVARIANT: Each rank will checkpoint either before the trivial barrier,
-//    or after the trivial barrier (but before the collective call).
-//    REASONING: In the former case, it's safe to checkpoint, since we'll
-//    restart the trivial barrier for all the ranks. In the latter case, it's
-//    safe to checkpoint, since all of the ranks have exited the trivial
-//    barrier and are yet to enter the collective call.
-//
-// Properties of Phase-2:
-// 5. If all of the ranks of a communicator are inside stop(PHASE_2), then those
-//    ranks are not preventing a checkpoint. The ranks must then wait for a
-//    checkpoint message from the coordinator. On restart, they can just
-//    continue (resume) to execute the collective call.
-// 6. If some ranks of a communicator are in stop(PHASE_2) and all others are
-//    in the collective call, then it's not safe to checkpoint. This can happen,
-//    for example, if the other ranks received the checkpoint msg too late.
-//    Since at least one rank has entered the collective call, there are
-//    are three implications:
-//      (a) All ranks of the comm. must have entered phase-2. (In other words,
-//          we are guaranteed that there are no stragglers.);
-//      (b) Coordinator must allow the ranks of the comm. in stop(PHASE_2) to
-//          enter the collective call by giving them a free pass; and
-//      (c) We must then wait for all of ranks of the comm. to exit the
-//          collective call.
-// 7. For simplicity, we assume that if one rank has exited the collective
-//    call, then it's safe to wait until all ranks exit the collective call.
-//    In particular, we don't have to worry about stragglers, since we know
-//    that all ranks (of the communicator) must have entered into the
-//    collective call.
-
 using namespace dmtcp_mpi;
 
 int
@@ -192,7 +144,6 @@ TwoPhaseAlgo::commit(MPI_Comm comm, const char *collectiveFnc,
      .state = ST_UNKNOWN, .currState = getCurrState()});
   _commAndStateMutex.unlock();
 
-  addCommHistory(comm);
   JTRACE("Invoking 2PC for")(collectiveFnc);
 
   // FIXME:  When the MPI_Ibarrier reliazly uses virtualized requests,
@@ -202,53 +153,43 @@ TwoPhaseAlgo::commit(MPI_Comm comm, const char *collectiveFnc,
   getcontext(&beforeTrivialBarrier);
 
   // Call the trivial barrier
-  if (true /*isCkptPending() && inCommHistory(comm)*/) {
-    inTrivialBarrierOrPhase1 = true;
-    // Set state again incase we returned from beforeTrivialBarrier
-    setCurrState(IN_TRIVIAL_BARRIER);
-    MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-    MPI_Request request;
-    int flag = 0;
-    int tb_rc = -1;
+  inTrivialBarrierOrPhase1 = true;
+  // Set state again incase we returned from beforeTrivialBarrier
+  setCurrState(IN_TRIVIAL_BARRIER);
+  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+  MPI_Request request;
+  int flag = 0;
+  int tb_rc = -1;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  tb_rc = NEXT_FUNC(Ibarrier)(realComm, &request);
+  RETURN_TO_UPPER_HALF();
+  JASSERT(tb_rc == MPI_SUCCESS)
+    .Text("The trivial barrier in two-phase-commit algorithm failed");
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  // MPI_Ibarrier can set request MPI_REQUEST_NULL on success if
+  // all ranks are present. Does the MPI standard allow this?
+  while (!flag && request != MPI_REQUEST_NULL) {
     DMTCP_PLUGIN_DISABLE_CKPT();
+    int rc;
     JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-    tb_rc = NEXT_FUNC(Ibarrier)(realComm, &request);
+    rc = NEXT_FUNC(Test)(&request, &flag, MPI_STATUS_IGNORE);
     RETURN_TO_UPPER_HALF();
-    JASSERT(tb_rc == MPI_SUCCESS)
-      .Text("The trivial barrier in two-phase-commit algorithm failed");
-    DMTCP_PLUGIN_ENABLE_CKPT();
-    // MPI_Ibarrier can set request MPI_REQUEST_NULL on success if
-    // all ranks are present. Does the MPI standard allow this?
-    while (!flag && request != MPI_REQUEST_NULL) {
-      DMTCP_PLUGIN_DISABLE_CKPT();
-      int rc;
-      JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-      rc = NEXT_FUNC(Test)(&request, &flag, MPI_STATUS_IGNORE);
-      RETURN_TO_UPPER_HALF();
 #ifdef DEBUG
-      JASSERT(rc == MPI_SUCCESS)(rc)(realComm)(request)(comm);
+    JASSERT(rc == MPI_SUCCESS)(rc)(realComm)(request)(comm);
 #endif
-      DMTCP_PLUGIN_ENABLE_CKPT();
-      // FIXME: make this smaller
-      struct timespec test_interval = {.tv_sec = 0, .tv_nsec = 100000};
-      nanosleep(&test_interval, NULL);
-    }
+    DMTCP_PLUGIN_ENABLE_CKPT();
+    // FIXME: make this smaller
+    struct timespec test_interval = {.tv_sec = 0, .tv_nsec = 100000};
+    nanosleep(&test_interval, NULL);
   }
 
-  entering_phase1 = true;
   if (isCkptPending()) {
     stop(comm);
   }
   inTrivialBarrierOrPhase1 = false;
-  entering_phase1 = false;
   setCurrState(IN_CS);
   int retval = doRealCollectiveComm();
-  // INVARIANT: All of our peers have executed the real collective comm.
-  // Now, we can re-enable checkpointing
-  // setCurrState(PHASE_2);
-  // if (isCkptPending()) {
-  //   stop(comm, PHASE_2);
-  // }
   _commAndStateMutex.lock();
   // maintain consistent view for DMTCP coordinator
   commStateHistoryAdd(
@@ -329,41 +270,16 @@ TwoPhaseAlgo::preSuspendBarrier(const void *data)
   switch (query) {
     case INTENT:
       setCkptPending();
-      // FIXME: review and add comment
-      if (entering_phase1) {
-        while (waitForSafeState() != PHASE_1 && waitForSafeState() != IN_CS);
+      if (getCurrState() == PHASE_1) {
+        while (waitForNewState() != IN_CS);
       }
-#if 0
-    case GET_STATUS:
-      if (isInWrapper()) {
-        st = waitForSafeState();
-      }
-#endif
       break;
     case FREE_PASS:
       phase1_freepass = true;
-      // FIXME: if we have the freepass and we are in the trivial barrier or
-      // phase 1, we can report that we are in the critical section, because
-      // we will be soon.
-      while (waitForSafeState() == PHASE_1);
+      while (waitForNewState() == PHASE_1);
       break;
-#if 0
-    case CKPT:
-      setRecvdCkptMsg();
-      phase1_freepass = true;
-      if (isInWrapper()) {
-        if (isInBarrier()) {
-          setCurrState(READY_FOR_CKPT);
-        } else {
-          st = waitForFreePassToTakeEffect(st);
-        }
-      } else {
-        setCurrState(READY_FOR_CKPT);
-      }
-      break;
-#endif
     case WAIT_STRAGGLER:
-      waitForSafeState();
+      waitForNewState();
       break;
     default:
       JWARNING(false)(query).Text("Unknown query from coordinatory");
@@ -375,10 +291,6 @@ TwoPhaseAlgo::preSuspendBarrier(const void *data)
      .state = ST_UNKNOWN, .currState = getCurrState()});
   // maintain consistent view for DMTCP coordinator
   st = getCurrState();
-  // Maybe the user thread enters the wrapper only here.
-  // So, we report an obsolete state (IS_READY).  But it is still
-  // a consistent snapshot.  If IS_READY, we ignore the _comm.
-  // FIXME: This assumes sequential memory consistency.  Maybe add fence()?
   int gid = VirtualGlobalCommId::instance().getGlobalId(_comm);
   commStateHistoryAdd(
     {.lineNo = __LINE__, ._comm = _comm, .comm = gid,
@@ -417,46 +329,15 @@ TwoPhaseAlgo::stop(MPI_Comm comm)
   // INVARIANT: Ckpt should be pending when we get here
   JASSERT(isCkptPending());
   setCurrState(PHASE_1);
-  entering_phase1 = false;
 
   while (isCkptPending() && !phase1_freepass) {
     sleep(1);
   }
   phase1_freepass = false;
-#if 0
-
-  Finally, we wait for a ckpt msg from the coordinator if we are
-  in a checkpoint-able state.
-  if (isCkptPending() && getCurrState() != IN_CS && recvdCkptMsg()) {
-    waitForCkpt();
-  }
-#endif
-}
-
-// FIXME: not used, remove when code is stable
-bool
-TwoPhaseAlgo::waitForFreePass(MPI_Comm comm)
-{
-  // This is called by stop() in phase-2
-  lock_t lock(_freePassMutex);
-  _freePassCv.wait(lock, [this]{ return _freePass; });
-  bool tmp = _freePass;
-  _freePass = false; // Clear out free pass for next checkpoint
-  return tmp;
-}
-
-// FIXME: not used, remove when code is stable
-void
-TwoPhaseAlgo::waitForCkpt()
-{
-  setCurrState(READY_FOR_CKPT);
-  while (isCkptPending()) {
-    sleep(1);
-  }
 }
 
 phase_t
-TwoPhaseAlgo::waitForSafeState()
+TwoPhaseAlgo::waitForNewState()
 {
   lock_t lock(_phaseMutex);
   // The user thread will notify us if transition to any of these states
@@ -464,22 +345,6 @@ TwoPhaseAlgo::waitForSafeState()
                                      _currState == PHASE_1 ||
                                      _currState == IN_CS ||
                                      _currState == IS_READY; });
-  return _currState;
-}
-
-// FIXME: not used, remove when code is stable
-phase_t
-TwoPhaseAlgo::waitForFreePassToTakeEffect(phase_t oldState)
-{
-  lock_t lock(_phaseMutex);
-  _phaseCv.wait(lock, [this, oldState]{ return _currState == READY_FOR_CKPT ||
-                                               _currState == IN_CS ||
-                                               (oldState == PHASE_2 &&
-                                                _currState == PHASE_1) ||
-                                               (oldState == PHASE_1 &&
-                                                _currState == PHASE_2) ||
-                                               _currState == IS_READY ||
-                                               _currState == IN_TRIVIAL_BARRIER;});
   return _currState;
 }
 
