@@ -1,3 +1,24 @@
+/****************************************************************************
+ *   Copyright (C) 2019-2021 by Gene Cooperman, Rohan Garg, Yao Xu          *
+ *   gene@ccs.neu.edu, rohgarg@ccs.neu.edu, xu.yao1@northeastern.edu        *
+ *                                                                          *
+ *  This file is part of DMTCP.                                             *
+ *                                                                          *
+ *  DMTCP is free software: you can redistribute it and/or                  *
+ *  modify it under the terms of the GNU Lesser General Public License as   *
+ *  published by the Free Software Foundation, either version 3 of the      *
+ *  License, or (at your option) any later version.                         *
+ *                                                                          *
+ *  DMTCP is distributed in the hope that it will be useful,                *
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
+ *  GNU Lesser General Public License for more details.                     *
+ *                                                                          *
+ *  You should have received a copy of the GNU Lesser General Public        *
+ *  License in the files COPYING and COPYING.LESSER.  If not, see           *
+ *  <http://www.gnu.org/licenses/>.                                         *
+ ****************************************************************************/
+
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -12,19 +33,19 @@
 
 #include "mpi_plugin.h"
 #include "mpi_nextfunc.h"
-#include "p2p_comm.h"
+#include "p2p_log_replay.h"
+#include "p2p_drain_send_recv.h"
 #include "virtual-ids.h"
 
 using namespace dmtcp;
 
-// Map of unserviced irecv/isend requests to MPI call params
-static dmtcp::map<MPI_Request, mpi_async_call_t*> g_async_calls;
-static int g_world_rank = -1; // Global rank of the current process
-static int g_world_size = -1; // Total number of ranks in the current computation
+dmtcp::map<MPI_Request, mpi_async_call_t*> g_async_calls;
+int g_world_rank = -1; // Global rank of the current process
+int g_world_size = -1; // Total number of ranks in the current computation
 // Mutex protecting g_async_calls
 static pthread_mutex_t logMutex = PTHREAD_MUTEX_INITIALIZER;
 
-  void
+void
 getLocalRankInfo()
 {
   if (g_world_rank == -1) {
@@ -37,7 +58,7 @@ getLocalRankInfo()
   }
 }
 
-  void
+void
 updateCkptDirByRank()
 {
   const char *ckptDir = dmtcp_get_ckpt_dir();
@@ -143,16 +164,4 @@ replayMpiP2pOnRestart()
         break;
     }
   }
-}
-
-// Publishes the unserviced sends' metadata to the DMTCP coordinator.
-void
-registerUnservicedSends()
-{
-}
-
-// Publishes the count of drained sends to the DMTCP coordinator.
-void
-registerDrainedSends()
-{
 }
