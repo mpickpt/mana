@@ -1,0 +1,74 @@
+    TLS, TCB, adn the fs register of the x86_64 CPU
+
+This work documents the low-level data structures in GLIBC.  It's worth
+documenting the layout, since until Linux-5.9, the lack of the FSGSBASE
+patch means that the fs register can be set only through a kernel call.
+This is expensive.  So, we are currently forced to copy the thread-local
+data to the application half region pointed to by the application-half
+fs register, instead of setting the fs register to the driver half during
+calls to the driver half.
+
+The pthread_t type is a pointer to the thread descriptor, the TCB (thread
+control block), and other fields.  However, this is preceded by the TLS
+(thread-local storage) area for that thread.  The base of the fs segment
+descriptor points to the pthread descriptor.  The base of the fs segment
+descriptor is sometimes called the thread pointer.
+
+For the TCB, the header (first portion) is here:
+  GLIBC:src/sysdeps/x86_64/nptl/tls.h:tcbhead_t
+The first three entries are pointers.  GLIBC accesses the rest of
+the TCB and thread descriptor through these three pointers instead of
+directly accessing the fields as offsets from the base of the fs segment
+descriptor.  Apparently, GLIBC accesses the TCB and other information
+_only_ by dereferencing these three pointers, and not by caching data
+inside the TCB.  Since we create a new thread with a new TCB on restart,
+providing that the fs register is restored at restart time to point to
+the original (possibly patched) TCB.  at restart time.
+
+So, all TLS areas are reached through the fs register.  The details
+follow.  The variables of the TLS for the base executable are found as a
+negative offset from the thread pointer.  The three pointers of the TCB
+header are the three addresses (pointers) following the thread pointer.
+And the TLS area for each dynamic library is found by using the fs
+register to follow the dtv (dynamic thread vector) for a given module id.
+(A static or dynamic module is a library/executable known at compile-time
+or loaded dynamically by dlopen.  It begins with the base executable as
+module id 1.)  See the references at the end for how to follow the dtv
+to the TLS area of a dynamic library.
+
+Hence, instead of MANA adjusting the fs register to move between upper
+and lower half, MANA can instead copy the TLS area and these three
+pointers to memory currently pointed to by the base segment of the
+fs register.  The latter strategy avoids the need for a kernel call.
+(When the FSGSBASE patch of Linux 5.9 is available, the fs register
+can be changed without a kernel call.)
+
+The thread descriptor, struct pthread, is found at:
+  GLIBC:nptl/tls.h
+As indicated there, the TCB header is at the beginning of the thread
+descriptor.  The thread descriptor also includes things like a cache of
+the thread's pid and tid.
+
+The TLS area is found just before the pthread descriptor.
+
+When a new thread is created, the TLS image must be copied into the
+new thread.  That information is found in GLIBC:include/link.h:
+    /* Start of the initialization image.  */
+    void *l_tls_initimage;
+    /* Size of the initialization image.  */
+    size_t l_tls_initimage_size;
+    /* Size of the TLS block.  */
+This information is discovered by the linker when examining the tdata1
+and tbss sections for initialized and uninitialized thread-local storage.
+See GLIBC:elf/dl-load.c for details.
+
+For further information, see, for example:
+  https://docs.oracle.com/cd/E23824_01/html/819-0690/chapter8-5.html
+  https://refspecs.linuxbase.org/LSB_3.0.0/LSB-PDA/LSB-PDA/specialsections.html
+  https://stevens.netmeister.org/631/elf.html
+
+Other resources for further information is at:
+  https://chao-tic.github.io/blog/2018/12/25/tls
+or at:
+  https://uclibc.org/docs/tls.pdf
+  ("https://uclibc.org/docs/tls.pdf" by Ulrich Drepper)
