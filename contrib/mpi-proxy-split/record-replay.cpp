@@ -667,12 +667,12 @@ static int restoreIbcast(const MpiRecord& rec) {
   MPI_Datatype datatype = rec.args(2);
   int root = rec.args(3);
   MPI_Comm comm = rec.args(4);
-  MPI_Request newRequest = MPI_REQUEST_NULL;
+  MPI_Request newRealRequest = MPI_REQUEST_NULL;
   retval = FNC_CALL(Ibcast, rec)(buf, count, datatype, root, comm,
-                                 &newRequest);
+                                 &newRealRequest);
   if (retval == MPI_SUCCESS) {
-    MPI_Request oldRequest = rec.args(5);
-    UPDATE_REQUEST_MAP(oldRequest, newRequest);
+    MPI_Request virtRequest = rec.args(5);
+    UPDATE_REQUEST_MAP(virtRequest, newRealRequest);
   }
   return retval;
 }
@@ -686,12 +686,12 @@ static int restoreIreduce(const MpiRecord& rec) {
   MPI_Op op = rec.args(4);
   int root = rec.args(5);
   MPI_Comm comm = rec.args(6);
-  MPI_Request newRequest = MPI_REQUEST_NULL;
+  MPI_Request newRealRequest = MPI_REQUEST_NULL;
   retval = FNC_CALL(Ireduce, rec)(sendbuf, recvbuf, count,
-                                  datatype, op, root, comm, &newRequest);
+                                  datatype, op, root, comm, &newRealRequest);
   if (retval == MPI_SUCCESS) {
-    MPI_Request oldRequest = rec.args(7);
-    UPDATE_REQUEST_MAP(oldRequest, newRequest);
+    MPI_Request virtRequest = rec.args(7);
+    UPDATE_REQUEST_MAP(virtRequest, newRealRequest);
   }
   return retval;
 }
@@ -699,11 +699,15 @@ static int restoreIreduce(const MpiRecord& rec) {
 static int restoreIbarrier(const MpiRecord& rec) {
   int retval = -1;
   MPI_Comm comm = rec.args(0);
-  MPI_Request newRequest = MPI_REQUEST_NULL;
-  retval = FNC_CALL(Ibarrier, rec)(comm, &newRequest);
+  MPI_Request newRealRequest = MPI_REQUEST_NULL;
+  retval = FNC_CALL(Ibarrier, rec)(comm, &newRealRequest);
+  MPI_Request virtRequest;
   if (retval == MPI_SUCCESS) {
-    MPI_Request oldRequest = rec.args(1);
-    UPDATE_REQUEST_MAP(oldRequest, newRequest);
+    virtRequest = rec.args(1);
+    UPDATE_REQUEST_MAP(virtRequest, newRealRequest);
   }
+  int flag;
+  retval = MPI_Request_get_status(virtRequest, &flag, MPI_STATUS_IGNORE);
+  JASSERT(retval == MPI_SUCCESS);
   return retval;
 }
