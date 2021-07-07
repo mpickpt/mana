@@ -209,8 +209,10 @@ namespace dmtcp_mpi
           realId = _vIdTable.virtualToReal(virt);
           _vIdTable.erase(virt);
         } else {
+#if 0
           JWARNING(false)(virt)(_vIdTable.getTypeStr())
                   .Text("Cannot delete non-existent virtual id");
+#endif
         }
         return realId;
       }
@@ -226,10 +228,14 @@ namespace dmtcp_mpi
         }
         lock_t lock(_mutex);
         if (!_vIdTable.virtualIdExists(virt)) {
+#if 0
           JWARNING(false)(virt)(real)(_vIdTable.getTypeStr())
                   (_vIdTable.realToVirtual(real))
                   .Text("Cannot update mapping for a non-existent virt. id");
-          return vId;
+          volatile int dummy = 1;
+          while (dummy);
+#endif
+          return _nullId;
         }
         _vIdTable.updateMapping(virt, real);
         return virt;
