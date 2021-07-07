@@ -132,6 +132,16 @@ TwoPhaseAlgo::commit(MPI_Comm comm, const char *collectiveFnc,
     return doRealCollectiveComm(); // lambda function: already captured args
   }
 
+  JTRACE("Invoking 2PC for")(collectiveFnc);
+  commit_begin(comm);
+  int retval = doRealCollectiveComm();
+  commit_finish();
+  return retval;
+}
+
+void
+TwoPhaseAlgo::commit_begin(MPI_Comm comm)
+{
   _commAndStateMutex.lock();
   // maintain consistent view for DMTCP coordinator
   commStateHistoryAdd(
@@ -143,8 +153,6 @@ TwoPhaseAlgo::commit(MPI_Comm comm, const char *collectiveFnc,
     {.lineNo = __LINE__, ._comm = _comm, .comm = -1,
      .state = ST_UNKNOWN, .currState = getCurrState()});
   _commAndStateMutex.unlock();
-
-  JTRACE("Invoking 2PC for")(collectiveFnc);
 
   // FIXME:  When the MPI_Ibarrier reliazly uses virtualized requests,
   //         we can replace 'beforeTrivialBarrier' by a more robust scheme:
@@ -189,7 +197,11 @@ TwoPhaseAlgo::commit(MPI_Comm comm, const char *collectiveFnc,
   }
   inTrivialBarrierOrPhase1 = false;
   setCurrState(IN_CS);
-  int retval = doRealCollectiveComm();
+}
+
+void
+TwoPhaseAlgo::commit_finish()
+{
   _commAndStateMutex.lock();
   // maintain consistent view for DMTCP coordinator
   commStateHistoryAdd(
@@ -201,55 +213,6 @@ TwoPhaseAlgo::commit(MPI_Comm comm, const char *collectiveFnc,
     {.lineNo = __LINE__, ._comm = _comm, .comm = -1,
      .state = ST_UNKNOWN, .currState = getCurrState()});
   _commAndStateMutex.unlock();
-  return retval;
-}
-
-void
-TwoPhaseAlgo::commit_begin(MPI_Comm comm)
-{
-  wrapperEntry(comm);
-
-#if 0
-  getcontext(&beforeTrivialBarrier);
-  // inTrivialBarrier should be false, unless we are jumping from
-  // the setcontext in threadlist.cpp:stopthisthread because the
-  // checkpoint signal was received from the trivial barrier.
-  if (inTrivialBarrier) {
-    inTrivialBarrier = false;
-    raise(CKPT_SIGNAL); // resend the checkpoint signal to this thread
-  }
-
-#endif
-
-  // Call the trivial barrier if it's the second time this
-  // communicator enters a wrapper after get a free pass
-  // from PHASE_2
-  if (true /*isCkptPending() && inCommHistory(comm)*/) {
-    inTrivialBarrierOrPhase1 = true;
-    setCurrState(IN_TRIVIAL_BARRIER);
-    MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-    // JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-    NEXT_FUNC(Barrier)(realComm);
-    // RETURN_TO_UPPER_HALF();
-    inTrivialBarrierOrPhase1 = false;
-  }
-
-  if (isCkptPending()) {
-    stop(comm);
-  }
-  setCurrState(IN_CS);
-}
-
-void
-TwoPhaseAlgo::commit_finish() {
-  // INVARIANT: All of our peers have executed the real collective comm.
-  // Now, we can re-enable checkpointing
-  // setCurrState(PHASE_2);
-  // if (isCkptPending()) {
-  //   stop(comm, PHASE_2);
-  // }
-  setCurrState(IS_READY);
-  wrapperExit();
 }
 
 void
