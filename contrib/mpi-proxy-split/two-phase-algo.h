@@ -54,37 +54,10 @@ namespace dmtcp_mpi
         _ckptPending = false;
       }
 
-      // Clean communicator history after a checkpoint session is finished
-      void clearCommHistory() {
-        memset(_commHistory, 0, _commHistorySize);
-        _commHistorySize = 0;
-      }
-
       // Resets the client state after a checkpoint.
       void resetStateAfterCkpt()
       {
         _currState = IS_READY;
-        clearCkptMsg();
-      }
-
-      // Sets '_freePass' to true and unblocks any threads blocked on the
-      // '_freePassCv' condition variable
-      // (Executed by the checkpoint thread)
-      void notifyFreePass(bool forCkpt = false)
-      {
-        phase_t tmp = getCurrState();
-        JASSERT(tmp == PHASE_1 || tmp == PHASE_2 || forCkpt)(tmp)
-               .Text("Received free pass in wrong state!");
-        lg_t lock(_freePassMutex);
-        _freePass = true;
-        _freePassCv.notify_one();
-      }
-
-      // Sets '_freePass' to false
-      void clearFreePass()
-      {
-        lock_t lock(_freePassMutex);
-        _freePass = false;
       }
 
       // Return true if _currState == IN_BARRIER
@@ -92,9 +65,6 @@ namespace dmtcp_mpi
       
       // The main function of the two-phase protocol for MPI collectives
       int commit(MPI_Comm , const char* , std::function<int(void)> );
-
-      // FIXME: A new way to call the original commit function,
-      // without the lambda function.
       void commit_begin(MPI_Comm);
       void commit_finish();
 
@@ -107,14 +77,14 @@ namespace dmtcp_mpi
       // Private constructor
       TwoPhaseAlgo()
         : _currState(IS_READY),
-          _ckptPendingMutex(), _phaseMutex(), _freePassMutex(),
-          _wrapperMutex(), _ckptMsgMutex(),
+          _ckptPendingMutex(), _phaseMutex(),
+          _wrapperMutex(),
           _commAndStateMutex(),
-          _freePassCv(), _phaseCv(),
+          _phaseCv(),
           _comm(MPI_COMM_NULL),
-          _freePass(false), _inWrapper(false),
-          _ckptPending(false), _recvdCkptMsg(false),
-          _commHistorySize(0), phase1_freepass(false), entering_phase1(false)
+          _inWrapper(false),
+          _ckptPending(false),
+          phase1_freepass(false)
       {
       }
 
@@ -149,29 +119,6 @@ namespace dmtcp_mpi
         return _ckptPending;
       }
 
-      // Return true if a communicator is already in the history list.
-      bool inCommHistory(MPI_Comm comm) {
-        for (int i = 0; i < _commHistorySize; i++) {
-          if (comm == _commHistory[i]) {
-            return true;
-          }
-        }
-        return false;
-      }
-
-      // FIXME: if 1000 is not enough, we need to dynamically extend the 
-      // size of the array.
-      // Add a communicator in the history list. Return -1 if the history
-      // list is full.
-      int addCommHistory(MPI_Comm comm) {
-        if (_commHistorySize < COMM_HISTORY_MAX) {
-          _commHistory[_commHistorySize] = comm;
-          _commHistorySize++;
-          return 0;
-        }
-        return -1;
-      }
-
       // Sets '_ckptPending' to true to indicate that a checkpoint intent
       // message was received from the the coordinator
       void setCkptPending()
@@ -181,57 +128,14 @@ namespace dmtcp_mpi
         setCurrentState(WorkerState::PRE_SUSPEND);
       }
 
-      // Sets '_recvdCkptMsg' to true
-      void setRecvdCkptMsg()
-      {
-        lock_t lock(_ckptMsgMutex);
-        _recvdCkptMsg = true;
-      }
-
-      // Sets '_recvdCkptMsg' to false
-      void clearCkptMsg()
-      {
-        lock_t lock(_ckptMsgMutex);
-        _recvdCkptMsg = false;
-      }
-
-      // Returns the value of '_recvdCkptMsg'
-      bool recvdCkptMsg()
-      {
-        lock_t lock(_ckptMsgMutex);
-        return _recvdCkptMsg;
-      }
-
       // Stopping point before entering and after exiting the actual MPI
       // collective call to avoid domino effect and provide bounds on
       // checkpointing time. 'comm' indicates the MPI communicator used
       // for the collective call, and 'p' is the current phase.
       void stop(MPI_Comm);
 
-      // Blocks until a free pass message is received from the coordinator
-      bool waitForFreePass(MPI_Comm );
-
-      // Blocks and wait for checkpointing to complete
-      void waitForCkpt();
-
-      // This is used to ensure that the caller waits for the following 3
-      // transitions:
-      //   IS_READY -> PHASE_1
-      //   OUT_CS   -> PHASE_2
-      //   PHASE_1  -> IN_CS
-      // Returns the new state of the process.
-      phase_t waitForSafeState();
-
-      // Wait for the following 5 transitions:
-      //   PHASE_1  -> READY_FOR_CKPT
-      //   PHASE_1  -> IN_CS
-      //   PHASE_2  -> READY_FOR_CKPT
-      //   PHASE_2  -> IS_READY
-      //   IS_READY -> IS_READY
-      //   PHASE_2  -> READY_FOR_CKPT -> PHASE_1 (If the ckpt thread was too slow.)
-      //   PHASE_1  -> IN_CS -> PHASE_2 (If the ckpt thread was too slow.)
-      // Returns the new state of the process.
-      phase_t waitForFreePassToTakeEffect(phase_t );
+      // Wait until the state is changed to a new state
+      phase_t waitForNewState();
 
       // Sends the given message 'msg' (along with the given 'extraData') to
       // the coordinator
@@ -255,20 +159,11 @@ namespace dmtcp_mpi
       // Lock to protect accesses to '_currState'
       mutex_t _phaseMutex;
 
-      // Lock to protect accesses to '_freePass'
-      mutex_t _freePassMutex;
-
       // Lock to protect accesses to '_inWrapper'
       mutex_t _wrapperMutex;
 
-      // Lock to protect accesses to '_recvdCkptMsg'
-      mutex_t _ckptMsgMutex;
-
       // lock to make atomic read/write for comm and state
       mutex_t _commAndStateMutex;
-
-      // Condition variable to wait-signal based on the state of '_freePass'
-      cv_t _freePassCv;
 
       // Condition variable to wait-signal based on the state of '_currState'
       cv_t _phaseCv;
@@ -288,24 +183,8 @@ namespace dmtcp_mpi
       // TODO: Use C++ atomics
       bool _ckptPending;
 
-      // True if a final ready-for-checkpointing message was received from the
-      // coordinator, indicating that we have reached a safe state globally
-      // TODO: Use C++ atomics
-      bool _recvdCkptMsg;
-
-      // If a free pass is given out so that all ranks can progress to
-      // PHASE_2, the wrapper (commit function) will employ a
-      // trivial barrier the next time that ranks enter a wrapper using that
-      // communicator. This list saves a history of communicators in this
-      // checkpointing session.
-      MPI_Comm _commHistory[COMM_HISTORY_MAX];
-      int _commHistorySize;
-
       // True if a freepass is given by the coordinator
       bool phase1_freepass;
-
-      // True is this rank is leaving the trivial barrier and entering phase_1
-      bool entering_phase1;
   };
 };
 
