@@ -109,7 +109,6 @@ USER_DEFINED_WRAPPER(int, Barrier, (MPI_Comm) comm)
 }
 #endif
 
-// FIXME: We need to create a test case for this
 EXTERNC
 USER_DEFINED_WRAPPER(int, Ibarrier, (MPI_Comm) comm, (MPI_Request *) request)
 {
