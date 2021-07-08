@@ -140,6 +140,8 @@ updateLhEnviron()
 static DmtcpBarrier mpiPluginBarriers[] = {
   { DMTCP_GLOBAL_BARRIER_PRE_SUSPEND, NULL,
     "Drain-MPI-Collectives", drainMpiCollectives},
+  { DMTCP_PRIVATE_BARRIER_PRE_CKPT, logIbarrierIfInTrivBarrier,
+    "Log-MPI_Ibarrier-if-in-trivial-barrier"},
   { DMTCP_PRIVATE_BARRIER_PRE_CKPT, getLhMmapList,
     "GetLocalLhMmapList"},
   { DMTCP_PRIVATE_BARRIER_PRE_CKPT, getLocalRankInfo,
