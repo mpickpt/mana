@@ -8,7 +8,6 @@
 #include "siginfo.h"
 #if 0
 #include "split-process.h"
-#else
 
 #ifndef _SPLIT_PROCESS_H
 #define _SPLIT_PROCESS_H
@@ -100,27 +99,41 @@ resetTwoPhaseState()
   TwoPhaseAlgo::instance().resetStateAfterCkpt();
 }
 
+void
+logIbarrierIfInTrivBarrier()
+{
+  TwoPhaseAlgo::instance().logIbarrierIfInTrivBarrier();
+}
+
+#if 0
 // Save and restore global variables that may be changed during
 // restart events. These are called from mpi_plugin.cpp using
 // DMTCP_PRIVATE_BARRIER_RESTART.
 int inTrivialBarrierOrPhase1_copy = -1;
 ucontext_t beforeTrivialBarrier_copy;
+#endif
 
 void
 save2pcGlobals()
 {
+#if 0
   inTrivialBarrierOrPhase1_copy = inTrivialBarrierOrPhase1;
   beforeTrivialBarrier_copy = beforeTrivialBarrier;
+#endif
+  // FIXME: not used right now, but useful if we want to save and restore some
+  // important variables before and after replaying MPI functions
 }
 
 void
 restore2pcGlobals()
 {
+#if 0
   inTrivialBarrierOrPhase1 = inTrivialBarrierOrPhase1_copy;
   beforeTrivialBarrier = beforeTrivialBarrier_copy;
+#endif
+  // FIXME: not used right now, but useful if we want to save and restore some
+  // important variables before and after replaying MPI functions
 }
-
-unsigned long upperHalfFs;
 
 using namespace dmtcp_mpi;
 
@@ -128,7 +141,7 @@ int
 TwoPhaseAlgo::commit(MPI_Comm comm, const char *collectiveFnc,
                      std::function<int(void)>doRealCollectiveComm)
 {
-  if (comm == MPI_COMM_NULL) {
+  if (!LOGGING() || comm == MPI_COMM_NULL) {
     return doRealCollectiveComm(); // lambda function: already captured args
   }
 
@@ -154,48 +167,42 @@ TwoPhaseAlgo::commit_begin(MPI_Comm comm)
      .state = ST_UNKNOWN, .currState = getCurrState()});
   _commAndStateMutex.unlock();
 
-  // FIXME:  When the MPI_Ibarrier reliazly uses virtualized requests,
-  //         we can replace 'beforeTrivialBarrier' by a more robust scheme:
-  //         Call MPI_Ibarrier wrapper instead of internal MPI_Ibarrier
-  //         and it will be safe to restart within that code.
-  getcontext(&beforeTrivialBarrier);
-
   // Call the trivial barrier
-  inTrivialBarrierOrPhase1 = true;
+  DMTCP_PLUGIN_DISABLE_CKPT();
   // Set state again incase we returned from beforeTrivialBarrier
   setCurrState(IN_TRIVIAL_BARRIER);
-  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
   MPI_Request request;
+  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
   int flag = 0;
   int tb_rc = -1;
-  DMTCP_PLUGIN_DISABLE_CKPT();
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   tb_rc = NEXT_FUNC(Ibarrier)(realComm, &request);
   RETURN_TO_UPPER_HALF();
+  MPI_Request virtRequest = ADD_NEW_REQUEST(request);
+  _request = virtRequest;
   JASSERT(tb_rc == MPI_SUCCESS)
     .Text("The trivial barrier in two-phase-commit algorithm failed");
   DMTCP_PLUGIN_ENABLE_CKPT();
-  // MPI_Ibarrier can set request MPI_REQUEST_NULL on success if
-  // all ranks are present. Does the MPI standard allow this?
+#if 0
   while (!flag && request != MPI_REQUEST_NULL) {
-    DMTCP_PLUGIN_DISABLE_CKPT();
     int rc;
-    JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-    rc = NEXT_FUNC(Test)(&request, &flag, MPI_STATUS_IGNORE);
-    RETURN_TO_UPPER_HALF();
+    rc = MPI_Test(&request, &flag, MPI_STATUS_IGNORE);
 #ifdef DEBUG
     JASSERT(rc == MPI_SUCCESS)(rc)(realComm)(request)(comm);
 #endif
-    DMTCP_PLUGIN_ENABLE_CKPT();
     // FIXME: make this smaller
     struct timespec test_interval = {.tv_sec = 0, .tv_nsec = 100000};
     nanosleep(&test_interval, NULL);
   }
+#else
+  MPI_Wait(&_request, MPI_STATUS_IGNORE);
+#endif
 
   if (isCkptPending()) {
     stop(comm);
   }
-  inTrivialBarrierOrPhase1 = false;
+  REMOVE_OLD_REQUEST(_request);
+  _request = MPI_REQUEST_NULL;
   setCurrState(IN_CS);
 }
 
@@ -213,6 +220,15 @@ TwoPhaseAlgo::commit_finish()
     {.lineNo = __LINE__, ._comm = _comm, .comm = -1,
      .state = ST_UNKNOWN, .currState = getCurrState()});
   _commAndStateMutex.unlock();
+}
+
+void
+TwoPhaseAlgo::logIbarrierIfInTrivBarrier()
+{
+  phase_t st = getCurrState();
+  if (st == IN_TRIVIAL_BARRIER || (st == PHASE_1 && !phase1_freepass)) {
+    LOG_CALL(restoreRequests, Ibarrier, _comm, _request);
+  }
 }
 
 void
