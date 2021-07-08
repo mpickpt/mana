@@ -58,7 +58,7 @@ sigset_t sigpending_global;
 Thread *activeThreads = NULL;
 void *saved_sysinfo;
 MYINFO_GS_T myinfo_gs __attribute__((visibility("hidden")));
-#ifdef MPI
+#if 0
 volatile bool inTrivialBarrierOrPhase1 = false;
 ucontext_t beforeTrivialBarrier;
 #endif
@@ -771,6 +771,7 @@ stopthisthread(int signum)
       prctl(PR_SET_PTRACER, 0, 0, 0, 0); // Revert permission to default.
 #endif // ifdef HAS_PR_SET_PTRACER
     }
+#if 0
     if (restoreInProgress) {
       if (inTrivialBarrierOrPhase1) {
         JTRACE("User thread returning to before trivial barrier")
@@ -778,6 +779,7 @@ stopthisthread(int signum)
         setcontext(&beforeTrivialBarrier);
       }
     }
+#endif
 #endif
 
     JTRACE("User thread returning to user code")

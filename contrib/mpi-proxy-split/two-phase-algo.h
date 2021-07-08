@@ -17,8 +17,6 @@
 #define twoPhaseCommit(comm, fnc) \
         dmtcp_mpi::TwoPhaseAlgo::instance().commit(comm, __FUNCTION__, fnc)
 
-#define COMM_HISTORY_MAX 1000
-
 using namespace dmtcp;
 
 namespace dmtcp_mpi
@@ -62,7 +60,7 @@ namespace dmtcp_mpi
 
       // Return true if _currState == IN_BARRIER
       bool isInBarrier();
-      
+
       // The main function of the two-phase protocol for MPI collectives
       int commit(MPI_Comm , const char* , std::function<int(void)> );
       void commit_begin(MPI_Comm);
@@ -71,6 +69,9 @@ namespace dmtcp_mpi
       // Implements the pre-suspend checkpointing protocol for coordination
       // between DMTCP coordinator and peers
       void preSuspendBarrier(const void *);
+
+      // Log the MPI_Ibarrier call if we checkpoint in trivial barrier or phase1
+      void logIbarrierIfInTrivBarrier();
 
     private:
 
@@ -82,9 +83,11 @@ namespace dmtcp_mpi
           _commAndStateMutex(),
           _phaseCv(),
           _comm(MPI_COMM_NULL),
+          _request(MPI_REQUEST_NULL),
           _inWrapper(false),
           _ckptPending(false),
-          phase1_freepass(false)
+          phase1_freepass(false),
+          inTrivialBarrierOrPhase1(false)
       {
       }
 
@@ -171,6 +174,9 @@ namespace dmtcp_mpi
       // MPI communicator corresponding to the current MPI collective call
       MPI_Comm _comm;
 
+      // MPI request used in the trivial barrier.
+      MPI_Request _request;
+
       // True if a free-pass message was received from the coordinator
       bool _freePass;
 
@@ -185,6 +191,9 @@ namespace dmtcp_mpi
 
       // True if a freepass is given by the coordinator
       bool phase1_freepass;
+
+      // True if in the trivial barrier or phase 1
+      bool inTrivialBarrierOrPhase1;
   };
 };
 
@@ -198,6 +207,9 @@ extern void clearPendingCkpt();
 // Resets the state of the current process for the two-phase checkpointing
 // algo
 extern void resetTwoPhaseState();
+
+// Log the MPI_Ibarrier call if we checkpoint in trivial barrier or phase1
+extern void logIbarrierIfInTrivBarrier();
 
 // Save and restore global variables that may be changed during
 // restart events. These are called from mpi_plugin.cpp using

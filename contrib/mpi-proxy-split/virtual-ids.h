@@ -231,6 +231,8 @@ namespace dmtcp_mpi
           JWARNING(false)(virt)(real)(_vIdTable.getTypeStr())
                   (_vIdTable.realToVirtual(real))
                   .Text("Cannot update mapping for a non-existent virt. id");
+          volatile int dummy = 1;
+          while (dummy);
           return vId;
         }
         _vIdTable.updateMapping(virt, real);
