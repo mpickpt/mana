@@ -23,24 +23,12 @@ default2: default
 mana_coordinator.o: mana_coordinator.cpp
 	${CXX} ${CXXFLAGS} `CC --cray-print-opts=cflags` -c -o $@ $<
 else
-  MPI_BIN = @MPI_BIN@
-  MPI_LIB = @MPI_LIB@
-  MPI_INCLUDE = @MPI_INCLUDE@
-  MPICC = @MPICC@
-  MPICXX = @MPICXX@
-  MPIFORTRAN = UNKNOWN
-  MPIRUN = @MPIRUN@
-  MPI_LD_FLAG = @MPI_LD_FLAG@
-  MPI_CFLAGS?= @MPI_CFLAGS@
-  MPI_CXXFLAGS?= @MPI_CXXFLAGS@
-  MPI_LDFLAGS?= @MPI_LDFLAGS@
+  MPICC = mpicc
+  MPICXX = mpic++
+  MPIFORTRAN = mpifort
+  MPIRUN = mpirun
+  MPI_LD_FLAG = -L$$HOME/mpich-static/usr/lib64 -lmpi -llzma -lz -lm -lxml2
+  MPI_CFLAGS?= -g3 -O0 -std=c99 -fPIC
+  MPI_CXXFLAGS?= -g3 -O0 -std=c99 -fPIC
+  MPI_LDFLAGS?=
 endif
-
-# If you trust your MPI distro package, this is another option:
-#   MPICC = mpicc
-#   MPICXX = mpic++
-#   MPIRUN = mpirun
-#   MPI_LD_FLAG = -lmpi
-#   MPI_CFLAGS?= -g3 -O0 -std=c99 -fPIC
-#   MPI_CXXFLAGS?= -g3 -O0 -std=c99 -fPIC
-#   MPI_LDFLAGS?=

@@ -44,14 +44,14 @@ default: ${PROXY_BIN}
 ${PROXY_BIN}: ${PROXY_OBJS} ${LIBPROXY}.a
 	if ${MPICC} -v 2>&1 | grep -q 'MPICH version'; then \
 	  rm -f tmp.sh; \
-	  ${MPICC} -show ${PROXY_LD_FLAGS} -o $@ $^ ${MPI_LD_FLAG} \
-	    -lrt -lpthread -lc ${LIBPROXY}.a | \
+	  ${MPICC} -show ${PROXY_LD_FLAGS} -o $@ -Wl,-start-group \
+	    $^ ${MPI_LD_FLAG} -lrt -lpthread -lc -Wl,-end-group | \
 	    sed -e 's^-lunwind ^ ^'> tmp.sh; \
 	  sh tmp.sh; \
 	  rm -f tmp.sh; \
 	else \
-	  ${MPICC} ${PROXY_LD_FLAGS} -o $@ $^ ${MPI_LD_FLAG} \
-	    -lrt -lpthread -lc ${LIBPROXY}.a; \
+	  ${MPICC} ${PROXY_LD_FLAGS} -o $@ -Wl,-start-group \
+            $^ ${MPI_LD_FLAG} -lrt -lpthread -lc -Wl,-end-group; \
 	fi
 
 ${LIBPROXY}.a: ${LIBPROXY_OBJS}
