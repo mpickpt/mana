@@ -294,19 +294,21 @@ int atoi2(char* str)
 
 	// Iterate through all characters 
 	// of input string and update result 
-	for (int i = 0; str[i] 
+	int i;
+	for (i = 0; str[i] 
 			!= '\0'; 
 			++i) 
 		res = res * 10 + str[i] - '0'; 
 
 	// return result. 
 	return res; 
-} 
+}
 
 int my_memcmp(const void *buffer1, const void *buffer2, size_t len) {
   const uint8_t *bbuf1 = (const uint8_t *) buffer1;
   const uint8_t *bbuf2 = (const uint8_t *) buffer2;
-  for(size_t i = 0; i < len; ++i) {
+  size_t i;
+  for (i = 0; i < len; ++i) {
       if(bbuf1[i] != bbuf2[i]) return bbuf1[i] - bbuf2[i];
   }
   return 0;
