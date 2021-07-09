@@ -670,8 +670,8 @@ main(int argc, char *argv[], char **environ)
     total_reserved_fds = reserve_fds_upper_half(reserved_fds);
 
     // Refer to "blocked memory" in MANA Plugin Documentation for the addresses
-#if 1
-# define GB (1024 * 1024 * 1024)
+#ifdef GNI
+# define GB (uint64_t)(1024 * 1024 * 1024)
     // FIXME:  Rewrite this logic more carefully.
     char *start1, *start2, *end1, *end2;
     if (libsEnd + 1 * GB < highMemStart /* end of stack of upper half */) {
