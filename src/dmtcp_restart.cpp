@@ -1046,7 +1046,8 @@ main(int argc, char **argv)
       t = new RestoreTarget(mtcpArgList[3]);
     } else {
         string image_zero = restartDir; // copy constructor called
-        if(image_zero.back() != '/') {
+        int image_zero_len = strlen(image_zero.c_str());
+        if(image_zero.c_str()[image_zero_len-1] != '/') {
             image_zero.append("/");
         }
         image_zero.append("ckpt_rank_0/");
