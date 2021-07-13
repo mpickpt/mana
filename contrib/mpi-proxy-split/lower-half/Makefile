@@ -29,6 +29,17 @@ PROXY_LD_FLAGS=-static -Wl,-Ttext-segment -Wl,0xE000000 -Wl,--wrap -Wl,__munmap 
 
 default: ${PROXY_BIN}
 
+ifeq ($(findstring cori,$(PLATFORM)),cori) 
+  STATIC_GETHOSTBYNAME=
+else
+  STATIC_GETHOSTBYNAME=gethostbyname-static/gethostbyname_static.o
+${STATIC_GETHOSTBYNAME}: gethostbyname-static/gethostbyname_static.c \
+                         gethostbyname-static/gethostbyname_proxy.c
+	cd gethostbyname-static && make gethostbyname_static.o
+	cd gethostbyname-static && make gethostbyname_proxy
+	cp gethostbyname-static/gethostbyname_proxy -f ${DMTCP_ROOT}/bin/
+endif
+
 .c.o:
 	${MPICC} ${CFLAGS} -g3 -O0 -c -o $@ $<
 
@@ -41,7 +52,7 @@ default: ${PROXY_BIN}
 # MPICH-3.3 'mpicc -static' adds spurious duplicate -lunwind; we remove that.
 # *** NOTE:  This will fail unless you have configured MPICH with:
 # ***        ./configure --disable-xml2 --disable-libxml2 ...
-${PROXY_BIN}: ${PROXY_OBJS} ${LIBPROXY}.a
+${PROXY_BIN}: ${PROXY_OBJS} ${LIBPROXY}.a ${STATIC_GETHOSTBYNAME}
 	if ${MPICC} -v 2>&1 | grep -q 'MPICH version'; then \
 	  rm -f tmp.sh; \
 	  ${MPICC} -show ${PROXY_LD_FLAGS} -o $@ -Wl,-start-group \
@@ -66,6 +77,9 @@ tidy:
 
 clean: tidy
 	rm -f ${PROXY_BIN} ${LIBPROXY}.a ${PROXY_OBJS} ${LIBPROXY_OBJS}
+	if test -d gethostbyname-static; then \
+	  cd gethostbyname-static && make clean; \
+	fi
 
 distclean: clean
 
