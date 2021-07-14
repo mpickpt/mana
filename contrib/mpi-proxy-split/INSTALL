@@ -1,7 +1,7 @@
 CONTENTS:
  * General notes for building, testing and running on Cori supercomputer
  * Debugging internals of MANA
- * Building and testing on ordinary CentOS/Ubuntu (not the Cori supercomputer)
+ * Building and testing on ordinary CentOS 7 (not the Cori supercomputer)
 
 ================================================================================
 General notes for building, testing and running on Cori supercomputer:
@@ -15,9 +15,12 @@ MANA at github:
 and MANA documentation:
   https://docs.google.com/document/d/1pT25gvMNeT1Vz4SU6Gp4Hx9MGLfkK8ZK-sSOwtu5R50/edit
 
-Eventually, we'll have scripts for this:
-  mpi_mana_launch, mpi_mana_restart, mpi_mana_status.
-But for now, we're still modifying MANA.
+Building MANA:
+  cd MANA_ROOT_DIR && ./configure --enable-debug && make -j mana
+
+The main scripts for this:
+  mana_coordinator, mana_launch, mana_restart, mana_status
+See MANA_ROOT_DIR/manpages/mana.1 for the MANA man page.
 
 At this time, the steps to build MANA (on Cori) are roughly as follows.
 
@@ -39,24 +42,22 @@ At this time, the steps to build MANA (on Cori) are roughly as follows.
   pushd  # Go back to plugin directory: mpi-proxy-split
   cd test # We're now in:  contrib/mpi-proxy-split/test
 
-Roughly, to test MANA, do:
+To test MANA, see the MANA man page.  A short version is:
   export MANA_ROOT=$HOME/mana  # Adjust for your directory.
   cd $MANA_ROOT/contrib/mpi-proxy-split/test
   make tidy # Remove old ckpt files from a previous session.
-  $MANA_ROOT/bin/dmtcp_coordinator --mpi -q -q --exit-on-last --daemon
+  $MANA_ROOT/bin/mana_coordinator
   # This does interval checkpointing every 5 seconds.
   make mpi_hello_world.mana.exe
-  srun -n 1 $MANA_ROOT/bin/dmtcp_launch -i5 --host `hostname` --no-gzip --join --disable-dl-plugin --with-plugin $PWD/../libmana.so ./mpi_hello_world.mana.exe
+  srun -n 1 $MANA_ROOT/bin/mana_launch -i5 ./mpi_hello_world.mana.exe
   # [ creates ckpt:   ls ckpt_rank_*/ckpt_*.dmtcp ]
-  $MANA_ROOT/bin/dmtcp_coordinator --mpi -q -q --exit-on-last --daemon
-  srun -n 1 $MANA_ROOT/bin/dmtcp_restart --host `hostname` --join --mpi ckpt_rank_*/ckpt_*.dmtcp
+  $MANA_ROOT/bin/mana_coordinator
+  srun -n 1 $MANA_ROOT/bin/mana_restart
 
 To see if a coordinator (or other process) is already running do:
   ps uxw
-
-We intend to later simplify all of this with scripts for
-  mpi_mana_launch, mpi_mana_restart, and mpi_mana_status.
-But right now, MANA is still under development.
+For the status of the various MANA ranks/processes, do:
+  $MANA_ROOT/bin/mana_status -l
 
 ================================================================================
 Debugging internals of MANA:
@@ -92,7 +93,7 @@ If you had previously set a breakpoint before switching, then use:
 before switching among lower and upper halves.
 
 When debugging with GDB after restart, if you are debugging inside the
-target application, then a good sttrategy is:
+target application, then a good strategy is:
   DMTCP_RESTART_PAUSE=1 srun -n 1 $MANA_ROOT/bin/dmtcp_restart ...
 It will pause, with instructions:
   (gdb) p dummy=0
@@ -106,37 +107,29 @@ after which GDB has been failing to find the symbols for debugging.
 Building and testing on ordinary CentOS/Ubuntu (not the Cori supercomputer):
 
 Before going into details, there are a few prerequisites:
-A.  We have only tested with MPICH, not Open MPI.
-B.  You will need to build your own MPICH package.  The MPICH package
-    supplied with Ubuntu (or CentOS??) is unlikely to work.
-    That package does not seem to work well with the '-static' flag
-    required for MANA.  In addition, that package seems to have been
-    configured to require '-lcr' (BLCR).  BLCR is not actively supported,
-    and 'mpicc -static' with the MANA options is likely to fail due to
-    interactions with '-lcr'.
-C.  Configuring your own MPICH to work with '-static' seems to be tricky.
-    We finally had success with the following configure command (on MPICH-3.3):
-    ./configure --enable-g --disable-xml2 --disable-libxml2 --prefix=INSTALL_DIR
-    This removes the internal '-lxml2' flag and removes MPICH dependencies
-    on libxml2.a.
+A.  We have only tested with MPICH, not Open MPI.  Open MPI doesn't
+    seem to support a statically linked MPI library.  (MANA uses a
+    static MPI library in its lower half, while the MPI application continues
+    to be linked dynamically  MANA's lower-half static MPI library can
+    be replaced by a standard dynamic MPI library, but this would requires
+    further work, and is not a current priority.)
+B.  The MPICH package supplied with CentOS 7 provides mpicc, which
+    accepts a '-static' flag.  But this is not sufficient for
+    actual use.  To configure MANA to work with MPICH and '-static', see:
+      MANA_ROOT_DIR/contrib/mpi-proxy-split/lower-half/README.mpich-static
+C.  Note MANA_ROOT_DIR/contrib/mpi-proxy-split/Makefile_configure.in
+    for additional customization (for example, not Cori, not MPICH).
 D.  OPTIONAL: Probably the 'configure' above suffices.  But if 'mpicc -show'
     indicates a flag '-lxml2' anyway, then this will create a dependency on
     libxml2.a.  Even if you have installed the package 'libxml2', then you
     _must_ also install 'libxml2-dev' (libxml2-devel in CentOS) to get
     'libxml2.a'.
     (If you are missing libxml2.a and lack root privilege, try copying libxml2.a
-     from some distro package, and add -LPATH to mpicc command in ${PROXY_BIN}
-     target of lower-half/Makefile, where PATH is a path to your libxml2.a .)
-E.  If you try MANA with Open MPI, please give us feedback on your results.
+     from some distro package, as described in README.mpich-static.)
 
-Building outside of Cori (details).
-1.  git checkout test-dekaksi    # This will be merged into refactoring later.
-2.  Instead of './configure', do 'sh configure-mana'.  You will probably
-    have to modify the 'configure-mana' script to point to your MPICH build.
-3.  NOTE:  Using 'mpicc -static' seems to be problematic for MPICH, as
-            distributed with Ubuntu and CentOS.
-            In mpi-proxy-split/lower-half/Makefile, it tries to fix that.  If
-            this fails for you, see comments for PROXY_BIN target of Makefile.
+Building outside of Cori for MPICH:
+If you have satisfied the prerequisites above, then do 'make -j mana'
+and continue as for Cori.
 
 ===
 Testing and running is mostly the same as described at the top.
@@ -154,29 +147,21 @@ MANA tries to guess the required Ethernet interface in 'configure-mana'.
 Hopefully, that guess will be correct.  But see below for the issues, and
 under what circumstances MANA might guess the wrong interface and fail
 for an MPICH-derived MPI on a non-HPC cluster.
-
-The issue arises because the lower half, lh_proxy, was compiled
-statically with libc.a.  However, libc.a does not directly support
-gethostbyname and getaddrinfo.  Instead, it tries to load libnss_*.so.
-But we wanted lh_proxy to be statically linked so that it would consist
-only of text/data/stack, and later calls to mmap.
+[ This issue may now be solved now, using gethostbyname-static.tar.gz.
+  The issue used to arise because the lower half, lh_proxy, was compiled
+  statically with libc.a.  However, libc.a does not directly support
+  gethostbyname and getaddrinfo.  Instead, it tries to load libnss_*.so.
+  But we wanted lh_proxy to be statically linked so that it would consist
+  only of text/data/stack, and later calls to mmap. ]
 
 NOTE: On HPC clusters, it is more common to use 'srun', along with a custom
       network interface (InfiniBand, Cray GNI, etc.).  So, most likely
       Ethernet will not be used, and libc.a will not call libnss_*.so.
-NOTE: Open MPI seems to auto-detect an appropriate network interface,
-      but we have not tested Open MPI to confirm this so far.
 
 The file MANA_ROOT/configure-mana tries to guess the Ethernet interface with:
   ip addr | grep -B1 link/ether  # and choose one of those interfaces
 OR ELSE:
   ifconfig -a (deprecated)
 If necessary, change the definition of MPIRUN in configure-mana for the
-correct Ethernet interface on your compute node.
-
-NOTE: On the latest version of the neil-testing branch a --restardir flag has
-been added to dmtcp_restart. Instead of passing all checkpoint files on the command line,
-you can use this flag to pass the directory containing the checkpoint files
-in the format ckpt_rank_{Rank}/ckpt_*.dmtcp, and it will autodetect those files
-from the directory and load them. This avoids the issue with the command line
-truncated arguments that are too long, which can be an issue at higher ranks.
+correct Ethernet interface on your compute node.  [ But this may no
+longer be necessary. ]
