@@ -52,6 +52,8 @@ endif
 # MPICH-3.3 'mpicc -static' adds spurious duplicate -lunwind; we remove that.
 # *** NOTE:  This will fail unless you have configured MPICH with:
 # ***        ./configure --disable-xml2 --disable-libxml2 ...
+# ***        or unless you installed the necessary libaries.
+# ***        See ./README.mpich-static here, for how to install the libaries
 ${PROXY_BIN}: ${PROXY_OBJS} ${LIBPROXY}.a ${STATIC_GETHOSTBYNAME}
 	if ${MPICC} -v 2>&1 | grep -q 'MPICH version'; then \
 	  rm -f tmp.sh; \
