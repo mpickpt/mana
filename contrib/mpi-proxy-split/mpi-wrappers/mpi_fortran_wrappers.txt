@@ -88,3 +88,5 @@ int MPI_Rsend(const void* ibuf, int count, MPI_Datatype datatype, int dest, int 
 int MPI_Ibarrier(MPI_Comm comm, MPI_Request* request);
 int MPI_Ibcast(void* buffer, int count, MPI_Datatype datatype, int root, MPI_Comm comm, MPI_Request* request);
 int MPI_Ireduce(const void* sendbuf, void* recvbuf, int count, MPI_Datatype datatype, MPI_Op op, int root, MPI_Comm comm, MPI_Request* request);
+
+int MPI_Group_translate_ranks(MPI_Group group1, int n, const int* ranks1, MPI_Group group2, int* ranks2);

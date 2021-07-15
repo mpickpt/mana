@@ -17,6 +17,11 @@ USER_DEFINED_WRAPPER(int, Test, (MPI_Request*) request,
                      (int*) flag, (MPI_Status*) status)
 {
   int retval;
+  MPI_Status statusBuffer;
+  MPI_Status *statusPtr = status;
+  if (statusPtr == MPI_STATUS_IGNORE) {
+    statusPtr = &statusBuffer;
+  }
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Request realRequest;
   realRequest = VIRTUAL_TO_REAL_REQUEST(*request);
@@ -29,18 +34,25 @@ USER_DEFINED_WRAPPER(int, Test, (MPI_Request*) request,
   }
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   // MPI_Test can change the *request argument
-  retval = NEXT_FUNC(Test)(&realRequest, flag, status);
+  retval = NEXT_FUNC(Test)(&realRequest, flag, statusPtr);
   RETURN_TO_UPPER_HALF();
   // Updating global counter of recv bytes
-  if (*flag && *request != MPI_REQUEST_NULL) {
-    if (g_async_calls[*request]->type == IRECV_REQUEST) {
-      int count = 0;
-      int size = 0;
-      MPI_Get_count(status, MPI_BYTE, &count);
-      MPI_Type_size(MPI_BYTE, &size);
-      JASSERT(size == 1)(size);
-      g_recvBytesByRank[status->MPI_SOURCE] += count * size;
-    }
+  if (*flag && *request != MPI_REQUEST_NULL
+      && g_async_calls.find(*request) != g_async_calls.end()
+      && g_async_calls[*request]->type == IRECV_REQUEST) {
+    int count = 0;
+    int size = 0;
+    MPI_Get_count(statusPtr, MPI_BYTE, &count);
+    MPI_Type_size(MPI_BYTE, &size);
+    JASSERT(size == 1)(size);
+    MPI_Comm comm = g_async_calls[*request]->comm;
+    int worldRank = localRankToGlobalRank(statusPtr->MPI_SOURCE, comm);
+    g_recvBytesByRank[worldRank] += count * size;
+    // For debugging
+#if 0
+    printf("rank %d received %d bytes from rank %d\n", g_world_rank, count * size, worldRank);
+    fflush(stdout);
+#endif
   }
   if (retval == MPI_SUCCESS && *flag && LOGGING()) {
     clearPendingRequestFromLog(*request);
@@ -113,6 +125,11 @@ USER_DEFINED_WRAPPER(int, Wait, (MPI_Request*) request, (MPI_Status*) status)
 {
   int retval;
   int flag = 0;
+  MPI_Status statusBuffer;
+  MPI_Status *statusPtr = status;
+  if (statusPtr == MPI_STATUS_IGNORE) {
+    statusPtr = &statusBuffer;
+  }
   // FIXME: Should we use the MPI_Test wrapper instead of the real MPI_Test?
   while (!flag) {
     DMTCP_PLUGIN_DISABLE_CKPT();
@@ -125,8 +142,26 @@ USER_DEFINED_WRAPPER(int, Wait, (MPI_Request*) request, (MPI_Status*) status)
       return MPI_SUCCESS;
     }
     JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-    retval = NEXT_FUNC(Test)(&realRequest, &flag, status);
+    retval = NEXT_FUNC(Test)(&realRequest, &flag, statusPtr);
     RETURN_TO_UPPER_HALF();
+    // Updating global counter of recv bytes
+    if (flag && *request != MPI_REQUEST_NULL
+        && g_async_calls.find(*request) != g_async_calls.end()
+        && g_async_calls[*request]->type == IRECV_REQUEST) {
+      int count = 0;
+      int size = 0;
+      MPI_Get_count(statusPtr, MPI_BYTE, &count);
+      MPI_Type_size(MPI_BYTE, &size);
+      JASSERT(size == 1)(size);
+      MPI_Comm comm = g_async_calls[*request]->comm;
+      int worldRank = localRankToGlobalRank(statusPtr->MPI_SOURCE, comm);
+      g_recvBytesByRank[worldRank] += count * size;
+    // For debugging
+#if 0
+      printf("rank %d received %d bytes from rank %d\n", g_world_rank, count * size, worldRank);
+      fflush(stdout);
+#endif
+    }
     if (flag && LOGGING()) {
       clearPendingRequestFromLog(*request);
       UPDATE_REQUEST_MAP(*request, MPI_REQUEST_NULL);

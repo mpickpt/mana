@@ -129,6 +129,8 @@ replayMpiP2pOnRestart()
         UPDATE_REQUEST_MAP(request, realRequest);
         break;
       case ISEND_REQUEST:
+        JASSERT(false)
+          .Text("There should be no pending MPI_Isend after restart");
         JTRACE("Replaying Isend call")(call->remote_node);
         JUMP_TO_LOWER_HALF(lh_info.fsaddr);
         retval = NEXT_FUNC(Isend)(call->sendbuf, call->count,

@@ -177,7 +177,6 @@ int MPI_Group_excl(MPI_Group group, int n, const int ranks[], MPI_Group *newgrou
 int MPI_Group_intersection(MPI_Group group1, MPI_Group group2, MPI_Group *newgroup);
 int MPI_Group_range_excl(MPI_Group group, int n, int ranges[][3], MPI_Group *newgroup);
 int MPI_Group_range_incl(MPI_Group group, int n, int ranges[][3], MPI_Group *newgroup);
-int MPI_Group_translate_ranks(MPI_Group group1, int n, const int ranks1[], MPI_Group group2, int ranks2[]);
 int MPI_Group_union(MPI_Group group1, MPI_Group group2, MPI_Group *newgroup);
 int MPI_Ibsend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request);
 int MPI_Improbe(int source, int tag, MPI_Comm comm, int *flag, MPI_Message *message, MPI_Status *status);

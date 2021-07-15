@@ -114,6 +114,22 @@ USER_DEFINED_WRAPPER(int, Group_incl, (MPI_Group) group, (int) n,
   return retval;
 }
 
+USER_DEFINED_WRAPPER(int, Group_translate_ranks, (MPI_Group) group1,
+                     (int) n, (const int) ranks1[], (MPI_Group) group2,
+                     (int) ranks2[])
+{
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  MPI_Group realGroup1 = VIRTUAL_TO_REAL_GROUP(group1);
+  MPI_Group realGroup2 = VIRTUAL_TO_REAL_GROUP(group2);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  retval = NEXT_FUNC(Group_translate_ranks)(realGroup1, n, ranks1,
+                                            realGroup2, ranks2);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return retval;
+}
+
 PMPI_IMPL(int, MPI_Comm_group, MPI_Comm comm, MPI_Group *group)
 PMPI_IMPL(int, MPI_Group_size, MPI_Group group, int *size)
 PMPI_IMPL(int, MPI_Group_free, MPI_Group *group)
@@ -122,3 +138,5 @@ PMPI_IMPL(int, MPI_Group_compare, MPI_Group group1,
 PMPI_IMPL(int, MPI_Group_rank, MPI_Group group, int *rank)
 PMPI_IMPL(int, MPI_Group_incl, MPI_Group group, int n,
           const int *ranks, MPI_Group *newgroup)
+PMPI_IMPL(int, MPI_Group_translate_ranks, MPI_Group group1, int n,
+          const int ranks1[], MPI_Group group2, int ranks2[]);

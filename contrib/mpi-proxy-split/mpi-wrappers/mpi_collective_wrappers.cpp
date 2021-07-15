@@ -20,6 +20,10 @@ USER_DEFINED_WRAPPER(int, Bcast,
 {
   std::function<int()> realBarrierCb = [=]() {
     int retval;
+    int size;
+    MPI_Type_size(datatype, &size);
+    printf("Rank %d: MPI_Bcast sending %d bytes\n", g_world_rank, count * size);
+    fflush(stdout);
     DMTCP_PLUGIN_DISABLE_CKPT();
     MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
     MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
