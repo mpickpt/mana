@@ -6,6 +6,9 @@
 #include "jassert.h"
 #include "p2p_drain_send_recv.h"
 #include "p2p_log_replay.h"
+#include "split_process.h"
+#include "mpi_nextfunc.h"
+#include "virtual-ids.h"
 
 extern int MPI_Comm_create_group_internal(MPI_Comm comm, MPI_Group group,
                                           int tag, MPI_Comm *newcomm);
@@ -16,6 +19,7 @@ extern int MPI_Alltoall_internal(const void *sendbuf, int sendcount,
 extern int MPI_Comm_free_internal(MPI_Comm *comm);
 extern int MPI_Group_free_internal(MPI_Group *group);
 int *g_sendBytesByRank; // Number of bytes sent to other ranks
+int *g_rsendBytesByRank; // Number of bytes sent to other ranks by MPI_rsend
 int *g_bytesSentToUsByRank; // Number of bytes other ranks sent to us
 int *g_recvBytesByRank; // Number of bytes received from other ranks
 std::unordered_set<MPI_Comm> active_comms;
@@ -26,6 +30,7 @@ initialize_drain_send_recv()
 {
   getLocalRankInfo();
   g_sendBytesByRank = (int*)JALLOC_HELPER_MALLOC(g_world_size * sizeof(int));
+  g_rsendBytesByRank = (int*)JALLOC_HELPER_MALLOC(g_world_size * sizeof(int));
   g_bytesSentToUsByRank =
     (int*)JALLOC_HELPER_MALLOC(g_world_size * sizeof(int));
   g_recvBytesByRank = (int*)JALLOC_HELPER_MALLOC(g_world_size * sizeof(int));
@@ -49,7 +54,6 @@ registerLocalSendsAndRecvs()
 
   // Free resources
   MPI_Comm_free_internal(&mana_comm);
-  MPI_Group_free_internal(&group_world);
 }
 
 // status was received by MPI_Iprobe
@@ -80,20 +84,19 @@ recvMsgIntoInternalBuffer(MPI_Status status, MPI_Comm comm)
 }
 
 int
-recvFromAllComms(int source)
+recvFromAllComms()
 {
   int bytesReceived = 0;
   std::unordered_set<MPI_Comm>::iterator comm;
   for (comm = active_comms.begin(); comm != active_comms.end(); comm++) {
-    if (*comm == MPI_COMM_SELF && source != g_world_rank) {
-      continue;
-    }
-    int flag;
-    MPI_Status status;
-    MPI_Iprobe(source, MPI_ANY_TAG, *comm, &flag, &status);
+    int flag = 1;
+    while (flag) {
+      MPI_Status status;
+      MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, *comm, &flag, &status);
 
-    if (flag) {
-      bytesReceived += recvMsgIntoInternalBuffer(status, *comm);
+      if (flag) {
+        bytesReceived += recvMsgIntoInternalBuffer(status, *comm);
+      }
     }
   }
   return bytesReceived;
@@ -103,37 +106,39 @@ void
 removePendingSendRequests()
 {
   dmtcp::map<MPI_Request, mpi_async_call_t*>::iterator it;
-  for (it = g_async_calls.begin(); it != g_async_calls.end(); it++) {
+  for (it = g_async_calls.begin(); it != g_async_calls.end();) {
     MPI_Request request = it->first;
     mpi_async_call_t *call = it->second;
     int flag = 0;
     if (call->type == ISEND_REQUEST) {
-      // All pending MPI_Isend request should be true at this point
-      MPI_Test(&request, &flag, MPI_STATUS_IGNORE);
-      JASSERT(flag)(request)(flag);
+      UPDATE_REQUEST_MAP(request, MPI_REQUEST_NULL);
+      // FIXME: We should free `call' to avoid memory leak
+      it = g_async_calls.erase(it);
+    } else {
+      it++;
     }
   }
 }
 
+bool
+allDrained()
+{
+  int i;
+  for (i = 0; i < g_world_size; i++) {
+    if (g_bytesSentToUsByRank[i] > g_recvBytesByRank[i]) {
+      return false;
+    }
+  }
+  return true;
+}
+    
 void
 drainSendRecv()
 {
   int timeout_counter = 0;
-  bool allDrained = false;
-  while (!allDrained) {
-    allDrained = true;
-    int i;
-    for (i = 0; i < g_world_size; i++) {
-      if (g_bytesSentToUsByRank[i] > g_recvBytesByRank[i]) {
-        allDrained = false;
-        sleep(1);
-        int numReceived = recvFromAllComms(i);
-        // JASSERT(numReceived != 0)(numReceived);
-        // recvFromAllComms will call the MPI_Recv wrapper, MPI_Recv wrapper
-        // call MPI_Test wrapper, and MPI_Test wrapper will update
-        // g_recvBytesByRank[i].
-      }
-    }
+  while (!allDrained()) {
+    sleep(1);
+    int numReceived = recvFromAllComms();
     // if we finished many rounds and we are not receiving more,
     // print a warning message with fprintf(stderr).
     if (timeout_counter > 20) {
@@ -204,6 +209,19 @@ void
 resetDrainCounters()
 {
   memset(g_sendBytesByRank, 0, g_world_size * sizeof(int));
+  memset(g_rsendBytesByRank, 0, g_world_size * sizeof(int));
   memset(g_bytesSentToUsByRank, 0, g_world_size * sizeof(int));
   memset(g_recvBytesByRank, 0, g_world_size * sizeof(int));
+}
+
+int
+localRankToGlobalRank(int localRank, MPI_Comm localComm)
+{
+  int worldRank;
+  MPI_Group worldGroup, localGroup;
+  MPI_Comm_group(MPI_COMM_WORLD, &worldGroup);
+  MPI_Comm_group(localComm, &localGroup);
+  MPI_Group_translate_ranks(localGroup, 1, &localRank,
+                            worldGroup, &worldRank); 
+  return worldRank;
 }
