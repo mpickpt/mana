@@ -73,6 +73,9 @@ namespace dmtcp_mpi
       // Log the MPI_Ibarrier call if we checkpoint in trivial barrier or phase1
       void logIbarrierIfInTrivBarrier();
 
+      // Replay the trivial barrier if _replayTrivialBarrier true
+      void replayTrivialBarrier();
+
     private:
 
       // Private constructor
@@ -87,7 +90,7 @@ namespace dmtcp_mpi
           _inWrapper(false),
           _ckptPending(false),
           phase1_freepass(false),
-          inTrivialBarrierOrPhase1(false)
+          _replayTrivialBarrier(false)
       {
       }
 
@@ -192,8 +195,8 @@ namespace dmtcp_mpi
       // True if a freepass is given by the coordinator
       bool phase1_freepass;
 
-      // True if in the trivial barrier or phase 1
-      bool inTrivialBarrierOrPhase1;
+      // True if we need to replay trivial barrier on restart
+      bool _replayTrivialBarrier;
   };
 };
 
@@ -203,10 +206,6 @@ extern void drainMpiCollectives(const void* );
 
 // Clears the pending checkpoint state for the two-phase checkpointing algo
 extern void clearPendingCkpt();
-
-// Resets the state of the current process for the two-phase checkpointing
-// algo
-extern void resetTwoPhaseState();
 
 // Log the MPI_Ibarrier call if we checkpoint in trivial barrier or phase1
 extern void logIbarrierIfInTrivBarrier();

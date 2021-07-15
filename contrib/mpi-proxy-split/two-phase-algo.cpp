@@ -6,59 +6,6 @@
 #include "two-phase-algo.h"
 #include "virtual-ids.h"
 #include "siginfo.h"
-#if 0
-#include "split-process.h"
-
-#ifndef _SPLIT_PROCESS_H
-#define _SPLIT_PROCESS_H
-
-// Helper class to save and restore context (in particular, the FS register),
-// when switching between the upper half and the lower half. In the current
-// design, the caller would generally be the upper half, trying to jump into
-// the lower half. An example would be calling a real function defined in the
-// lower half from a function wrapper defined in the upper half.
-// Example usage:
-//   int function_wrapper()
-//   {
-//     SwitchContext ctx;
-//     return _real_function();
-//   }
-// The idea is to leverage the C++ language semantics to help us automatically
-// restore the context when the object goes out of scope.
-class SwitchContext
-{
-  private:
-    unsigned long upperHalfFs; // The base value of the FS register of the upper half thread
-    unsigned long lowerHalfFs; // The base value of the FS register of the lower half
-
-  public:
-    // Saves the current FS register value to 'upperHalfFs' and then
-    // changes the value of the FS register to the given 'lowerHalfFs'
-    explicit SwitchContext(unsigned long );
-
-    // Restores the FS register value to 'upperHalfFs'
-    ~SwitchContext();
-};
-
-// Helper macro to be used whenever making a jump from the upper half to
-// the lower half.
-#define JUMP_TO_LOWER_HALF(lhFs) \
-  do { \
-    SwitchContext ctx((unsigned long)lhFs)
-
-// Helper macro to be used whenever making a returning from the lower half to
-// the upper half.
-#define RETURN_TO_UPPER_HALF() \
-  } while (0)
-
-// This function splits the process by initializing the lower half with the
-// lh_proxy code. It returns 0 on success.
-extern int splitProcess();
-
-#endif // ifndef _SPLIT_PROCESS_H
-#endif
-
-
 
 using namespace dmtcp_mpi;
 
@@ -105,21 +52,10 @@ logIbarrierIfInTrivBarrier()
   TwoPhaseAlgo::instance().logIbarrierIfInTrivBarrier();
 }
 
-#if 0
-// Save and restore global variables that may be changed during
-// restart events. These are called from mpi_plugin.cpp using
-// DMTCP_PRIVATE_BARRIER_RESTART.
-int inTrivialBarrierOrPhase1_copy = -1;
-ucontext_t beforeTrivialBarrier_copy;
-#endif
 
 void
 save2pcGlobals()
 {
-#if 0
-  inTrivialBarrierOrPhase1_copy = inTrivialBarrierOrPhase1;
-  beforeTrivialBarrier_copy = beforeTrivialBarrier;
-#endif
   // FIXME: not used right now, but useful if we want to save and restore some
   // important variables before and after replaying MPI functions
 }
@@ -127,12 +63,9 @@ save2pcGlobals()
 void
 restore2pcGlobals()
 {
-#if 0
-  inTrivialBarrierOrPhase1 = inTrivialBarrierOrPhase1_copy;
-  beforeTrivialBarrier = beforeTrivialBarrier_copy;
-#endif
   // FIXME: not used right now, but useful if we want to save and restore some
   // important variables before and after replaying MPI functions
+  TwoPhaseAlgo::instance().replayTrivialBarrier();
 }
 
 using namespace dmtcp_mpi;
@@ -172,8 +105,8 @@ TwoPhaseAlgo::commit_begin(MPI_Comm comm)
 
   // Call the trivial barrier
   DMTCP_PLUGIN_DISABLE_CKPT();
-  // Set state again incase we returned from beforeTrivialBarrier
   setCurrState(IN_TRIVIAL_BARRIER);
+  // Set state again incase we returned from beforeTrivialBarrier
   MPI_Request request;
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
   int flag = 0;
@@ -228,9 +161,38 @@ TwoPhaseAlgo::commit_finish()
 void
 TwoPhaseAlgo::logIbarrierIfInTrivBarrier()
 {
+  JASSERT(!phase1_freepass)
+    .Text("phase1_freepass should be false when about to checkpoint");
   phase_t st = getCurrState();
-  if (st == IN_TRIVIAL_BARRIER || (st == PHASE_1 && !phase1_freepass)) {
-    LOG_CALL(restoreRequests, Ibarrier, _comm, _request);
+  if (st == IN_TRIVIAL_BARRIER || st == PHASE_1) {
+    _replayTrivialBarrier = true;
+  } else {
+    _replayTrivialBarrier = false;
+  }
+}
+
+void
+TwoPhaseAlgo::replayTrivialBarrier()
+{
+  if (_replayTrivialBarrier) {
+    MPI_Request request;
+    MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(_comm);
+    int flag = 0;
+    int tb_rc = -1;
+    JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+    tb_rc = NEXT_FUNC(Ibarrier)(realComm, &request);
+    RETURN_TO_UPPER_HALF();
+    UPDATE_REQUEST_MAP(_request, request);
+    _replayTrivialBarrier = false;
+    // This MPI_Wait could be redundant.
+    // If user's program was checkpointed in phase 1, then we replay
+    // the MPI_Ibarrier and MPI_Wait in a pair as the trivial barrier.
+    // If user's program was checkpointed in the trivial barrier, this
+    // MPI_Wait is redundant. But it's ok to have an extra MPI_Wait
+    // because MPI_Wait will set the request to MPI_REQUSET_NULL on
+    // success. So the extra MPI_Wait in user's program with test on
+    // the MPI_REQUEST_NULL and return immediately with a true flag.
+    MPI_Wait(&_request, MPI_STATUS_IGNORE);
   }
 }
 
