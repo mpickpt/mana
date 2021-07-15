@@ -54,7 +54,13 @@ USER_DEFINED_WRAPPER(int, Isend,
     // Updating global counter of send bytes
     int size;
     MPI_Type_size(datatype, &size);
-    g_sendBytesByRank[dest] += count * size;
+    int worldRank = localRankToGlobalRank(dest, comm);
+    g_sendBytesByRank[worldRank] += count * size;
+    // For debugging
+#if 0
+    printf("rank %d sends %d bytes to rank %d\n", g_world_rank, count * size, worldRank);
+    fflush(stdout);
+#endif
     // Virtualize request
     MPI_Request virtRequest = ADD_NEW_REQUEST(*request);
     *request = virtRequest;
@@ -69,6 +75,7 @@ USER_DEFINED_WRAPPER(int, Rsend, (const void*) ibuf, (int) count,
                      (MPI_Datatype) datatype, (int) dest,
                      (int) tag, (MPI_Comm) comm)
 {
+  // FIXME: Implement this wrapper with MPI_Irsend
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
@@ -76,6 +83,19 @@ USER_DEFINED_WRAPPER(int, Rsend, (const void*) ibuf, (int) count,
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Rsend)(ibuf, count, realType, dest, tag, realComm);
   RETURN_TO_UPPER_HALF();
+  if (retval == MPI_SUCCESS) {
+    // Updating global counter of send bytes
+    int size;
+    MPI_Type_size(datatype, &size);
+    int worldRank = localRankToGlobalRank(dest, comm);
+    g_sendBytesByRank[worldRank] += count * size;
+    g_rsendBytesByRank[worldRank] += count * size;
+    // For debugging
+#if 0
+    printf("rank %d rsends %d bytes to rank %d\n", g_world_rank, count * size, worldRank);
+    fflush(stdout);
+#endif
+  }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -146,6 +166,7 @@ USER_DEFINED_WRAPPER(int, Irecv,
   return retval;
 }
 
+// FIXME: Move this to mpi_collective_wrappers.cpp and reimplement
 USER_DEFINED_WRAPPER(int, Sendrecv, (const void *) sendbuf, (int) sendcount,
                      (MPI_Datatype) sendtype, (int) dest,
                      (int) sendtag, (void *) recvbuf,
@@ -163,11 +184,12 @@ USER_DEFINED_WRAPPER(int, Sendrecv, (const void *) sendbuf, (int) sendcount,
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
 #else
+  get_fortran_constants();
   MPI_Request reqs[2];
   MPI_Status sts[2];
   // FIXME: The send and receive need to be atomic
   retval = MPI_Isend(sendbuf, sendcount, sendtype, dest,
-                     sendtag, comm, &reqs[0]);
+      sendtag, comm, &reqs[0]);
   if (retval != MPI_SUCCESS) {
     return retval;
   }
@@ -185,11 +207,13 @@ USER_DEFINED_WRAPPER(int, Sendrecv, (const void *) sendbuf, (int) sendcount,
   return retval;
 }
 
+// FIXME: Move this to mpi_collective_wrappers.cpp and reimplement
 USER_DEFINED_WRAPPER(int, Sendrecv_replace, (void *) buf, (int) count,
                      (MPI_Datatype) datatype, (int) dest,
                      (int) sendtag, (int) source,
                      (int) recvtag, (MPI_Comm) comm, (MPI_Status *) status)
 {
+  JASSERT(false).Text("MPI_Sendrecv_replace is not supported");
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
