@@ -184,15 +184,6 @@ TwoPhaseAlgo::replayTrivialBarrier()
     RETURN_TO_UPPER_HALF();
     UPDATE_REQUEST_MAP(_request, request);
     _replayTrivialBarrier = false;
-    // This MPI_Wait could be redundant.
-    // If user's program was checkpointed in phase 1, then we replay
-    // the MPI_Ibarrier and MPI_Wait in a pair as the trivial barrier.
-    // If user's program was checkpointed in the trivial barrier, this
-    // MPI_Wait is redundant. But it's ok to have an extra MPI_Wait
-    // because MPI_Wait will set the request to MPI_REQUSET_NULL on
-    // success. So the extra MPI_Wait in user's program with test on
-    // the MPI_REQUEST_NULL and return immediately with a true flag.
-    MPI_Wait(&_request, MPI_STATUS_IGNORE);
   }
 }
 

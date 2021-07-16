@@ -727,6 +727,7 @@ static int restoreIbarrier(const MpiRecord& rec) {
     virtRequest = rec.args(1);
     UPDATE_REQUEST_MAP(virtRequest, newRealRequest);
   }
+  // Verify the request is valid
   int flag;
   retval = MPI_Request_get_status(virtRequest, &flag, MPI_STATUS_IGNORE);
   JASSERT(retval == MPI_SUCCESS);
