@@ -1276,7 +1276,7 @@ restorememoryareas(RestoreInfo *rinfo_ptr, LowerHalfInfo_t *linfo_ptr)
       "  (gdb) add-symbol-files-all\n",
       mtcp_sys_getpid()
     );
-    restore_info.post_restart_debug(readTime);
+    restore_info.post_restart_debug(readTime, restore_info.mtcp_restart_pause);
   } else {
     restore_info.post_restart(readTime);
   }
