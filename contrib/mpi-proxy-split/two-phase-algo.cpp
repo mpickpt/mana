@@ -206,18 +206,31 @@ TwoPhaseAlgo::preSuspendBarrier(const void *data)
     case INTENT:
       setCkptPending();
       if (getCurrState() == PHASE_1) {
-        while (waitForNewState() != IN_CS);
+        // If in PHASE_1, wait for us to finish doing IN_CS
+        if (waitForNewStateAfter(PHASE_1) != IN_CS) {
+          break;
+        } else {
+          while (waitForNewStateAfter(IN_CS) != IN_CS);
+        }
       }
       break;
     case FREE_PASS:
       phase1_freepass = true;
-      while (waitForNewState() == PHASE_1);
+      // If in PHASE_1, wait for us to finish PHASE_1 (to enter IN_CS)
+      while (waitForNewStateAfter(ST_UNKNOWN) == PHASE_1);
       break;
     case WAIT_STRAGGLER:
-      waitForNewState();
+      // Maybe some peers in critical section and some in PHASE_1 or
+      // IN_TRIVIAL_BARRIER. This may happen if a checkpoint pending is
+      // announced after some member already entered the critical
+      // section. Then the coordinator will send
+      // WAIT_STRAGGLER to those ranks in the critical section.
+      // In this case, we just report back the current state.
+      // But the user thread can continue running and enter IS_READY,
+      // IN_TRIVIAL_BARRIER for a different communication, etc.
       break;
     default:
-      JWARNING(false)(query).Text("Unknown query from coordinatory");
+      JWARNING(false)(query).Text("Unknown query from coordinator");
       break;
   }
   _commAndStateMutex.lock();
@@ -272,14 +285,16 @@ TwoPhaseAlgo::stop(MPI_Comm comm)
 }
 
 phase_t
-TwoPhaseAlgo::waitForNewState()
+TwoPhaseAlgo::waitForNewStateAfter(phase_t oldState)
 {
   lock_t lock(_phaseMutex);
   // The user thread will notify us if transition to any of these states
-  _phaseCv.wait(lock, [this]{ return _currState == IN_TRIVIAL_BARRIER ||
-                                     _currState == PHASE_1 ||
-                                     _currState == IN_CS ||
-                                     _currState == IS_READY; });
+  _phaseCv.wait(lock, [this, oldState]
+                      { return _currState != oldState &&
+                        ( _currState == IN_TRIVIAL_BARRIER ||
+                          _currState == PHASE_1 ||
+                          _currState == IN_CS ||
+                          _currState == IS_READY); });
   return _currState;
 }
 
