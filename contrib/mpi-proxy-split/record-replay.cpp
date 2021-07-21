@@ -26,6 +26,7 @@
 
 #include "record-replay.h"
 #include "virtual-ids.h"
+#include "p2p_log_replay.h"
 
 using namespace dmtcp_mpi;
 
@@ -715,6 +716,9 @@ static int restoreIbcast(const MpiRecord& rec) {
   if (retval == MPI_SUCCESS) {
     MPI_Request virtRequest = rec.args(5);
     UPDATE_REQUEST_MAP(virtRequest, newRealRequest);
+#ifdef USE_REQUEST_LOG
+    logRequestInfo(virtRequest, IBCAST_REQUEST);
+#endif
   }
   return retval;
 }
@@ -734,6 +738,9 @@ static int restoreIreduce(const MpiRecord& rec) {
   if (retval == MPI_SUCCESS) {
     MPI_Request virtRequest = rec.args(7);
     UPDATE_REQUEST_MAP(virtRequest, newRealRequest);
+#ifdef USE_REQUEST_LOG
+    logRequestInfo(virtRequest, IREDUCE_REQUSET);
+#endif
   }
   return retval;
 }
@@ -747,6 +754,9 @@ static int restoreIbarrier(const MpiRecord& rec) {
   if (retval == MPI_SUCCESS) {
     virtRequest = rec.args(1);
     UPDATE_REQUEST_MAP(virtRequest, newRealRequest);
+#ifdef USE_REQUEST_LOG
+    logRequestInfo(virtRequest, IBARRIER_REQUEST);
+#endif
   }
   // Verify the request is valid
   int flag;
