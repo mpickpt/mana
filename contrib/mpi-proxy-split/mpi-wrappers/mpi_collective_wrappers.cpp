@@ -10,6 +10,7 @@
 #include "mpi_nextfunc.h"
 #include "two-phase-algo.h"
 #include "virtual-ids.h"
+#include "p2p_log_replay.h"
 #include "p2p_drain_send_recv.h"
 
 using namespace dmtcp_mpi;
@@ -53,6 +54,9 @@ USER_DEFINED_WRAPPER(int, Ibcast,
     *request = virtRequest;
     LOG_CALL(restoreRequests, Ibcast, buffer, count, datatype,
              root, comm, *request);
+#ifdef USE_REQUEST_LOG
+    logRequestInfo(*request, IBCAST_REQUEST);
+#endif
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -105,6 +109,9 @@ USER_DEFINED_WRAPPER(int, Ibarrier, (MPI_Comm) comm, (MPI_Request *) request)
     MPI_Request virtRequest = ADD_NEW_REQUEST(*request);
     *request = virtRequest;
     LOG_CALL(restoreRequests, Ibarrier, comm, *request);
+#ifdef USE_REQUEST_LOG
+    logRequestInfo(*request, IBARRIER_REQUEST);
+#endif
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -177,6 +184,9 @@ USER_DEFINED_WRAPPER(int, Ireduce,
     *request = virtRequest;
     LOG_CALL(restoreRequests, Ireduce, sendbuf, recvbuf,
         count, datatype, op, root, comm, *request);
+#ifdef USE_REQUEST_LOG
+    logRequestInfo(*request, IREDUCE_REQUSET);
+#endif
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;

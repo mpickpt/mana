@@ -4,6 +4,8 @@
 #include <mpi.h>
 #include <pthread.h>
 #include <map>
+#include <unordered_map>
+#include <execinfo.h>
 
 #include "dmtcp.h"
 #include "util.h"
@@ -19,6 +21,7 @@
 using namespace dmtcp;
 
 dmtcp::map<MPI_Request, mpi_async_call_t*> g_async_calls;
+std::unordered_map<MPI_Request, request_info_t*> request_log;
 int g_world_rank = -1; // Global rank of the current process
 int g_world_size = -1; // Total number of ranks in the current computation
 // Mutex protecting g_async_calls
@@ -68,6 +71,51 @@ updateCkptDirByRank()
   close(fd);
 }
 
+void
+logRequestInfo(MPI_Request request, mpi_req_t req_type)
+{
+  request_info_t *req_info;
+  std::unordered_map<MPI_Request, request_info_t*>::iterator it;
+  it = request_log.find(request);
+  if (it != request_log.end()) {
+    // Update existing request
+    req_info = it->second;
+    if (req_info->update_counter <= REAL_REQUEST_LOG_LEVEL) {
+      req_info->update_counter++;
+      req_info->real_request[req_info->update_counter] =
+        VIRTUAL_TO_REAL_REQUEST(request);
+    } else {
+      JWARNING(false).Text("Too many real request update");
+    }
+  } else {
+    // Create new request log
+    req_info =
+      (request_info_t*)JALLOC_HELPER_MALLOC(sizeof(request_info_t));
+    memset(&req_info->real_request, 0,
+        sizeof(MPI_Request) * REAL_REQUEST_LOG_LEVEL);
+    memset(&req_info->backtrace, 0, sizeof(void*) * STACK_TRACK_LEVEL);
+    req_info->type = req_type;
+    req_info->real_request[0] = VIRTUAL_TO_REAL_REQUEST(request);
+    req_info->update_counter = 0;
+    backtrace(&(req_info->backtrace[0]), STACK_TRACK_LEVEL);
+    pthread_mutex_lock(&logMutex);
+    request_log[request] = req_info;
+    pthread_mutex_unlock(&logMutex);
+  }
+}
+
+request_info_t*
+lookupRequestInfo(MPI_Request request)
+{
+  request_info_t *req_info;
+  std::unordered_map<MPI_Request, request_info_t*>::iterator it;
+  it = request_log.find(request);
+  if (it != request_log.end()) {
+    return it->second;
+  } else {
+    return NULL;
+  }
+}
 
 void
 addPendingRequestToLog(mpi_req_t req, const void* sbuf, void* rbuf, int cnt,

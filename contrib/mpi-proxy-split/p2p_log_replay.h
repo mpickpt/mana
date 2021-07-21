@@ -5,10 +5,19 @@
 #include "dmtcp.h"
 #include "dmtcpalloc.h"
 
+#define REAL_REQUEST_LOG_LEVEL 7
+#define STACK_TRACK_LEVEL 7
+
+#define USE_REQUEST_LOG
+
 typedef enum __mpi_req
 {
+  UNKNOW_REQUEST,
   ISEND_REQUEST,
   IRECV_REQUEST,
+  IBCAST_REQUEST,
+  IREDUCE_REQUSET,
+  IBARRIER_REQUEST,
 } mpi_req_t;
 
 // Struct to store the metadata of an async MPI send/recv call
@@ -22,7 +31,7 @@ typedef struct __mpi_async_call
   int count;        // Count of data items
   MPI_Datatype datatype; // Data type
   MPI_Comm comm;    // MPI communicator
-  int remote_node;  // Can be dest or source depending on the the call type
+  int remote_node;  // Can be dest or source depending on the call type
   int tag;          // MPI message tag
 } mpi_async_call_t;
 
@@ -37,6 +46,16 @@ typedef struct __mpi_message
   MPI_Comm comm;
   MPI_Status status;
 } mpi_message_t;
+
+// Struct to store request type and backtrace information for debugging
+typedef struct __request_info
+{
+  mpi_req_t type;
+  MPI_Request real_request[REAL_REQUEST_LOG_LEVEL];
+  int update_counter;
+  void *backtrace[STACK_TRACK_LEVEL];
+} request_info_t;
+
 
 extern int g_world_rank; // Global rank of the current process
 extern int g_world_size; // Total number of ranks in the current computation
@@ -61,6 +80,12 @@ extern void addPendingRequestToLog(mpi_req_t , const void* , void* , int ,
 
 // remove finished send/recv call from the global map
 extern void clearPendingRequestFromLog(MPI_Request req);
+
+// Log the creation or update of a virtual request
+extern void logRequestInfo(MPI_Request request, mpi_req_t req_type);
+
+// Lookup a request's info in the request_log
+extern request_info_t* lookupRequestInfo(MPI_Request request);
 
 extern dmtcp::map<MPI_Request, mpi_async_call_t*> g_async_calls;
 #endif // ifndef _P2P_LOG_REPLAY_H

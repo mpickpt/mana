@@ -66,6 +66,9 @@ USER_DEFINED_WRAPPER(int, Isend,
     *request = virtRequest;
     addPendingRequestToLog(ISEND_REQUEST, buf, NULL, count,
                            datatype, dest, tag, comm, *request);
+#ifdef USE_REQUEST_LOG
+    logRequestInfo(*request, ISEND_REQUEST);
+#endif
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -161,6 +164,9 @@ USER_DEFINED_WRAPPER(int, Irecv,
     *request = virtRequest;
     addPendingRequestToLog(IRECV_REQUEST, NULL, buf, count,
                            datatype, source, tag, comm, *request);
+#ifdef USE_REQUEST_LOG
+    logRequestInfo(*request, IRECV_REQUEST);
+#endif
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
