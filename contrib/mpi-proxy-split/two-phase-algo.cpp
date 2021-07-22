@@ -219,12 +219,12 @@ TwoPhaseAlgo::preSuspendBarrier(const void *data)
       // If in PHASE_1, wait for us to finish PHASE_1 (to enter IN_CS)
       while (waitForNewStateAfter(ST_UNKNOWN) == PHASE_1);
       break;
-    case WAIT_STRAGGLER:
+    case CONTINUE:
       // Maybe some peers in critical section and some in PHASE_1 or
       // IN_TRIVIAL_BARRIER. This may happen if a checkpoint pending is
       // announced after some member already entered the critical
       // section. Then the coordinator will send
-      // WAIT_STRAGGLER to those ranks in the critical section.
+      // CONTINUE to those ranks in the critical section.
       // In this case, we just report back the current state.
       // But the user thread can continue running and enter IS_READY,
       // IN_TRIVIAL_BARRIER for a different communication, etc.
