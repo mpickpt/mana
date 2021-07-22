@@ -29,7 +29,9 @@
 #define REAL_REQUEST_LOG_LEVEL 7
 #define STACK_TRACK_LEVEL 7
 
+#ifdef DEBUG
 #define USE_REQUEST_LOG
+#endif
 
 typedef enum __mpi_req
 {
