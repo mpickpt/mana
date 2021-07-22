@@ -282,7 +282,7 @@ unblockRanks(const ClientToStateMap& clientStates, long int size)
       continue; // the message is already decided
     }
     if (c.second.st == IN_CS) {
-      queries[c.second.rank] = WAIT_STRAGGLER;
+      queries[c.second.rank] = CONTINUE;
       for (RankKVPair other : clientStates) {
         if (other.second.comm == c.second.comm &&
             other.second.st == PHASE_1) {
@@ -295,7 +295,7 @@ unblockRanks(const ClientToStateMap& clientStates, long int size)
   // other ranks just wait for a iteration.
   for (RankKVPair c : clientStates) {
     if (queries[c.second.rank] == NONE) {
-      queries[c.second.rank] = WAIT_STRAGGLER;
+      queries[c.second.rank] = CONTINUE;
     }
   }
 

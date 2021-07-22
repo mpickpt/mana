@@ -31,7 +31,7 @@ typedef enum __query_t
   Q_UNKNOWN, /* State 0 shouldn't be confused with a state used in the algo. */
   INTENT,
   FREE_PASS,
-  WAIT_STRAGGLER,
+  CONTINUE,
 } query_t;
 
 // Struct to encapsulate the checkpointing state of a rank
