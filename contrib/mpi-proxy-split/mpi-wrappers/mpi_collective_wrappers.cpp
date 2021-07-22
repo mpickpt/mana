@@ -23,8 +23,10 @@ USER_DEFINED_WRAPPER(int, Bcast,
     int retval;
     int size;
     MPI_Type_size(datatype, &size);
+#if 0 // for debugging
     printf("Rank %d: MPI_Bcast sending %d bytes\n", g_world_rank, count * size);
     fflush(stdout);
+#endif
     DMTCP_PLUGIN_DISABLE_CKPT();
     MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
     MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
