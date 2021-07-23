@@ -559,8 +559,7 @@ restoreTypeCreateStruct(const MpiRecord& rec)
   int retval;
   int count = rec.args(0);
   int *blocklengths = rec.args(1);
-  void *tmpConversion = rec.args(2);
-  MPI_Aint *displs = (MPI_Aint*) tmpConversion;
+  MPI_Aint *displs = rec.args(2);
   MPI_Datatype *types = rec.args(3);
   MPI_Datatype newtype = MPI_DATATYPE_NULL;
   retval = FNC_CALL(Type_create_struct, rec)(count, blocklengths,
