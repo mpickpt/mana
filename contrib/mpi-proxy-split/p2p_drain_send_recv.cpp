@@ -89,6 +89,15 @@ recvFromAllComms()
   int bytesReceived = 0;
   std::unordered_set<MPI_Comm>::iterator comm;
   for (comm = active_comms.begin(); comm != active_comms.end(); comm++) {
+    // If the communicator is MPI_COMM_NULL, skip it.
+    // MPI_COMM_NULL can be returned from functions like MPI_Comm_split
+    // if the color is specified on only one side of the inter-communicator, or
+    // specified as MPI_UNDEFINED by the program. In this case, the MPI function
+    // still returns MPI_SUCCESS, so the MPI_COMM_NULL can be added to the
+    // active communicator set `active_comms'. 
+    if (*comm == MPI_COMM_NULL) {
+      continue;
+    }
     int flag = 1;
     while (flag) {
       MPI_Status status;
