@@ -122,6 +122,10 @@ namespace dmtcp_mpi
     }
 
     // Returns an int pointer to saved argument
+    // This also handles types like MPI_Datatype* in MPICH,
+    // because MPI_Datatype is an integer in this implementation.
+    // This doesn't handle MPI_Aint* because MPI_Aint
+    // is 8 bytes (long int).
     operator int*() const
     {
       if (_type == dmtcp_mpi::TYPE_INT_ARRAY) {
@@ -134,7 +138,14 @@ namespace dmtcp_mpi
       }
     }
 
-    // Returns an void pointer to saved argument
+    // This is used to handle MPI_Aint*, because in MPICH
+    // MPI_Aint is 8 bytes (long int).
+    operator long*() const
+    {
+      return (long*)_data;
+    }
+
+    // Returns a void pointer to saved argument
     operator void*() const
     {
       return *(void**)_data;
