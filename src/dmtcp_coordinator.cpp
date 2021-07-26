@@ -453,7 +453,6 @@ DmtcpCoordinator::printStatus(size_t numPeers, bool isRunning)
   printf("\n%s\n", lookupService.getSummaryStats().c_str());
   if (mpiMode) {
     printNonReadyRanks();
-    printMpiDrainStatus(lookupService);
   }
   fflush(stdout);
 }

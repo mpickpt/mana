@@ -13,6 +13,7 @@ struct twoPhaseHistory {
   int lineNo;
   int _comm;
   int comm;
+  bool free_pass;
   phase_t state;
   phase_t currState;
 };
@@ -93,53 +94,70 @@ TwoPhaseAlgo::commit_begin(MPI_Comm comm)
 {
   _commAndStateMutex.lock();
   // maintain consistent view for DMTCP coordinator
+#if 0
   commStateHistoryAdd(
     {.lineNo = __LINE__, ._comm = _comm, .comm = -1,
      .state = ST_UNKNOWN, .currState = getCurrState()});
+#endif
   wrapperEntry(comm);
-  setCurrState(IN_TRIVIAL_BARRIER);
+#if 0
   commStateHistoryAdd(
     {.lineNo = __LINE__, ._comm = _comm, .comm = -1,
      .state = ST_UNKNOWN, .currState = getCurrState()});
+#endif
   _commAndStateMutex.unlock();
 
-  // Call the trivial barrier
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  setCurrState(IN_TRIVIAL_BARRIER);
-  // Set state again incase we returned from beforeTrivialBarrier
-  MPI_Request request;
-  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-  int flag = 0;
-  int tb_rc = -1;
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  tb_rc = NEXT_FUNC(Ibarrier)(realComm, &request);
-  RETURN_TO_UPPER_HALF();
-  MPI_Request virtRequest = ADD_NEW_REQUEST(request);
-  _request = virtRequest;
-  JASSERT(tb_rc == MPI_SUCCESS)
-    .Text("The trivial barrier in two-phase-commit algorithm failed");
-  DMTCP_PLUGIN_ENABLE_CKPT();
-#if 0
-  while (!flag && request != MPI_REQUEST_NULL) {
-    int rc;
-    rc = MPI_Test(&request, &flag, MPI_STATUS_IGNORE);
-#ifdef DEBUG
-    JASSERT(rc == MPI_SUCCESS)(rc)(realComm)(request)(comm);
-#endif
-    // FIXME: make this smaller
-    struct timespec test_interval = {.tv_sec = 0, .tv_nsec = 100000};
-    nanosleep(&test_interval, NULL);
-  }
-#else
-  MPI_Wait(&_request, MPI_STATUS_IGNORE);
-#endif
-
   if (isCkptPending()) {
+    setCurrState(HYBRID_PHASE1);
     stop(comm);
+    if (!do_triv_barrier) {
+      setCurrState(IN_CS_NO_TRIV_BARRIER);
+    } else {
+      // Call the trivial barrier
+      DMTCP_PLUGIN_DISABLE_CKPT();
+      setCurrState(IN_TRIVIAL_BARRIER);
+      // Set state again incase we returned from beforeTrivialBarrier
+      MPI_Request request;
+      MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+      int flag = 0;
+      int tb_rc = -1;
+      JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+      tb_rc = NEXT_FUNC(Ibarrier)(realComm, &request);
+      RETURN_TO_UPPER_HALF();
+      MPI_Request virtRequest = ADD_NEW_REQUEST(request);
+      _request = virtRequest;
+      JASSERT(tb_rc == MPI_SUCCESS)
+        .Text("The trivial barrier in two-phase-commit algorithm failed");
+      DMTCP_PLUGIN_ENABLE_CKPT();
+#if 1
+      // FIXME: If we can cancel a request, then we can avoid memory leaks
+      // due to a stale MPI_Request when we abort a trivial barrier.
+      while (!flag && request != MPI_REQUEST_NULL && isCkptPending()) {
+        int rc;
+        rc = MPI_Test(&request, &flag, MPI_STATUS_IGNORE);
+#ifdef DEBUG
+        JASSERT(rc == MPI_SUCCESS)(rc)(realComm)(request)(comm);
+#endif
+        // FIXME: make this smaller
+        struct timespec test_interval = {.tv_sec = 0, .tv_nsec = 100000};
+        nanosleep(&test_interval, NULL);
+      }
+#else
+      MPI_Wait(&_request, MPI_STATUS_IGNORE);
+#endif
+      if (isCkptPending()) {
+        setCurrState(PHASE_1);
+        stop(comm);
+      }
+      if (request != MPI_REQUEST_NULL) {
+        REMOVE_OLD_REQUEST(_request);
+        _request = MPI_REQUEST_NULL;
+      }
+      setCurrState(IN_CS);
+    }
+  } else {
+    setCurrState(IN_CS_INTENT_WASNT_SEEN);
   }
-  REMOVE_OLD_REQUEST(_request);
-  _request = MPI_REQUEST_NULL;
-  setCurrState(IN_CS);
 }
 
 void
@@ -147,14 +165,18 @@ TwoPhaseAlgo::commit_finish()
 {
   _commAndStateMutex.lock();
   // maintain consistent view for DMTCP coordinator
+#if 0
   commStateHistoryAdd(
     {.lineNo = __LINE__, ._comm = _comm, .comm = -1,
      .state = ST_UNKNOWN, .currState = getCurrState()});
+#endif
   setCurrState(IS_READY);
   wrapperExit();
+#if 0
   commStateHistoryAdd(
     {.lineNo = __LINE__, ._comm = _comm, .comm = -1,
      .state = ST_UNKNOWN, .currState = getCurrState()});
+#endif
   _commAndStateMutex.unlock();
 }
 
@@ -207,17 +229,32 @@ TwoPhaseAlgo::preSuspendBarrier(const void *data)
       setCkptPending();
       if (getCurrState() == PHASE_1) {
         // If in PHASE_1, wait for us to finish doing IN_CS
-        if (waitForNewStateAfter(PHASE_1) != IN_CS) {
+        phase_t newState = ST_UNKNOWN;
+        newState = waitForNewStateAfter(ST_UNKNOWN); 
+        if (newState != IN_CS_NO_TRIV_BARRIER
+            || newState != IN_CS_INTENT_WASNT_SEEN) {
           break;
         } else {
-          while (waitForNewStateAfter(IN_CS) != IN_CS);
+          while (newState != IN_CS_NO_TRIV_BARRIER
+                 || newState != IN_CS_INTENT_WASNT_SEEN) {
+            newState = waitForNewStateAfter(ST_UNKNOWN); 
+          }
         }
       }
       break;
+    case DO_TRIV_BARRIER:
+      do_triv_barrier = true;
+      // If received DO_TRIV_BARRIER, we should also unblock ranks
+      // in HYBRID_PHASE1. So we don't have break statement hear
+      // so we can also execute codes in the FREE_PASS case.
     case FREE_PASS:
       phase1_freepass = true;
       // If in PHASE_1, wait for us to finish PHASE_1 (to enter IN_CS)
-      while (waitForNewStateAfter(ST_UNKNOWN) == PHASE_1);
+      phase_t newState = ST_UNKNOWN;
+      newState = waitForNewStateAfter(ST_UNKNOWN); 
+      while (newState == PHASE_1 || newState == HYBRID_PHASE1) {
+        newState = waitForNewStateAfter(ST_UNKNOWN); 
+      }
       break;
     case CONTINUE:
       // Maybe some peers in critical section and some in PHASE_1 or
@@ -234,26 +271,34 @@ TwoPhaseAlgo::preSuspendBarrier(const void *data)
       break;
   }
   _commAndStateMutex.lock();
+#if 0
   commStateHistoryAdd(
     {.lineNo = __LINE__, ._comm = _comm, .comm = -1,
      .state = ST_UNKNOWN, .currState = getCurrState()});
+#endif
   // maintain consistent view for DMTCP coordinator
   st = getCurrState();
   int gid = VirtualGlobalCommId::instance().getGlobalId(_comm);
+#if 0
   commStateHistoryAdd(
     {.lineNo = __LINE__, ._comm = _comm, .comm = gid,
      .state = st, .currState = getCurrState()});
+#endif
   _commAndStateMutex.unlock();
   rank_state_t state = { .rank = procRank, .comm = gid, .st = st};
   _commAndStateMutex.lock();
+#if 0
   commStateHistoryAdd(
     {.lineNo = __LINE__, ._comm = _comm, .comm = gid,
      .state = st, .currState = getCurrState()});
+#endif
   JASSERT(state.comm != MPI_COMM_NULL || state.st == IS_READY)
 	 (state.comm)(state.st)(gid)(_currState)(query);
+#if 0
   commStateHistoryAdd(
     {.lineNo = __LINE__, ._comm = _comm, .comm = gid,
      .state = st, .currState = getCurrState()});
+#endif
   _commAndStateMutex.unlock();
   JTRACE("Sending DMT_PRE_SUSPEND_RESPONSE message")(procRank)(gid)(st);
   msg.extraBytes = sizeof state;
@@ -276,12 +321,22 @@ TwoPhaseAlgo::stop(MPI_Comm comm)
   // the coordinator
   // INVARIANT: Ckpt should be pending when we get here
   JASSERT(isCkptPending());
-  setCurrState(PHASE_1);
+
+  _commAndStateMutex.lock();
+  // maintain consistent view for DMTCP coordinator
+  commStateHistoryAdd(
+    {.lineNo = __LINE__, ._comm = _comm, .comm = -1,
+    .free_pass = true, .state = ST_UNKNOWN, .currState = getCurrState()});
+  _commAndStateMutex.unlock();
 
   while (isCkptPending() && !phase1_freepass) {
     sleep(1);
   }
   phase1_freepass = false;
+  // FIXME: For VASP, this instrumentation delays and hides the race condition.
+  commStateHistoryAdd(
+      {.lineNo = __LINE__, ._comm = _comm, .comm = -1,
+      .free_pass = false, .state = ST_UNKNOWN, .currState = getCurrState()});
 }
 
 phase_t
@@ -292,8 +347,10 @@ TwoPhaseAlgo::waitForNewStateAfter(phase_t oldState)
   _phaseCv.wait(lock, [this, oldState]
                       { return _currState != oldState &&
                         ( _currState == IN_TRIVIAL_BARRIER ||
+                          _currState == HYBRID_PHASE1 ||
                           _currState == PHASE_1 ||
-                          _currState == IN_CS ||
+                          _currState == IN_CS_NO_TRIV_BARRIER ||
+                          _currState == IN_CS_INTENT_WASNT_SEEN ||
                           _currState == IS_READY); });
   return _currState;
 }

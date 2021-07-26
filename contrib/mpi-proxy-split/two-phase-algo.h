@@ -50,6 +50,7 @@ namespace dmtcp_mpi
       {
         lock_t lock(_ckptPendingMutex);
         _ckptPending = false;
+        do_triv_barrier = false;
       }
 
       // Resets the client state after a checkpoint.
@@ -90,7 +91,8 @@ namespace dmtcp_mpi
           _inWrapper(false),
           _ckptPending(false),
           phase1_freepass(false),
-          _replayTrivialBarrier(false)
+          _replayTrivialBarrier(false),
+          do_triv_barrier(false)
       {
       }
 
@@ -197,6 +199,10 @@ namespace dmtcp_mpi
 
       // True if we need to replay trivial barrier on restart
       bool _replayTrivialBarrier;
+
+      // True if received DO_TRIV_BARRIER messamge from the 
+      // coordinator
+      bool do_triv_barrier;
   };
 };
 
