@@ -19,8 +19,11 @@ typedef enum __phase_t
 {
   ST_ERROR = -1,
   ST_UNKNOWN, /* State 0 shouldn't be confused with a state used in the algo. */
+  HYBRID_PHASE1,
   IN_TRIVIAL_BARRIER,
   PHASE_1,
+  IN_CS_INTENT_WASNT_SEEN,
+  IN_CS_NO_TRIV_BARRIER,
   IN_CS,
   IS_READY,
 } phase_t;
@@ -32,6 +35,7 @@ typedef enum __query_t
   INTENT,
   FREE_PASS,
   CONTINUE,
+  DO_TRIV_BARRIER,
 } query_t;
 
 // Struct to encapsulate the checkpointing state of a rank

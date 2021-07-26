@@ -7,7 +7,6 @@
 
 void printNonReadyRanks();
 dmtcp::string getClientState(dmtcp::CoordClient* client);
-void printMpiDrainStatus(const dmtcp::LookupService& lookupService);
 void processPreSuspendClientMsgHelper(dmtcp::DmtcpCoordinator *coord,
                                       dmtcp::CoordClient *client,
                                       int &workersAtCurrentBarrier,
