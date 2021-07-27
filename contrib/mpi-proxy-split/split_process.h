@@ -55,8 +55,11 @@ static int fsaddr_initialized = 0;
 // #define BUF_SIZE 512
 // #define BUF_SIZE 256
 // #define BUF_SIZE 128
-// #define BUF_SIZE 64
-static char *fsaddr_buf[BUF_SIZE];
+#define BUF_SIZE 64
+// used part of tcb header:
+// (gdb) p (char *) &((struct pthread *) $rsp)->header.__unused2 - $rsp
+static const size_t TCB_HEADER_SIZE = 120;
+static char *fsaddr_buf[BUF_SIZE + TCB_HEADER_SIZE];
 
 static inline void SET_LOWER_HALF_FS_CONTEXT() {
   // Compute the upper-half and lower-half fs addresses
@@ -65,12 +68,36 @@ static inline void SET_LOWER_HALF_FS_CONTEXT() {
     lh_fsaddr = lh_info.fsaddr - 64;
     uh_fsaddr = (void*)pthread_self() - 64;
   }
-  memcpy(fsaddr_buf, uh_fsaddr, BUF_SIZE);
-  memcpy(uh_fsaddr, lh_fsaddr, BUF_SIZE);
+  memcpy(fsaddr_buf, uh_fsaddr, BUF_SIZE + TCB_HEADER_SIZE);
+  memcpy(uh_fsaddr, lh_fsaddr, BUF_SIZE + TCB_HEADER_SIZE);
+
+  // on x86_64:
+  // the tcb starts with 3 ptrs: self, dtv, header
+  // self is used to get TLS variables
+  // dtv is used to load tls for dynamically loaded libraries
+  // header is used to access the tcb
+  // self, header, and fs reg all point to the start of the tcb
+
+  // we change the self pointed to point to the tcb at the new location
+  // we leave the header pointer intact so that the tcb is modified in-place
+  // at the old location
+
+  // changing the location breaks things that keep pointers into the struct,
+  // like linked lists. TCB has a lot of internal self-pointers and lists, so
+  // it is advantageous to keep it in place. TLS usually has less (application
+  // dependent), and must be moved because it can be accessed relative to fs
+  // with no indirection. So we change self but not header.
+
+  // change self pointer to new application half TLS location
+  ((void **)(uh_fsaddr + BUF_SIZE))[0] = (void *) (uh_fsaddr + BUF_SIZE);
 }
 
 static inline void RESTORE_UPPER_HALF_FS_CONTEXT() {
-  memcpy(uh_fsaddr, fsaddr_buf, BUF_SIZE);
+  memcpy(lh_fsaddr, uh_fsaddr, BUF_SIZE + TCB_HEADER_SIZE);
+  memcpy(uh_fsaddr, fsaddr_buf, BUF_SIZE + TCB_HEADER_SIZE);
+
+  // restore self pointer to original driver-half TLS location
+  ((void **)(lh_fsaddr + BUF_SIZE))[0] = (void *) (lh_fsaddr + BUF_SIZE);
 }
 
 // ===================================================
