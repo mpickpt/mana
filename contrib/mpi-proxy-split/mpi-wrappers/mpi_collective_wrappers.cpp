@@ -12,6 +12,7 @@
 #include "virtual-ids.h"
 #include "p2p_log_replay.h"
 #include "p2p_drain_send_recv.h"
+#include "global_comm_id.h"
 
 using namespace dmtcp_mpi;
 
@@ -410,10 +411,10 @@ USER_DEFINED_WRAPPER(int, Comm_split, (MPI_Comm) comm, (int) color, (int) key,
     RETURN_TO_UPPER_HALF();
     if (retval == MPI_SUCCESS && LOGGING()) {
       MPI_Comm virtComm = ADD_NEW_COMM(*newcomm);
-      VirtualGlobalCommId::instance().createGlobalId(virtComm);
       *newcomm = virtComm;
       active_comms.insert(virtComm);
       LOG_CALL(restoreComms, Comm_split, comm, color, key, *newcomm);
+      VirtualGlobalCommId::instance().createGlobalId(virtComm);
     }
     DMTCP_PLUGIN_ENABLE_CKPT();
     return retval;
@@ -432,10 +433,10 @@ USER_DEFINED_WRAPPER(int, Comm_dup, (MPI_Comm) comm, (MPI_Comm *) newcomm)
     RETURN_TO_UPPER_HALF();
     if (retval == MPI_SUCCESS && LOGGING()) {
       MPI_Comm virtComm = ADD_NEW_COMM(*newcomm);
-      VirtualGlobalCommId::instance().createGlobalId(virtComm);
       *newcomm = virtComm;
       active_comms.insert(virtComm);
       LOG_CALL(restoreComms, Comm_dup, comm, *newcomm);
+      VirtualGlobalCommId::instance().createGlobalId(virtComm);
     }
     DMTCP_PLUGIN_ENABLE_CKPT();
     return retval;

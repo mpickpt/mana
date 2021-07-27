@@ -18,15 +18,6 @@
 #define MpiOpList    dmtcp_mpi::MpiVirtualization<MPI_Op>
 #define MpiCommKeyvalList    dmtcp_mpi::MpiVirtualization<int>
 #define MpiRequestList    dmtcp_mpi::MpiVirtualization<MPI_Request>
-# define NEXT_FUNC(func)                                                       \
-  ({                                                                           \
-    static __typeof__(&MPI_##func)_real_MPI_## func =                          \
-                                                (__typeof__(&MPI_##func)) - 1; \
-    if (_real_MPI_ ## func == (__typeof__(&MPI_##func)) - 1) {                 \
-      _real_MPI_ ## func = (__typeof__(&MPI_##func))pdlsym(MPI_Fnc_##func);    \
-    }                                                                          \
-    _real_MPI_ ## func;                                                        \
-  })
 
 #define REAL_TO_VIRTUAL_COMM(id) \
   MpiCommList::instance("MpiComm", MPI_COMM_NULL).realToVirtual(id)
@@ -252,110 +243,6 @@ namespace dmtcp_mpi
       T _nullId;
   }; // class MpiId
 
-  // FIXME: The new name should be: GlobalIdOfSimiliarComm
-  class VirtualGlobalCommId {
-    public:
-      unsigned int createGlobalId(MPI_Comm comm) {
-        if (comm == MPI_COMM_NULL) {
-          return comm;
-        }
-        unsigned int gid = 0;
-        int worldRank, commSize;
-        int realComm = VIRTUAL_TO_REAL_COMM(comm);
-        MPI_Comm_rank(MPI_COMM_WORLD, &worldRank);
-        MPI_Comm_size(comm, &commSize);
-        int rbuf[commSize];
-        // FIXME: Use MPI_Group_translate_ranks instead of Allgather.
-        // MPI_Group_translate_ranks only execute localy, so we can avoid
-        // the cost of collective communication
-        // FIXME: cray cc complains "catastrophic error" that can't find
-        // split-process.h
-#if 1
-        DMTCP_PLUGIN_DISABLE_CKPT();
-        JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-        NEXT_FUNC(Allgather)(&worldRank, 1, MPI_INT,
-                             rbuf, 1, MPI_INT, realComm);
-        RETURN_TO_UPPER_HALF();
-        DMTCP_PLUGIN_ENABLE_CKPT();
-#else
-        MPI_Allgather(&worldRank, 1, MPI_INT, rbuf, 1, MPI_INT, comm);
-#endif
-        for (int i = 0; i < commSize; i++) {
-          gid ^= hash(rbuf[i]);
-        }
-        // FIXME: We assume the hash collision between communicators who
-        // have different members is low.
-        // FIXME: We want to prune virtual communicators to avoid long
-        // restart time.
-        // FIXME: In VASP we observed that for the same virtual communicator
-        // (adding 1 to each new communicator with the same rank members),
-        // the virtual group can change over time, using:
-        // virtual Comm -> real Comm -> real Group -> virtual Group
-        // We don't understand why since vasp does not seem to free groups.
-#if 0
-        // FIXME: Some code can create new communicators during execution,
-        // and so hash conflict may occur later.
-        // if the new gid already exists in the map, add one and test again
-        while (1) {
-          bool found = false;
-          for (std::pair<MPI_Comm, unsigned int> idPair : globalIdTable) {
-            if (idPair.second == gid) {
-              found = true;
-              break;
-            }
-          }
-          if (found) {
-            gid++;
-          } else {
-            break;
-          }
-        }
-#endif
-        globalIdTable[comm] = gid;
-        return gid;
-      }
-
-      unsigned int getGlobalId(MPI_Comm comm) {
-        std::map<MPI_Comm, unsigned int>::iterator it =
-          globalIdTable.find(comm);
-        JASSERT(it != globalIdTable.end())(comm)
-          .Text("Can't find communicator in the global id table");
-        return it->second;
-      }
-
-      static VirtualGlobalCommId& instance() {
-        static VirtualGlobalCommId _vGlobalId;
-        return _vGlobalId;
-      }
-
-    private:
-      VirtualGlobalCommId()
-      {
-          globalIdTable[MPI_COMM_NULL] = MPI_COMM_NULL;
-          globalIdTable[MPI_COMM_WORLD] = MPI_COMM_WORLD;
-      }
-
-      void printMap(bool flag = false) {
-        for (std::pair<MPI_Comm, int> idPair : globalIdTable) {
-          if (flag) {
-            printf("virtual comm: %x, real comm: %x, global id: %x\n",
-                   idPair.first, VIRTUAL_TO_REAL_COMM(idPair.first),
-                   idPair.second);
-            fflush(stdout);
-          } else {
-            JTRACE("Print global id mapping")((void*) (uint64_t) idPair.first)
-                      ((void*) (uint64_t) VIRTUAL_TO_REAL_COMM(idPair.first))
-                      ((void*) (uint64_t) idPair.second);
-          }
-        }
-      }
-      // from https://stackoverflow.com/questions/664014/
-      // what-integer-hash-function-are-good-that-accepts-an-integer-hash-key
-      int hash(int i) {
-        return i * 2654435761 % ((unsigned long)1 << 32);
-      }
-      std::map<MPI_Comm, unsigned int> globalIdTable;
-  };
 };  // namespace dmtcp_mpi
 
 #endif // ifndef MPI_VIRTUAL_IDS_H

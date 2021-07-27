@@ -16,7 +16,8 @@ LIBWRAPPER_OBJS = mpi_p2p_wrappers.o mpi_collective_wrappers.o \
                   mpi_comm_wrappers.o mpi_group_wrappers.o \
                   mpi_cart_wrappers.o mpi_op_wrappers.o \
                   mpi_unimplemented_wrappers.o mpi_fortran_wrappers.o \
-                  mpi_wrappers.o get_fortran_constants.o fortran_constants.o
+                  mpi_wrappers.o get_fortran_constants.o fortran_constants.o \
+		  ../global_comm_id.o
 
 # Modify if your DMTCP_ROOT is located elsewhere.
 ifndef DMTCP_ROOT
@@ -34,7 +35,7 @@ override CXXFLAGS += -g3 -O0 -fPIC -I${DMTCP_INCLUDE} -I${JALIB_INCLUDE} \
 # We don't build libmpiwrappers.a.  Instead, we use *.o to build libmana.so.
 default: ${LIBNAME}.a libmpidummy.so
 
-${LIBNAME}.a: ${LIBWRAPPER_OBJS}
+${LIBNAME}.a: ${LIBWRAPPER_OBJS} ../global_comm_id.o
 	ar cr $@ $^
 
 mpi_unimplemented_wrappers.cpp: generate-mpi-unimplemented-wrappers.py \

@@ -6,6 +6,8 @@
 #include "two-phase-algo.h"
 #include "virtual-ids.h"
 #include "siginfo.h"
+#include "global_comm_id.h"
+#include "mpi_nextfunc.h"
 
 using namespace dmtcp_mpi;
 
