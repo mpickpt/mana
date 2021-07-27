@@ -10,6 +10,7 @@
 #include "record-replay.h"
 #include "virtual-ids.h"
 #include "p2p_drain_send_recv.h"
+#include "global_comm_id.h"
 
 using namespace dmtcp_mpi;
 
@@ -39,13 +40,13 @@ USER_DEFINED_WRAPPER(int, Cart_create, (MPI_Comm) old_comm, (int) ndims,
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS && LOGGING()) {
     MPI_Comm virtComm = ADD_NEW_COMM(*comm_cart);
-    VirtualGlobalCommId::instance().createGlobalId(virtComm);
     *comm_cart = virtComm;
     active_comms.insert(virtComm);
     FncArg ds = CREATE_LOG_BUF(dims, ndims * sizeof(int));
     FncArg ps = CREATE_LOG_BUF(periods, ndims * sizeof(int));
     LOG_CALL(restoreCarts, Cart_create, old_comm, ndims,
              ds, ps, reorder, virtComm);
+    VirtualGlobalCommId::instance().createGlobalId(virtComm);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -128,11 +129,11 @@ USER_DEFINED_WRAPPER(int, Cart_sub, (MPI_Comm) comm,
     int ndims = 0;
     MPI_Cartdim_get(comm, &ndims);
     MPI_Comm virtComm = ADD_NEW_COMM(*new_comm);
-    VirtualGlobalCommId::instance().createGlobalId(virtComm);
     *new_comm = virtComm;
     active_comms.insert(virtComm);
     FncArg rs = CREATE_LOG_BUF(remain_dims, ndims * sizeof(int));
     LOG_CALL(restoreCarts, Cart_sub, comm, ndims, rs, virtComm);
+    VirtualGlobalCommId::instance().createGlobalId(virtComm);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;

@@ -9,6 +9,7 @@
 #include "split_process.h"
 #include "mpi_nextfunc.h"
 #include "virtual-ids.h"
+#include "global_comm_id.h"
 
 extern int MPI_Alltoall_internal(const void *sendbuf, int sendcount,
                                  MPI_Datatype sendtype, void *recvbuf,
@@ -262,14 +263,3 @@ resetDrainCounters()
   memset(g_recvBytesByRank, 0, g_world_size * sizeof(int));
 }
 
-int
-localRankToGlobalRank(int localRank, MPI_Comm localComm)
-{
-  int worldRank;
-  MPI_Group worldGroup, localGroup;
-  MPI_Comm_group(MPI_COMM_WORLD, &worldGroup);
-  MPI_Comm_group(localComm, &localGroup);
-  MPI_Group_translate_ranks(localGroup, 1, &localRank,
-                            worldGroup, &worldRank); 
-  return worldRank;
-}
