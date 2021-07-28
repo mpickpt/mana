@@ -135,12 +135,14 @@ processPreSuspendClientMsgHelper(DmtcpCoordinator *coord,
     goto done;
   }
 
+#ifdef HYBRID_2PC
   JTRACE("Checking if any rank haven't seen INTENT");
   if (!noRankInState(clientStates, status.numPeers, IN_CS_INTENT_WASNT_SEEN)) {
     printf("Some rank in IN_CS_INTENT_WASNT_SEEN");
     waitAllSeenIntent(clientStates, status.numPeers);
     goto done;
   }
+#endif
 
   JTRACE("Trying to unblocks ranks in PHASE_1");
   unblockRanks(clientStates, status.numPeers);
@@ -229,6 +231,7 @@ unblockRanks(const ClientToStateMap& clientStates, long int size)
   query_t *queries = (query_t*) malloc(size * sizeof(query_t));
   memset(queries, NONE, size * sizeof(query_t));
 
+#ifdef HYBRID_2PC
   // If some member of a communicator is in IN_CS_NO_TRIV_BARRIER,
   // then all other group members with state HYBRID_PHASE1 gets a
   // DO_TRIV_BARRIER msg.
@@ -269,6 +272,7 @@ unblockRanks(const ClientToStateMap& clientStates, long int size)
       }
     }
   }
+#endif
 
   // if some member of a communicator is in the critical section,
   // give free passes to members in phase 1 or the trivial barrier.
