@@ -5,6 +5,7 @@
 #include "split_process.h"
 #include "dmtcp.h"
 #include "global_comm_id.h"
+#include "restore_comm_group.h"
 
 // FIXME: The new name should be: GlobalIdOfSimiliarComm
 void localGetCommWorldRanks(MPI_Comm comm, int *rankArray) {
@@ -19,8 +20,7 @@ void localGetCommWorldRanks(MPI_Comm comm, int *rankArray) {
   for (int i = 0; i < size; i++) {
     localRanks[i] = i;
   }
-  MPI_Group worldGroup, localGroup;
-  MPI_Comm_group(MPI_COMM_WORLD, &worldGroup);
+  MPI_Group localGroup;
   MPI_Comm_group(comm, &localGroup);
   MPI_Group_translate_ranks(localGroup, size, localRanks,
       worldGroup, rankArray); 
@@ -37,8 +37,7 @@ int
 localRankToGlobalRank(int localRank, MPI_Comm localComm)
 {
   int worldRank;
-  MPI_Group worldGroup, localGroup;
-  MPI_Comm_group(MPI_COMM_WORLD, &worldGroup);
+  MPI_Group localGroup;
   MPI_Comm_group(localComm, &localGroup);
   MPI_Group_translate_ranks(localGroup, 1, &localRank,
                             worldGroup, &worldRank); 

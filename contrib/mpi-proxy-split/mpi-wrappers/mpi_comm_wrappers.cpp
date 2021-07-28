@@ -12,6 +12,7 @@
 #include "two-phase-algo.h"
 #include "p2p_drain_send_recv.h"
 #include "global_comm_id.h"
+#include "restore_comm_group.h"
 
 using namespace dmtcp_mpi;
 
@@ -54,7 +55,7 @@ USER_DEFINED_WRAPPER(int, Comm_create, (MPI_Comm) comm, (MPI_Group) group,
       MPI_Comm virtComm = ADD_NEW_COMM(*newcomm);
       *newcomm = virtComm;
       active_comms.insert(virtComm);
-      LOG_CALL(restoreComms, Comm_create, comm, group, virtComm);
+      // LOG_CALL(restoreComms, Comm_create, comm, group, virtComm);
       VirtualGlobalCommId::instance().createGlobalId(virtComm);
     }
     DMTCP_PLUGIN_ENABLE_CKPT();
@@ -109,10 +110,10 @@ USER_DEFINED_WRAPPER(int, Comm_free, (MPI_Comm *) comm)
     // we'll need to replay this call to reconstruct any other comms that
     // might have been created using this comm.
     //
-    // realComm = REMOVE_OLD_COMM(*comm);
+    REMOVE_OLD_COMM(*comm);
     // CLEAR_COMM_LOGS(*comm);
     active_comms.erase(*comm);
-    LOG_CALL(restoreComms, Comm_free, *comm);
+    // LOG_CALL(restoreComms, Comm_free, *comm);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -160,8 +161,8 @@ USER_DEFINED_WRAPPER(int, Comm_split_type, (MPI_Comm) comm, (int) split_type,
     MPI_Comm virtComm = ADD_NEW_COMM(*newcomm);
     *newcomm = virtComm;
     active_comms.insert(virtComm);
-    LOG_CALL(restoreComms, Comm_split_type, comm,
-             split_type, key, inf, virtComm);
+    // LOG_CALL(restoreComms, Comm_split_type, comm,
+    //          split_type, key, inf, virtComm);
     VirtualGlobalCommId::instance().createGlobalId(virtComm);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -280,7 +281,7 @@ USER_DEFINED_WRAPPER(int, Comm_create_group, (MPI_Comm) comm,
       MPI_Comm virtComm = ADD_NEW_COMM(*newcomm);
       *newcomm = virtComm;
       active_comms.insert(virtComm);
-      LOG_CALL(restoreComms, Comm_create_group, comm, group, tag, virtComm);
+      // LOG_CALL(restoreComms, Comm_create_group, comm, group, tag, virtComm);
       VirtualGlobalCommId::instance().createGlobalId(virtComm);
     }
     return retval;

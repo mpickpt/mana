@@ -8,6 +8,7 @@
 #include "mpi_nextfunc.h"
 #include "virtual-ids.h"
 #include "p2p_drain_send_recv.h"
+#include "restore_comm_group.h"
 
 #if 0
 DEFINE_FNC(int, Init, (int *) argc, (char ***) argv)
@@ -21,6 +22,7 @@ USER_DEFINED_WRAPPER(int, Init, (int *) argc, (char ***) argv) {
   retval = NEXT_FUNC(Init)(argc, argv);
   RETURN_TO_UPPER_HALF();
   initialize_drain_send_recv();
+  initialize_comm_group();
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -32,6 +34,7 @@ USER_DEFINED_WRAPPER(int, Init_thread, (int *) argc, (char ***) argv,
   retval = NEXT_FUNC(Init_thread)(argc, argv, required, provided);
   RETURN_TO_UPPER_HALF();
   initialize_drain_send_recv();
+  initialize_comm_group();
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }

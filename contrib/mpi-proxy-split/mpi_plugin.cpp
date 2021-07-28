@@ -6,6 +6,7 @@
 #include "p2p_drain_send_recv.h"
 #include "record-replay.h"
 #include "two-phase-algo.h"
+#include "restore_comm_group.h"
 
 #include "config.h"
 #include "dmtcp.h"
@@ -149,6 +150,8 @@ static DmtcpBarrier mpiPluginBarriers[] = {
     "GetLocalRankInfo"},
   { DMTCP_GLOBAL_BARRIER_PRE_CKPT, updateCkptDirByRank,
     "update-ckpt-dir-by-rank" },
+  { DMTCP_GLOBAL_BARRIER_PRE_CKPT, recordCommGroups,
+    "Record-active-comms-and-groups" },
   { DMTCP_GLOBAL_BARRIER_PRE_CKPT, registerLocalSendsAndRecvs,
     "Register-local-sends-and-receives" },
   { DMTCP_GLOBAL_BARRIER_PRE_CKPT, drainSendRecv,
@@ -165,6 +168,8 @@ static DmtcpBarrier mpiPluginBarriers[] = {
     "Clear-Pending-Ckpt-Msg-Post-Restart"},
   { DMTCP_PRIVATE_BARRIER_RESTART, resetDrainCounters,
     "Reset-Drain-Send-Recv-Counters"},
+  { DMTCP_GLOBAL_BARRIER_RESTART, restoreCommGroups,
+    "Restore-recorded-active-comms-and-groups"},
   { DMTCP_GLOBAL_BARRIER_RESTART, restoreMpiLogState,
     "restoreMpiLogState"},
   { DMTCP_GLOBAL_BARRIER_RESTART, replayMpiP2pOnRestart,

@@ -10,6 +10,7 @@
 #include "mpi_nextfunc.h"
 #include "virtual-ids.h"
 #include "global_comm_id.h"
+#include "restore_comm_group.h"
 
 extern int MPI_Comm_create_group_internal(MPI_Comm comm, MPI_Group group,
                                           int tag, MPI_Comm *newcomm);
@@ -23,7 +24,6 @@ int *g_sendBytesByRank; // Number of bytes sent to other ranks
 int *g_rsendBytesByRank; // Number of bytes sent to other ranks by MPI_rsend
 int *g_bytesSentToUsByRank; // Number of bytes other ranks sent to us
 int *g_recvBytesByRank; // Number of bytes received from other ranks
-std::unordered_set<MPI_Comm> active_comms;
 dmtcp::vector<mpi_message_t*> g_message_queue;
 
 void
@@ -35,8 +35,6 @@ initialize_drain_send_recv()
   g_bytesSentToUsByRank =
     (int*)JALLOC_HELPER_MALLOC(g_world_size * sizeof(int));
   g_recvBytesByRank = (int*)JALLOC_HELPER_MALLOC(g_world_size * sizeof(int));
-  active_comms.insert(MPI_COMM_WORLD);
-  active_comms.insert(MPI_COMM_SELF);
 }
 
 void

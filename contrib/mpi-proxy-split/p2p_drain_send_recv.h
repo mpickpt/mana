@@ -10,7 +10,6 @@ extern int *g_sendBytesByRank; // Number of bytes sent to other ranks
 extern int *g_rsendBytesByRank; // Number of bytes sent to other ranks by MPI_Rsend
 extern int *g_bytesSentToUsByRank; // Number of bytes other ranks sent to us
 extern int *g_recvBytesByRank; // Number of bytes received from other ranks
-extern std::unordered_set<MPI_Comm> active_comms;
 extern dmtcp::vector<mpi_message_t*> g_message_queue;
 
 void initialize_drain_send_recv();
