@@ -9,6 +9,7 @@
 #include "mpi_nextfunc.h"
 #include "record-replay.h"
 #include "virtual-ids.h"
+#include "restore_comm_group.h"
 
 using namespace dmtcp_mpi;
 
@@ -23,7 +24,8 @@ USER_DEFINED_WRAPPER(int, Comm_group, (MPI_Comm) comm, (MPI_Group *) group)
   if (retval == MPI_SUCCESS && LOGGING()) {
     MPI_Group virtGroup = ADD_NEW_GROUP(*group);
     *group = virtGroup;
-    LOG_CALL(restoreGroups, Comm_group, comm, *group);
+    // LOG_CALL(restoreGroups, Comm_group, comm, *group);
+    active_groups[*group] = getGroupMembers(*group);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -61,9 +63,10 @@ USER_DEFINED_WRAPPER(int, Group_free, (MPI_Group *) group)
     // to replay this call to reconstruct any comms that might
     // have been created using this group.
     //
-    // realGroup = REMOVE_OLD_GROUP(*group);
+    REMOVE_OLD_GROUP(*group);
     // CLEAR_GROUP_LOGS(*group);
-    LOG_CALL(restoreGroups, Group_free, *group);
+    // LOG_CALL(restoreGroups, Group_free, *group);
+    active_groups.erase(*group);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -107,8 +110,9 @@ USER_DEFINED_WRAPPER(int, Group_incl, (MPI_Group) group, (int) n,
   if (retval == MPI_SUCCESS && LOGGING()) {
     MPI_Group virtGroup = ADD_NEW_GROUP(*newgroup);
     *newgroup = virtGroup;
-    FncArg rs = CREATE_LOG_BUF(ranks, n * sizeof(int));
-    LOG_CALL(restoreGroups, Group_incl, group, n, rs, *newgroup);
+    // FncArg rs = CREATE_LOG_BUF(ranks, n * sizeof(int));
+    // LOG_CALL(restoreGroups, Group_incl, group, n, rs, *newgroup);
+    active_groups[*newgroup] = getGroupMembers(*newgroup);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;

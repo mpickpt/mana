@@ -28,6 +28,7 @@
 #include <limits>
 #include <list>
 #include <map>
+#include <unordered_map>
 #include <memory>
 #include <set>
 #include <sstream>
@@ -231,6 +232,12 @@ class list : public std::list<T, DmtcpAlloc<T> >
 template<typename K, typename V>
 class map : public std::map<K, V, std::less<K>,
                             DmtcpAlloc<std::pair<K const, V> > >
+{};
+
+template<typename K, typename V>
+class unordered_map : public std::unordered_map<K, V, std::hash<K>,
+  std::equal_to<K>,
+  DmtcpAlloc<std::pair<K const, V> > >
 {};
 
 template<typename K>
