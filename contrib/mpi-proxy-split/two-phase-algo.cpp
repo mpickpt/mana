@@ -109,12 +109,14 @@ TwoPhaseAlgo::commit_begin(MPI_Comm comm)
 #endif
   _commAndStateMutex.unlock();
 
+#ifdef HYBRID_2PC
   if (isCkptPending()) {
     setCurrState(HYBRID_PHASE1);
     stop(comm);
     if (!do_triv_barrier) {
       setCurrState(IN_CS_NO_TRIV_BARRIER);
     } else {
+#endif
       // Call the trivial barrier
       DMTCP_PLUGIN_DISABLE_CKPT();
       setCurrState(IN_TRIVIAL_BARRIER);
@@ -131,7 +133,7 @@ TwoPhaseAlgo::commit_begin(MPI_Comm comm)
       JASSERT(tb_rc == MPI_SUCCESS)
         .Text("The trivial barrier in two-phase-commit algorithm failed");
       DMTCP_PLUGIN_ENABLE_CKPT();
-#if 1
+#ifdef HYBRID_2PC
       // FIXME: If we can cancel a request, then we can avoid memory leaks
       // due to a stale MPI_Request when we abort a trivial barrier.
       while (!flag && request != MPI_REQUEST_NULL && isCkptPending()) {
@@ -156,10 +158,12 @@ TwoPhaseAlgo::commit_begin(MPI_Comm comm)
         _request = MPI_REQUEST_NULL;
       }
       setCurrState(IN_CS);
+#ifdef HBYRID_2PC
     }
   } else {
     setCurrState(IN_CS_INTENT_WASNT_SEEN);
   }
+#endif
 }
 
 void
@@ -233,12 +237,10 @@ TwoPhaseAlgo::preSuspendBarrier(const void *data)
         // If in PHASE_1, wait for us to finish doing IN_CS
         phase_t newState = ST_UNKNOWN;
         newState = waitForNewStateAfter(ST_UNKNOWN); 
-        if (newState != IN_CS_NO_TRIV_BARRIER
-            || newState != IN_CS_INTENT_WASNT_SEEN) {
+        if (newState = IN_CS) {
           break;
         } else {
-          while (newState != IN_CS_NO_TRIV_BARRIER
-                 || newState != IN_CS_INTENT_WASNT_SEEN) {
+          while (newState = IN_CS) {
             newState = waitForNewStateAfter(ST_UNKNOWN); 
           }
         }
@@ -351,6 +353,7 @@ TwoPhaseAlgo::waitForNewStateAfter(phase_t oldState)
                         ( _currState == IN_TRIVIAL_BARRIER ||
                           _currState == HYBRID_PHASE1 ||
                           _currState == PHASE_1 ||
+                          _currState == IN_CS ||
                           _currState == IN_CS_NO_TRIV_BARRIER ||
                           _currState == IN_CS_INTENT_WASNT_SEEN ||
                           _currState == IS_READY); });
