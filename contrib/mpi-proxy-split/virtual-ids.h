@@ -144,7 +144,6 @@ namespace dmtcp_mpi
           return virt;
         }
         // FIXME: Use more fine-grained locking (RW lock; C++17 for shared_lock)
-        lock_t lock(_mutex);
         return _vIdTable.virtualToReal(virt);
       }
 
@@ -155,7 +154,6 @@ namespace dmtcp_mpi
           return real;
         }
         // FIXME: Use more fine-grained locking (RW lock; C++17 for shared_lock)
-        lock_t lock(_mutex);
         return _vIdTable.realToVirtual(real);
       }
 
@@ -169,7 +167,6 @@ namespace dmtcp_mpi
         if (real == _nullId) {
           return vId;
         }
-        lock_t lock(_mutex);
         if (_vIdTable.realIdExists(real)) {
           // JWARNING(false)(real)(_vIdTable.getTypeStr())
           //         (_vIdTable.realToVirtual(real))
@@ -195,7 +192,6 @@ namespace dmtcp_mpi
         if (virt == _nullId) {
           return realId;
         }
-        lock_t lock(_mutex);
         if (_vIdTable.virtualIdExists(virt)) {
           realId = _vIdTable.virtualToReal(virt);
           _vIdTable.erase(virt);
@@ -215,7 +211,6 @@ namespace dmtcp_mpi
         if (virt == _nullId) {
           return _nullId;
         }
-        lock_t lock(_mutex);
         if (!_vIdTable.virtualIdExists(virt)) {
           JWARNING(false)(virt)(real)(_vIdTable.getTypeStr())
                   (_vIdTable.realToVirtual(real))
