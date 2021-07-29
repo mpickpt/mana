@@ -25,13 +25,6 @@ USER_DEFINED_WRAPPER(int, Test, (MPI_Request*) request,
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Request realRequest;
   realRequest = VIRTUAL_TO_REAL_REQUEST(*request);
-  if (*request != MPI_REQUEST_NULL && realRequest == MPI_REQUEST_NULL) {
-    *flag = 1;
-    REMOVE_OLD_REQUEST(*request);
-    // FIXME: We should also fill in the status
-    DMTCP_PLUGIN_ENABLE_CKPT();
-    return MPI_SUCCESS;
-  }
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   // MPI_Test can change the *request argument
   retval = NEXT_FUNC(Test)(&realRequest, flag, statusPtr);
@@ -56,7 +49,7 @@ USER_DEFINED_WRAPPER(int, Test, (MPI_Request*) request,
   }
   if (retval == MPI_SUCCESS && *flag && LOGGING()) {
     clearPendingRequestFromLog(*request);
-    UPDATE_REQUEST_MAP(*request, MPI_REQUEST_NULL);
+    REMOVE_OLD_REQUEST(*request);
     *request = MPI_REQUEST_NULL;
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -136,12 +129,6 @@ USER_DEFINED_WRAPPER(int, Wait, (MPI_Request*) request, (MPI_Status*) status)
     DMTCP_PLUGIN_DISABLE_CKPT();
     MPI_Request realRequest;
     realRequest = VIRTUAL_TO_REAL_REQUEST(*request);
-    if (*request != MPI_REQUEST_NULL && realRequest == MPI_REQUEST_NULL) {
-      REMOVE_OLD_REQUEST(*request);
-      // FIXME: We should also fill in the status
-      DMTCP_PLUGIN_ENABLE_CKPT();
-      return MPI_SUCCESS;
-    }
     JUMP_TO_LOWER_HALF(lh_info.fsaddr);
     retval = NEXT_FUNC(Test)(&realRequest, &flag, statusPtr);
     RETURN_TO_UPPER_HALF();
@@ -165,7 +152,7 @@ USER_DEFINED_WRAPPER(int, Wait, (MPI_Request*) request, (MPI_Status*) status)
     }
     if (flag && LOGGING()) {
       clearPendingRequestFromLog(*request);
-      UPDATE_REQUEST_MAP(*request, MPI_REQUEST_NULL);
+      REMOVE_OLD_REQUEST(*request);
       *request = MPI_REQUEST_NULL;
     }
     DMTCP_PLUGIN_ENABLE_CKPT();
