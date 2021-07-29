@@ -23,7 +23,6 @@
 #define VIRTUAL_ID_TABLE_H
 
 #include <sys/types.h>
-#include <unordered_map>
 
 #include "../jalib/jalloc.h"
 #include "../jalib/jassert.h"
@@ -330,8 +329,8 @@ class VirtualIdTable
     pthread_mutex_t tblLock;
 
   protected:
-    typedef typename std::unordered_map<IdType, IdType>::iterator id_iterator;
-    std::unordered_map<IdType, IdType>_idMapTable;
+    typedef typename map<IdType, IdType>::iterator id_iterator;
+    map<IdType, IdType>_idMapTable;
     IdType _base;
     size_t _max;
     IdType _nextVirtualId;
