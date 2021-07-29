@@ -66,9 +66,37 @@ static int fsaddr_initialized = 0;
 // #define BUF_SIZE 256
 // #define BUF_SIZE 128
 #define BUF_SIZE 64
-// used part of tcb header:
-// (gdb) p (char *) &((struct pthread *) $rsp)->header.__unused2 - $rsp
-static const size_t TCB_HEADER_SIZE = 120;
+// in glibc 2.26 for x86_64
+// typedef struct
+// {
+//   void *tcb;            /* Pointer to the TCB.  Not necessarily the
+//                            thread descriptor used by libpthread.  */
+//   dtv_t *dtv;
+//   void *self;           /* Pointer to the thread descriptor.  */
+//   int multiple_threads;
+//   int gscope_flag;
+//   uintptr_t sysinfo;
+//   uintptr_t stack_guard;
+//   uintptr_t pointer_guard;
+//   unsigned long int vgetcpu_cache[2];
+// # ifndef __ASSUME_PRIVATE_FUTEX
+//   int private_futex;
+// # else
+//   int __glibc_reserved1;
+// # endif
+//   int __glibc_unused1;
+//   /* Reservation of some values for the TM ABI.  */
+//   void *__private_tm[4];
+//   /* GCC split stack support.  */
+//   void *__private_ss;
+//   long int __glibc_reserved2;
+//   /* Must be kept even if it is no longer used by glibc since programs,
+//      like AddressSanitizer, depend on the size of tcbhead_t.  */
+//   __128bits __glibc_unused2[8][4] __attribute__ ((aligned (32)));
+//
+//   void *__padding[8];
+// } tcbhead_t
+static const size_t TCB_HEADER_SIZE = 120; // offset of __glibc_reserved2
 static char *fsaddr_buf[BUF_SIZE + TCB_HEADER_SIZE];
 
 static inline void SET_LOWER_HALF_FS_CONTEXT() {
@@ -104,7 +132,7 @@ static inline void SET_LOWER_HALF_FS_CONTEXT() {
 }
 
 static inline void RESTORE_UPPER_HALF_FS_CONTEXT() {
-  memcpy(lh_fsaddr, uh_fsaddr, BUF_SIZE + TCB_HEADER_SIZE);
+  memcpy(lh_fsaddr, uh_fsaddr, BUF_SIZE);
   memcpy(uh_fsaddr, fsaddr_buf, BUF_SIZE + TCB_HEADER_SIZE);
 
   // restore self pointer to original driver-half TLS location
