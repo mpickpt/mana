@@ -3,3 +3,6 @@ unit-test/*.exe
 proxy
 mpi-wrappers/*.c*
 mpi-wrappers/*.so*
+Makefile_config
+lower-half/lh_proxy
+test/ckpt_rank_0/
