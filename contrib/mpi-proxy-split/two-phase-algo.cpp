@@ -158,7 +158,7 @@ TwoPhaseAlgo::commit_begin(MPI_Comm comm)
         _request = MPI_REQUEST_NULL;
       }
       setCurrState(IN_CS);
-#ifdef HBYRID_2PC
+#ifdef HYBRID_2PC
     }
   } else {
     setCurrState(IN_CS_INTENT_WASNT_SEEN);

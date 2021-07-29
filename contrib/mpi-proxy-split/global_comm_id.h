@@ -18,6 +18,10 @@ class VirtualGlobalCommId {
       return it->second;
     }
 
+    void removeGlobalId(MPI_Comm comm) {
+      globalIdTable.erase(comm);
+    }
+
     static VirtualGlobalCommId& instance() {
       static VirtualGlobalCommId _vGlobalId;
       return _vGlobalId;

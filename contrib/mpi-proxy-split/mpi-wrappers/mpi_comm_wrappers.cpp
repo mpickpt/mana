@@ -113,6 +113,7 @@ USER_DEFINED_WRAPPER(int, Comm_free, (MPI_Comm *) comm)
     REMOVE_OLD_COMM(*comm);
     // CLEAR_COMM_LOGS(*comm);
     active_comms.erase(*comm);
+    VirtualGlobalCommId::instance().removeGlobalId(*comm);
     // LOG_CALL(restoreComms, Comm_free, *comm);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
