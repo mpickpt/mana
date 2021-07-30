@@ -7,8 +7,7 @@
 
 #define REAL_REQUEST_LOG_LEVEL 7
 #define STACK_TRACK_LEVEL 7
-
-#ifdef DEBUG
+#if 0
 #define USE_REQUEST_LOG
 #endif
 

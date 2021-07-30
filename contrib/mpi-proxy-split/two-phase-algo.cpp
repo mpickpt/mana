@@ -77,14 +77,6 @@ int
 TwoPhaseAlgo::commit(MPI_Comm comm, const char *collectiveFnc,
                      std::function<int(void)>doRealCollectiveComm)
 {
-  if (!LOGGING() || comm == MPI_COMM_NULL) {
-    return doRealCollectiveComm(); // lambda function: already captured args
-  }
-
-  if (!LOGGING()) {
-    return doRealCollectiveComm();
-  }
-
   commit_begin(comm);
   int retval = doRealCollectiveComm();
   commit_finish();
@@ -94,6 +86,10 @@ TwoPhaseAlgo::commit(MPI_Comm comm, const char *collectiveFnc,
 void
 TwoPhaseAlgo::commit_begin(MPI_Comm comm)
 {
+  // Disable two-phase-commit when replaying
+  if (!LOGGING() || comm == MPI_COMM_WORLD) {
+    return;
+  }
   _commAndStateMutex.lock();
   // maintain consistent view for DMTCP coordinator
 #if 0
