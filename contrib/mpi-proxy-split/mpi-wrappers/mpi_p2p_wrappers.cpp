@@ -21,9 +21,17 @@ USER_DEFINED_WRAPPER(int, Send,
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
   MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
+#ifdef SET_FS_CONTEXT
+  SET_LOWER_HALF_FS_CONTEXT();
+#else
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+#endif
   retval = NEXT_FUNC(Send)(buf, count, realType, dest, tag, realComm);
+#ifdef SET_FS_CONTEXT
+  RESTORE_UPPER_HALF_FS_CONTEXT();
+#else
   RETURN_TO_UPPER_HALF();
+#endif
   updateLocalSends(count);
   DMTCP_PLUGIN_ENABLE_CKPT();
 #else
@@ -47,9 +55,17 @@ USER_DEFINED_WRAPPER(int, Isend,
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
   MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
+#ifdef SET_FS_CONTEXT
+  SET_LOWER_HALF_FS_CONTEXT();
+#else
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+#endif
   retval = NEXT_FUNC(Isend)(buf, count, realType, dest, tag, realComm, request);
+#ifdef SET_FS_CONTEXT
+  RESTORE_UPPER_HALF_FS_CONTEXT();
+#else
   RETURN_TO_UPPER_HALF();
+#endif
   if (retval == MPI_SUCCESS) {
     // Updating global counter of send bytes
     int size;
@@ -83,9 +99,17 @@ USER_DEFINED_WRAPPER(int, Rsend, (const void*) ibuf, (int) count,
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
   MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
+#ifdef SET_FS_CONTEXT
+  SET_LOWER_HALF_FS_CONTEXT();
+#else
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+#endif
   retval = NEXT_FUNC(Rsend)(ibuf, count, realType, dest, tag, realComm);
+#ifdef SET_FS_CONTEXT
+  RESTORE_UPPER_HALF_FS_CONTEXT();
+#else
   RETURN_TO_UPPER_HALF();
+#endif
   if (retval == MPI_SUCCESS) {
     // Updating global counter of send bytes
     int size;
@@ -113,9 +137,17 @@ USER_DEFINED_WRAPPER(int, Recv,
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
   MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
+#ifdef SET_FS_CONTEXT
+  SET_LOWER_HALF_FS_CONTEXT();
+#else
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+#endif
   retval = NEXT_FUNC(Recv)(buf, count, realType, source, tag, realComm, status);
+#ifdef SET_FS_CONTEXT
+  RESTORE_UPPER_HALF_FS_CONTEXT();
+#else
   RETURN_TO_UPPER_HALF();
+#endif
 #else
   MPI_Request req;
   retval = MPI_Irecv(buf, count, datatype, source, tag, comm, &req);
@@ -155,10 +187,18 @@ USER_DEFINED_WRAPPER(int, Irecv,
   }
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
   MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
+#ifdef SET_FS_CONTEXT
+  SET_LOWER_HALF_FS_CONTEXT();
+#else
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+#endif
   retval = NEXT_FUNC(Irecv)(buf, count, realType,
                             source, tag, realComm, request);
+#ifdef SET_FS_CONTEXT
+  RESTORE_UPPER_HALF_FS_CONTEXT();
+#else
   RETURN_TO_UPPER_HALF();
+#endif
   if (retval == MPI_SUCCESS) {
     MPI_Request virtRequest = ADD_NEW_REQUEST(*request);
     *request = virtRequest;
@@ -183,11 +223,19 @@ USER_DEFINED_WRAPPER(int, Sendrecv, (const void *) sendbuf, (int) sendcount,
 #if 0
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+#ifdef SET_FS_CONTEXT
+  SET_LOWER_HALF_FS_CONTEXT();
+#else
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+#endif
   retval = NEXT_FUNC(Sendrecv)(sendbuf, sendcount, sendtype, dest, sendtag,
                                recvbuf, recvcount, recvtype, source, recvtag,
                                realComm, status);
+#ifdef SET_FS_CONTEXT
+  RESTORE_UPPER_HALF_FS_CONTEXT();
+#else
   RETURN_TO_UPPER_HALF();
+#endif
   DMTCP_PLUGIN_ENABLE_CKPT();
 #else
   get_fortran_constants();
@@ -224,11 +272,19 @@ USER_DEFINED_WRAPPER(int, Sendrecv_replace, (void *) buf, (int) count,
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
   MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
+#ifdef SET_FS_CONTEXT
+  SET_LOWER_HALF_FS_CONTEXT();
+#else
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+#endif
   retval = NEXT_FUNC(Sendrecv_replace)(buf, count, realType,
                                        dest, sendtag, source, recvtag,
                                        realComm, status);
+#ifdef SET_FS_CONTEXT
+  RESTORE_UPPER_HALF_FS_CONTEXT();
+#else
   RETURN_TO_UPPER_HALF();
+#endif
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }

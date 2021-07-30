@@ -18,9 +18,17 @@ USER_DEFINED_WRAPPER(int, Comm_group, (MPI_Comm) comm, (MPI_Group *) group)
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+#ifdef SET_FS_CONTEXT
+  SET_LOWER_HALF_FS_CONTEXT();
+#else
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+#endif
   retval = NEXT_FUNC(Comm_group)(realComm, group);
+#ifdef SET_FS_CONTEXT
+  RESTORE_UPPER_HALF_FS_CONTEXT();
+#else
   RETURN_TO_UPPER_HALF();
+#endif
   if (retval == MPI_SUCCESS && LOGGING()) {
     MPI_Group virtGroup = ADD_NEW_GROUP(*group);
     *group = virtGroup;
@@ -36,9 +44,17 @@ USER_DEFINED_WRAPPER(int, Group_size, (MPI_Group) group, (int *) size)
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Group realGroup = VIRTUAL_TO_REAL_GROUP(group);
+#ifdef SET_FS_CONTEXT
+  SET_LOWER_HALF_FS_CONTEXT();
+#else
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+#endif
   retval = NEXT_FUNC(Group_size)(realGroup, size);
+#ifdef SET_FS_CONTEXT
+  RESTORE_UPPER_HALF_FS_CONTEXT();
+#else
   RETURN_TO_UPPER_HALF();
+#endif
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -48,9 +64,17 @@ MPI_Group_free_internal(MPI_Group *group)
 {
   int retval;
   MPI_Group realGroup = VIRTUAL_TO_REAL_GROUP(*group);
+#ifdef SET_FS_CONTEXT
+  SET_LOWER_HALF_FS_CONTEXT();
+#else
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+#endif
   retval = NEXT_FUNC(Group_free)(&realGroup);
+#ifdef SET_FS_CONTEXT
+  RESTORE_UPPER_HALF_FS_CONTEXT();
+#else
   RETURN_TO_UPPER_HALF();
+#endif
   return retval;
 }
 
@@ -79,9 +103,17 @@ USER_DEFINED_WRAPPER(int, Group_compare, (MPI_Group) group1,
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Group realGroup1 = VIRTUAL_TO_REAL_GROUP(group1);
   MPI_Group realGroup2 = VIRTUAL_TO_REAL_GROUP(group2);
+#ifdef SET_FS_CONTEXT
+  SET_LOWER_HALF_FS_CONTEXT();
+#else
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+#endif
   retval = NEXT_FUNC(Group_compare)(realGroup1, realGroup2, result);
+#ifdef SET_FS_CONTEXT
+  RESTORE_UPPER_HALF_FS_CONTEXT();
+#else
   RETURN_TO_UPPER_HALF();
+#endif
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -91,9 +123,17 @@ USER_DEFINED_WRAPPER(int, Group_rank, (MPI_Group) group, (int *) rank)
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Group realGroup = VIRTUAL_TO_REAL_GROUP(group);
+#ifdef SET_FS_CONTEXT
+  SET_LOWER_HALF_FS_CONTEXT();
+#else
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+#endif
   retval = NEXT_FUNC(Group_rank)(realGroup, rank);
+#ifdef SET_FS_CONTEXT
+  RESTORE_UPPER_HALF_FS_CONTEXT();
+#else
   RETURN_TO_UPPER_HALF();
+#endif
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -104,9 +144,17 @@ USER_DEFINED_WRAPPER(int, Group_incl, (MPI_Group) group, (int) n,
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Group realGroup = VIRTUAL_TO_REAL_GROUP(group);
+#ifdef SET_FS_CONTEXT
+  SET_LOWER_HALF_FS_CONTEXT();
+#else
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+#endif
   retval = NEXT_FUNC(Group_incl)(realGroup, n, ranks, newgroup);
+#ifdef SET_FS_CONTEXT
+  RESTORE_UPPER_HALF_FS_CONTEXT();
+#else
   RETURN_TO_UPPER_HALF();
+#endif
   if (retval == MPI_SUCCESS && LOGGING()) {
     MPI_Group virtGroup = ADD_NEW_GROUP(*newgroup);
     *newgroup = virtGroup;
@@ -126,10 +174,18 @@ USER_DEFINED_WRAPPER(int, Group_translate_ranks, (MPI_Group) group1,
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Group realGroup1 = VIRTUAL_TO_REAL_GROUP(group1);
   MPI_Group realGroup2 = VIRTUAL_TO_REAL_GROUP(group2);
+#ifdef SET_FS_CONTEXT
+  SET_LOWER_HALF_FS_CONTEXT();
+#else
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+#endif
   retval = NEXT_FUNC(Group_translate_ranks)(realGroup1, n, ranks1,
                                             realGroup2, ranks2);
+#ifdef SET_FS_CONTEXT
+  RESTORE_UPPER_HALF_FS_CONTEXT();
+#else
   RETURN_TO_UPPER_HALF();
+#endif
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }

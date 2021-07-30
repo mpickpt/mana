@@ -18,9 +18,17 @@ USER_DEFINED_WRAPPER(int, Op_create,
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
+#ifdef SET_FS_CONTEXT
+  SET_LOWER_HALF_FS_CONTEXT();
+#else
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+#endif
   retval = NEXT_FUNC(Op_create)(user_fn, commute, op);
+#ifdef SET_FS_CONTEXT
+  RESTORE_UPPER_HALF_FS_CONTEXT();
+#else
   RETURN_TO_UPPER_HALF();
+#endif
   if (retval == MPI_SUCCESS && LOGGING()) {
     MPI_Op virtOp = ADD_NEW_OP(*op);
     *op = virtOp;
@@ -38,9 +46,17 @@ USER_DEFINED_WRAPPER(int, Op_free, (MPI_Op*) op)
   if (op) {
     realOp = VIRTUAL_TO_REAL_OP(*op);
   }
+#ifdef SET_FS_CONTEXT
+  SET_LOWER_HALF_FS_CONTEXT();
+#else
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+#endif
   retval = NEXT_FUNC(Op_free)(&realOp);
+#ifdef SET_FS_CONTEXT
+  RESTORE_UPPER_HALF_FS_CONTEXT();
+#else
   RETURN_TO_UPPER_HALF();
+#endif
   if (retval == MPI_SUCCESS && LOGGING()) {
     // NOTE: We cannot remove the old op, since we'll need
     // to replay this call to reconstruct any new op that might

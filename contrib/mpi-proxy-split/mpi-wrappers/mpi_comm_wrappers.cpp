@@ -21,9 +21,17 @@ USER_DEFINED_WRAPPER(int, Comm_size, (MPI_Comm) comm, (int *) world_size)
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+#ifdef SET_FS_CONTEXT
+  SET_LOWER_HALF_FS_CONTEXT();
+#else
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+#endif
   retval = NEXT_FUNC(Comm_size)(realComm, world_size);
+#ifdef SET_FS_CONTEXT
+  RESTORE_UPPER_HALF_FS_CONTEXT();
+#else
   RETURN_TO_UPPER_HALF();
+#endif
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -33,9 +41,17 @@ USER_DEFINED_WRAPPER(int, Comm_rank, (MPI_Comm) comm, (int *) world_rank)
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+#ifdef SET_FS_CONTEXT
+  SET_LOWER_HALF_FS_CONTEXT();
+#else
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+#endif
   retval = NEXT_FUNC(Comm_rank)(realComm, world_rank);
+#ifdef SET_FS_CONTEXT
+  RESTORE_UPPER_HALF_FS_CONTEXT();
+#else
   RETURN_TO_UPPER_HALF();
+#endif
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -48,9 +64,17 @@ USER_DEFINED_WRAPPER(int, Comm_create, (MPI_Comm) comm, (MPI_Group) group,
     DMTCP_PLUGIN_DISABLE_CKPT();
     MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
     MPI_Group realGroup = VIRTUAL_TO_REAL_GROUP(group);
+#ifdef SET_FS_CONTEXT
+    SET_LOWER_HALF_FS_CONTEXT();
+#else
     JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+#endif
     retval = NEXT_FUNC(Comm_create)(realComm, realGroup, newcomm);
+#ifdef SET_FS_CONTEXT
+    RESTORE_UPPER_HALF_FS_CONTEXT();
+#else
     RETURN_TO_UPPER_HALF();
+#endif
     if (retval == MPI_SUCCESS && LOGGING()) {
       MPI_Comm virtComm = ADD_NEW_COMM(*newcomm);
       *newcomm = virtComm;
@@ -69,9 +93,17 @@ USER_DEFINED_WRAPPER(int, Abort, (MPI_Comm) comm, (int) errorcode)
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+#ifdef SET_FS_CONTEXT
+  SET_LOWER_HALF_FS_CONTEXT();
+#else
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+#endif
   retval = NEXT_FUNC(Abort)(realComm, errorcode);
+#ifdef SET_FS_CONTEXT
+  RESTORE_UPPER_HALF_FS_CONTEXT();
+#else
   RETURN_TO_UPPER_HALF();
+#endif
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -83,9 +115,17 @@ USER_DEFINED_WRAPPER(int, Comm_compare,
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm1 = VIRTUAL_TO_REAL_COMM(comm1);
   MPI_Comm realComm2 = VIRTUAL_TO_REAL_COMM(comm2);
+#ifdef SET_FS_CONTEXT
+  SET_LOWER_HALF_FS_CONTEXT();
+#else
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+#endif
   retval = NEXT_FUNC(Comm_compare)(realComm1, realComm2, result);
+#ifdef SET_FS_CONTEXT
+  RESTORE_UPPER_HALF_FS_CONTEXT();
+#else
   RETURN_TO_UPPER_HALF();
+#endif
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -95,9 +135,17 @@ MPI_Comm_free_internal(MPI_Comm *comm)
 {
   int retval;
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(*comm);
+#ifdef SET_FS_CONTEXT
+  SET_LOWER_HALF_FS_CONTEXT();
+#else
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+#endif
   retval = NEXT_FUNC(Comm_free)(&realComm);
+#ifdef SET_FS_CONTEXT
+  RESTORE_UPPER_HALF_FS_CONTEXT();
+#else
   RETURN_TO_UPPER_HALF();
+#endif
   return retval;
 }
 
@@ -126,9 +174,17 @@ USER_DEFINED_WRAPPER(int, Comm_set_errhandler,
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+#ifdef SET_FS_CONTEXT
+  SET_LOWER_HALF_FS_CONTEXT();
+#else
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+#endif
   retval = NEXT_FUNC(Comm_set_errhandler)(realComm, errhandler);
+#ifdef SET_FS_CONTEXT
+  RESTORE_UPPER_HALF_FS_CONTEXT();
+#else
   RETURN_TO_UPPER_HALF();
+#endif
   if (retval == MPI_SUCCESS && LOGGING()) {
     LOG_CALL(restoreComms, Comm_set_errhandler, comm, errhandler);
   }
@@ -142,9 +198,17 @@ USER_DEFINED_WRAPPER(int, Topo_test,
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+#ifdef SET_FS_CONTEXT
+  SET_LOWER_HALF_FS_CONTEXT();
+#else
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+#endif
   retval = NEXT_FUNC(Topo_test)(realComm, status);
+#ifdef SET_FS_CONTEXT
+  RESTORE_UPPER_HALF_FS_CONTEXT();
+#else
   RETURN_TO_UPPER_HALF();
+#endif
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -155,9 +219,17 @@ USER_DEFINED_WRAPPER(int, Comm_split_type, (MPI_Comm) comm, (int) split_type,
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+#ifdef SET_FS_CONTEXT
+  SET_LOWER_HALF_FS_CONTEXT();
+#else
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+#endif
   retval = NEXT_FUNC(Comm_split_type)(realComm, split_type, key, inf, newcomm);
+#ifdef SET_FS_CONTEXT
+  RESTORE_UPPER_HALF_FS_CONTEXT();
+#else
   RETURN_TO_UPPER_HALF();
+#endif
   if (retval == MPI_SUCCESS && LOGGING()) {
     MPI_Comm virtComm = ADD_NEW_COMM(*newcomm);
     *newcomm = virtComm;
@@ -177,9 +249,17 @@ USER_DEFINED_WRAPPER(int, Attr_get, (MPI_Comm) comm, (int) keyval,
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
   int realCommKeyval = VIRTUAL_TO_REAL_COMM_KEYVAL(keyval);
+#ifdef SET_FS_CONTEXT
+  SET_LOWER_HALF_FS_CONTEXT();
+#else
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+#endif
   retval = NEXT_FUNC(Attr_get)(realComm, realCommKeyval, attribute_val, flag);
+#ifdef SET_FS_CONTEXT
+  RESTORE_UPPER_HALF_FS_CONTEXT();
+#else
   RETURN_TO_UPPER_HALF();
+#endif
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -190,9 +270,17 @@ USER_DEFINED_WRAPPER(int, Attr_delete, (MPI_Comm) comm, (int) keyval)
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
   int realCommKeyval = VIRTUAL_TO_REAL_COMM_KEYVAL(keyval);
+#ifdef SET_FS_CONTEXT
+  SET_LOWER_HALF_FS_CONTEXT();
+#else
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+#endif
   retval = NEXT_FUNC(Attr_delete)(realComm, realCommKeyval);
+#ifdef SET_FS_CONTEXT
+  RESTORE_UPPER_HALF_FS_CONTEXT();
+#else
   RETURN_TO_UPPER_HALF();
+#endif
   if (retval == MPI_SUCCESS && LOGGING()) {
     LOG_CALL(restoreComms, Attr_delete, comm, keyval);
   }
@@ -207,9 +295,17 @@ USER_DEFINED_WRAPPER(int, Attr_put, (MPI_Comm) comm,
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
   int realCommKeyval = VIRTUAL_TO_REAL_COMM_KEYVAL(keyval);
+#ifdef SET_FS_CONTEXT
+  SET_LOWER_HALF_FS_CONTEXT();
+#else
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+#endif
   retval = NEXT_FUNC(Attr_put)(realComm, realCommKeyval, attribute_val);
+#ifdef SET_FS_CONTEXT
+  RESTORE_UPPER_HALF_FS_CONTEXT();
+#else
   RETURN_TO_UPPER_HALF();
+#endif
   if (retval == MPI_SUCCESS && LOGGING()) {
     LOG_CALL(restoreComms, Attr_put, comm, keyval, attribute_val);
   }
@@ -224,11 +320,19 @@ USER_DEFINED_WRAPPER(int, Comm_create_keyval,
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
+#ifdef SET_FS_CONTEXT
+  SET_LOWER_HALF_FS_CONTEXT();
+#else
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+#endif
   retval = NEXT_FUNC(Comm_create_keyval)(comm_copy_attr_fn,
                                          comm_delete_attr_fn,
                                          comm_keyval, extra_state);
+#ifdef SET_FS_CONTEXT
+  RESTORE_UPPER_HALF_FS_CONTEXT();
+#else
   RETURN_TO_UPPER_HALF();
+#endif
   if (retval == MPI_SUCCESS && LOGGING()) {
     int virtCommKeyval = ADD_NEW_COMM_KEYVAL(*comm_keyval);
     *comm_keyval = virtCommKeyval;
@@ -245,9 +349,17 @@ USER_DEFINED_WRAPPER(int, Comm_free_keyval, (int *) comm_keyval)
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   int realCommKeyval = VIRTUAL_TO_REAL_COMM_KEYVAL(*comm_keyval);
+#ifdef SET_FS_CONTEXT
+  SET_LOWER_HALF_FS_CONTEXT();
+#else
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+#endif
   retval = NEXT_FUNC(Comm_free_keyval)(&realCommKeyval);
+#ifdef SET_FS_CONTEXT
+  RESTORE_UPPER_HALF_FS_CONTEXT();
+#else
   RETURN_TO_UPPER_HALF();
+#endif
   if (retval == MPI_SUCCESS && LOGGING()) {
     // NOTE: We cannot remove the old comm_keyval from the map, since
     // we'll need to replay this call to reconstruct any other comms that
@@ -266,9 +378,17 @@ MPI_Comm_create_group_internal(MPI_Comm comm, MPI_Group group, int tag,
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
   MPI_Group realGroup = VIRTUAL_TO_REAL_GROUP(group);
+#ifdef SET_FS_CONTEXT
+  SET_LOWER_HALF_FS_CONTEXT();
+#else
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+#endif
   retval = NEXT_FUNC(Comm_create_group)(realComm, realGroup, tag, newcomm);
+#ifdef SET_FS_CONTEXT
+  RESTORE_UPPER_HALF_FS_CONTEXT();
+#else
   RETURN_TO_UPPER_HALF();
+#endif
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }

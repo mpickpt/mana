@@ -4,6 +4,10 @@
 #include <string.h>
 #include <pthread.h>
 
+#include "lower_half_api.h"
+
+#define SET_FS_CONTEXT
+
 // Helper class to save and restore context (in particular, the FS register),
 // when switching between the upper half and the lower half. In the current
 // design, the caller would generally be the upper half, trying to jump into
