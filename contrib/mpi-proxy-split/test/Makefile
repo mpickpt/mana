@@ -1,6 +1,11 @@
 PLATFORM=${shell echo $$HOST}
 include ../Makefile_config
 
+###############################################################
+# NOTE:  More Fortran/C examples (under LGPL license) at:  
+#        https://people.math.sc.edu/Burkardt/f_src/mpi/mpi.html
+###############################################################
+
 ifndef DMTCP_ROOT
   DMTCP_ROOT=../../..
 endif
@@ -14,7 +19,8 @@ DEMO_PORT=7787
 # FILES=mpi_hello_world Abort_test Allreduce_test Alltoall_test \
 #       Alltoallv_test Barrier_test Bcast_test Comm_split_test Reduce_test \
 #       send_recv send_recv_many ping_pong Comm_dup_test Sendrecv_test \
-#       Waitall_test Allgather_test Group_size_rank Type_commit_contiguous
+#       Waitall_test Allgather_test Group_size_rank Type_commit_contiguous \
+#       Irecv_test Alloc_mem f_ibarrier
 ## Reordering the tests:
 FILES=mpi_hello_world \
       hello_mpi_init_thread \
@@ -26,7 +32,8 @@ FILES=mpi_hello_world \
       Ibcast_test Ibarrier_test Isend_test \
       Abort_test Allreduce_test Alltoall_test Alltoallv_test \
       Allgather_test Group_size_rank Type_commit_contiguous \
-      Irecv_test Alloc_mem
+      Irecv_test Alloc_mem \
+      f_ibarrier
 
 OBJS=$(addsuffix .o, ${FILES})
 
@@ -132,6 +139,12 @@ check-integrated_dmtcp_text: tidy integrated_dmtcp_test
 
 %.o: %.c
 	 $(MPICC) -g3 -O0 -c -o $@ $< $(MPI_CFLAGS)
+
+%.exe: %.f90
+	ftn -g3 -O0 -o $@ $< -fPIC
+
+%.mana.exe: %.f90
+	ftn -g3 -O0 -o $@ $< -fPIC ${LDFLAGS_DUMMY}
 
 %.exe: %.o
 	 $(MPICC) -o $@ $< ${MPI_LDFLAGS}
