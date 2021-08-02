@@ -25,7 +25,8 @@ FILES=mpi_hello_world \
       two-phase-commit-1 two-phase-commit-2 \
       Ibcast_test Ibarrier_test Isend_test \
       Abort_test Allreduce_test Alltoall_test Alltoallv_test \
-      Allgather_test Group_size_rank Type_commit_contiguous
+      Allgather_test Group_size_rank Type_commit_contiguous \
+      f_ibarrier
 
 OBJS=$(addsuffix .o, ${FILES})
 
@@ -131,6 +132,12 @@ check-integrated_dmtcp_text: tidy integrated_dmtcp_test
 
 %.o: %.c
 	 $(MPICC) -g3 -O0 -c -o $@ $< $(MPI_CFLAGS)
+
+%.exe: %.f90
+	ftn -g3 -O0 -o $@ $< -fPIC
+
+%.mana.exe: %.f90
+	ftn -g3 -O0 -o $@ $< -fPIC ${LDFLAGS_DUMMY}
 
 %.exe: %.o
 	 $(MPICC) -o $@ $< ${MPI_LDFLAGS}
