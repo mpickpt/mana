@@ -58,8 +58,8 @@ static int fsaddr_initialized = 0;
 // #define BUF_SIZE 720
 // #define BUF_SIZE 512
 // #define BUF_SIZE 256
-// #define BUF_SIZE 128
-#define BUF_SIZE 64
+#define BUF_SIZE 128
+// #define BUF_SIZE 64
 // in glibc 2.26 for x86_64
 // typedef struct
 // {
@@ -91,14 +91,14 @@ static int fsaddr_initialized = 0;
 //   void *__padding[8];
 // } tcbhead_t
 static const size_t TCB_HEADER_SIZE = 120; // offset of __glibc_reserved2
-static char *fsaddr_buf[BUF_SIZE + TCB_HEADER_SIZE];
+static char fsaddr_buf[BUF_SIZE + TCB_HEADER_SIZE];
 
 static inline void SET_LOWER_HALF_FS_CONTEXT() {
   // Compute the upper-half and lower-half fs addresses
   if (!fsaddr_initialized) {
     fsaddr_initialized = 1;
-    lh_fsaddr = lh_info.fsaddr - 64;
-    uh_fsaddr = (void*)pthread_self() - 64;
+    lh_fsaddr = lh_info.fsaddr - BUF_SIZE;
+    uh_fsaddr = (char*)pthread_self() - BUF_SIZE;
   }
   memcpy(fsaddr_buf, uh_fsaddr, BUF_SIZE + TCB_HEADER_SIZE);
   memcpy(uh_fsaddr, lh_fsaddr, BUF_SIZE + TCB_HEADER_SIZE);
