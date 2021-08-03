@@ -162,31 +162,19 @@ replayMpiP2pOnRestart()
     int retval = 0;
     request = it.first;
     call = it.second;
-    MPI_Request realRequest = VIRTUAL_TO_REAL_REQUEST(request);
     MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(call->comm);
     MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(call->datatype);
     switch (call->type) {
       case IRECV_REQUEST:
         JTRACE("Replaying Irecv call")(call->remote_node);
-        JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-        retval = NEXT_FUNC(Irecv)(call->recvbuf, call->count,
-                                  realType, call->remote_node,
-                                  call->tag, realComm, &realRequest);
-        RETURN_TO_UPPER_HALF();
+        MPI_Irecv(call->recvbuf, call->count,
+                  realType, call->remote_node,
+                  call->tag, realComm, &request);
         JASSERT(retval == MPI_SUCCESS).Text("Error while replaying recv");
-        UPDATE_REQUEST_MAP(request, realRequest);
         break;
       case ISEND_REQUEST:
         JASSERT(false)
           .Text("There should be no pending MPI_Isend after restart");
-        JTRACE("Replaying Isend call")(call->remote_node);
-        JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-        retval = NEXT_FUNC(Isend)(call->sendbuf, call->count,
-                                  realType, call->remote_node,
-                                  call->tag, realComm, &realRequest);
-        RETURN_TO_UPPER_HALF();
-        JASSERT(retval == MPI_SUCCESS).Text("Error while replaying recv");
-        UPDATE_REQUEST_MAP(request, realRequest);
         break;
       default:
         JWARNING(false)(call->type).Text("Unhandled replay call");
