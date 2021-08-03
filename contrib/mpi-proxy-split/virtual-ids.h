@@ -201,16 +201,23 @@ namespace dmtcp_mpi
         }
         lock_t lock(_mutex);
         if (_vIdTable.realIdExists(real)) {
+          // Adding a existing real id is a legal operation and 
+          // we should not report warning/error.
+          // For example, MPI_Comm_group accesses the group associated with
+          // given communicator. It can be called multiple times from
+          // different localtions. They should get the same virtual id and
+          // real id of the same group.
           // JWARNING(false)(real)(_vIdTable.getTypeStr())
           //         (_vIdTable.realToVirtual(real))
           //         .Text("Real id exists. Will overwrite existing mapping");
           vId = _vIdTable.realToVirtual(real);
-        }
-        if (!_vIdTable.getNewVirtualId(&vId)) {
-          JWARNING(false)(real)(_vIdTable.getTypeStr())
-                  .Text("Failed to create a new vId");
         } else {
-          _vIdTable.updateMapping(vId, real);
+          if (!_vIdTable.getNewVirtualId(&vId)) {
+            JWARNING(false)(real)(_vIdTable.getTypeStr())
+              .Text("Failed to create a new vId");
+          } else {
+            _vIdTable.updateMapping(vId, real);
+          }
         }
         return vId;
       }
