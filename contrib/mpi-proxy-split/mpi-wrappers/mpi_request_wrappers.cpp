@@ -34,6 +34,12 @@ USER_DEFINED_WRAPPER(int, Test, (MPI_Request*) request,
                      (int*) flag, (MPI_Status*) status)
 {
   int retval;
+  if (*request == MPI_REQUEST_NULL) {
+    // *request might be in read-only memory. So we can't overwrite it with
+    // MPI_REQUEST_NULL later.
+    *flag = true;
+    return MPI_SUCCESS;
+  }
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Status statusBuffer;
   MPI_Status *statusPtr = status;
@@ -141,6 +147,11 @@ USER_DEFINED_WRAPPER(int, Waitall, (int) count,
 USER_DEFINED_WRAPPER(int, Wait, (MPI_Request*) request, (MPI_Status*) status)
 {
   int retval;
+  if (*request == MPI_REQUEST_NULL) {
+    // *request might be in read-only memory. So we can't overwrite it with
+    // MPI_REQUEST_NULL later.
+    return MPI_SUCCESS;
+  }
   int flag = 0;
   MPI_Status statusBuffer;
   MPI_Status *statusPtr = status;
