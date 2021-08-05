@@ -10,12 +10,17 @@
 #include "mpi_nextfunc.h"
 #include "virtual-ids.h"
 
-extern int MPI_Comm_create_group_internal(MPI_Comm comm, MPI_Group group,
-                                          int tag, MPI_Comm *newcomm);
 extern int MPI_Alltoall_internal(const void *sendbuf, int sendcount,
                                  MPI_Datatype sendtype, void *recvbuf,
                                  int recvcount, MPI_Datatype recvtype,
                                  MPI_Comm comm);
+extern int MPI_Test_internal(MPI_Request *, int *flag, MPI_Status *status,
+                             bool isRealRequest);
+// FIXME: These three internal functions were added to avoid record and replay.
+// Since we no longer record MPI_Comm and MPI_Group related functions, these
+// internal functions can be removed.
+extern int MPI_Comm_create_group_internal(MPI_Comm comm, MPI_Group group,
+                                          int tag, MPI_Comm *newcomm);
 extern int MPI_Comm_free_internal(MPI_Comm *comm);
 extern int MPI_Group_free_internal(MPI_Group *group);
 int *g_sendBytesByRank; // Number of bytes sent to other ranks
@@ -83,6 +88,36 @@ recvMsgIntoInternalBuffer(MPI_Status status, MPI_Comm comm)
   return count;
 }
 
+// Go through each MPI_Irecv in the g_async_calls map and try to complete
+// the MPI_Irecv before checkpointing.
+int
+completePendingIrecvs()
+{
+  int bytesReceived = 0;
+  dmtcp::map<MPI_Request, mpi_async_call_t*>::iterator it;
+  for (it = g_async_calls.begin(); it != g_async_calls.end();) {
+    MPI_Request request = it->first;
+    mpi_async_call_t *call = it->second;
+    if (call->type == IRECV_REQUEST) {
+      int flag = 0;
+      MPI_Test_internal(&request, &flag, MPI_STATUS_IGNORE, false);
+      if (flag) {
+        UPDATE_REQUEST_MAP(request, MPI_REQUEST_NULL);
+        int size = 0;
+        MPI_Type_size(call->datatype, &size);
+        int worldRank = localRankToGlobalRank(call->remote_node,
+                                              call->comm);
+        g_recvBytesByRank[worldRank] += call->count * size;
+        bytesReceived += call->count * size;
+        it = g_async_calls.erase(it);
+      }
+    } else {
+      it++;
+    }
+  }
+  return bytesReceived;
+}
+
 int
 recvFromAllComms()
 {
@@ -147,7 +182,11 @@ drainSendRecv()
   int timeout_counter = 0;
   while (!allDrained()) {
     sleep(1);
-    int numReceived = recvFromAllComms();
+    int numReceived = 0;
+    // If pending MPI_Irecvs, use MPI_Test in case msg was sent.
+    numReceived += completePendingIrecvs();
+    // If MPI_Irecv not posted but msg was sent, use MPI_Iprobe to drain msg 
+    numReceived += recvFromAllComms();
     // if we finished many rounds and we are not receiving more,
     // print a warning message with fprintf(stderr).
     if (timeout_counter > 20) {
