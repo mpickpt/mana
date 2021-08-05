@@ -12,24 +12,47 @@
 #include "mpi_nextfunc.h"
 #include "virtual-ids.h"
 
+int MPI_Test_internal(MPI_Request *request, int *flag, MPI_Status *status,
+                      bool isRealRequest)
+{
+  int retval;
+  MPI_Request realRequest;
+  if (isRealRequest) {
+    realRequest = *request;
+  } else {
+    realRequest = VIRTUAL_TO_REAL_REQUEST(*request);
+  }
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  // MPI_Test can change the *request argument
+  retval = NEXT_FUNC(Test)(&realRequest, flag, status);
+  RETURN_TO_UPPER_HALF();
+  return retval;
+}
+
 EXTERNC
 USER_DEFINED_WRAPPER(int, Test, (MPI_Request*) request,
                      (int*) flag, (MPI_Status*) status)
 {
   int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Status statusBuffer;
   MPI_Status *statusPtr = status;
   if (statusPtr == MPI_STATUS_IGNORE) {
     statusPtr = &statusBuffer;
   }
-  DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Request realRequest;
   realRequest = VIRTUAL_TO_REAL_REQUEST(*request);
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  // MPI_Test can change the *request argument
-  retval = NEXT_FUNC(Test)(&realRequest, flag, statusPtr);
-  RETURN_TO_UPPER_HALF();
+  if (*request != MPI_REQUEST_NULL && realRequest == MPI_REQUEST_NULL) {
+    *flag = 1;
+    REMOVE_OLD_REQUEST(*request);
+    DMTCP_PLUGIN_ENABLE_CKPT();
+    // FIXME: We should also fill in the status
+    return MPI_SUCCESS;
+  }
+  retval = MPI_Test_internal(&realRequest, flag, statusPtr, true);
   // Updating global counter of recv bytes
+  // FIXME: This if statement should be merged into
+  // clearPendingRequestFromLog()
   if (*flag && *request != MPI_REQUEST_NULL
       && g_async_calls.find(*request) != g_async_calls.end()
       && g_async_calls[*request]->type == IRECV_REQUEST) {
@@ -124,15 +147,16 @@ USER_DEFINED_WRAPPER(int, Wait, (MPI_Request*) request, (MPI_Status*) status)
   if (statusPtr == MPI_STATUS_IGNORE) {
     statusPtr = &statusBuffer;
   }
-  // FIXME: Should we use the MPI_Test wrapper instead of the real MPI_Test?
+  // FIXME: We translate the virtual request in every iteration.
+  // We want to translate it only once, and update the real request
+  // after restart if we checkpoint in the while loop.
+  // Then MPI_Test_internal should use isRealRequest = true.
   while (!flag) {
     DMTCP_PLUGIN_DISABLE_CKPT();
-    MPI_Request realRequest;
-    realRequest = VIRTUAL_TO_REAL_REQUEST(*request);
-    JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-    retval = NEXT_FUNC(Test)(&realRequest, &flag, statusPtr);
-    RETURN_TO_UPPER_HALF();
+    retval = MPI_Test_internal(request, &flag, status, false);
     // Updating global counter of recv bytes
+    // FIXME: This if statement should be merged into
+    // clearPendingRequestFromLog()
     if (flag && *request != MPI_REQUEST_NULL
         && g_async_calls.find(*request) != g_async_calls.end()
         && g_async_calls[*request]->type == IRECV_REQUEST) {
