@@ -185,12 +185,22 @@ replayMpiP2pOnRestart()
     call = it.second;
     MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(call->comm);
     MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(call->datatype);
+    MPI_Request realRequest;
     switch (call->type) {
       case IRECV_REQUEST:
         JTRACE("Replaying Irecv call")(call->remote_node);
+#if 0
         MPI_Irecv(call->recvbuf, call->count,
                   realType, call->remote_node,
                   call->tag, realComm, &request);
+#else
+        JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+        NEXT_FUNC(Irecv)(call->recvbuf, call->count,
+                         realType, call->remote_node,
+                         call->tag, realComm, &realRequest);
+        RETURN_TO_UPPER_HALF();
+        UPDATE_REQUEST_MAP(request, realRequest);
+#endif
         JASSERT(retval == MPI_SUCCESS).Text("Error while replaying recv");
         break;
       case ISEND_REQUEST:
