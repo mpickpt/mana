@@ -34,8 +34,38 @@
 #include "p2p_log_replay.h"
 #include "p2p_drain_send_recv.h"
 
+#define NO_BARRIER_BCAST
 using namespace dmtcp_mpi;
 
+#ifdef NO_BARRIER_BCAST
+USER_DEFINED_WRAPPER(int, Bcast,
+                     (void *) buffer, (int) count, (MPI_Datatype) datatype,
+                     (int) root, (MPI_Comm) comm)
+{
+  int rank, size;
+  int retval = MPI_SUCCESS;
+  MPI_Comm_rank(comm, &rank);
+  // FIXME: If replacing MPI_Bcast with MPI_Send/Recv is slow,
+  // we should still call MPI_Bcast, but treat it as MPI_Send/Recv
+  // at checkpoint time. Which means we need to drain MPI_Bcast
+  // messages.
+  // FIXME: It should be faster to call MPI_Isend/Irecv at once
+  // and test requests later.
+  if (rank == root) { // sender
+    MPI_Comm_size(comm, &size);
+    int dest;
+    for (dest = 0; dest < size; dest++) {
+      if (dest == root) { continue; }
+      retval = MPI_Send(buffer, count, datatype, dest, 0, comm);
+      if (retval != MPI_SUCCESS) { return retval; }
+    }
+  } else { // receiver
+    retval = MPI_Recv(buffer, count, datatype, root,
+                      0, comm, MPI_STATUS_IGNORE);
+  }
+  return retval;
+}
+#else
 USER_DEFINED_WRAPPER(int, Bcast,
                      (void *) buffer, (int) count, (MPI_Datatype) datatype,
                      (int) root, (MPI_Comm) comm)
@@ -59,6 +89,7 @@ USER_DEFINED_WRAPPER(int, Bcast,
   };
   return twoPhaseCommit(comm, realBarrierCb);
 }
+#endif
 
 USER_DEFINED_WRAPPER(int, Ibcast,
                      (void *) buffer, (int) count, (MPI_Datatype) datatype,
