@@ -185,7 +185,7 @@ USER_DEFINED_WRAPPER(int, Wait, (MPI_Request*) request, (MPI_Status*) status)
   // Then MPI_Test_internal should use isRealRequest = true.
   while (!flag) {
     DMTCP_PLUGIN_DISABLE_CKPT();
-    retval = MPI_Test_internal(request, &flag, status, false);
+    retval = MPI_Test_internal(request, &flag, statusPtr, false);
     // Updating global counter of recv bytes
     // FIXME: This if statement should be merged into
     // clearPendingRequestFromLog()
