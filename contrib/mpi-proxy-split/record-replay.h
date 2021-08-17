@@ -90,6 +90,7 @@ namespace dmtcp_mpi
     TYPE_INT_PTR,
     TYPE_INT_ARRAY,
     TYPE_VOID_PTR,
+    TYPE_VOID_CONST_PTR,
     TYPE_MPI_USER_FNC,
   };
 
@@ -172,6 +173,12 @@ namespace dmtcp_mpi
       return *(void**)_data;
     }
 
+    // Returns a void pointer to saved argument
+    operator void const*() const
+    {
+      return *(void const**)_data;
+    }
+
     operator MPI_User_function*() const
     {
       return *(MPI_User_function**)_data;
@@ -184,7 +191,8 @@ namespace dmtcp_mpi
     int a;
     int *b;
     void *c;
-    MPI_User_function *d;
+    void const *d;
+    MPI_User_function *e;
 
     if (typeid(data) == typeid(a)) {
       return FncArg(&data, sizeof(data), TYPE_INT);
@@ -196,6 +204,9 @@ namespace dmtcp_mpi
       return FncArg(&data, sizeof(data), TYPE_VOID_PTR);
     }
     if (typeid(data) == typeid(d)) {
+      return FncArg(&data, sizeof(data), TYPE_VOID_CONST_PTR);
+    }
+    if (typeid(data) == typeid(e)) {
       return FncArg(&data, sizeof(data), TYPE_MPI_USER_FNC);
     }
     JASSERT(false).Text("Unkown type for FncArg");
