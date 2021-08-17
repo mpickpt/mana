@@ -34,7 +34,7 @@
 #include "p2p_log_replay.h"
 #include "p2p_drain_send_recv.h"
 
-#define NO_BARRIER_BCAST
+// #define NO_BARRIER_BCAST
 using namespace dmtcp_mpi;
 
 #ifdef NO_BARRIER_BCAST
