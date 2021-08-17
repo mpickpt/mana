@@ -26,7 +26,7 @@ FILES=mpi_hello_world \
       Ibcast_test Ibarrier_test Isend_test \
       Abort_test Allreduce_test Alltoall_test Alltoallv_test \
       Allgather_test Group_size_rank Type_commit_contiguous \
-      Irecv_test Irecv_iprobe
+      Irecv_test 
 
 OBJS=$(addsuffix .o, ${FILES})
 
