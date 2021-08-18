@@ -9,6 +9,7 @@
 #include "global_comm_id.h"
 #include "mpi_nextfunc.h"
 
+#define HYBRID_2PC
 using namespace dmtcp_mpi;
 
 struct twoPhaseHistory {
@@ -112,15 +113,24 @@ TwoPhaseAlgo::commit_begin(MPI_Comm comm)
 #ifdef HYBRID_2PC
   if (isCkptPending()) {
     setCurrState(HYBRID_PHASE1);
-    stop(comm);
     if (!do_triv_barrier) {
+      stop(comm);
+    }
+    // checck do_triv_barrier again to tell if we
+    // need to do the trivial barrier or not.
+    if (!do_triv_barrier) {
+      // We must change the state before unsetting the phase1_freepass,
+      // so that the ckpt thread can report the newer state to the coordinator.
       setCurrState(IN_CS_NO_TRIV_BARRIER);
+      phase1_freepass = false;
     } else {
 #endif
       // Call the trivial barrier
       DMTCP_PLUGIN_DISABLE_CKPT();
+      // We must change the state before unsetting the phase1_freepass,
+      // so that the ckpt thread can report the newer state to the coordinator.
       setCurrState(IN_TRIVIAL_BARRIER);
-      // Set state again incase we returned from beforeTrivialBarrier
+      phase1_freepass = false;
       MPI_Request request;
       MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
       int flag = 0;
@@ -136,11 +146,11 @@ TwoPhaseAlgo::commit_begin(MPI_Comm comm)
 #ifdef HYBRID_2PC
       // FIXME: If we can cancel a request, then we can avoid memory leaks
       // due to a stale MPI_Request when we abort a trivial barrier.
-      while (!flag && request != MPI_REQUEST_NULL && isCkptPending()) {
+      while (!flag && _request != MPI_REQUEST_NULL && isCkptPending()) {
         int rc;
-        rc = MPI_Test(&request, &flag, MPI_STATUS_IGNORE);
+        rc = MPI_Test(&_request, &flag, MPI_STATUS_IGNORE);
 #ifdef DEBUG
-        JASSERT(rc == MPI_SUCCESS)(rc)(realComm)(request)(comm);
+        JASSERT(rc == MPI_SUCCESS)(rc)(realComm)(_request)(comm);
 #endif
         // FIXME: make this smaller
         struct timespec test_interval = {.tv_sec = 0, .tv_nsec = 100000};
@@ -157,7 +167,10 @@ TwoPhaseAlgo::commit_begin(MPI_Comm comm)
         REMOVE_OLD_REQUEST(_request);
         _request = MPI_REQUEST_NULL;
       }
+      // We must change the state before unsetting the phase1_freepass,
+      // so that the ckpt thread can report the newer state to the coordinator.
       setCurrState(IN_CS);
+      phase1_freepass = false;
 #ifdef HYBRID_2PC
     }
   } else {
@@ -236,12 +249,12 @@ TwoPhaseAlgo::preSuspendBarrier(const void *data)
       if (getCurrState() == PHASE_1) {
         // If in PHASE_1, wait for us to finish doing IN_CS
         phase_t newState = ST_UNKNOWN;
-        newState = waitForNewStateAfter(ST_UNKNOWN); 
+        newState = waitForNewStateAfter(ST_UNKNOWN);
         if (newState = IN_CS) {
           break;
         } else {
           while (newState = IN_CS) {
-            newState = waitForNewStateAfter(ST_UNKNOWN); 
+            newState = waitForNewStateAfter(ST_UNKNOWN);
           }
         }
       }
@@ -253,12 +266,13 @@ TwoPhaseAlgo::preSuspendBarrier(const void *data)
       // so we can also execute codes in the FREE_PASS case.
     case FREE_PASS:
       phase1_freepass = true;
-      // If in PHASE_1, wait for us to finish PHASE_1 (to enter IN_CS)
-      phase_t newState = ST_UNKNOWN;
-      newState = waitForNewStateAfter(ST_UNKNOWN); 
-      while (newState == PHASE_1 || newState == HYBRID_PHASE1) {
-        newState = waitForNewStateAfter(ST_UNKNOWN); 
-      }
+      // The checkpoint thread must report a new state to the coordinator.
+      // The new state may be same as the current state, and the comm can
+      // be the same or different. But we know that phase1_freepass will
+      // have been changed to false. To guarentee this, the user thread
+      // must change its state and update to the latest comm before setting
+      // phase1_freepass to false.
+      while (phase1_freepass) { sleep(1); }
       break;
     case CONTINUE:
       // Maybe some peers in critical section and some in PHASE_1 or
@@ -336,7 +350,6 @@ TwoPhaseAlgo::stop(MPI_Comm comm)
   while (isCkptPending() && !phase1_freepass) {
     sleep(1);
   }
-  phase1_freepass = false;
   // FIXME: For VASP, this instrumentation delays and hides the race condition.
   commStateHistoryAdd(
       {.lineNo = __LINE__, ._comm = _comm, .comm = -1,

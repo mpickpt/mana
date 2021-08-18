@@ -159,7 +159,7 @@ namespace dmtcp_mpi
       bool inWrapper();
 
       // Checkpointing state of the current process (MPI rank)
-      phase_t _currState;
+      volatile phase_t _currState;
 
       // Lock to protect accesses to '_ckptPending'
       mutex_t _ckptPendingMutex;
@@ -177,13 +177,10 @@ namespace dmtcp_mpi
       cv_t _phaseCv;
 
       // MPI communicator corresponding to the current MPI collective call
-      MPI_Comm _comm;
+      volatile MPI_Comm _comm;
 
       // MPI request used in the trivial barrier.
       MPI_Request _request;
-
-      // True if a free-pass message was received from the coordinator
-      bool _freePass;
 
       // True if we have entered an MPI collective wrapper function
       // TODO: Use C++ atomics
@@ -195,14 +192,14 @@ namespace dmtcp_mpi
       bool _ckptPending;
 
       // True if a freepass is given by the coordinator
-      bool phase1_freepass;
+      volatile bool phase1_freepass;
 
       // True if we need to replay trivial barrier on restart
       bool _replayTrivialBarrier;
 
       // True if received DO_TRIV_BARRIER messamge from the 
       // coordinator
-      bool do_triv_barrier;
+      volatile bool do_triv_barrier;
   };
 };
 

@@ -12,6 +12,8 @@
 #include "mana_coord_proto.h"
 #include "jtimer.h"
 
+#define HYBRID_2PC
+
 using namespace dmtcp;
 
 // FIXME: For debugging, remove it after debugging
@@ -234,7 +236,7 @@ unblockRanks(const ClientToStateMap& clientStates, long int size)
 #ifdef HYBRID_2PC
   // If some member of a communicator is in IN_CS_NO_TRIV_BARRIER,
   // then all other group members with state HYBRID_PHASE1 gets a
-  // DO_TRIV_BARRIER msg.
+  // FREE_PASS msg.
   for (RankKVPair c : clientStates) {
     if (queries[c.second.rank] != NONE) {
       continue; // the message is already decided
@@ -268,7 +270,11 @@ unblockRanks(const ClientToStateMap& clientStates, long int size)
         }
       }
       if (noInCs) {
-        queries[c.second.rank] = DO_TRIV_BARRIER;
+        for (RankKVPair other : clientStates) {
+          if (other.second.comm == c.second.comm) {
+            queries[c.second.rank] = DO_TRIV_BARRIER;
+          }
+        }
       }
     }
   }
