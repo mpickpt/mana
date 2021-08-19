@@ -50,7 +50,7 @@ namespace dmtcp_mpi
       {
         lock_t lock(_ckptPendingMutex);
         _ckptPending = false;
-        do_triv_barrier = false;
+        _do_triv_barrier = false;
       }
 
       // Resets the client state after a checkpoint.
@@ -58,9 +58,6 @@ namespace dmtcp_mpi
       {
         _currState = IS_READY;
       }
-
-      // Return true if _currState == IN_BARRIER
-      bool isInBarrier();
 
       // The main function of the two-phase protocol for MPI collectives
       int commit(MPI_Comm , const char* , std::function<int(void)> );
@@ -71,7 +68,11 @@ namespace dmtcp_mpi
       // between DMTCP coordinator and peers
       void preSuspendBarrier(const void *);
 
-      // Log the MPI_Ibarrier call if we checkpoint in trivial barrier or phase1
+      // Use the combination of MPI_Ibarrier and MPI_Test/Wait as a barrier
+      void trivialBarrier(MPI_Comm comm);
+
+      // Log the MPI_Ibarrier call if we checkpoint in trivial barrier or
+      // phase1
       void logIbarrierIfInTrivBarrier();
 
       // Replay the trivial barrier if _replayTrivialBarrier true
@@ -82,17 +83,16 @@ namespace dmtcp_mpi
       // Private constructor
       TwoPhaseAlgo()
         : _currState(IS_READY),
-          _ckptPendingMutex(), _phaseMutex(),
-          _wrapperMutex(),
+          _ckptPendingMutex(),
+          _phaseMutex(),
           _commAndStateMutex(),
           _phaseCv(),
           _comm(MPI_COMM_NULL),
           _request(MPI_REQUEST_NULL),
-          _inWrapper(false),
           _ckptPending(false),
-          phase1_freepass(false),
+          _freepass(false),
           _replayTrivialBarrier(false),
-          do_triv_barrier(false)
+          _do_triv_barrier(false)
       {
       }
 
@@ -110,13 +110,6 @@ namespace dmtcp_mpi
         lock_t lock(_phaseMutex);
         _currState = st;
         _phaseCv.notify_one();
-      }
-
-      // Returns true if we are currently executing in an MPI collective wrapper
-      // function
-      bool isInWrapper()
-      {
-        return _inWrapper;
       }
 
       // Returns true if a checkpoint intent message was received from the
@@ -139,24 +132,11 @@ namespace dmtcp_mpi
       // Stopping point before entering and after exiting the actual MPI
       // collective call to avoid domino effect and provide bounds on
       // checkpointing time. 'comm' indicates the MPI communicator used
-      // for the collective call, and 'p' is the current phase.
-      void stop(MPI_Comm);
+      // for the collective call, and 'state' is the current phase.
+      void stop(MPI_Comm, phase_t state);
 
       // Wait until the state is changed to a new state
       phase_t waitForNewStateAfter(phase_t oldState);
-
-      // Sends the given message 'msg' (along with the given 'extraData') to
-      // the coordinator
-      bool informCoordinatorOfCurrState(const DmtcpMessage& , const void* );
-
-      // Sets '_inWrapper' to true and sets '_comm' to the given 'comm'
-      void wrapperEntry(MPI_Comm );
-
-      // Sets '_inWrapper' to false
-      void wrapperExit();
-
-      // Returns true if we are executing in an MPI collective wrapper function
-      bool inWrapper();
 
       // Checkpointing state of the current process (MPI rank)
       volatile phase_t _currState;
@@ -166,9 +146,6 @@ namespace dmtcp_mpi
 
       // Lock to protect accesses to '_currState'
       mutex_t _phaseMutex;
-
-      // Lock to protect accesses to '_inWrapper'
-      mutex_t _wrapperMutex;
 
       // lock to make atomic read/write for comm and state
       mutex_t _commAndStateMutex;
@@ -182,24 +159,20 @@ namespace dmtcp_mpi
       // MPI request used in the trivial barrier.
       MPI_Request _request;
 
-      // True if we have entered an MPI collective wrapper function
-      // TODO: Use C++ atomics
-      bool _inWrapper;
-
       // True if a checkpoint intent message was received from the coordinator
       // and we haven't yet finished checkpointing
       // TODO: Use C++ atomics
       bool _ckptPending;
 
       // True if a freepass is given by the coordinator
-      volatile bool phase1_freepass;
+      volatile bool _freepass;
 
       // True if we need to replay trivial barrier on restart
       bool _replayTrivialBarrier;
 
-      // True if received DO_TRIV_BARRIER messamge from the 
+      // True if received DO_TRIV_BARRIER messamge from the
       // coordinator
-      volatile bool do_triv_barrier;
+      volatile bool _do_triv_barrier;
   };
 };
 

@@ -8,6 +8,7 @@
 #include "siginfo.h"
 #include "global_comm_id.h"
 #include "mpi_nextfunc.h"
+#include "p2p_log_replay.h"
 
 #define HYBRID_2PC
 using namespace dmtcp_mpi;
@@ -79,11 +80,6 @@ TwoPhaseAlgo::commit(MPI_Comm comm, const char *collectiveFnc,
   if (!LOGGING() || comm == MPI_COMM_NULL) {
     return doRealCollectiveComm(); // lambda function: already captured args
   }
-
-  if (!LOGGING()) {
-    return doRealCollectiveComm();
-  }
-
   commit_begin(comm);
   int retval = doRealCollectiveComm();
   commit_finish();
@@ -100,65 +96,19 @@ TwoPhaseAlgo::commit_begin(MPI_Comm comm)
 
 #ifdef HYBRID_2PC
   if (isCkptPending()) {
-    setCurrState(HYBRID_PHASE1);
-    if (!do_triv_barrier) {
-      stop(comm);
+    if (!_do_triv_barrier) {
+      stop(comm, HYBRID_PHASE1);
     }
-    // checck do_triv_barrier again to tell if we
+    // check _do_triv_barrier again to tell if we
     // need to do the trivial barrier or not.
-    if (!do_triv_barrier) {
-      // We must change the state before unsetting the phase1_freepass,
-      // so that the ckpt thread can report the newer state to the coordinator.
-      setCurrState(IN_CS_NO_TRIV_BARRIER);
-      phase1_freepass = false;
-    } else {
+    if (_do_triv_barrier) {
 #endif
-      // Call the trivial barrier
-      DMTCP_PLUGIN_DISABLE_CKPT();
-      // We must change the state before unsetting the phase1_freepass,
-      // so that the ckpt thread can report the newer state to the coordinator.
-      setCurrState(IN_TRIVIAL_BARRIER);
-      phase1_freepass = false;
-      MPI_Request request;
-      MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-      int flag = 0;
-      int tb_rc = -1;
-      JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-      tb_rc = NEXT_FUNC(Ibarrier)(realComm, &request);
-      RETURN_TO_UPPER_HALF();
-      MPI_Request virtRequest = ADD_NEW_REQUEST(request);
-      _request = virtRequest;
-      JASSERT(tb_rc == MPI_SUCCESS)
-        .Text("The trivial barrier in two-phase-commit algorithm failed");
-      DMTCP_PLUGIN_ENABLE_CKPT();
-#ifdef HYBRID_2PC
-      // FIXME: If we can cancel a request, then we can avoid memory leaks
-      // due to a stale MPI_Request when we abort a trivial barrier.
-      while (!flag && _request != MPI_REQUEST_NULL && isCkptPending()) {
-        int rc;
-        rc = MPI_Test(&_request, &flag, MPI_STATUS_IGNORE);
-#ifdef DEBUG
-        JASSERT(rc == MPI_SUCCESS)(rc)(realComm)(_request)(comm);
-#endif
-        // FIXME: make this smaller
-        struct timespec test_interval = {.tv_sec = 0, .tv_nsec = 100000};
-        nanosleep(&test_interval, NULL);
-      }
-#else
-      MPI_Wait(&_request, MPI_STATUS_IGNORE);
-#endif
+      trivialBarrier(comm);
       if (isCkptPending()) {
-        setCurrState(PHASE_1);
-        stop(comm);
+        stop(comm, PHASE_1);
+      } else {
+        setCurrState(IN_CS);
       }
-      if (request != MPI_REQUEST_NULL) {
-        REMOVE_OLD_REQUEST(_request);
-        _request = MPI_REQUEST_NULL;
-      }
-      // We must change the state before unsetting the phase1_freepass,
-      // so that the ckpt thread can report the newer state to the coordinator.
-      setCurrState(IN_CS);
-      phase1_freepass = false;
 #ifdef HYBRID_2PC
     }
   } else {
@@ -176,11 +126,42 @@ TwoPhaseAlgo::commit_finish()
   _commAndStateMutex.unlock();
 }
 
+
+void
+TwoPhaseAlgo::trivialBarrier(MPI_Comm comm) {
+  // Call the trivial barrier
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  MPI_Request request;
+  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+  int flag = 0;
+  int tb_rc = -1;
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  tb_rc = NEXT_FUNC(Ibarrier)(realComm, &request);
+  RETURN_TO_UPPER_HALF();
+  MPI_Request virtRequest = ADD_NEW_REQUEST(request);
+  _request = virtRequest;
+  JASSERT(tb_rc == MPI_SUCCESS)
+    .Text("The trivial barrier in two-phase-commit algorithm failed");
+  DMTCP_PLUGIN_ENABLE_CKPT();
+
+#ifdef HYBRID_2PC
+  while (!flag && _request != MPI_REQUEST_NULL && isCkptPending()) {
+    MPI_Test(&_request, &flag, MPI_STATUS_IGNORE);
+  }
+  if (_request != MPI_REQUEST_NULL) {
+    REMOVE_OLD_REQUEST(_request);
+    _request = MPI_REQUEST_NULL;
+  }
+#else
+  MPI_Wait(&_request, MPI_STATUS_IGNORE);
+#endif
+}
+
 void
 TwoPhaseAlgo::logIbarrierIfInTrivBarrier()
 {
-  JASSERT(!phase1_freepass)
-    .Text("phase1_freepass should be false when about to checkpoint");
+  JASSERT(!_freepass)
+    .Text("_freepass should be false when about to checkpoint");
   phase_t st = getCurrState();
   if (st == IN_TRIVIAL_BARRIER || st == PHASE_1) {
     _replayTrivialBarrier = true;
@@ -232,19 +213,19 @@ TwoPhaseAlgo::preSuspendBarrier(const void *data)
       break;
     case DO_TRIV_BARRIER:
       // All ranks received DO_TRIV_BARRIER. This will not block.
-      do_triv_barrier = true;
+      _do_triv_barrier = true;
       // If received DO_TRIV_BARRIER, we should also unblock ranks
       // in HYBRID_PHASE1. We don't have break statement here.
       // So we should also execute the code for the FREE_PASS case.
     case FREE_PASS:
-      phase1_freepass = true;
+      _freepass = true;
       // The checkpoint thread must report a new state to the coordinator.
       // The new state may be same as the current state, and the comm can
-      // be the same or different. But we know that phase1_freepass will
+      // be the same or different. But we know that _freepass will
       // have been changed to false. To guarentee this, the user thread
       // must change its state and update to the latest comm before setting
-      // phase1_freepass to false.
-      while (phase1_freepass) { sleep(1); }
+      // _freepass to false.
+      while (_freepass) { sleep(1); }
       break;
     case CONTINUE:
       // Maybe some peers in critical section and some in PHASE_1 or
@@ -273,22 +254,35 @@ TwoPhaseAlgo::preSuspendBarrier(const void *data)
   JTRACE("Sending DMT_PRE_SUSPEND_RESPONSE message")
         (g_world_rank)(globalId)(st);
   msg.extraBytes = sizeof state;
-  informCoordinatorOfCurrState(msg, &state);
+  CoordinatorAPI::sendMsgToCoordinator(msg, &state, msg.extraBytes);
 }
 
-
-// Local functions
-
 void
-TwoPhaseAlgo::stop(MPI_Comm comm)
+TwoPhaseAlgo::stop(MPI_Comm comm, phase_t state)
 {
   // We got here because we must have received a ckpt-intent msg from
   // the coordinator
   // INVARIANT: Ckpt should be pending when we get here
   JASSERT(isCkptPending());
-  while (isCkptPending() && !phase1_freepass) {
+  JASSERT(state == HYBRID_PHASE1 || state == PHASE_1);
+  setCurrState(state);
+
+  while (isCkptPending() && !_freepass) {
     sleep(1);
   }
+
+  // We must change the state before unsetting the _freepass,
+  // so that the ckpt thread can report the newer state to the coordinator.
+  if (state == PHASE_1) {
+    setCurrState(IN_CS);
+  } else { // state == HYBRID_PHASE1
+    if (_do_triv_barrier) {
+      setCurrState(IN_TRIVIAL_BARRIER);
+    } else {
+      setCurrState(IN_CS_NO_TRIV_BARRIER);
+    }
+  }
+  _freepass = false;
 }
 
 phase_t
@@ -299,13 +293,4 @@ TwoPhaseAlgo::waitForNewStateAfter(phase_t oldState)
   _phaseCv.wait(lock, [this, oldState]
                       { return _currState != oldState; });
   return _currState;
-}
-
-bool
-TwoPhaseAlgo::informCoordinatorOfCurrState(const DmtcpMessage& msg,
-                                           const void *extraData)
-{
-  // This is a weird API.. doesn't return success or failure
-  CoordinatorAPI::sendMsgToCoordinator(msg, extraData, msg.extraBytes);
-  return true;
 }
