@@ -35,9 +35,6 @@
 
 using namespace dmtcp;
 
-// FIXME: For debugging, remove it after debugging
-extern DmtcpCoordinator prog;
-
 typedef dmtcp::map<dmtcp::CoordClient*, rank_state_t> ClientToStateMap;
 typedef dmtcp::map<dmtcp::CoordClient*, phase_t> ClientToPhaseMap;
 typedef ClientToStateMap::value_type RankKVPair;
@@ -230,7 +227,12 @@ processPreSuspendClientMsgHelper(DmtcpCoordinator *coord,
     return;
   }
   JTRACE("Received pre-suspend response from all ranks");
+#if 0
+  // FIXME: For debugging, remove it after debugging
+  // prog was declared statis in dmtcp_coordinator.cpp; This shouldn't work.
+  extern DmtcpCoordinator prog;
   printf("%s\n", prog.printList().c_str());
+#endif
 
   JTRACE("Checking if we can send the checkpoint message");
   // We are ready! If all clients responded with IN_READY, inform the
