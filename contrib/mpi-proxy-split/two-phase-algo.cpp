@@ -217,6 +217,9 @@ TwoPhaseAlgo::preSuspendBarrier(const void *data)
       // If received DO_TRIV_BARRIER, we should also unblock ranks
       // in HYBRID_PHASE1. We don't have break statement here.
       // So we should also execute the code for the FREE_PASS case.
+      if (st != HYBRID_PHASE1) {
+        break;
+      }
     case FREE_PASS:
       _freepass = true;
       // The checkpoint thread must report a new state to the coordinator.
@@ -228,14 +231,9 @@ TwoPhaseAlgo::preSuspendBarrier(const void *data)
       while (_freepass) { sleep(1); }
       break;
     case CONTINUE:
-      // Maybe some peers in critical section and some in PHASE_1 or
-      // IN_TRIVIAL_BARRIER. This may happen if a checkpoint pending is
-      // announced after some member already entered the critical
-      // section. Then the coordinator will send
-      // CONTINUE to those ranks in the critical section.
-      // In this case, we just report back the current state.
-      // But the user thread can continue running and enter IS_READY,
-      // IN_TRIVIAL_BARRIER for a different communication, etc.
+      // Wait 1 second and report the latest state of the user thread.
+      // The delay is to let the user thread finish a critical section.
+      sleep(1);
       break;
     default:
       JWARNING(false)(query).Text("Unknown query from coordinator");
