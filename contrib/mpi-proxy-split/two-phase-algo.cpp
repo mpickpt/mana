@@ -200,14 +200,13 @@ TwoPhaseAlgo::preSuspendBarrier(const void *data)
       setCkptPending();
 #ifndef HYBRID_2PC
       if (getCurrState() == PHASE_1) {
-        // If in PHASE_1, wait for us to finish doing IN_CS.
         // There's a gap after the stop() function and before
         // changing state to IN_CS. If we report this rank is
         // still in PHASE_1, it will get an extra freepass.
-        // FIXME: wrong implementation. Change it after fixing the style
-        phase_t newState = ST_UNKNOWN;
-        newState = waitForNewStateAfter(ST_UNKNOWN);
-        newState = IN_CS;
+        // So we wait for 1 second. If the user thread is in the
+        // gap, it's enough for the user thread to move to the
+        // next state, IN_CS.
+        sleep(1);
       }
 #endif
       break;
