@@ -41,6 +41,7 @@
 #include <elf.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <linux/version.h>
 #include <sched.h>
 #include <signal.h>
 #include <stdarg.h>
@@ -1325,8 +1326,15 @@ unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo, LowerHalfInfo_t *lh_info
   /* Unmap everything except this image, vdso, vvar and vsyscall. */
   int mtcp_sys_errno;
   Area area;
+#if LINUX_VERSION_CODE > KERNEL_VERSION(3, 10, 0) 
   VA vdsoStart = NULL;
   VA vdsoEnd = NULL;
+#else
+  // This Linux kernel does not re-label vdso/vvar after calling mremap on it.
+  // So, lower down, we will fail to find vdeso in /proc/self/maps
+  VA vdsoStart = (VA)vdsoStartTmp;
+  VA vdsoEnd = (VA)(vdsoStartTmp + 2*PAGESIZE);
+#endif
   VA vvarStart = NULL;
   VA vvarEnd = NULL;
 
