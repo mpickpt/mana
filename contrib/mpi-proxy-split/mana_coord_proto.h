@@ -25,6 +25,7 @@ typedef enum __phase_t
   IN_CS_INTENT_WASNT_SEEN,
   IN_CS_NO_TRIV_BARRIER,
   IN_CS,
+  FINISHED_PHASE2,
   IS_READY,
 } phase_t;
 

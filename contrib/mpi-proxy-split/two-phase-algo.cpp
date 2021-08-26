@@ -94,10 +94,14 @@ TwoPhaseAlgo::commit_begin(MPI_Comm comm)
   _comm = comm;
   _commAndStateMutex.unlock();
 
+  MPI_Comm_size(comm, &size);
+  rankArray = (int*)malloc(size * sizeof(int));
+  localGetCommWorldRanks(comm, rankArray);
+
 #ifdef HYBRID_2PC
   if (isCkptPending()) {
     if (!_do_triv_barrier) {
-      stop(comm, HYBRID_PHASE1);
+      stop(HYBRID_PHASE1);
     }
     // check _do_triv_barrier again to tell if we
     // need to do the trivial barrier or not.
@@ -105,7 +109,7 @@ TwoPhaseAlgo::commit_begin(MPI_Comm comm)
 #endif
       trivialBarrier(comm);
       if (isCkptPending()) {
-        stop(comm, PHASE_1);
+        stop(PHASE_1);
       } else {
         setCurrState(IN_CS);
       }
@@ -120,10 +124,15 @@ TwoPhaseAlgo::commit_begin(MPI_Comm comm)
 void
 TwoPhaseAlgo::commit_finish()
 {
-  _commAndStateMutex.lock();
-  setCurrState(IS_READY);
-  _comm = MPI_COMM_NULL;
-  _commAndStateMutex.unlock();
+  if (isCkptPending()) {
+    stop(FINISHED_PHASE2);
+  } else {
+    _commAndStateMutex.lock();
+    setCurrState(IS_READY);
+    _comm = MPI_COMM_NULL;
+    _commAndStateMutex.unlock();
+  }
+  free(rankArray);
 }
 
 
@@ -230,9 +239,6 @@ TwoPhaseAlgo::preSuspendBarrier(const void *data)
       while (_freepass) { sleep(1); }
       break;
     case CONTINUE:
-      // Wait 1 second and report the latest state of the user thread.
-      // The delay is to let the user thread finish a critical section.
-      sleep(1);
       break;
     default:
       JWARNING(false)(query).Text("Unknown query from coordinator");
@@ -255,13 +261,17 @@ TwoPhaseAlgo::preSuspendBarrier(const void *data)
 }
 
 void
-TwoPhaseAlgo::stop(MPI_Comm comm, phase_t state)
+TwoPhaseAlgo::stop(phase_t state)
 {
   // We got here because we must have received a ckpt-intent msg from
   // the coordinator
   // INVARIANT: Ckpt should be pending when we get here
   JASSERT(isCkptPending());
-  JASSERT(state == HYBRID_PHASE1 || state == PHASE_1);
+  // stop() can only be called in these HYBRID_PHASE1, PHASE_1,
+  // or FINISHED_PHASE2.
+  JASSERT(state == HYBRID_PHASE1 ||
+          state == PHASE_1 ||
+          state == FINISHED_PHASE2);
   setCurrState(state);
 
   while (isCkptPending() && !_freepass) {
@@ -272,12 +282,17 @@ TwoPhaseAlgo::stop(MPI_Comm comm, phase_t state)
   // so that the ckpt thread can report the newer state to the coordinator.
   if (state == PHASE_1) {
     setCurrState(IN_CS);
-  } else { // state == HYBRID_PHASE1
+  } else if (state == HYBRID_PHASE1) {
     if (_do_triv_barrier) {
       setCurrState(IN_TRIVIAL_BARRIER);
     } else {
       setCurrState(IN_CS_NO_TRIV_BARRIER);
     }
+  } else { // state == FINISHED_PHASE2
+    _commAndStateMutex.lock();
+    setCurrState(IS_READY);
+    _comm = MPI_COMM_NULL;
+    _commAndStateMutex.unlock();
   }
   _freepass = false;
 }

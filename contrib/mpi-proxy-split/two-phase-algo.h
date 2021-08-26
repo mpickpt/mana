@@ -131,9 +131,8 @@ namespace dmtcp_mpi
 
       // Stopping point before entering and after exiting the actual MPI
       // collective call to avoid domino effect and provide bounds on
-      // checkpointing time. 'comm' indicates the MPI communicator used
-      // for the collective call, and 'state' is the current phase.
-      void stop(MPI_Comm, phase_t state);
+      // checkpointing time. 'state' is the current phase.
+      void stop(phase_t state);
 
       // Wait until the state is changed to a new state
       phase_t waitForNewStateAfter(phase_t oldState);
@@ -173,6 +172,9 @@ namespace dmtcp_mpi
       // True if received DO_TRIV_BARRIER messamge from the
       // coordinator
       volatile bool _do_triv_barrier;
+      
+      int *rankArray;
+      int size;
   };
 };
 
