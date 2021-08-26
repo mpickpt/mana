@@ -54,12 +54,6 @@ class SwitchContext
 static void* lh_fsaddr;
 static void *uh_fsaddr;
 static int fsaddr_initialized = 0;
-// #define BUF_SIZE 1024
-// #define BUF_SIZE 720
-// #define BUF_SIZE 512
-// #define BUF_SIZE 256
-#define BUF_SIZE 128
-// #define BUF_SIZE 64
 // in glibc 2.26 for x86_64
 // typedef struct
 // {
@@ -90,18 +84,28 @@ static int fsaddr_initialized = 0;
 //
 //   void *__padding[8];
 // } tcbhead_t
+// TODO: make this configuable
+#ifndef LH_TLS_SIZE
+/* readelf -S lh_proxy
+ * [14] .tdata            PROGBITS         000000000e64d500  0044d500
+ *      000000000000002c  0000000000000000 WAT       0     0     8
+ * [15] .tbss             NOBITS           000000000e64d530  0044d52c
+ *      0000000000000462  0000000000000000 WAT       0     0     8
+ */
+#define LH_TLS_SIZE 0x4a0
+#endif
 static const size_t TCB_HEADER_SIZE = 120; // offset of __glibc_reserved2
-static char fsaddr_buf[BUF_SIZE + TCB_HEADER_SIZE];
+static char fsaddr_buf[LH_TLS_SIZE + TCB_HEADER_SIZE];
 
 static inline void SET_LOWER_HALF_FS_CONTEXT() {
   // Compute the upper-half and lower-half fs addresses
   if (!fsaddr_initialized) {
     fsaddr_initialized = 1;
-    lh_fsaddr = lh_info.fsaddr - BUF_SIZE;
-    uh_fsaddr = (char*)pthread_self() - BUF_SIZE;
+    lh_fsaddr = lh_info.fsaddr - LH_TLS_SIZE;
+    uh_fsaddr = (char*)pthread_self() - LH_TLS_SIZE;
   }
-  memcpy(fsaddr_buf, uh_fsaddr, BUF_SIZE + TCB_HEADER_SIZE);
-  memcpy(uh_fsaddr, lh_fsaddr, BUF_SIZE + TCB_HEADER_SIZE);
+  memcpy(fsaddr_buf, uh_fsaddr, LH_TLS_SIZE + TCB_HEADER_SIZE);
+  memcpy(uh_fsaddr, lh_fsaddr, LH_TLS_SIZE + TCB_HEADER_SIZE);
 
   // on x86_64:
   // the tcb starts with 3 ptrs: self, dtv, header
@@ -121,15 +125,15 @@ static inline void SET_LOWER_HALF_FS_CONTEXT() {
   // with no indirection. So we change self but not header.
 
   // change self pointer to new application half TLS location
-  ((void **)(uh_fsaddr + BUF_SIZE))[0] = (void *) (uh_fsaddr + BUF_SIZE);
+  ((void **)(uh_fsaddr + LH_TLS_SIZE))[0] = (void *) (uh_fsaddr + LH_TLS_SIZE);
 }
 
 static inline void RESTORE_UPPER_HALF_FS_CONTEXT() {
-  memcpy(lh_fsaddr, uh_fsaddr, BUF_SIZE);
-  memcpy(uh_fsaddr, fsaddr_buf, BUF_SIZE + TCB_HEADER_SIZE);
+  memcpy(lh_fsaddr, uh_fsaddr, LH_TLS_SIZE);
+  memcpy(uh_fsaddr, fsaddr_buf, LH_TLS_SIZE + TCB_HEADER_SIZE);
 
   // restore self pointer to original driver-half TLS location
-  ((void **)(lh_fsaddr + BUF_SIZE))[0] = (void *) (lh_fsaddr + BUF_SIZE);
+  ((void **)(lh_fsaddr + LH_TLS_SIZE))[0] = (void *) (lh_fsaddr + LH_TLS_SIZE);
 }
 
 // ===================================================
