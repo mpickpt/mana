@@ -1,4 +1,5 @@
 #include <ucontext.h>
+#include <time.h>
 #include "dmtcp.h"
 #include "coordinatorapi.h"
 
@@ -31,6 +32,20 @@ int commStateHistoryLast = -1;
 //  Use _commAndStateMutex.lock/unlock if not already present.
 void commStateHistoryAdd(struct twoPhaseHistory item) {
   commStateHistory[++commStateHistoryLast % commStateHistoryLength] = item;
+}
+
+bool
+isCommBusy(unsigned int gid, unsigned int *busyGids) {
+  int i;
+  for (i = 0; i < GID_LIST_SIZE; i++) {
+    if (busyGids[i] == MPI_COMM_NULL) {
+     return false; 
+    }
+    if (gid == busyGids[i]) {
+      return true;
+    }
+  }
+  return false;
 }
 
 void
@@ -116,7 +131,7 @@ TwoPhaseAlgo::commit_begin(MPI_Comm comm)
 #ifdef HYBRID_2PC
     }
   } else {
-    setCurrState(IN_CS_INTENT_WASNT_SEEN);
+    setCurrState(IN_CS_NO_TRIV_BARRIER);
   }
 #endif
 }
@@ -125,13 +140,18 @@ void
 TwoPhaseAlgo::commit_finish()
 {
   if (isCkptPending()) {
-    stop(FINISHED_PHASE2);
+    if (_do_triv_barrier) {
+      stop(FINISHED_PHASE2);
+    } else {
+      stop(FINISHED_PHASE2_NO_TRIV_BARRIER);
+    }
   } else {
     _commAndStateMutex.lock();
     setCurrState(IS_READY);
     _comm = MPI_COMM_NULL;
     _commAndStateMutex.unlock();
   }
+  _do_triv_barrier = false;
   free(rankArray);
 }
 
@@ -198,13 +218,14 @@ TwoPhaseAlgo::replayTrivialBarrier()
 void
 TwoPhaseAlgo::preSuspendBarrier(const void *data)
 {
+  phase_t st;
+  int globalId;
   JASSERT(data).Text("Pre-suspend barrier called with NULL data!");
   DmtcpMessage msg(DMT_PRE_SUSPEND_RESPONSE);
 
-  phase_t st = getCurrState();
-  query_t query = *(query_t*)data;
+  mana_msg_t query = *(mana_msg_t*)data;
 
-  switch (query) {
+  switch (query.msg) {
     case INTENT:
       setCkptPending();
 #ifndef HYBRID_2PC
@@ -217,17 +238,34 @@ TwoPhaseAlgo::preSuspendBarrier(const void *data)
         // next state, IN_CS.
         sleep(1);
       }
+#else
+      int sec = 0;
+      clock_t start = clock();
+      do {
+        _commAndStateMutex.lock();
+        st = getCurrState();
+        globalId = VirtualGlobalCommId::instance().getGlobalId(_comm);
+        _commAndStateMutex.unlock();
+        if (st == HYBRID_PHASE1) {
+          if (!isCommBusy(globalId, query.gids_in_cs_no_triv)) {
+            _do_triv_barrier = true;
+          }
+          _freepass = true;
+          while (_freepass) { sleep(1); }
+        } else if (st == PHASE_1 ||
+                   st == FINISHED_PHASE2) {
+          _freepass = true;
+          while (_freepass) { sleep(1); }
+        } else if (st == FINISHED_PHASE2_NO_TRIV_BARRIER) {
+          break;
+        }
+        // For other states: IN_CS_NO_TRIV_BARRIER, IN_TRIVIAL_BARRIER, IN_CS,
+        // IS_READY, we just continue executing.
+        clock_t diff = clock() - start;
+        sec = diff / CLOCKS_PER_SEC;
+      } while (sec < 5); // repeat 5 seconds;
 #endif
       break;
-    case DO_TRIV_BARRIER:
-      // All ranks received DO_TRIV_BARRIER. This will not block.
-      _do_triv_barrier = true;
-      // If received DO_TRIV_BARRIER, we should also unblock ranks
-      // in HYBRID_PHASE1. We don't have break statement here.
-      // So we should also execute the code for the FREE_PASS case.
-      if (st != HYBRID_PHASE1) {
-        break;
-      }
     case FREE_PASS:
       _freepass = true;
       // The checkpoint thread must report a new state to the coordinator.
@@ -241,18 +279,18 @@ TwoPhaseAlgo::preSuspendBarrier(const void *data)
     case CONTINUE:
       break;
     default:
-      JWARNING(false)(query).Text("Unknown query from coordinator");
+      JWARNING(false)(query.msg).Text("Unknown query from coordinator");
       break;
   }
   _commAndStateMutex.lock();
   // maintain consistent view for DMTCP coordinator
   st = getCurrState();
-  int globalId = VirtualGlobalCommId::instance().getGlobalId(_comm);
+  globalId = VirtualGlobalCommId::instance().getGlobalId(_comm);
   _commAndStateMutex.unlock();
 
   rank_state_t state = { .rank = g_world_rank, .comm = globalId, .st = st};
   JASSERT(state.comm != MPI_COMM_NULL || state.st == IS_READY)
-	 (state.comm)(state.st)(globalId)(_currState)(query);
+	 (state.comm)(state.st)(globalId)(_currState)(query.msg);
 
   JTRACE("Sending DMT_PRE_SUSPEND_RESPONSE message")
         (g_world_rank)(globalId)(st);
@@ -271,7 +309,8 @@ TwoPhaseAlgo::stop(phase_t state)
   // or FINISHED_PHASE2.
   JASSERT(state == HYBRID_PHASE1 ||
           state == PHASE_1 ||
-          state == FINISHED_PHASE2);
+          state == FINISHED_PHASE2 ||
+          state == FINISHED_PHASE2_NO_TRIV_BARRIER);
   setCurrState(state);
 
   while (isCkptPending() && !_freepass) {
@@ -288,7 +327,7 @@ TwoPhaseAlgo::stop(phase_t state)
     } else {
       setCurrState(IN_CS_NO_TRIV_BARRIER);
     }
-  } else { // state == FINISHED_PHASE2
+  } else { // state == FINISHED_PHASE2 || FINISHED_PHASE2_NO_TRIV_BARRIER
     _commAndStateMutex.lock();
     setCurrState(IS_READY);
     _comm = MPI_COMM_NULL;

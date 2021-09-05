@@ -42,6 +42,7 @@ static bool allInPhase1orCsNoTriv(const ClientToStateMap& clientStates,
                                   long int size);
 static void waitAllSeenIntent(const ClientToStateMap& clientStates,
                               long int size);
+static void sendIntent(const ClientToStateMap& clientStates, long int size);
 static void freeAllPhase1(const ClientToStateMap& clientStates, long int size);
 static void unblockRanks(const ClientToStateMap& clientStates, long int size);
 
@@ -130,10 +131,8 @@ processPreSuspendClientMsgHelper(DmtcpCoordinator *coord,
   printf("%s\n", prog.printList().c_str());
 
   JTRACE("Checking if we can send the checkpoint message");
-  if (noRankInState(clientStates, status.numPeers, IN_CS_INTENT_WASNT_SEEN)
-      && noRankInState(clientStates, status.numPeers, IN_CS_NO_TRIV_BARRIER)
-      && noRankInState(clientStates, status.numPeers, IN_CS)
-      && noRankInState(clientStates, status.numPeers, HYBRID_PHASE1)) {
+  if (noRankInState(clientStates, status.numPeers, IN_CS_NO_TRIV_BARRIER)
+      && noRankInState(clientStates, status.numPeers, IN_CS)) {
     JTRACE("All ranks ready for checkpoint; broadcasting suspend msg...");
     JTIMER_STOP(twoPc);
     coord->startCheckpoint();
@@ -141,9 +140,9 @@ processPreSuspendClientMsgHelper(DmtcpCoordinator *coord,
   }
 
 #ifdef HYBRID_2PC
-  JTRACE("Checking if any rank haven't seen INTENT");
-  if (!noRankInState(clientStates, status.numPeers, IN_CS_INTENT_WASNT_SEEN)) {
-    waitAllSeenIntent(clientStates, status.numPeers);
+  JTRACE("Checking if any rank in critical section");
+  if (!noRankInState(clientStates, status.numPeers, IN_CS_NO_TRIV_BARRIER)) {
+    sendIntent(clientStates, status.numPeers);
     goto done;
   }
 
@@ -179,10 +178,11 @@ operator<<(std::ostream &os, const phase_t &st)
     case HYBRID_PHASE1      : os << "HYBRID_PHASE1"; break;
     case PHASE_1            : os << "PHASE_1"; break;
     case IN_CS              : os << "IN_CS"; break;
-    case IN_CS_INTENT_WASNT_SEEN : os << "IN_CS_INTENT_WASNT_SEEN"; break;
     case IN_CS_NO_TRIV_BARRIER : os << "IN_CS_NO_TRIV_BARRIER"; break;
     case IN_TRIVIAL_BARRIER : os << "IN_TRIVIAL_BARRIER"; break;
     case FINISHED_PHASE2    : os << "FINISHED_PHASE2"; break;
+    case FINISHED_PHASE2_NO_TRIV_BARRIER :
+                              os << "FINISHED_PHASE2_NO_TRIV_BARRIER"; break;
     default                 : os << "Unknown state"; break;
   }
   return os;
@@ -250,41 +250,31 @@ freeAllPhase1(const ClientToStateMap& clientStates, long int size)
 }
 
 static void
-waitAllSeenIntent(const ClientToStateMap& clientStates, long int size)
+sendIntent(const ClientToStateMap& clientStates, long int size)
 {
-  query_t *queries = (query_t*) malloc(size * sizeof(query_t));
-  memset(queries, NONE, size * sizeof(query_t));
+  std::set<unsigned int> commSet;
+  std::set<unsigned int>::iterator it;
+  mana_msg_t intent;
+  intent.msg = INTENT;
 
   for (RankKVPair c : clientStates) {
-    if (queries[c.second.rank] != NONE) {
-      continue; // the message is already decided
-    }
-    if (c.second.st == HYBRID_PHASE1 ||
-        c.second.st == FINISHED_PHASE2) {
-      queries[c.second.rank] = FREE_PASS;
+    if (c.second.st == IN_CS_NO_TRIV_BARRIER) {
+      commSet.insert(c.second.comm);
     }
   }
 
-  // other ranks just wait for a iteration.
-  for (RankKVPair c : clientStates) {
-    if (queries[c.second.rank] == NONE) {
-      queries[c.second.rank] = CONTINUE;
-    }
+  int i = 0;
+  for (it = commSet.begin(); it != commSet.end(); it++,i++) {
+    intent.gids_in_cs_no_triv[i] = *it;
   }
 
   // send all queires
   for (RankKVPair c : clientStates) {
     DmtcpMessage msg(DMT_DO_PRE_SUSPEND);
-    query_t q = queries[c.second.rank];
-    printf("Sending %d to rank %d\n", q, c.second.rank);
-    fflush(stdout);
-    JTRACE("Sending query to client")(q)
-      (c.second.rank)(c.second.comm)(c.second.st);
-    msg.extraBytes = sizeof q;
+    msg.extraBytes = sizeof intent;
     c.first->sock() << msg;
-    c.first->sock().writeAll((const char*)&q, msg.extraBytes);
+    c.first->sock().writeAll((const char*)&intent, msg.extraBytes);
   }
-  free(queries);
 }
 
 static void
@@ -336,9 +326,8 @@ unblockRanks(const ClientToStateMap& clientStates, long int size)
     if (c.second.st == HYBRID_PHASE1) {
       bool noInCs = true;
       for (RankKVPair other : clientStates) {
-        if (other.second.comm == c.second.comm
-            && (other.second.st == IN_CS_INTENT_WASNT_SEEN
-                || other.second.st == IN_CS_NO_TRIV_BARRIER)) {
+        if (other.second.comm == c.second.comm &&
+            other.second.st == IN_CS_NO_TRIV_BARRIER) {
           noInCs = false;
           break;
         }
@@ -381,11 +370,8 @@ unblockRanks(const ClientToStateMap& clientStates, long int size)
   // send all queires
   for (RankKVPair c : clientStates) {
     DmtcpMessage msg(DMT_DO_PRE_SUSPEND);
-    query_t q = queries[c.second.rank];
-    printf("Sending %d to rank %d\n", q, c.second.rank);
-    fflush(stdout);
-    JTRACE("Sending query to client")(q)
-      (c.second.rank)(c.second.comm)(c.second.st);
+    mana_msg_t q;
+    q.msg = queries[c.second.rank];
     msg.extraBytes = sizeof q;
     c.first->sock() << msg;
     c.first->sock().writeAll((const char*)&q, msg.extraBytes);
