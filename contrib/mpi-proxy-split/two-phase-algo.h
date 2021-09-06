@@ -48,7 +48,6 @@ namespace dmtcp_mpi
       // finished successfully
       void clearCkptPending()
       {
-        lock_t lock(_ckptPendingMutex);
         _ckptPending = false;
         _do_triv_barrier = false;
       }

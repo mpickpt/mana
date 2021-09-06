@@ -36,15 +36,23 @@ void commStateHistoryAdd(struct twoPhaseHistory item) {
 
 bool
 isCommBusy(unsigned int gid, unsigned int *busyGids) {
+  printf("gid %x, busy gids: ", gid);
+  fflush(stdout);
   int i;
   for (i = 0; i < GID_LIST_SIZE; i++) {
+    printf("%x, ", busyGids[i]);
+    fflush(stdout);
     if (busyGids[i] == MPI_COMM_NULL) {
-     return false; 
+      break;
     }
     if (gid == busyGids[i]) {
+      printf("\n");
+      fflush(stdout);
       return true;
     }
   }
+  printf("\n");
+  fflush(stdout);
   return false;
 }
 
@@ -151,13 +159,13 @@ TwoPhaseAlgo::commit_finish()
     _comm = MPI_COMM_NULL;
     _commAndStateMutex.unlock();
   }
-  _do_triv_barrier = false;
   free(rankArray);
 }
 
 
 void
 TwoPhaseAlgo::trivialBarrier(MPI_Comm comm) {
+  _do_triv_barrier = false;
   // Call the trivial barrier
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Request request;
@@ -239,6 +247,8 @@ TwoPhaseAlgo::preSuspendBarrier(const void *data)
         sleep(1);
       }
 #else
+      break;
+    case SECOND_INTENT:
       int sec = 0;
       clock_t start = clock();
       do {
@@ -251,19 +261,23 @@ TwoPhaseAlgo::preSuspendBarrier(const void *data)
             _do_triv_barrier = true;
           }
           _freepass = true;
-          while (_freepass) { sleep(1); }
-        } else if (st == PHASE_1 ||
-                   st == FINISHED_PHASE2) {
+          while (_freepass) {}
+        } else if (st == PHASE_1 || st == FINISHED_PHASE2) {
           _freepass = true;
-          while (_freepass) { sleep(1); }
+          while (_freepass) {}
         } else if (st == FINISHED_PHASE2_NO_TRIV_BARRIER) {
-          break;
+          if (_do_triv_barrier) {
+            break;
+          } else {
+            _freepass = true;
+            while (_freepass) {}
+          }
         }
         // For other states: IN_CS_NO_TRIV_BARRIER, IN_TRIVIAL_BARRIER, IN_CS,
         // IS_READY, we just continue executing.
         clock_t diff = clock() - start;
         sec = diff / CLOCKS_PER_SEC;
-      } while (sec < 5); // repeat 5 seconds;
+      } while (sec < 2); // repeat 2 seconds;
 #endif
       break;
     case FREE_PASS:
@@ -313,9 +327,7 @@ TwoPhaseAlgo::stop(phase_t state)
           state == FINISHED_PHASE2_NO_TRIV_BARRIER);
   setCurrState(state);
 
-  while (isCkptPending() && !_freepass) {
-    sleep(1);
-  }
+  while (isCkptPending() && !_freepass) {} 
 
   // We must change the state before unsetting the _freepass,
   // so that the ckpt thread can report the newer state to the coordinator.

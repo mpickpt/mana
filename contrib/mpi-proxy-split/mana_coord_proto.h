@@ -23,6 +23,7 @@ typedef enum __query_t
   NONE = -1,
   Q_UNKNOWN, /* State 0 shouldn't be confused with a state used in the algo. */
   INTENT,
+  SECOND_INTENT,
   FREE_PASS,
   CONTINUE,
   DO_TRIV_BARRIER,
@@ -39,7 +40,7 @@ typedef struct __rank_state_t
 typedef struct __mana_msg_t
 {
   query_t msg;
-  unsigned int gids_in_cs_no_triv[GID_LIST_SIZE] = {MPI_COMM_NULL};
+  unsigned int gids_in_cs_no_triv[GID_LIST_SIZE];
 } mana_msg_t;
 
 #endif // ifndef _MANA_COORD_PROTO_

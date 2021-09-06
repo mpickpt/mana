@@ -255,7 +255,7 @@ sendIntent(const ClientToStateMap& clientStates, long int size)
   std::set<unsigned int> commSet;
   std::set<unsigned int>::iterator it;
   mana_msg_t intent;
-  intent.msg = INTENT;
+  intent.msg = SECOND_INTENT;
 
   for (RankKVPair c : clientStates) {
     if (c.second.st == IN_CS_NO_TRIV_BARRIER) {
@@ -267,6 +267,7 @@ sendIntent(const ClientToStateMap& clientStates, long int size)
   for (it = commSet.begin(); it != commSet.end(); it++,i++) {
     intent.gids_in_cs_no_triv[i] = *it;
   }
+  intent.gids_in_cs_no_triv[i] = MPI_COMM_NULL;
 
   // send all queires
   for (RankKVPair c : clientStates) {
@@ -292,53 +293,6 @@ unblockRanks(const ClientToStateMap& clientStates, long int size)
     }
     if (c.second.st == FINISHED_PHASE2) {
       queries[c.second.rank] = FREE_PASS;
-    }
-  }
-
-  // If some member of a communicator is in IN_CS_NO_TRIV_BARRIER,
-  // then all other group members with state HYBRID_PHASE1 gets a
-  // FREE_PASS msg.
-  for (RankKVPair c : clientStates) {
-    if (queries[c.second.rank] != NONE) {
-      continue; // the message is already decided
-    }
-    if (c.second.st == IN_CS_NO_TRIV_BARRIER) {
-      queries[c.second.rank] = CONTINUE;
-      for (RankKVPair other : clientStates) {
-        if (other.second.st == PHASE_1) {
-          queries[other.second.rank] = FREE_PASS;
-        }
-        if (other.second.comm == c.second.comm &&
-            other.second.st == HYBRID_PHASE1) {
-          queries[other.second.rank] = FREE_PASS;
-        }
-      }
-    }
-  }
-
-  // If a group member is in HYBRID_PHASE1, and no group member is
-  // in IN_CS_INTENT_WASNT_SEEN or int IN_CS_NO_TRIV_BARRIER, then
-  // the group member in HYBRID_PHASE1 gets a DO_TRIV_BARRIER msg.
-  for (RankKVPair c : clientStates) {
-    if (queries[c.second.rank] != NONE) {
-      continue; // the message is already decided
-    }
-    if (c.second.st == HYBRID_PHASE1) {
-      bool noInCs = true;
-      for (RankKVPair other : clientStates) {
-        if (other.second.comm == c.second.comm &&
-            other.second.st == IN_CS_NO_TRIV_BARRIER) {
-          noInCs = false;
-          break;
-        }
-      }
-      if (noInCs) {
-        for (RankKVPair other : clientStates) {
-          if (other.second.comm == c.second.comm) {
-            queries[c.second.rank] = DO_TRIV_BARRIER;
-          }
-        }
-      }
     }
   }
 #endif
