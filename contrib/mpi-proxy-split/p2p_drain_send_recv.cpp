@@ -43,6 +43,7 @@ extern int MPI_Test_internal(MPI_Request *, int *flag, MPI_Status *status,
 extern int MPI_Comm_create_group_internal(MPI_Comm comm, MPI_Group group,
                                           int tag, MPI_Comm *newcomm);
 extern int MPI_Comm_free_internal(MPI_Comm *comm);
+extern int MPI_Comm_group_internal(MPI_Comm comm, MPI_Group *group);
 extern int MPI_Group_free_internal(MPI_Group *group);
 int *g_sendBytesByRank; // Number of bytes sent to other ranks
 int *g_rsendBytesByRank; // Number of bytes sent to other ranks by MPI_rsend
@@ -287,10 +288,17 @@ int
 localRankToGlobalRank(int localRank, MPI_Comm localComm)
 {
   int worldRank;
+  // FIXME: For interface8, use the new architecture.
+  // This only works for interface7
   MPI_Group worldGroup, localGroup;
-  MPI_Comm_group(MPI_COMM_WORLD, &worldGroup);
-  MPI_Comm_group(localComm, &localGroup);
-  MPI_Group_translate_ranks(localGroup, 1, &localRank,
-                            worldGroup, &worldRank); 
+  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(localComm);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  NEXT_FUNC(Comm_group)(MPI_COMM_WORLD, &worldGroup);
+  NEXT_FUNC(Comm_group)(realComm, &localGroup);
+  NEXT_FUNC(Group_translate_ranks)(localGroup, 1, &localRank,
+                                   worldGroup, &worldRank); 
+  NEXT_FUNC(Group_free)(&worldGroup);
+  NEXT_FUNC(Group_free)(&localGroup);
+  RETURN_TO_UPPER_HALF();
   return worldRank;
 }
