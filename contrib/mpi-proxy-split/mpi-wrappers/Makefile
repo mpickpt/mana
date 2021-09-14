@@ -16,7 +16,8 @@ LIBWRAPPER_OBJS = mpi_p2p_wrappers.o mpi_collective_wrappers.o \
                   mpi_comm_wrappers.o mpi_group_wrappers.o \
                   mpi_cart_wrappers.o mpi_op_wrappers.o \
                   mpi_unimplemented_wrappers.o mpi_fortran_wrappers.o \
-                  mpi_wrappers.o get_fortran_constants.o fortran_constants.o
+                  mpi_wrappers.o get_fortran_constants.o fortran_constants.o \
+		  mpi_win_wrappers.o \
 
 # Modify if your DMTCP_ROOT is located elsewhere.
 ifndef DMTCP_ROOT
