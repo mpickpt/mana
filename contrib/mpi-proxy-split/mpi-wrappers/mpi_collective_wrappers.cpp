@@ -224,6 +224,26 @@ USER_DEFINED_WRAPPER(int, Ireduce,
   return retval;
 }
 
+USER_DEFINED_WRAPPER(int, Reduce_scatter,
+                     (const void *) sendbuf, (void *) recvbuf,
+                     (const int) recvcounts[], (MPI_Datatype) datatype,
+                     (MPI_Op) op, (MPI_Comm) comm)
+{
+  int retval;
+  commit_begin(comm);
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+  MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
+  MPI_Op realOp = VIRTUAL_TO_REAL_OP(op);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  retval = NEXT_FUNC(Reduce_scatter)(sendbuf, recvbuf, recvcounts,
+                                     realType, realOp, realComm);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  commit_finish();
+  return retval;
+}
+
 int
 MPI_Alltoall_internal(const void *sendbuf, int sendcount,
                       MPI_Datatype sendtype, void *recvbuf, int recvcount,
