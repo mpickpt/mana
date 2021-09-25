@@ -61,6 +61,10 @@ initialize_drain_send_recv()
   g_bytesSentToUsByRank =
     (int*)JALLOC_HELPER_MALLOC(g_world_size * sizeof(int));
   g_recvBytesByRank = (int*)JALLOC_HELPER_MALLOC(g_world_size * sizeof(int));
+  memset(g_sendBytesByRank, 0, g_world_size * sizeof(int));
+  memset(g_rsendBytesByRank, 0, g_world_size * sizeof(int));
+  memset(g_bytesSentToUsByRank, 0, g_world_size * sizeof(int));
+  memset(g_recvBytesByRank, 0, g_world_size * sizeof(int));
   active_comms.insert(MPI_COMM_WORLD);
   active_comms.insert(MPI_COMM_SELF);
 }
@@ -209,6 +213,7 @@ drainSendRecv()
     numReceived += completePendingIrecvs();
     // If MPI_Irecv not posted but msg was sent, use MPI_Iprobe to drain msg 
     numReceived += recvFromAllComms();
+#if 1
     // if we finished many rounds and we are not receiving more,
     // print a warning message with fprintf(stderr).
     if (timeout_counter > 20) {
@@ -216,6 +221,7 @@ drainSendRecv()
       break;
     }
     timeout_counter++;
+#endif
   }
   removePendingSendRequests();
 }
