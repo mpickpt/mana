@@ -65,6 +65,7 @@
 #include "mtcp_split_process.h"
 
 #define HUGEPAGES
+#define GNI
 
 /* The use of NO_OPTIMIZE is deprecated and will be removed, since we
  * compile mtcp_restart.c with the -O0 flag already.
