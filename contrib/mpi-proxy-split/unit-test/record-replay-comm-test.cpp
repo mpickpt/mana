@@ -1,6 +1,4 @@
-#include <cppunit/TestFixture.h>
-#include <cppunit/extensions/HelperMacros.h>
-#include <cppunit/ui/text/TestRunner.h>
+#include <gtest/gtest.h>
 
 #include <mpi.h>
 
@@ -14,14 +12,13 @@
 
 using namespace dmtcp_mpi;
 
-class CommTests : public CppUnit::TestFixture
+class CommTests : public ::testing::Test
 {
-  private:
+  protected:
     MPI_Comm _comm;
     MPI_Comm _virtComm;
 
-  public:
-    void setUp()
+    void SetUp() override
     {
       int flag = 0;
       this->_comm = MPI_COMM_WORLD;
@@ -31,87 +28,80 @@ class CommTests : public CppUnit::TestFixture
       }
     }
 
-    void tearDown()
+    void TearDown() override
     {
       CLEAR_LOG();
       // MPI_Finalize();
     }
-
-    void testCommDup()
-    {
-      CPPUNIT_ASSERT(VIRTUAL_TO_REAL_COMM(_comm) == MPI_COMM_WORLD);
-      MPI_Comm real1 = MPI_COMM_NULL;
-      // Create Comm dup
-      CPPUNIT_ASSERT(MPI_Comm_dup(_comm, &real1) == MPI_SUCCESS);
-      CPPUNIT_ASSERT(real1 != MPI_COMM_NULL);
-      // Add it to virtual table
-      _virtComm = ADD_NEW_COMM(real1);
-      CPPUNIT_ASSERT(_virtComm != -1);
-      MPI_Comm oldvirt = _virtComm;
-      CPPUNIT_ASSERT(VIRTUAL_TO_REAL_COMM(_comm) == MPI_COMM_WORLD);
-      // Log the call
-      LOG_CALL(restoreComms, Comm_dup, &_comm, &_virtComm);
-      // Replay the call
-      CPPUNIT_ASSERT(RESTORE_MPI_STATE() == MPI_SUCCESS);
-      // Verify state after replay
-      CPPUNIT_ASSERT(_virtComm == oldvirt);
-      CPPUNIT_ASSERT(VIRTUAL_TO_REAL_COMM(_virtComm) != real1);
-    }
-
-    void testCommSplit()
-    {
-      CPPUNIT_ASSERT(VIRTUAL_TO_REAL_COMM(_comm) == MPI_COMM_WORLD);
-      MPI_Comm real1 = MPI_COMM_NULL;
-      // Create Comm split
-      int color = 0;
-      int key = 0;
-      CPPUNIT_ASSERT(MPI_Comm_split(_comm, color, key, &real1) == MPI_SUCCESS);
-      CPPUNIT_ASSERT(real1 != MPI_COMM_NULL);
-      // Add it to virtual table
-      _virtComm = ADD_NEW_COMM(real1);
-      CPPUNIT_ASSERT(_virtComm != -1);
-      MPI_Comm oldvirt = _virtComm;
-      LOG_CALL(restoreComms, Comm_split, &_comm, &color, &key, &_virtComm);
-      // Replay the call
-      CPPUNIT_ASSERT(RESTORE_MPI_STATE() == MPI_SUCCESS);
-      // Verify state after replay
-      CPPUNIT_ASSERT(_virtComm == oldvirt);
-      CPPUNIT_ASSERT(VIRTUAL_TO_REAL_COMM(_virtComm) != real1);
-    }
-
-    void testCommCreate()
-    {
-      CPPUNIT_ASSERT(VIRTUAL_TO_REAL_COMM(_comm) == MPI_COMM_WORLD);
-      MPI_Comm real1 = MPI_COMM_NULL;
-      // Create Comm split
-      MPI_Group group = -1;
-      CPPUNIT_ASSERT(MPI_Comm_group(_comm, &group) == MPI_SUCCESS);
-      CPPUNIT_ASSERT(group != -1);
-      CPPUNIT_ASSERT(MPI_Comm_create(_comm, group, &real1) == MPI_SUCCESS);
-      CPPUNIT_ASSERT(real1 != MPI_COMM_NULL);
-      // Add it to virtual table
-      _virtComm = ADD_NEW_COMM(real1);
-      CPPUNIT_ASSERT(_virtComm != -1);
-      MPI_Comm oldvirt = _virtComm;
-      LOG_CALL(restoreComms, Comm_create, &_comm, &group, &_virtComm);
-      // Replay the call
-      CPPUNIT_ASSERT(RESTORE_MPI_STATE() == MPI_SUCCESS);
-      // Verify state after replay
-      CPPUNIT_ASSERT(_virtComm == oldvirt);
-      CPPUNIT_ASSERT(VIRTUAL_TO_REAL_COMM(_virtComm) != real1);
-    }
-
-    CPPUNIT_TEST_SUITE(CommTests);
-    CPPUNIT_TEST(testCommDup);
-    CPPUNIT_TEST(testCommSplit);
-    CPPUNIT_TEST(testCommCreate);
-    CPPUNIT_TEST_SUITE_END();
 };
+
+TEST_F(CommTests, testCommDup)
+{
+  EXPECT_EQ(VIRTUAL_TO_REAL_COMM(_comm), MPI_COMM_WORLD);
+  MPI_Comm real1 = MPI_COMM_NULL;
+  // Create Comm dup
+  EXPECT_EQ(MPI_Comm_dup(_comm, &real1), MPI_SUCCESS);
+  EXPECT_NE(real1, MPI_COMM_NULL);
+  // Add it to virtual table
+  _virtComm = ADD_NEW_COMM(real1);
+  EXPECT_NE(_virtComm, -1);
+  MPI_Comm oldvirt = _virtComm;
+  EXPECT_EQ(VIRTUAL_TO_REAL_COMM(_comm), MPI_COMM_WORLD);
+  // Log the call
+  LOG_CALL(restoreComms, Comm_dup, &_comm, &_virtComm);
+  // Replay the call
+  EXPECT_EQ(RESTORE_MPI_STATE(), MPI_SUCCESS);
+  // Verify state after replay
+  EXPECT_EQ(_virtComm, oldvirt);
+  EXPECT_NE(VIRTUAL_TO_REAL_COMM(_virtComm), real1);
+}
+
+TEST_F(CommTests, testCommSplit)
+{
+  EXPECT_EQ(VIRTUAL_TO_REAL_COMM(_comm), MPI_COMM_WORLD);
+  MPI_Comm real1 = MPI_COMM_NULL;
+  // Create Comm split
+  int color = 0;
+  int key = 0;
+  EXPECT_EQ(MPI_Comm_split(_comm, color, key, &real1), MPI_SUCCESS);
+  EXPECT_NE(real1, MPI_COMM_NULL);
+  // Add it to virtual table
+  _virtComm = ADD_NEW_COMM(real1);
+  EXPECT_NE(_virtComm, -1);
+  MPI_Comm oldvirt = _virtComm;
+  LOG_CALL(restoreComms, Comm_split, &_comm, &color, &key, &_virtComm);
+  // Replay the call
+  EXPECT_EQ(RESTORE_MPI_STATE(), MPI_SUCCESS);
+  // Verify state after replay
+  EXPECT_EQ(_virtComm, oldvirt);
+  EXPECT_NE(VIRTUAL_TO_REAL_COMM(_virtComm), real1);
+}
+
+TEST_F(CommTests, testCommCreate)
+{
+  EXPECT_EQ(VIRTUAL_TO_REAL_COMM(_comm), MPI_COMM_WORLD);
+  MPI_Comm real1 = MPI_COMM_NULL;
+  // Create Comm split
+  MPI_Group group = -1;
+  EXPECT_EQ(MPI_Comm_group(_comm, &group), MPI_SUCCESS);
+  EXPECT_NE(group, -1);
+  EXPECT_EQ(MPI_Comm_create(_comm, group, &real1), MPI_SUCCESS);
+  EXPECT_NE(real1, MPI_COMM_NULL);
+  // Add it to virtual table
+  _virtComm = ADD_NEW_COMM(real1);
+  EXPECT_NE(_virtComm, -1);
+  MPI_Comm oldvirt = _virtComm;
+  LOG_CALL(restoreComms, Comm_create, &_comm, &group, &_virtComm);
+  // Replay the call
+  EXPECT_EQ(RESTORE_MPI_STATE(), MPI_SUCCESS);
+  // Verify state after replay
+  EXPECT_EQ(_virtComm, oldvirt);
+  EXPECT_NE(VIRTUAL_TO_REAL_COMM(_virtComm), real1);
+}
 
 int
 main(int argc, char **argv)
 {
-  CppUnit::TextUi::TestRunner runner;
-  runner.addTest(CommTests::suite());
-  return runner.run("", false, true, false) ? 0 : -1;
+  ::testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
 }

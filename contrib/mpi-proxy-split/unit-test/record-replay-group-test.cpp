@@ -1,6 +1,4 @@
-#include <cppunit/TestFixture.h>
-#include <cppunit/extensions/HelperMacros.h>
-#include <cppunit/ui/text/TestRunner.h>
+#include <gtest/gtest.h>
 
 #include <mpi.h>
 
@@ -14,13 +12,12 @@
 
 using namespace dmtcp_mpi;
 
-class GroupTests : public CppUnit::TestFixture
+class GroupTest : public ::testing::Test
 {
-  private:
+  protected:
     MPI_Comm _comm;
 
-  public:
-    void setUp()
+    void SetUp() override
     {
       int flag = 0;
       this->_comm = MPI_COMM_WORLD;
@@ -29,31 +26,26 @@ class GroupTests : public CppUnit::TestFixture
       }
     }
 
-    void tearDown()
+    void TearDown() override
     {
       // MPI_Finalize();
       CLEAR_LOG();
     }
-
-    void testGroupAPI()
-    {
-      MPI_Group group = MPI_GROUP_NULL;
-      CPPUNIT_ASSERT(MPI_Comm_group(_comm, &group) == MPI_SUCCESS);
-      CPPUNIT_ASSERT(group != MPI_GROUP_NULL);
-      int size = -1;
-      CPPUNIT_ASSERT(MPI_Group_size(group, &size) == MPI_SUCCESS);
-      CPPUNIT_ASSERT(size == 1);
-    }
-
-    CPPUNIT_TEST_SUITE(GroupTests);
-    CPPUNIT_TEST(testGroupAPI);
-    CPPUNIT_TEST_SUITE_END();
 };
+
+TEST_F(GroupTest, testGroupAPI)
+{
+  MPI_Group group = MPI_GROUP_NULL;
+  EXPECT_EQ(MPI_Comm_group(_comm, &group), MPI_SUCCESS);
+  EXPECT_NE(group, MPI_GROUP_NULL);
+  int size = -1;
+  EXPECT_EQ(MPI_Group_size(group, &size), MPI_SUCCESS);
+  EXPECT_EQ(size, 1);
+}
 
 int
 main(int argc, char **argv)
 {
-  CppUnit::TextUi::TestRunner runner;
-  runner.addTest(GroupTests::suite());
-  return runner.run("", false, true, false) ? 0 : -1;
+  ::testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
 }

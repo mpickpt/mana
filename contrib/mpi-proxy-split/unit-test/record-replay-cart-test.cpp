@@ -1,6 +1,4 @@
-#include <cppunit/TestFixture.h>
-#include <cppunit/extensions/HelperMacros.h>
-#include <cppunit/ui/text/TestRunner.h>
+#include <gtest/gtest.h>
 
 #include <mpi.h>
 #include <string.h>
@@ -15,9 +13,9 @@
 
 using namespace dmtcp_mpi;
 
-class CartTests : public CppUnit::TestFixture
+class CartTests : public ::testing::Test
 {
-  private:
+  protected:
     MPI_Comm _comm;
     int _ndims;
     int *_dims;
@@ -25,8 +23,7 @@ class CartTests : public CppUnit::TestFixture
     int *_coords;
     int _reorder;
 
-  public:
-    void setUp()
+    void SetUp() override
     {
       int flag = 0;
       this->_comm = MPI_COMM_WORLD;
@@ -43,7 +40,7 @@ class CartTests : public CppUnit::TestFixture
       this->_coords[0] = 0;
     }
 
-    void tearDown()
+    void TearDown() override
     {
       if (this->_dims) {
         delete this->_dims;
@@ -54,74 +51,66 @@ class CartTests : public CppUnit::TestFixture
       CLEAR_LOG();
       // MPI_Finalize();
     }
-
-    void testCartCreate()
-    {
-      // Create a new cart comm
-      MPI_Comm real1 = MPI_COMM_NULL;
-      int newrank1 = -1;
-      CPPUNIT_ASSERT(MPI_Cart_create(_comm, _ndims, _dims, _periods,
-                                     _reorder, &real1) == MPI_SUCCESS);
-      CPPUNIT_ASSERT(real1 != MPI_COMM_NULL);
-      MPI_Comm virtComm = ADD_NEW_COMM(real1);
-      CPPUNIT_ASSERT(VIRTUAL_TO_REAL_COMM(virtComm) == real1);
-      CPPUNIT_ASSERT(REAL_TO_VIRTUAL_COMM(real1) == virtComm);
-      CPPUNIT_ASSERT(MPI_Cart_map(real1, _ndims, _dims,
-                                  _periods, &newrank1) == MPI_SUCCESS);
-      CPPUNIT_ASSERT(MPI_Cart_get(real1, _ndims, _dims,
-                                  _periods, _coords) == MPI_SUCCESS);
-      // Log the call
-      FncArg ds = CREATE_LOG_BUF(_dims, _ndims);
-      FncArg ps = CREATE_LOG_BUF(_periods, _ndims);
-      CPPUNIT_ASSERT(LOG_CALL(restoreCarts, Cart_create, &_comm, &_ndims,
-                              &ds, &ps, &_reorder, &virtComm) != NULL);
-      // Replay the call
-      CPPUNIT_ASSERT(RESTORE_MPI_STATE() == MPI_SUCCESS);
-      MPI_Comm real2 = VIRTUAL_TO_REAL_COMM(virtComm);
-      CPPUNIT_ASSERT(real1 != real2);
-
-      // Test the state after replay
-      int newrank2 = -1;
-      int dims[_ndims], periods[_ndims], coords[_ndims];
-      CPPUNIT_ASSERT(MPI_Cart_get(real2, _ndims, dims,
-                                  periods, coords) == MPI_SUCCESS);
-      CPPUNIT_ASSERT(memcmp(dims, _dims, _ndims) == 0);
-      CPPUNIT_ASSERT(memcmp(periods, _periods, _ndims) == 0);
-      CPPUNIT_ASSERT(memcmp(coords, _coords, _ndims) == 0);
-      CPPUNIT_ASSERT(MPI_Cart_rank(real2, coords, &newrank2) == MPI_SUCCESS);
-      CPPUNIT_ASSERT(newrank1 == newrank2);
-    }
-
-    void testCartMap()
-    {
-      int newrank1 = -1;
-      CPPUNIT_ASSERT(MPI_Cart_map(_comm, _ndims, _dims,
-                                  _periods, &newrank1) == MPI_SUCCESS);
-      CPPUNIT_ASSERT(newrank1 != -1);
-      FncArg ds = CREATE_LOG_BUF(_dims, _ndims * sizeof(int));
-      FncArg ps = CREATE_LOG_BUF(_periods, _ndims * sizeof(int));
-      CPPUNIT_ASSERT(LOG_CALL(restoreCarts, Cart_map, &_comm, &_ndims,
-                              &ds, &ps, &newrank1) != NULL);
-      CPPUNIT_ASSERT(RESTORE_MPI_STATE() == MPI_SUCCESS);
-      // TODO: Not sure how to test that the mapping is still there
-    }
-
-    void testCartSub()
-    {
-      // TODO:
-    }
-
-    CPPUNIT_TEST_SUITE(CartTests);
-    CPPUNIT_TEST(testCartCreate);
-    CPPUNIT_TEST(testCartMap);
-    CPPUNIT_TEST(testCartSub);
-    CPPUNIT_TEST_SUITE_END();
 };
+
+TEST_F(CartTests, testCartCreate)
+{
+  // Create a new cart comm
+  MPI_Comm real1 = MPI_COMM_NULL;
+  int newrank1 = -1;
+  EXPECT_EQ(MPI_Cart_create(_comm, _ndims, _dims, _periods, _reorder, &real1),
+            MPI_SUCCESS);
+  EXPECT_NE(real1, MPI_COMM_NULL);
+  MPI_Comm virtComm = ADD_NEW_COMM(real1);
+  EXPECT_EQ(VIRTUAL_TO_REAL_COMM(virtComm), real1);
+  EXPECT_EQ(REAL_TO_VIRTUAL_COMM(real1), virtComm);
+  EXPECT_EQ(MPI_Cart_map(real1, _ndims, _dims, _periods, &newrank1),
+            MPI_SUCCESS);
+  EXPECT_EQ(MPI_Cart_get(real1, _ndims, _dims, _periods, _coords),
+            MPI_SUCCESS);
+  // Log the call
+  FncArg ds = CREATE_LOG_BUF(_dims, _ndims);
+  FncArg ps = CREATE_LOG_BUF(_periods, _ndims);
+  EXPECT_TRUE(LOG_CALL(restoreCarts, Cart_create, &_comm, &_ndims,
+                       &ds, &ps, &_reorder, &virtComm) != NULL);
+  // Replay the call
+  EXPECT_EQ(RESTORE_MPI_STATE(), MPI_SUCCESS);
+  MPI_Comm real2 = VIRTUAL_TO_REAL_COMM(virtComm);
+  EXPECT_NE(real1, real2);
+
+  // Test the state after replay
+  int newrank2 = -1;
+  int dims[_ndims], periods[_ndims], coords[_ndims];
+  EXPECT_EQ(MPI_Cart_get(real2, _ndims, dims, periods, coords), MPI_SUCCESS);
+  EXPECT_EQ(memcmp(dims, _dims, _ndims), 0);
+  EXPECT_EQ(memcmp(periods, _periods, _ndims), 0);
+  EXPECT_EQ(memcmp(coords, _coords, _ndims), 0);
+  EXPECT_EQ(MPI_Cart_rank(real2, coords, &newrank2), MPI_SUCCESS);
+  EXPECT_EQ(newrank1, newrank2);
+}
+
+TEST_F(CartTests, testCartMap)
+{
+  int newrank1 = -1;
+  EXPECT_EQ(MPI_Cart_map(_comm, _ndims, _dims, _periods, &newrank1),
+            MPI_SUCCESS);
+  EXPECT_NE(newrank1, -1);
+  FncArg ds = CREATE_LOG_BUF(_dims, _ndims * sizeof(int));
+  FncArg ps = CREATE_LOG_BUF(_periods, _ndims * sizeof(int));
+  EXPECT_TRUE(LOG_CALL(restoreCarts, Cart_map, &_comm, &_ndims,
+                          &ds, &ps, &newrank1) != NULL);
+  EXPECT_EQ(RESTORE_MPI_STATE(), MPI_SUCCESS);
+  // TODO: Not sure how to test that the mapping is still there
+}
+
+TEST_F(CartTests, testCartSub)
+{
+  // TODO:
+}
 
 int
 main(int argc, char **argv)
 {
-  CppUnit::TextUi::TestRunner runner;
-  runner.addTest(CartTests::suite());
-  return runner.run("", false, true, false) ? 0 : -1;
+  ::testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
 }
