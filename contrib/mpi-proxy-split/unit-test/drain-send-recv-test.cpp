@@ -1,12 +1,10 @@
-#include <cppunit/TestFixture.h>
-#include <cppunit/extensions/HelperMacros.h>
-#include <cppunit/ui/text/TestRunner.h>
+#include <gtest/gtest.h>
 
 #include <mpi.h>
 #include <string.h>
 
 #include "dmtcp.h"
-#include "drain_send_recv_packets.h"
+#include "p2p_drain_send_recv.h"
 #include "libproxy.h"
 #include "lookup_service.h"
 #include "mpi_copybits.h"
@@ -95,13 +93,12 @@ SwitchContext::~SwitchContext()
 {
 }
 
-class DrainTests : public CppUnit::TestFixture
+class DrainTests : public ::testing::Test
 {
-  private:
+  protected:
     MPI_Comm _comm;
 
-  public:
-    void setUp()
+    void SetUp() override
     {
       int flag = 0;
       this->_comm = MPI_COMM_WORLD;
@@ -111,129 +108,118 @@ class DrainTests : public CppUnit::TestFixture
       resetDrainCounters();
     }
 
-    void tearDown()
+    void TearDown() override
     {
       // MPI_Finalize();
     }
-
-    void testSendDrain()
-    {
-      const int TWO = 2;
-      int sbuf = 5;
-      int rbuf = 0;
-      int flag = 0;
-      MPI_Request reqs[TWO] = {0};
-      MPI_Status sts[TWO] = {0};
-      int size = 0;
-      CPPUNIT_ASSERT(MPI_Type_size(MPI_INT, &size) == MPI_SUCCESS);
-      for (int i = 0; i < TWO; i++) {
-        CPPUNIT_ASSERT(MPI_Isend(&sbuf, 1, MPI_INT, 0,
-                                 0, _comm, &reqs[i]) == MPI_SUCCESS);
-        addPendingRequestToLog(ISEND_REQUEST, &sbuf, NULL, 1,
-                               MPI_INT, 0, 0, _comm, &reqs[i]);
-        updateLocalSends();
-      }
-      getLocalRankInfo();
-      registerLocalSendsAndRecvs();
-      drainMpiPackets();
-      for (int i = 0; i < TWO; i++) {
-        CPPUNIT_ASSERT(isServicedRequest(&reqs[i], &flag, &sts[i]));
-        CPPUNIT_ASSERT(consumeBufferedPacket(&rbuf, 1, MPI_INT, 0,
-                                             0, _comm, &sts[i], size) ==
-                       MPI_SUCCESS);
-        CPPUNIT_ASSERT(rbuf == sbuf);
-      }
-    }
-
-    void testSendDrainOnDiffComm()
-    {
-      const int TWO = 2;
-      int sbuf = 5;
-      int rbuf = 0;
-      int flag = 0;
-      MPI_Request reqs[TWO] = {0};
-      MPI_Status sts[TWO] = {0};
-      int size = 0;
-      MPI_Comm newcomm = MPI_COMM_NULL;
-      CPPUNIT_ASSERT(MPI_Comm_dup(_comm, &newcomm) == MPI_SUCCESS);
-      CPPUNIT_ASSERT(MPI_Type_size(MPI_INT, &size) == MPI_SUCCESS);
-      for (int i = 0; i < TWO; i++) {
-        CPPUNIT_ASSERT(MPI_Isend(&sbuf, 1, MPI_INT, 0,
-                                 0, newcomm, &reqs[i]) == MPI_SUCCESS);
-        addPendingRequestToLog(ISEND_REQUEST, &sbuf, NULL, 1,
-                               MPI_INT, 0, 0, newcomm, &reqs[i]);
-        updateLocalSends();
-      }
-      getLocalRankInfo();
-      registerLocalSendsAndRecvs();
-      drainMpiPackets();
-      for (int i = 0; i < TWO; i++) {
-        int rc;
-        CPPUNIT_ASSERT(isServicedRequest(&reqs[i], &flag, &sts[i]));
-        CPPUNIT_ASSERT(isBufferedPacket(0, 0, newcomm, &flag, &sts[i], &rc));
-        CPPUNIT_ASSERT(consumeBufferedPacket(&rbuf, 1, MPI_INT, 0,
-                                             0, newcomm, &sts[i], size) ==
-                       MPI_SUCCESS);
-        CPPUNIT_ASSERT(rbuf == sbuf);
-      }
-    }
-
-    void testRecvDrain()
-    {
-      const int TWO = 2;
-      int sbuf = 5;
-      int rbuf = 0;
-      int flag = 0;
-      MPI_Request reqs[TWO] = {0};
-      MPI_Status sts[TWO] = {0};
-      int size = 0;
-      MPI_Comm newcomm = MPI_COMM_NULL;
-      CPPUNIT_ASSERT(MPI_Comm_dup(_comm, &newcomm) == MPI_SUCCESS);
-      CPPUNIT_ASSERT(MPI_Type_size(MPI_INT, &size) == MPI_SUCCESS);
-      for (int i = 0; i < TWO; i++) {
-        CPPUNIT_ASSERT(MPI_Irecv(&rbuf, 1, MPI_INT, 0,
-                                 0, newcomm, &reqs[i]) == MPI_SUCCESS);
-        addPendingRequestToLog(IRECV_REQUEST, NULL, &rbuf, 1,
-                               MPI_INT, 0, 0, newcomm, &reqs[i]);
-      }
-      // Checkpoint
-      getLocalRankInfo();
-      registerLocalSendsAndRecvs();
-      drainMpiPackets();
-      // Resume
-      for (int i = 0; i < TWO; i++) {
-        int rc;
-        CPPUNIT_ASSERT(!isServicedRequest(&reqs[i], &flag, &sts[i]));
-        CPPUNIT_ASSERT(MPI_Send(&sbuf, 1, MPI_INT,
-                                0, 0, newcomm) == MPI_SUCCESS);
-        MPI_Wait(&reqs[i], &sts[i]);
-        CPPUNIT_ASSERT(rbuf == sbuf);
-      }
-      // Restart
-      verifyLocalInfoOnRestart();
-      replayMpiOnRestart();
-      // Resume
-      for (int i = 0; i < TWO; i++) {
-        int rc;
-        CPPUNIT_ASSERT(!isServicedRequest(&reqs[i], &flag, &sts[i]));
-        CPPUNIT_ASSERT(MPI_Send(&sbuf, 1, MPI_INT,
-                                0, 0, newcomm) == MPI_SUCCESS);
-        MPI_Wait(&reqs[i], &sts[i]);
-        CPPUNIT_ASSERT(rbuf == sbuf);
-      }
-    }
-
-    CPPUNIT_TEST_SUITE(DrainTests);
-    CPPUNIT_TEST(testSendDrain);
-    CPPUNIT_TEST(testSendDrainOnDiffComm);
-    CPPUNIT_TEST(testRecvDrain);
-    CPPUNIT_TEST_SUITE_END();
 };
+
+TEST_F(DrainTests, testSendDrain)
+{
+  const int TWO = 2;
+  int sbuf = 5;
+  int rbuf = 0;
+  int flag = 0;
+  MPI_Request reqs[TWO] = {0};
+  MPI_Status sts[TWO] = {0};
+  int size = 0;
+  EXPECT_EQ(MPI_Type_size(MPI_INT, &size), MPI_SUCCESS);
+  for (int i = 0; i < TWO; i++) {
+    EXPECT_EQ(MPI_Isend(&sbuf, 1, MPI_INT, 0, 0, _comm, &reqs[i]),
+              MPI_SUCCESS);
+    addPendingRequestToLog(ISEND_REQUEST, &sbuf, NULL, 1,
+                           MPI_INT, 0, 0, _comm, &reqs[i]);
+    updateLocalSends();
+  }
+  getLocalRankInfo();
+  registerLocalSendsAndRecvs();
+  drainMpiPackets();
+  for (int i = 0; i < TWO; i++) {
+    EXPECT_TRUE(isServicedRequest(&reqs[i], &flag, &sts[i]));
+    EXPECT_EQ(consumeBufferedPacket(&rbuf, 1, MPI_INT, 0,
+                                    0, _comm, &sts[i], size), MPI_SUCCESS);
+    EXPECT_EQ(rbuf, sbuf);
+  }
+}
+
+TEST_F(DrainTests, testSendDrainOnDiffComm)
+{
+  const int TWO = 2;
+  int sbuf = 5;
+  int rbuf = 0;
+  int flag = 0;
+  MPI_Request reqs[TWO] = {0};
+  MPI_Status sts[TWO] = {0};
+  int size = 0;
+  MPI_Comm newcomm = MPI_COMM_NULL;
+  EXPECT_EQ(MPI_Comm_dup(_comm, &newcomm), MPI_SUCCESS);
+  EXPECT_EQ(MPI_Type_size(MPI_INT, &size), MPI_SUCCESS);
+  for (int i = 0; i < TWO; i++) {
+    EXPECT_EQ(MPI_Isend(&sbuf, 1, MPI_INT, 0, 0, newcomm, &reqs[i]),
+              MPI_SUCCESS);
+    addPendingRequestToLog(ISEND_REQUEST, &sbuf, NULL, 1,
+                           MPI_INT, 0, 0, newcomm, &reqs[i]);
+    updateLocalSends();
+  }
+  getLocalRankInfo();
+  registerLocalSendsAndRecvs();
+  drainMpiPackets();
+  for (int i = 0; i < TWO; i++) {
+    int rc;
+    EXPECT_TRUE(isServicedRequest(&reqs[i], &flag, &sts[i]));
+    EXPECT_TRUE(isBufferedPacket(0, 0, newcomm, &flag, &sts[i], &rc));
+    EXPECT_EQ(consumeBufferedPacket(&rbuf, 1, MPI_INT, 0,
+                                    0, newcomm, &sts[i], size), MPI_SUCCESS);
+    EXPECT_EQ(rbuf, sbuf);
+  }
+}
+
+TEST_F(DrainTests, testRecvDrain)
+{
+  const int TWO = 2;
+  int sbuf = 5;
+  int rbuf = 0;
+  int flag = 0;
+  MPI_Request reqs[TWO] = {0};
+  MPI_Status sts[TWO] = {0};
+  int size = 0;
+  MPI_Comm newcomm = MPI_COMM_NULL;
+  EXPECT_EQ(MPI_Comm_dup(_comm, &newcomm), MPI_SUCCESS);
+  EXPECT_EQ(MPI_Type_size(MPI_INT, &size), MPI_SUCCESS);
+  for (int i = 0; i < TWO; i++) {
+    EXPECT_EQ(MPI_Irecv(&rbuf, 1, MPI_INT, 0, 0, newcomm, &reqs[i]),
+              MPI_SUCCESS);
+    addPendingRequestToLog(IRECV_REQUEST, NULL, &rbuf, 1,
+                           MPI_INT, 0, 0, newcomm, &reqs[i]);
+  }
+  // Checkpoint
+  getLocalRankInfo();
+  registerLocalSendsAndRecvs();
+  drainMpiPackets();
+  // Resume
+  for (int i = 0; i < TWO; i++) {
+    int rc;
+    EXPECT_FALSE(isServicedRequest(&reqs[i], &flag, &sts[i]));
+    EXPECT_EQ(MPI_Send(&sbuf, 1, MPI_INT, 0, 0, newcomm), MPI_SUCCESS);
+    MPI_Wait(&reqs[i], &sts[i]);
+    EXPECT_EQ(rbuf, sbuf);
+  }
+  // Restart
+  verifyLocalInfoOnRestart();
+  replayMpiOnRestart();
+  // Resume
+  for (int i = 0; i < TWO; i++) {
+    int rc;
+    EXPECT_FALSE(isServicedRequest(&reqs[i], &flag, &sts[i]));
+    EXPECT_EQ(MPI_Send(&sbuf, 1, MPI_INT, 0, 0, newcomm), MPI_SUCCESS);
+    MPI_Wait(&reqs[i], &sts[i]);
+    EXPECT_EQ(rbuf, sbuf);
+  }
+}
 
 int
 main(int argc, char **argv, char **envp)
 {
-  CppUnit::TextUi::TestRunner runner;
-  runner.addTest(DrainTests::suite());
-  return runner.run("", false, true, false) ? 0 : -1;
+  ::testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
 }
