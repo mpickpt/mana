@@ -19,8 +19,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
 #include <netdb.h>
 #include "gethostbyname_static.h"
@@ -174,15 +175,16 @@ int getaddrinfo(const char *__restrict node,
   } else if (childpid > 0) {
     if (hints != NULL) {
       writeall(pipefdin[1], hints, sizeof(*hints));
-      writeall(pipefdin[1], hints->ai_addr, sizeof(*(hints->ai_addr)));
+      // hints->ai_addr == NULL on input; no need to send *(hints->ai_addr)
     } else {
       struct sockaddr tmp;
       *(int *)&tmp = -1;
+      // *(int *)hints overlaps with hints->ai_flags.  But hints->ai_flags
+      //   should never have all bits set (equivalent to -1).
       writeall(pipefdin[1], &tmp, sizeof(*hints));
     }
     close(pipefdin[1]);
-    // int addrinfo_size;
-    // readall(pipefdout[0], &addrinfo_size, sizeof(addrinfo_size));
+    // addrinfo_result is of fixed size, defined in gethostbyname_static.h
     int rc = readall(pipefdout[0], &addrinfo_result, sizeof(addrinfo_result));
     close(pipefdin[0]);
     assert(rc == sizeof(addrinfo_result));
@@ -217,8 +219,16 @@ int main(int argc, char *argv[]) {
            BYTE(0), BYTE(1), BYTE(2), BYTE(3));
   } else if (argc == 3) {
     struct addrinfo *res;
-    int rc = getaddrinfo(argv[1], argv[2], NULL, &res);
-    assert(rc == 0);
+    struct addrinfo hints;
+    memset (&hints, 0, sizeof (hints));
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags |= AI_CANONNAME;
+
+    int rc1 = getaddrinfo(argv[1], argv[2], NULL, &res);
+    assert(rc1 == 0);
+    int rc2 = getaddrinfo(argv[1], argv[2], &hints, &res);
+    assert(rc2 == 0);
     struct addrinfo *res2 = res;
     while (res2 != NULL) {
       // See /usr/include/linux/in.h  for protocols
