@@ -27,8 +27,9 @@ override CXXFLAGS += -g3 -O0 -fPIC -I${DMTCP_INCLUDE} -I${JALIB_INCLUDE} \
 
 PROXY_LD_FLAGS=-static -Wl,-Ttext-segment -Wl,0xE000000 -Wl,--wrap -Wl,__munmap -Wl,--wrap -Wl,shmat -Wl,--wrap -Wl,shmget
 
-default: ${PROXY_BIN}
+default: ${PROXY_BIN} ${STATIC_GETHOSTBYNAME}
 
+# We should remove the special case for Cori, once we know this works on Cori.
 ifeq ($(findstring cori,$(PLATFORM)),cori)
   STATIC_GETHOSTBYNAME=
 else
@@ -54,7 +55,7 @@ endif
 # ***        ./configure --disable-xml2 --disable-libxml2 ...
 # ***        or unless you installed the necessary libaries.
 # ***        See ./README.mpich-static here, for how to install the libaries
-${PROXY_BIN}: ${PROXY_OBJS} ${LIBPROXY}.a ${STATIC_GETHOSTBYNAME}
+${PROXY_BIN}: ${PROXY_OBJS} ${LIBPROXY}.a
 	if ${MPICC} -v 2>&1 | grep -q 'MPICH version'; then \
 	  rm -f tmp.sh; \
 	  ${MPICC} -show ${PROXY_LD_FLAGS} -o $@ -Wl,-start-group \
@@ -70,8 +71,8 @@ ${PROXY_BIN}: ${PROXY_OBJS} ${LIBPROXY}.a ${STATIC_GETHOSTBYNAME}
 ${LIBPROXY}.a: ${LIBPROXY_OBJS}
 	ar cr $@ $^
 
-install: ${PROXY_BIN}
-	cp -f $< ${DMTCP_ROOT}/bin/
+install: ${PROXY_BIN} ${STATIC_GETHOSTBYNAME}
+	cp -f $^ ${DMTCP_ROOT}/bin/
 
 tidy:
 	rm -f *~ .*.swp dmtcp_restart_script*.sh ckpt_*.dmtcp

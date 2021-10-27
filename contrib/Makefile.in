@@ -52,6 +52,9 @@ tidy:
 
 clean: tidy
 	for p in $(plugins); do (cd $$p && $(MAKE) clean); done
+	- if test -e mpi-proxy-split; then \
+	   cd mpi-proxy-split && make clean; \
+	  fi
 
 distclean: clean
 	for p in $(plugins); do \
