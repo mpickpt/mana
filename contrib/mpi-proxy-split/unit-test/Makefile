@@ -41,8 +41,8 @@ TEST_LD_FLAGS=${DMTCP_ROOT}/src/libjalib.a \
               ${DMTCP_ROOT}/src/libnohijack.a \
               -lgtest -lpthread
 
-DRAIN_TEST_OBJS = drain-send-recv-test.o ../drain_send_recv_packets.cpp \
-             ${DMTCP_ROOT}/src/lookup_service.o
+DRAIN_TEST_OBJS = drain-send-recv-test.o ../p2p_drain_send_recv.cpp \
+                  ../p2p_log_replay.cpp ${DMTCP_ROOT}/src/lookup_service.o
 
 default: ${TEST_BINS}
 

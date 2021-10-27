@@ -71,8 +71,8 @@ TEST_F(CartTests, testCartCreate)
   // Log the call
   FncArg ds = CREATE_LOG_BUF(_dims, _ndims);
   FncArg ps = CREATE_LOG_BUF(_periods, _ndims);
-  EXPECT_TRUE(LOG_CALL(restoreCarts, Cart_create, &_comm, &_ndims,
-                       &ds, &ps, &_reorder, &virtComm) != NULL);
+  EXPECT_TRUE(LOG_CALL(restoreCarts, Cart_create, _comm, _ndims,
+                       ds, ps, _reorder, virtComm) != NULL);
   // Replay the call
   EXPECT_EQ(RESTORE_MPI_STATE(), MPI_SUCCESS);
   MPI_Comm real2 = VIRTUAL_TO_REAL_COMM(virtComm);
@@ -97,8 +97,8 @@ TEST_F(CartTests, testCartMap)
   EXPECT_NE(newrank1, -1);
   FncArg ds = CREATE_LOG_BUF(_dims, _ndims * sizeof(int));
   FncArg ps = CREATE_LOG_BUF(_periods, _ndims * sizeof(int));
-  EXPECT_TRUE(LOG_CALL(restoreCarts, Cart_map, &_comm, &_ndims,
-                          &ds, &ps, &newrank1) != NULL);
+  EXPECT_TRUE(LOG_CALL(restoreCarts, Cart_map, _comm, _ndims,
+                       ds, ps, newrank1) != NULL);
   EXPECT_EQ(RESTORE_MPI_STATE(), MPI_SUCCESS);
   // TODO: Not sure how to test that the mapping is still there
 }
