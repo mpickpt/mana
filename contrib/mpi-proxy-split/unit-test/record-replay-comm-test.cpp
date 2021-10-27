@@ -48,7 +48,7 @@ TEST_F(CommTests, testCommDup)
   MPI_Comm oldvirt = _virtComm;
   EXPECT_EQ(VIRTUAL_TO_REAL_COMM(_comm), MPI_COMM_WORLD);
   // Log the call
-  LOG_CALL(restoreComms, Comm_dup, &_comm, &_virtComm);
+  LOG_CALL(restoreComms, Comm_dup, _comm, _virtComm);
   // Replay the call
   EXPECT_EQ(RESTORE_MPI_STATE(), MPI_SUCCESS);
   // Verify state after replay
@@ -69,7 +69,7 @@ TEST_F(CommTests, testCommSplit)
   _virtComm = ADD_NEW_COMM(real1);
   EXPECT_NE(_virtComm, -1);
   MPI_Comm oldvirt = _virtComm;
-  LOG_CALL(restoreComms, Comm_split, &_comm, &color, &key, &_virtComm);
+  LOG_CALL(restoreComms, Comm_split, _comm, color, key, _virtComm);
   // Replay the call
   EXPECT_EQ(RESTORE_MPI_STATE(), MPI_SUCCESS);
   // Verify state after replay
@@ -91,7 +91,7 @@ TEST_F(CommTests, testCommCreate)
   _virtComm = ADD_NEW_COMM(real1);
   EXPECT_NE(_virtComm, -1);
   MPI_Comm oldvirt = _virtComm;
-  LOG_CALL(restoreComms, Comm_create, &_comm, &group, &_virtComm);
+  LOG_CALL(restoreComms, Comm_create, _comm, group, _virtComm);
   // Replay the call
   EXPECT_EQ(RESTORE_MPI_STATE(), MPI_SUCCESS);
   // Verify state after replay
