@@ -18,8 +18,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/types.h>
 #include <netdb.h>
 #include <unistd.h>
 #include <assert.h>
@@ -102,6 +102,8 @@ int do_gethostbyname(const char *name) {
     copy_pointer_list(&tmp, result->h_addr_list, result->h_length);
     hostent_result.result = (void *)1; // Anything but NULL.  NULL is error.
 
+    // After being forked, our stdout was set to be the write end of a pipe.
+    // Our parent process will read hostent_result from the pipe.
     writeall(1, &hostent_result, sizeof(hostent_result));
   }
   return 0;
@@ -135,8 +137,8 @@ int do_getaddrinfo(const char *node, const char *service,
     tmp = end;
     res = res->ai_next;
   }
-  // int tmp2 = tmp - addrinfo_result.padding;
-  // writeall(1, &tmp2, sizeof(tmp2));
+  // After being forked, our stdout was set to be the write end of a pipe.
+  // Our parent process will read hostent_result from the pipe.
   writeall(1, &addrinfo_result, sizeof(addrinfo_result));
   return rc;
 }
@@ -148,16 +150,17 @@ int main(int argc, char **argv) {
   } else if (strcmp(argv[0], "getaddrinfo") == 0) {
     struct addrinfo buf;
     struct addrinfo *hints = &buf;
-    struct sockaddr ai_addr;
     char *ai_canonname;
+    // After being forked, our stdin was set to be the read end of a pipe.
+    // Our parent process wrote hints into the pipe.
     int rc = readall(0, hints, sizeof(*hints));
     assert(rc == sizeof(*hints));
     if (*(int *)hints != -1) {
-      rc = readall(0, &ai_addr, sizeof(ai_addr));
-      assert(rc == sizeof(ai_addr));
-      hints->ai_addr = &ai_addr;
-      hints->ai_canonname = NULL;
-    } else {
+      assert(hints->ai_addr == NULL); // required to be NULL on input
+      assert(hints->ai_addrlen == 0); // required to be 0 on input
+      assert(hints->ai_canonname == NULL); // required to be NULL on input
+      assert(hints->ai_next == NULL); // required to be NULL on input
+    } else { // Protocol set first 4 bytes of hints to '-1'.  So, hints is NULL.
       hints = NULL;
     }
     return do_getaddrinfo(argv[1], argv[2], hints); // res is output parameter
