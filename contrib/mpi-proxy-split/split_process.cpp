@@ -350,9 +350,43 @@ startProxy()
 
 // Rounds the given address up to the nearest 2MB.
 static inline unsigned long long
-alignMemAddr(unsigned long addr)
+alignMemAddr(unsigned long long addr)
 {
   return (addr + 0x1fffff) & ~0x1fffff;
+}
+
+// This sets the address range of the lower half by searching through the memory
+// region for the first available free region.
+static void
+dynamicMemRangeHelper(MemRange_t *lh_mem_range, const uint64_t *region_size)
+{
+  char line[1024];
+  bool is_set = false;
+  unsigned long long curr_end;
+  unsigned long long next_start;
+  unsigned long long next_end;
+  // FIXME: fopen and fscanf may call malloc, which might call mmap.
+  // For now, we hope it doesn't change the calculation.
+  FILE* f = fopen("/proc/self/maps", "r");
+  if (f) {
+    fscanf(f, "%llx-%llx %[^\n]\n", &next_start, &curr_end, line);
+    while (fscanf(f, "%llx-%llx %[^\n]\n", &next_start, &next_end, line) != EOF) {
+      // alignMemAddr aligns the address such that HUGEPAGES/2MB can also be used.
+      curr_end = alignMemAddr(curr_end);
+      if (curr_end + *region_size <= next_start) {
+        lh_mem_range->start = (VA)curr_end;
+        lh_mem_range->end =   (VA)curr_end + *region_size;
+        is_set = true;
+        break; 
+    }
+      curr_end = next_end;
+    }
+    fclose(f);
+  }
+  if (!is_set) {     
+    lh_mem_range->start = (VA)0x10000000;
+    lh_mem_range->end =   (VA)0x10000000 + *region_size;
+  }
 }
 
 // Sets the address range for the lower half. The lower half gets a fixed
@@ -380,30 +414,7 @@ setLhMemRange()
   static MemRange_t lh_mem_range;
   if (found) {
 #if defined(CENTOS)
-  char line[1024];
-  bool is_set = false;
-  unsigned long long curr_end;
-  unsigned long long next_start;
-  unsigned long long next_end;
-  FILE* f = fopen("/proc/self/maps", "r");
-  if (f) {
-    fscanf(f, "%llx-%llx %[^\n]\n", &next_start, &curr_end, line);
-    while (fscanf(f, "%llx-%llx %[^\n]\n", &next_start, &next_end, line) != EOF) {
-      curr_end = alignMemAddr(curr_end);
-      if (curr_end + TWO_GB <= next_start) {
-        lh_mem_range.start = (VA)curr_end;
-        lh_mem_range.end =   (VA)curr_end + TWO_GB;
-        is_set = true;
-        break; 
-    }
-      curr_end = next_end;
-    }
-    fclose(f);
-  }
-  if (!is_set) {     
-    lh_mem_range.start = (VA)0x10000000;
-    lh_mem_range.end =   (VA)0x10000000 + TWO_GB;
-  }
+    dynamicMemRangeHelper(&lh_mem_range, &TWO_GB);
 #elif !defined(USE_MANA_LH_FIXED_ADDRESS)
     lh_mem_range.start = (VA)area.addr - TWO_GB;
     lh_mem_range.end = (VA)area.addr - ONE_GB;
