@@ -348,6 +348,13 @@ startProxy()
   return childpid;
 }
 
+// Rounds the given address up to the nearest 2MB.
+static inline unsigned long long
+alignMemAddr(unsigned long addr)
+{
+  return (addr >> 20) + 0x1 << 20;
+}  
+
 // Sets the address range for the lower half. The lower half gets a fixed
 // address range of 1 GB at a high address before the stack region of the
 // current process. All memory allocations done by the lower half are restricted
@@ -373,29 +380,30 @@ setLhMemRange()
   static MemRange_t lh_mem_range;
   if (found) {
 #if defined(CENTOS)
-    char line[1024];
-    bool is_set = false;
-    unsigned long long curr_end;
-    unsigned long long next_start;
-    unsigned long long next_end;
-    FILE* f = fopen("/proc/self/maps", "r");
-    if (f) {
-        fscanf(f, "%llx-%llx %[^\n]\n", &next_start, &curr_end, line);
-        while (fscanf(f, "%llx-%llx %[^\n]\n", &next_start, &next_end, line) != EOF) {
-            if (next_start - curr_end >= TWO_GB) {
-                lh_mem_range.start = (VA)curr_end;
-                lh_mem_range.end =   (VA)curr_end + TWO_GB;
-                is_set = true;
-                break; 
-            }
-            curr_end = next_end;
-        }
-        fclose(f);
+  char line[1024];
+  bool is_set = false;
+  unsigned long long curr_end;
+  unsigned long long next_start;
+  unsigned long long next_end;
+  FILE* f = fopen("/proc/self/maps", "r");
+  if (f) {
+    fscanf(f, "%llx-%llx %[^\n]\n", &next_start, &curr_end, line);
+    while (fscanf(f, "%llx-%llx %[^\n]\n", &next_start, &next_end, line) != EOF) {
+      curr_end = alignMemAddr(curr_end);
+      if (next_start - curr_end >= TWO_GB) {
+        lh_mem_range.start = (VA)curr_end;
+        lh_mem_range.end =   (VA)curr_end + TWO_GB;
+        is_set = true;
+        break; 
     }
-    if (!is_set) {     
-        lh_mem_range.start = (VA)0x10000000;
-        lh_mem_range.end =   (VA)0x10000000 + TWO_GB;
+      curr_end = next_end;
     }
+    fclose(f);
+  }
+  if (!is_set) {     
+    lh_mem_range.start = (VA)0x10000000;
+    lh_mem_range.end =   (VA)0x10000000 + TWO_GB;
+  }
 #elif !defined(USE_MANA_LH_FIXED_ADDRESS)
     lh_mem_range.start = (VA)area.addr - TWO_GB;
     lh_mem_range.end = (VA)area.addr - ONE_GB;
