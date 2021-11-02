@@ -388,13 +388,8 @@ setLhMemRange()
   FILE* f = fopen("/proc/self/maps", "r");
   if (f) {
     fscanf(f, "%llx-%llx %[^\n]\n", &next_start, &curr_end, line);
-    printf("%llx-%llx %s\n", next_start, curr_end, line);
     while (fscanf(f, "%llx-%llx %[^\n]\n", &next_start, &next_end, line) != EOF) {
-      printf("%llx-%llx %s\n", next_start, next_end, line);
-      printf("pre-align: 0x%llx, ", curr_end);
       curr_end = alignMemAddr(curr_end);
-      printf("post-align: 0x%llx\n", curr_end);
-      printf("comparison: 0x%llx, 0x%llx\n", curr_end, next_start);
       if (curr_end + TWO_GB <= next_start) {
         lh_mem_range.start = (VA)curr_end;
         lh_mem_range.end =   (VA)curr_end + TWO_GB;
