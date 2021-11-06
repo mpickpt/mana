@@ -13,6 +13,12 @@
  * limitations under the License.
  */
 
+// TESTING:  make
+// USAGE:  Compile gethostbyname*.{c,h} into your statically linked application
+//         It will now call the gethostbyname_r, getaddrinfo defined here
+//         instead of the versions in glibc.  The versions in glibc would
+//         simply report that those functions are not supported statically.
+
 #include <assert.h>
 #include <errno.h>
 #include <libgen.h>
@@ -75,11 +81,20 @@ static int error(struct hostent **result) {
 }
 
 
-char *getProxyPath(char *buf, size_t buflen) {
-  readlink("/proc/self/exe", buf, buflen);
-  char *dir = dirname(buf);
-  assert(strlen(dir) + sizeof("gethostbyname_proxy") < buflen);
-  return strcat(dir, "/gethostbyname_proxy");
+// For getaddrinfo or gethostbyname_r
+void execvpProxyWithArgv(const char *file, const char *arg) {
+    char *argv[] = {(char *)file, (char *)arg, NULL};
+    int rc = execvp("gethostbyname_proxy", argv);
+    // NOTREACHED unless execvp() fails.
+    // Next, look for gethostbyname_proxy in same dir as this executable.
+    char buf[10000];
+    readlink("/proc/self/exe", buf, sizeof(buf));
+    char *dir = dirname(buf);
+    assert(strlen(dir) + sizeof("gethostbyname_proxy") < sizeof(buf));
+    char *path = strcat(dir, "/gethostbyname_proxy");
+    rc = execvp(path, argv);
+    snprintf(buf, sizeof(buf), "execvp(gethostbyname_proxy) for %s", file);
+    if (rc == -1) { perror(buf); }
 }
 
 // FIXME:  The GLIBC man page is ambiguous.  Does '*result' need to
@@ -98,11 +113,7 @@ int gethostbyname_r(const char *name,
     close(pipefd[0]);
     dup2(pipefd[1], 1);
     close(pipefd[1]);
-    char *argv[] = {"gethostbyname_r", (char *)name, NULL};
-    char buf[10000];
-    char *path = getProxyPath(buf, sizeof(buf));
-    int rc = execvp(path, argv);
-    if (rc == -1) { perror("execvp"); }
+    execvpProxyWithArgv("gethostbyname_r", name);
   } else if (childpid > 0) {
     close(pipefd[1]);
     int rc = readall(pipefd[0], &hostent_result, sizeof(hostent_result));
@@ -166,12 +177,7 @@ int getaddrinfo(const char *__restrict node,
     close(pipefdin[0]);
     dup2(pipefdout[1], 1);
     close(pipefdout[1]);
-    char *argv[] = {"getaddrinfo", (char *)node, (char *)service, NULL};
-    // argv[2] (hints) is passed in from parent via writeall
-    char buf[10000];
-    char *path = getProxyPath(buf, sizeof(buf));
-    int rc = execvp(path, argv);
-    if (rc == -1) { perror("execvp"); }
+    execvpProxyWithArgv("getaddrinfo", service);
   } else if (childpid > 0) {
     if (hints != NULL) {
       writeall(pipefdin[1], hints, sizeof(*hints));
@@ -186,6 +192,7 @@ int getaddrinfo(const char *__restrict node,
     close(pipefdin[1]);
     // addrinfo_result is of fixed size, defined in gethostbyname_static.h
     int rc = readall(pipefdout[0], &addrinfo_result, sizeof(addrinfo_result));
+    assert(rc == sizeof(addrinfo_result));
     close(pipefdin[0]);
     assert(rc == sizeof(addrinfo_result));
     int status;
