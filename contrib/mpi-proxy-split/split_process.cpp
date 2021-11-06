@@ -30,9 +30,11 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/mman.h>
+#include <libgen.h>
 #include <limits.h>
 #include <link.h>
 #include <unistd.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <ucontext.h>
 #include <sys/syscall.h>
@@ -258,6 +260,19 @@ read_lh_proxy_bits(pid_t childpid)
   return ret;
 }
 
+// gethostbyname_proxy is found in DMTCP bin directory.  Add to PATH.
+// It will be needed by the statically linked lower half after it is
+//   copied into the actual split process and MPI_Init() is called.
+// See ./lower-half/gethostbyname-static for details.
+void addPathFor_gethostbyname_proxy() {
+  // Use path of lh_proxy, to avoid any system-wide gethostbyname_proxy.
+  dmtcp::string progname = dmtcp::Util::getPath("dmtcp_launch");
+  dmtcp::string newPath = dirname((char *)progname.c_str());
+  newPath = newPath + ":" + getenv("PATH");
+  int rc = setenv("PATH", newPath.c_str(), 1); // This copies the string.
+  if (rc == -1) { perror("setenv"); exit(2); }
+}
+
 // Starts a child process for the lower half application, and returns the PID
 // of the child process. Also populates the global 'lh_info' object with the
 // LowerHalfInfo_t data from the child process.
@@ -323,6 +338,7 @@ startProxy()
         break;
       }
       close(pipefd_out[0]);
+      addPathFor_gethostbyname_proxy(); // used by statically linked lower half
     } 
   }
   return childpid;
