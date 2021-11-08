@@ -403,10 +403,7 @@ dynamicMemRangeHelper(MemRange_t *lh_mem_range, const uint64_t *region_size)
     }
     fclose(f);
   }
-  if (!is_set) {     
-    lh_mem_range->start = (VA)0x10000000;
-    lh_mem_range->end =   (VA)0x10000000 + *region_size;
-  }
+  JASSERT(is_set)(JASSERT_ERRNO).Text("No memory region can be found for the lower half");
 }
 
 // Sets the address range for the lower half. The lower half gets a fixed
