@@ -30,7 +30,6 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/mman.h>
-#include <libgen.h>
 #include <limits.h>
 #include <link.h>
 #include <unistd.h>
@@ -360,26 +359,47 @@ alignMemAddr(unsigned long long addr)
 static void
 dynamicMemRangeHelper(MemRange_t *lh_mem_range, const uint64_t *region_size)
 {
-  char line[1024];
+  const uint64_t ONE_GB = 0x40000000;
+  
   bool is_set = false;
-  unsigned long long curr_end;
-  unsigned long long next_start;
-  unsigned long long next_end;
+
+  char perms[8];
+  unsigned long offset;
+  char device[8];
+  unsigned long inode;
+  char prev_path_name[PATH_MAX];
+  char next_path_name[PATH_MAX];
+
+  unsigned long long prev_addr_start;
+  unsigned long long prev_addr_end;
+  unsigned long long next_addr_start;
+  unsigned long long next_addr_end;
+
   // FIXME: fopen and fscanf may call malloc, which might call mmap.
   // For now, we hope it doesn't change the calculation.
   FILE* f = fopen("/proc/self/maps", "r");
   if (f) {
-    fscanf(f, "%llx-%llx %[^\n]\n", &next_start, &curr_end, line);
-    while (fscanf(f, "%llx-%llx %[^\n]\n", &next_start, &next_end, line) != EOF) {
+    fscanf(f, "%llx-%llx %s %lx %s %lx %s\n", &prev_addr_start, &prev_addr_end, perms, &offset, device, &inode, prev_path_name);
+    while (fscanf(f, "%llx-%llx %s %lx %s %lx %s\n", &next_addr_start, &next_addr_end, perms, &offset, device, &inode, next_path_name) != EOF) {
       // alignMemAddr aligns the address such that HUGEPAGES/2MB can also be used.
-      curr_end = alignMemAddr(curr_end);
-      if (curr_end + *region_size <= next_start) {
-        lh_mem_range->start = (VA)curr_end;
-        lh_mem_range->end =   (VA)curr_end + *region_size;
+      prev_addr_end = alignMemAddr(prev_addr_end);
+
+      // We add a 1GB buffer between the end of the heap or the start of the stack.
+      if (strcmp(prev_path_name, "[heap]") == 0) {
+        prev_addr_end += ONE_GB;
+      }
+      if (strcmp(next_path_name, "[stack]") == 0) {
+        next_addr_start += ONE_GB;
+      }
+
+      if (prev_addr_end + *region_size <= next_addr_start) {
+        lh_mem_range->start = (VA)prev_addr_end;
+        lh_mem_range->end =   (VA)prev_addr_end + *region_size;
         is_set = true;
         break; 
     }
-      curr_end = next_end;
+      prev_addr_end = next_addr_end;
+      strcpy(prev_path_name, next_path_name);
     }
     fclose(f);
   }
