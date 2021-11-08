@@ -379,8 +379,10 @@ dynamicMemRangeHelper(MemRange_t *lh_mem_range, const uint64_t *region_size)
   // For now, we hope it doesn't change the calculation.
   FILE* f = fopen("/proc/self/maps", "r");
   if (f) {
-    fscanf(f, "%llx-%llx %s %lx %s %lx %s\n", &prev_addr_start, &prev_addr_end, perms, &offset, device, &inode, prev_path_name);
-    while (fscanf(f, "%llx-%llx %s %lx %s %lx %s\n", &next_addr_start, &next_addr_end, perms, &offset, device, &inode, next_path_name) != EOF) {
+    fscanf(f, "%llx-%llx %s %lx %s %lx %s\n",
+           &prev_addr_start, &prev_addr_end, perms, &offset, device, &inode, prev_path_name);
+    while (fscanf(f, "%llx-%llx %s %lx %s %lx %s\n",
+           &next_addr_start, &next_addr_end, perms, &offset, device, &inode, next_path_name) != EOF) {
       // alignMemAddr aligns the address such that HUGEPAGES/2MB can also be used.
       prev_addr_end = alignMemAddr(prev_addr_end);
 
