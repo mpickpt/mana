@@ -1,0 +1,5 @@
+*.o
+*.so
+*.a
+core.*
+test_memory_tracker
