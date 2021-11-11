@@ -47,10 +47,7 @@
 #include "procmapsutils.h"
 #include "util.h"
 #include "dmtcp.h"
-
-#ifndef CENTOS
-# define CENTOS
-#endif
+#include "mtcp/mtcp_util.h"
 
 static unsigned long origPhnum;
 static unsigned long origPhdr;
@@ -348,64 +345,63 @@ startProxy()
 }
 
 // Rounds the given address up to the nearest 2MB.
-static inline unsigned long long
-alignMemAddr(unsigned long long addr)
+static inline uint64_t alignMemAddr(uintptr_t *addr, uintptr_t *size)
 {
-  return (addr + 0x1fffff) & ~0x1fffff;
+  return (*addr + 0x1fffff) & ~0x1fffff;
 }
 
-// This sets the address range of the lower half by searching through the memory
-// region for the first available free region.
+// This sets the address range of the lower half dynamically by searching
+// through the memory region for the first available free region.
 static void
-dynamicMemRangeHelper(MemRange_t *lh_mem_range, const uint64_t *region_size)
+findLHMemRange(MemRange_t *lh_mem_range)
 {
-  const uint64_t ONE_GB = 0x40000000;
-  
   bool is_set = false;
 
-  char perms[8];
-  unsigned long offset;
-  char device[8];
-  unsigned long inode;
+	Area area;
   char prev_path_name[PATH_MAX];
   char next_path_name[PATH_MAX];
+	uint64_t prev_addr_end;
+  uint64_t next_addr_start;
+  uint64_t next_addr_end;
 
-  unsigned long long prev_addr_start;
-  unsigned long long prev_addr_end;
-  unsigned long long next_addr_start;
-  unsigned long long next_addr_end;
+  int mapsfd = open("/proc/self/maps", O_RDONLY);
+	JASSERT(mapsfd >= 0)(JASSERT_ERRNO).Text("Failed to open proc maps");
 
-  // FIXME: fopen and fscanf may call malloc, which might call mmap.
-  // For now, we hope it doesn't change the calculation.
-  FILE* f = fopen("/proc/self/maps", "r");
-  if (f) {
-    fscanf(f, "%llx-%llx %s %lx %s %lx %s\n",
-           &prev_addr_start, &prev_addr_end, perms, &offset, device, &inode, prev_path_name);
-    while (fscanf(f, "%llx-%llx %s %lx %s %lx %s\n",
-           &next_addr_start, &next_addr_end, perms, &offset, device, &inode, next_path_name) != EOF) {
-      // alignMemAddr aligns the address such that HUGEPAGES/2MB can also be used.
-      prev_addr_end = alignMemAddr(prev_addr_end);
+	if (readMapsLine(mapsfd, &area)) {
+		prev_addr_end = (uint64_t) area.endAddr;
+		mtcp_strcpy(prev_path_name, area.name);
+	}
 
-      // We add a 1GB buffer between the end of the heap or the start of the stack.
-      if (strcmp(prev_path_name, "[heap]") == 0) {
-        prev_addr_end += ONE_GB;
-      }
-      if (strcmp(next_path_name, "[stack]") == 0) {
-        next_addr_start += ONE_GB;
-      }
+	while (readMapsLine(mapsfd, &area)) {
+		next_addr_start = (uint64_t) area.addr;
+		next_addr_end = (uint64_t) area.endAddr;
+		mtcp_strcpy(next_path_name, area.name);
 
-      if (prev_addr_end + *region_size <= next_addr_start) {
-        lh_mem_range->start = (VA)prev_addr_end;
-        lh_mem_range->end =   (VA)prev_addr_end + *region_size;
-        is_set = true;
-        break; 
+    // ROUNDADDRUP aligns the address such that HUGEPAGES/2MB can also be used.
+    prev_addr_end = ROUNDADDRUP(prev_addr_end, 2 * ONEMB);
+
+    // We add a 1GB buffer between the end of the heap or the start of the 
+		// stack.
+    if (mtcp_strcmp(prev_path_name, "[heap]") == 0) {
+      prev_addr_end += ONEGB;
     }
-      prev_addr_end = next_addr_end;
-      strcpy(prev_path_name, next_path_name);
+    if (mtcp_strcmp(next_path_name, "[stack]") == 0) {
+      next_addr_start -= ONEGB;
     }
-    fclose(f);
+
+    if (prev_addr_end + 2 * ONEGB <= next_addr_start) {
+      lh_mem_range->start = (VA)prev_addr_end;
+      lh_mem_range->end =   (VA)prev_addr_end + 2 * ONEGB;
+      is_set = true;
+      break; 
+  	}
+    prev_addr_end = next_addr_end;
+    mtcp_strcpy(prev_path_name, next_path_name);
   }
-  JASSERT(is_set)(JASSERT_ERRNO).Text("No memory region can be found for the lower half");
+	close(mapsfd);
+
+	JASSERT(is_set)(JASSERT_ERRNO)
+		.Text("No memory region can be found for the lower half");
 }
 
 // Sets the address range for the lower half. The lower half gets a fixed
@@ -415,14 +411,10 @@ dynamicMemRangeHelper(MemRange_t *lh_mem_range, const uint64_t *region_size)
 static MemRange_t
 setLhMemRange()
 {
-  const uint64_t ONE_GB = 0x40000000;
-  const uint64_t TWO_GB = 0x80000000;
   Area area;
   bool found = false;
   int mapsfd = open("/proc/self/maps", O_RDONLY);
-  if (mapsfd < 0) {
-    JASSERT(false)(JASSERT_ERRNO).Text("Failed to open proc maps");
-  }
+  JASSERT(mapsfd >= 0)(JASSERT_ERRNO).Text("Failed to open proc maps");
   while (readMapsLine(mapsfd, &area)) {
     if (strstr(area.name, "[stack]")) {
       found = true;
@@ -432,15 +424,7 @@ setLhMemRange()
   close(mapsfd);
   static MemRange_t lh_mem_range;
   if (found) {
-#if defined(CENTOS)
-    dynamicMemRangeHelper(&lh_mem_range, &TWO_GB);
-#elif !defined(USE_MANA_LH_FIXED_ADDRESS)
-    lh_mem_range.start = (VA)area.addr - TWO_GB;
-    lh_mem_range.end = (VA)area.addr - ONE_GB;
-#else
-    lh_mem_range.start = 0x2aab00000000;
-    lh_mem_range.end =   0x2aab00000000 + ONE_GB;
-#endif
+   findLHMemRange(&lh_mem_range);
   } else {
     JASSERT(false).Text("Failed to find [stack] memory segment\n");
   }
