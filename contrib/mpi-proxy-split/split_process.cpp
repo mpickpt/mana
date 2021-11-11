@@ -344,12 +344,6 @@ startProxy()
   return childpid;
 }
 
-// Rounds the given address up to the nearest 2MB.
-static inline uint64_t alignMemAddr(uintptr_t *addr, uintptr_t *size)
-{
-  return (*addr + 0x1fffff) & ~0x1fffff;
-}
-
 // This sets the address range of the lower half dynamically by searching
 // through the memory region for the first available free region.
 static void
@@ -357,35 +351,35 @@ findLHMemRange(MemRange_t *lh_mem_range)
 {
   bool is_set = false;
 
-	Area area;
+  Area area;
   char prev_path_name[PATH_MAX];
   char next_path_name[PATH_MAX];
-	uint64_t prev_addr_end;
+  uint64_t prev_addr_end;
   uint64_t next_addr_start;
   uint64_t next_addr_end;
 
   int mapsfd = open("/proc/self/maps", O_RDONLY);
-	JASSERT(mapsfd >= 0)(JASSERT_ERRNO).Text("Failed to open proc maps");
+  JASSERT(mapsfd >= 0)(JASSERT_ERRNO).Text("Failed to open proc maps");
 
-	if (readMapsLine(mapsfd, &area)) {
-		prev_addr_end = (uint64_t) area.endAddr;
-		mtcp_strcpy(prev_path_name, area.name);
-	}
+  if (readMapsLine(mapsfd, &area)) {
+    prev_addr_end = (uint64_t) area.endAddr;
+    strcpy(prev_path_name, area.name);
+  }
 
-	while (readMapsLine(mapsfd, &area)) {
-		next_addr_start = (uint64_t) area.addr;
-		next_addr_end = (uint64_t) area.endAddr;
-		mtcp_strcpy(next_path_name, area.name);
+  while (readMapsLine(mapsfd, &area)) {
+    next_addr_start = (uint64_t) area.addr;
+    next_addr_end = (uint64_t) area.endAddr;
+    strcpy(next_path_name, area.name);
 
     // ROUNDADDRUP aligns the address such that HUGEPAGES/2MB can also be used.
     prev_addr_end = ROUNDADDRUP(prev_addr_end, 2 * ONEMB);
 
     // We add a 1GB buffer between the end of the heap or the start of the 
-		// stack.
-    if (mtcp_strcmp(prev_path_name, "[heap]") == 0) {
+    // stack.
+    if (strcmp(prev_path_name, "[heap]") == 0) {
       prev_addr_end += ONEGB;
     }
-    if (mtcp_strcmp(next_path_name, "[stack]") == 0) {
+    if (strcmp(next_path_name, "[stack]") == 0) {
       next_addr_start -= ONEGB;
     }
 
@@ -394,14 +388,14 @@ findLHMemRange(MemRange_t *lh_mem_range)
       lh_mem_range->end =   (VA)prev_addr_end + 2 * ONEGB;
       is_set = true;
       break; 
-  	}
+    }
     prev_addr_end = next_addr_end;
-    mtcp_strcpy(prev_path_name, next_path_name);
+    strcpy(prev_path_name, next_path_name);
   }
-	close(mapsfd);
+  close(mapsfd);
 
-	JASSERT(is_set)(JASSERT_ERRNO)
-		.Text("No memory region can be found for the lower half");
+  JASSERT(is_set)(JASSERT_ERRNO)
+    .Text("No memory region can be found for the lower half");
 }
 
 // Sets the address range for the lower half. The lower half gets a fixed

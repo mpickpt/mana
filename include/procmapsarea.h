@@ -57,8 +57,7 @@
 #define ONEGB (uint64_t)(1024 * 1024 * 1024)
 
 // Rounds the given address up to the nearest region size, given as an input.
-#define ROUNDADDRUP(addr, size)	\
-	((addr + size - 1) & ~(size - 1)) 
+#define ROUNDADDRUP(addr, size) ((addr + size - 1) & ~(size - 1)) 
 
 typedef char *VA;  /* VA = virtual address */
 
