@@ -47,7 +47,10 @@
 #include "procmapsutils.h"
 #include "util.h"
 #include "dmtcp.h"
-#include "mtcp/mtcp_util.h"
+
+#ifndef CENTOS
+# define CENTOS
+#endif
 
 static unsigned long origPhnum;
 static unsigned long origPhdr;
@@ -363,13 +366,13 @@ findLHMemRange(MemRange_t *lh_mem_range)
 
   if (readMapsLine(mapsfd, &area)) {
     prev_addr_end = (uint64_t) area.endAddr;
-    strcpy(prev_path_name, area.name);
+    strncpy(prev_path_name, area.name, PATH_MAX - 1);
   }
 
   while (readMapsLine(mapsfd, &area)) {
     next_addr_start = (uint64_t) area.addr;
     next_addr_end = (uint64_t) area.endAddr;
-    strcpy(next_path_name, area.name);
+    strncpy(next_path_name, area.name, PATH_MAX - 1);
 
     // ROUNDADDRUP aligns the address such that HUGEPAGES/2MB can also be used.
     prev_addr_end = ROUNDADDRUP(prev_addr_end, 2 * ONEMB);
@@ -418,7 +421,15 @@ setLhMemRange()
   close(mapsfd);
   static MemRange_t lh_mem_range;
   if (found) {
-   findLHMemRange(&lh_mem_range);
+#if defined(CENTOS)
+    findLHMemRange(&lh_mem_range);
+#elif !defined(USE_MANA_LH_FIXED_ADDRESS)
+    lh_mem_range.start = (VA)area.addr - 2 * ONEGB;
+    lh_mem_range.end =   (VA)area.addr - ONEGB;
+#else
+    lh_mem_range.start = 0x2aab00000000;
+    lh_mem_range.end =   0x2aab00000000 + ONEGB;
+#endif
   } else {
     JASSERT(false).Text("Failed to find [stack] memory segment\n");
   }
