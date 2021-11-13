@@ -365,22 +365,22 @@ findLHMemRange(MemRange_t *lh_mem_range)
   JASSERT(mapsfd >= 0)(JASSERT_ERRNO).Text("Failed to open proc maps");
 
   if (readMapsLine(mapsfd, &area)) {
-    prev_addr_end = (uint64_t) area.endAddr;
+    // ROUNDADDRUP aligns the address such that HUGEPAGES/2MB can also be used.
+    prev_addr_end = ROUNDADDRUP((uint64_t) area.endAddr, 2 * ONEMB);
     strncpy(prev_path_name, area.name, PATH_MAX - 1);
+    prev_path_name[PATH_MAX - 1] = '\0';
   }
 
   while (readMapsLine(mapsfd, &area)) {
     next_addr_start = (uint64_t) area.addr;
-    next_addr_end = (uint64_t) area.endAddr;
+    next_addr_end = ROUNDADDRUP((uint64_t) area.endAddr, 2 * ONEMB);
     strncpy(next_path_name, area.name, PATH_MAX - 1);
-
-    // ROUNDADDRUP aligns the address such that HUGEPAGES/2MB can also be used.
-    prev_addr_end = ROUNDADDRUP(prev_addr_end, 2 * ONEMB);
+    next_path_name[PATH_MAX - 1] = '\0';
 
     // We add a 1GB buffer between the end of the heap or the start of the 
     // stack.
-    if (strcmp(prev_path_name, "[heap]") == 0) {
-      prev_addr_end += ONEGB;
+    if (strcmp(next_path_name, "[heap]") == 0) {
+      next_addr_end += ONEGB;
     }
     if (strcmp(next_path_name, "[stack]") == 0) {
       next_addr_start -= ONEGB;
@@ -393,7 +393,7 @@ findLHMemRange(MemRange_t *lh_mem_range)
       break; 
     }
     prev_addr_end = next_addr_end;
-    strcpy(prev_path_name, next_path_name);
+    strncpy(prev_path_name, next_path_name, PATH_MAX - 1);
   }
   close(mapsfd);
 
