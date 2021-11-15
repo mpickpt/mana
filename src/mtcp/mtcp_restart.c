@@ -718,7 +718,6 @@ main(int argc, char *argv[], char **environ)
       if (mtcp_strcmp(area.name, "[vdso]") == 0) {
         rc = mtcp_sys_mremap(area.addr, area.size, area.size,
                              MREMAP_FIXED | MREMAP_MAYMOVE, vdsoStartTmp);
-	mtcp_printf("%p\n", vdsoStartTmp);
       }
       if (rc == MAP_FAILED) {
         MTCP_PRINTF("mtcp_restart failed: "
