@@ -56,7 +56,7 @@ static void* MPI_Fnc_Ptrs[] = {
 // Local functions
 
 static void
-getDataFromMaps(const Area *text, Area *data, Area *heap)
+getDataFromMaps(const Area *text, Area *data, Area *bss, Area *heap)
 {
   Area area;
   int mapsfd = open("/proc/self/maps", O_RDONLY);
@@ -68,12 +68,22 @@ getDataFromMaps(const Area *text, Area *data, Area *heap)
       break;
     }
   }
-  // NOTE: Assume that data and heap are contiguous.
+  // NOTE: Assume that data, bss(if exists), and heap are contiguous.
+  /*
+   * The BSS section can be present on some platform and abscent on some.
+   * For e.g., the BSS section is abscent on Cori but present on SLES VM.
+   *
+   * The following code stops after heap region and saves BSS section address
+   * if it exists.
+   */
   void *heap_sbrk = sbrk(0);
   while (readMapsLine(mapsfd, &area)) {
     if (strstr(area.name, "[heap]") && area.endAddr >= (VA)heap_sbrk) {
       *heap = area;
       break;
+    } else {
+	// This should be the BSS section.
+        *bss = area;
     }
   }
   close(mapsfd);
@@ -212,7 +222,7 @@ void first_constructor()
     unsigned long start, end, stackstart;
     unsigned long pstart, pend, pstackstart;
     unsigned long fsaddr = 0;
-    Area txt, data, heap;
+    Area txt, data, bss, heap;
     getTextSegmentRange(getpid(), &start, &end, &stackstart);
     getTextSegmentRange(getppid(), &pstart, &pend, &pstackstart);
     syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
@@ -220,7 +230,9 @@ void first_constructor()
     end   = ROUND_UP(end);
     txt.addr = (VA)start;
     txt.endAddr = (VA)end;
-    getDataFromMaps(&txt, &data, &heap);
+    // We assign bss to NULL to avoid garbage value if there's no BSS region.
+    bss.addr = NULL;
+    getDataFromMaps(&txt, &data, &bss, &heap);
 
     // TODO: Verify that this gives us the right value every time
     // Perhaps use proc maps in the future?
@@ -230,6 +242,7 @@ void first_constructor()
     lh_info.startText = (void*)start;
     lh_info.endText = (void*)end;
     lh_info.startData = (void*)data.addr;
+    lh_info.startBSS = (void*)bss.addr;
     lh_info.endOfHeap = (void*)heap.endAddr;
     lh_info.libc_start_main = &__libc_start_main;
     lh_info.main = &main;

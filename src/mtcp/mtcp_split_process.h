@@ -36,6 +36,7 @@ typedef struct LowerHalfInfo
   void *startText;
   void *endText;
   void *startData;
+  void *startBSS;
   void *endOfHeap;
   void *libc_start_main;
   void *main;

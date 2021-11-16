@@ -1305,7 +1305,8 @@ skip_lh_memory_region_ckpting(const Area *area, LowerHalfInfo_t *lh_info)
       mtcp_strstr(area->name, "/dev/xpmem") ||
       mtcp_strstr(area->name, "/dev/shm") ||
       mtcp_strstr(area->name, "/SYS") ||
-      area->addr == lh_info->startData) {
+      area->addr == lh_info->startData ||
+      ((lh_info->startBSS != NULL) && area->addr == lh_info->startBSS)) {
     return 1;
   }
   if (!g_list) return 0;

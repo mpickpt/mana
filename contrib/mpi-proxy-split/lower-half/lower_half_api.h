@@ -72,6 +72,7 @@ typedef struct _LowerHalfInfo
   void *startText; // Start address of text segment (R-X) of lower half
   void *endText;   // End address of text segmeent (R-X) of lower half
   void *startData; // Start address of data segment (RW-) of lower half
+  void *startBSS; // Start address of BSS segment (RW-) of lower half
   void *endOfHeap; // Pointer to the end of heap segment of lower half
   void *libc_start_main; // Pointer to libc's __libc_start_main function in statically-linked lower half
   void *main;      // Pointer to the main() function in statically-linked lower half
