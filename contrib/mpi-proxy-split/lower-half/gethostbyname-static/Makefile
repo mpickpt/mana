@@ -1,8 +1,12 @@
 CFLAGS=-g3 -O0
 
+# getaddrinfo ntp-wwv.nist.gov time: sin_port: 9472; sin_addr: 132.163.97.5
 test: a.out
 	./a.out localhost
 	./a.out localhost time
+	./a.out ntp-wwv.nist.gov time
+	@ test `./a.out ntp-wwv.nist.gov time | sed -e 's%^.*sin_addr '%%` == \
+	     132.163.97.5 || echo "ERROR:  Wrong addr of ntp-wwv.nist.gov"
 
 gdb: a.out
 	gdb --args ./a.out localhost
