@@ -124,7 +124,7 @@ int do_getaddrinfo(const char *node, const char *service,
     struct sockaddr *ai_addr = (void *)(tmp + sizeof(*res));
     char *ai_canonname = (char *)ai_addr + res->ai_addrlen;
     char *end = (char *)ai_canonname +
-                (res->ai_canonname == NULL ? 0 : strlen(ai_canonname) + 1);
+                (res->ai_canonname == NULL ? 0 : strlen(res->ai_canonname) + 1);
     assert(end - addrinfo_result.padding < sizeof(addrinfo_result.padding));
     memcpy(ai_addr, res->ai_addr, res->ai_addrlen);
     if (res->ai_canonname != NULL) {

@@ -82,19 +82,25 @@ static int error(struct hostent **result) {
 
 
 // For getaddrinfo or gethostbyname_r
-void execvpProxyWithArgv(const char *file, const char *arg) {
-    char *argv[] = {(char *)file, (char *)arg, NULL};
+void execvpProxyWithArgv(const char *file, const char *arg1, const char *arg2) {
+    char *argv[] = {(char *)file, (char *)arg1, (char *)arg2, NULL};
     int rc = execvp("gethostbyname_proxy", argv);
-    // NOTREACHED unless execvp() fails.
+    // NOTREACHED unless execvp() fails.  Try to execvp alternate path to file.
     // Next, look for gethostbyname_proxy in same dir as this executable.
     char buf[10000];
-    readlink("/proc/self/exe", buf, sizeof(buf));
+    int num = readlink("/proc/self/exe", buf, sizeof(buf));
+    if (num == -1) {perror("readlink"); exit(1);}
+    // Verify neither 'buf' nor 'dirname(buf) + "/gethostbyname_proxy"' overflow
+    assert(num + 1 + sizeof("/gethostbyname_proxy") < sizeof(buf));
+    buf[num] = '\0';
     char *dir = dirname(buf);
     assert(strlen(dir) + sizeof("gethostbyname_proxy") < sizeof(buf));
     char *path = strcat(dir, "/gethostbyname_proxy");
     rc = execvp(path, argv);
+    // This is a real error.
     snprintf(buf, sizeof(buf), "execvp(gethostbyname_proxy) for %s", file);
-    if (rc == -1) { perror(buf); }
+    perror(buf);
+    exit(1);
 }
 
 // FIXME:  The GLIBC man page is ambiguous.  Does '*result' need to
@@ -113,7 +119,7 @@ int gethostbyname_r(const char *name,
     close(pipefd[0]);
     dup2(pipefd[1], 1);
     close(pipefd[1]);
-    execvpProxyWithArgv("gethostbyname_r", name);
+    execvpProxyWithArgv("gethostbyname_r", name, NULL);
   } else if (childpid > 0) {
     close(pipefd[1]);
     int rc = readall(pipefd[0], &hostent_result, sizeof(hostent_result));
@@ -177,7 +183,7 @@ int getaddrinfo(const char *__restrict node,
     close(pipefdin[0]);
     dup2(pipefdout[1], 1);
     close(pipefdout[1]);
-    execvpProxyWithArgv("getaddrinfo", service);
+    execvpProxyWithArgv("getaddrinfo", node, service);
   } else if (childpid > 0) {
     if (hints != NULL) {
       writeall(pipefdin[1], hints, sizeof(*hints));
@@ -194,7 +200,6 @@ int getaddrinfo(const char *__restrict node,
     int rc = readall(pipefdout[0], &addrinfo_result, sizeof(addrinfo_result));
     assert(rc == sizeof(addrinfo_result));
     close(pipefdin[0]);
-    assert(rc == sizeof(addrinfo_result));
     int status;
     waitpid(childpid, &status, 0);
     *res = (struct addrinfo *)addrinfo_result.padding;
