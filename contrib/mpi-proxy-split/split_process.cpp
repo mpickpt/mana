@@ -48,10 +48,6 @@
 #include "util.h"
 #include "dmtcp.h"
 
-#ifndef CENTOS
-# define CENTOS
-#endif
-
 static unsigned long origPhnum;
 static unsigned long origPhdr;
 LowerHalfInfo_t lh_info;
@@ -421,14 +417,17 @@ setLhMemRange()
   close(mapsfd);
   static MemRange_t lh_mem_range;
   if (found) {
-#if defined(CENTOS)
     findLHMemRange(&lh_mem_range);
-#elif !defined(USE_MANA_LH_FIXED_ADDRESS)
+// This segment is only here until I ascertain whether the generalized code
+// works on Cori too. The above function works on CentOS. - Illio
+#if 0
+#if !defined(USE_MANA_LH_FIXED_ADDRESS)
     lh_mem_range.start = (VA)area.addr - 2 * ONEGB;
     lh_mem_range.end =   (VA)area.addr - ONEGB;
 #else
     lh_mem_range.start = 0x2aab00000000;
     lh_mem_range.end =   0x2aab00000000 + ONEGB;
+#endif
 #endif
   } else {
     JASSERT(false).Text("Failed to find [stack] memory segment\n");
