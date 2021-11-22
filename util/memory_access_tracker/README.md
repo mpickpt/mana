@@ -68,3 +68,7 @@ main 53 access 39 times
 0x7f32a1e06bc0
 0x7f32a1e06be0
 ```
+
+# Reference
+
+https://programmer.group/x86_-principle-and-example-of-single-step-debugging-for-64-platform.html
