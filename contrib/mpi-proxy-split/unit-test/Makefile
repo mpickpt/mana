@@ -13,8 +13,7 @@ endif
 TESTS = record-replay-comm-test \
         record-replay-group-test \
         record-replay-types-test \
-        record-replay-cart-test \
-        drain-send-recv-test
+        record-replay-cart-test
 
 TEST_OBJS=$(addsuffix .o, ${TESTS})
 TEST_BINS=$(addsuffix .exe, ${TESTS})
