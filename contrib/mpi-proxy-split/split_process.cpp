@@ -30,6 +30,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/mman.h>
+#include <libgen.h>
 #include <limits.h>
 #include <link.h>
 #include <unistd.h>
@@ -384,7 +385,7 @@ findLHMemRange(MemRange_t *lh_mem_range)
 
     if (prev_addr_end + 2 * ONEGB <= next_addr_start) {
       lh_mem_range->start = (VA)prev_addr_end;
-      lh_mem_range->end =   (VA)prev_addr_end + 2 * ONEGB;
+      lh_mem_range->end = (VA)prev_addr_end + 2 * ONEGB;
       is_set = true;
       break; 
     }
@@ -397,9 +398,8 @@ findLHMemRange(MemRange_t *lh_mem_range)
     .Text("No memory region can be found for the lower half");
 }
 
-// Sets the address range for the lower half. The lower half gets a fixed
-// address range of 1 GB at a high address before the stack region of the
-// current process. All memory allocations done by the lower half are restricted
+// Sets the address range for the lower half, dynamically determined by the
+// above function. All memory allocations done by the lower half are restricted
 // to the specified address range.
 static MemRange_t
 setLhMemRange()
@@ -418,17 +418,6 @@ setLhMemRange()
   static MemRange_t lh_mem_range;
   if (found) {
     findLHMemRange(&lh_mem_range);
-// This segment is only here until I ascertain whether the generalized code
-// works on Cori too. The above function works on CentOS. - Illio
-#if 0
-#if !defined(USE_MANA_LH_FIXED_ADDRESS)
-    lh_mem_range.start = (VA)area.addr - 2 * ONEGB;
-    lh_mem_range.end =   (VA)area.addr - ONEGB;
-#else
-    lh_mem_range.start = 0x2aab00000000;
-    lh_mem_range.end =   0x2aab00000000 + ONEGB;
-#endif
-#endif
   } else {
     JASSERT(false).Text("Failed to find [stack] memory segment\n");
   }
