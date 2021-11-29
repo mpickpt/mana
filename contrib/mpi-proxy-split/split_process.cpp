@@ -21,7 +21,7 @@
 
 // Needed for process_vm_readv
 #ifndef _GNU_SOURCE
-  #define _GNU_SOURCE
+# define _GNU_SOURCE
 #endif
 
 #include <asm/prctl.h>
@@ -344,21 +344,69 @@ startProxy()
   return childpid;
 }
 
-// Sets the address range for the lower half. The lower half gets a fixed
-// address range of 1 GB at a high address before the stack region of the
-// current process. All memory allocations done by the lower half are restricted
+// This sets the address range of the lower half dynamically by searching
+// through the memory region for the first available free region.
+static void
+findLHMemRange(MemRange_t *lh_mem_range)
+{
+  bool is_set = false;
+
+  Area area;
+  char prev_path_name[PATH_MAX];
+  char next_path_name[PATH_MAX];
+  uint64_t prev_addr_end;
+  uint64_t next_addr_start;
+  uint64_t next_addr_end;
+
+  int mapsfd = open("/proc/self/maps", O_RDONLY);
+  JASSERT(mapsfd >= 0)(JASSERT_ERRNO).Text("Failed to open proc maps");
+
+  if (readMapsLine(mapsfd, &area)) {
+    // ROUNDADDRUP aligns the address such that HUGEPAGES/2MB can also be used.
+    prev_addr_end = ROUNDADDRUP((uint64_t) area.endAddr, 2 * ONEMB);
+    strncpy(prev_path_name, area.name, PATH_MAX - 1);
+    prev_path_name[PATH_MAX - 1] = '\0';
+  }
+
+  while (readMapsLine(mapsfd, &area)) {
+    next_addr_start = (uint64_t) area.addr;
+    next_addr_end = ROUNDADDRUP((uint64_t) area.endAddr, 2 * ONEMB);
+    strncpy(next_path_name, area.name, PATH_MAX - 1);
+    next_path_name[PATH_MAX - 1] = '\0';
+
+    // We add a 1GB buffer between the end of the heap or the start of the 
+    // stack.
+    if (strcmp(next_path_name, "[heap]") == 0) {
+      next_addr_end += ONEGB;
+    } else if (strcmp(next_path_name, "[stack]") == 0) {
+      next_addr_start -= ONEGB;
+    }
+
+    if (prev_addr_end + 2 * ONEGB <= next_addr_start) {
+      lh_mem_range->start = (VA)prev_addr_end;
+      lh_mem_range->end = (VA)prev_addr_end + 2 * ONEGB;
+      is_set = true;
+      break; 
+    }
+    prev_addr_end = next_addr_end;
+    strncpy(prev_path_name, next_path_name, PATH_MAX - 1);
+  }
+  close(mapsfd);
+
+  JASSERT(is_set)(JASSERT_ERRNO)
+    .Text("No memory region can be found for the lower half");
+}
+
+// Sets the address range for the lower half, dynamically determined by the
+// above function. All memory allocations done by the lower half are restricted
 // to the specified address range.
 static MemRange_t
 setLhMemRange()
 {
-  const uint64_t ONE_GB = 0x40000000;
-  const uint64_t TWO_GB = 0x80000000;
   Area area;
   bool found = false;
   int mapsfd = open("/proc/self/maps", O_RDONLY);
-  if (mapsfd < 0) {
-    JASSERT(false)(JASSERT_ERRNO).Text("Failed to open proc maps");
-  }
+  JASSERT(mapsfd >= 0)(JASSERT_ERRNO).Text("Failed to open proc maps");
   while (readMapsLine(mapsfd, &area)) {
     if (strstr(area.name, "[stack]")) {
       found = true;
@@ -368,13 +416,7 @@ setLhMemRange()
   close(mapsfd);
   static MemRange_t lh_mem_range;
   if (found) {
-#if !defined(USE_MANA_LH_FIXED_ADDRESS)
-    lh_mem_range.start = (VA)area.addr - TWO_GB;
-    lh_mem_range.end = (VA)area.addr - ONE_GB;
-#else
-    lh_mem_range.start = 0x2aab00000000;
-    lh_mem_range.end =   0x2aab00000000 + ONE_GB;
-#endif
+    findLHMemRange(&lh_mem_range);
   } else {
     JASSERT(false).Text("Failed to find [stack] memory segment\n");
   }

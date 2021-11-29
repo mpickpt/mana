@@ -53,6 +53,11 @@
 #define DELETED_FILE_SUFFIX " (deleted)"
 
 #define FILENAMESIZE        1024
+#define ONEMB (uint64_t)(1024 * 1024)
+#define ONEGB (uint64_t)(1024 * 1024 * 1024)
+
+// Rounds the given address up to the nearest region size, given as an input.
+#define ROUNDADDRUP(addr, size) ((addr + size - 1) & ~(size - 1)) 
 
 typedef char *VA;  /* VA = virtual address */
 
