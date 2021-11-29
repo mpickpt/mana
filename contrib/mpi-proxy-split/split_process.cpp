@@ -378,8 +378,7 @@ findLHMemRange(MemRange_t *lh_mem_range)
     // stack.
     if (strcmp(next_path_name, "[heap]") == 0) {
       next_addr_end += ONEGB;
-    }
-    if (strcmp(next_path_name, "[stack]") == 0) {
+    } else if (strcmp(next_path_name, "[stack]") == 0) {
       next_addr_start -= ONEGB;
     }
 
