@@ -501,10 +501,6 @@ mysetauxval(char **evp, unsigned long int type, unsigned long int val)
   return -1;
 }
 
-// This is not working, even though it seems like it should be. It's
-// segfaulting some time after the rinfo.restorememoryareas_fptr call in 
-// restart_fast_path(). Debugging in progress... 
-#if 0
 /* We hardwire these, since we can't make libc calls. */
 #define PAGESIZE 4096
 #define WORKING
@@ -538,8 +534,8 @@ setupTempRegions() {
     mtcp_abort();
   }
 }
-#endif
 
+#if 0
 #define PAGESIZE 4096 /* We hardwire this, since we can't make libc calls. */
 // We choose this address based on our observation on CORI that it won't overlap
 // with any other memory segments. We might change this address in the future,
@@ -553,6 +549,7 @@ setupTempRegions() {
  * As it turns out, any free region is fine, as long as it's PAGESIZE aligned
  * and greater than 0x10000.
  */
+#endif
 
 #define shift argv++; argc--;
 NO_OPTIMIZE
@@ -1458,6 +1455,12 @@ unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo, LowerHalfInfo_t *lh_info
     mtcp_abort();
   }
 
+  // We create local copies of these, as they reside on the data section of
+  // mtcp_restart, which is unmapped later on.
+
+  uint64_t vdsoStartTmpCopy = vdsoStartTmp;
+  uint64_t vvarStartTmpCopy = vvarStartTmp;
+
   while (mtcp_readmapsline(mapsfd, &area)) {
     if (area.addr >= rinfo->restore_addr && area.addr < rinfo->restore_end) {
       // Do not unmap this restore image.
@@ -1491,13 +1494,13 @@ unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo, LowerHalfInfo_t *lh_info
       // Do not unmap lower half
       DPRINTF("Skipping lower half memory section: %p-%p\n",
               area.addr, area.endAddr);
-    } else if (area.addr == vdsoStartTmp) {
+    } else if (area.addr == vdsoStartTmpCopy) {
       // FIXME @Illio: we should replace this with the vDSO and vvar address.
       // Or if we want to generalize then we can call a function that tells if
       // the region should not be unmapped.
       DPRINTF("Skipping temporary vDSO section: %p-%p\n",
               area.addr, area.endAddr);
-    } else if (area.addr == vvarStartTmp) {
+    } else if (area.addr == vvarStartTmpCopy) {
       DPRINTF("Skipping temporary vvar section: %p-%p\n",
               area.addr, area.endAddr);
     } else if (area.size > 0) {
