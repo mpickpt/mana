@@ -258,7 +258,6 @@ int reserve_fds_upper_half(int *reserved_fds) {
 }
 
 void unreserve_fds_upper_half(int *reserved_fds, int total_reserved_fds) {
-  int tmp_fd = 0;
     while (--total_reserved_fds >= 0) {
       MTCP_ASSERT((mtcp_sys_close(reserved_fds[total_reserved_fds])) != -1);  
     }

@@ -38,7 +38,7 @@ getShmIdx(int shmid)
   return -1;
 }
 
-int
+void
 addShm(int shmid, size_t size)
 {
   shms[shmidx].shmid = shmid;
