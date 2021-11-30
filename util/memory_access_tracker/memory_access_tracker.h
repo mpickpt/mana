@@ -21,6 +21,10 @@
 #include <stdio.h>
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct MemTracker {
   /* TODO: support multiple trackers */
   // struct list_head node;
@@ -38,4 +42,7 @@ struct MemTracker* StartTrackMemory(void *addr, size_t len, uint32_t max_num, in
 void EndTrackMemory(struct MemTracker *tracker);
 void FreeMemTracker(struct MemTracker *tracker);
 
+#ifdef __cplusplus
+}
+#endif
 #endif
