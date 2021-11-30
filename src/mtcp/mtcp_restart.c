@@ -503,7 +503,6 @@ mysetauxval(char **evp, unsigned long int type, unsigned long int val)
 
 /* We hardwire these, since we can't make libc calls. */
 #define PAGESIZE 4096
-#define WORKING
 #define ROUNDADDRUP(addr, size) ((addr + size - 1) & ~(size - 1))
 // I think we're forced to use global variables, since
 // unmap_memory_areas_and_restore_vdso uses these variables subsequently.
@@ -696,9 +695,7 @@ main(int argc, char *argv[], char **environ)
      * 3. move from temp locations to ckpt'ed process' vdso vvar location.
      * Fix: We should be bookeeping regions that we don't want MTCP to unmap 
      */
-#ifdef WORKING:
     setupTempRegions();
-#endif
     Area area;
     int mapsfd = mtcp_sys_open2("/proc/self/maps", O_RDONLY);
     if (mapsfd < 0) {
