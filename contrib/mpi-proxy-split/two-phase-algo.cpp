@@ -95,11 +95,11 @@ int
 TwoPhaseAlgo::commit(MPI_Comm comm, const char *collectiveFnc,
                      std::function<int(void)>doRealCollectiveComm)
 {
-  if (!LOGGING() || comm == MPI_COMM_NULL) {
+  if (!MPI_LOGGING() || comm == MPI_COMM_NULL) {
     return doRealCollectiveComm(); // lambda function: already captured args
   }
 
-  if (!LOGGING()) {
+  if (!MPI_LOGGING()) {
     return doRealCollectiveComm();
   }
 

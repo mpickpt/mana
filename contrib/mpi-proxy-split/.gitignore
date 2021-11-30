@@ -3,3 +3,4 @@ unit-test/*.exe
 proxy
 mpi-wrappers/*.c*
 mpi-wrappers/*.so*
+Makefile_config
