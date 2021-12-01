@@ -67,7 +67,7 @@
 #define HUGEPAGES
 #define GNI
 
-/*TODO: @Illio, this macro is used for CentOS specific changes for now.
+/*TODO: This macro is used for CentOS specific changes for now.
  * Later, we want to merge the code that works both for CentOS and Cori. 
  */
 // if we define both GNI and CENTOS, assume we are running on CentOS
@@ -534,22 +534,6 @@ setupTempRegions() {
   }
 }
 
-#if 0
-#define PAGESIZE 4096 /* We hardwire this, since we can't make libc calls. */
-// We choose this address based on our observation on CORI that it won't overlap
-// with any other memory segments. We might change this address in the future,
-// for now, it doesn't matters.
-#define vvarStartTmp (0x40000 - 5*PAGESIZE)
-#define vdsoStartTmp (0x40000 - 2*PAGESIZE)
-/* @Illio, this is hardwired for now and seem to work. Can we figure out the
- * location dynamically? or can we use only one area that we are reserving for
- * LH anyway?
- *
- * As it turns out, any free region is fine, as long as it's PAGESIZE aligned
- * and greater than 0x10000.
- */
-#endif
-
 #define shift argv++; argc--;
 NO_OPTIMIZE
 int
@@ -678,23 +662,6 @@ main(int argc, char *argv[], char **environ)
     //   before vvar and after vdso, and verify that we get an EFAULT.
     // In May, 2020, on Cori and elsewhere, vvar is 3 pages and vdso is 2 pages.
     char *vdsoStart = (char *)mygetauxval(environ, AT_SYSINFO_EHDR);
-    /* @Illio
-     * Problem 1: the vvar location is Cori-specific and assumed to be 3 pages
-     *    lower than vDSO. However, on CentOS VM, we do not see any vvar section
-     *    at all on restart.
-     * Fix: There should not be any assumptions. We should be checking procmaps
-     *      to get the location of both vvar and vdso regions. And, move only if
-     *      they exist in procmaps. This code can be made generic.
-     * Problem 2: These mapped regions will be removed in
-     *    unmap_memory_areas_and_restore_vdso function as mtcp unmap all its
-     *    regions. And, we'll not be able to move it back to original program's
-     *    vdso region.
-     * What-we-do:
-     * 1. move mtcp's vdso and vvar regions temporarily at a temporary location
-     * 2. unmap all mtcp's memory regions
-     * 3. move from temp locations to ckpt'ed process' vdso vvar location.
-     * Fix: We should be bookeeping regions that we don't want MTCP to unmap 
-     */
     setupTempRegions();
     Area area;
     int mapsfd = mtcp_sys_open2("/proc/self/maps", O_RDONLY);
@@ -719,23 +686,6 @@ main(int argc, char *argv[], char **environ)
       }
     }
     mtcp_sys_close(mapsfd);
-
-#if 0
-    char *vvarStart = vdsoStart - 3 * PAGESIZE;
-//    void *rc1 = mtcp_sys_mremap(vvarStart, 3*PAGESIZE, 3*PAGESIZE,
-//		                MREMAP_FIXED | MREMAP_MAYMOVE, vvarStartTmp);
-    void *rc2 = mtcp_sys_mremap(vdsoStart, 2*PAGESIZE, 2*PAGESIZE,
-		                MREMAP_FIXED | MREMAP_MAYMOVE, vdsoStartTmp);
-    if (rc2 == MAP_FAILED) { // vdso segment can be one page or two pages.
-      rc2 = mtcp_sys_mremap(vdsoStart, 1*PAGESIZE, 1*PAGESIZE,
-		            MREMAP_FIXED | MREMAP_MAYMOVE, vdsoStartTmp);
-    }
-    void * rc1 = 0x0; // @Illio: this should go away in the final code
-    if (rc1 == MAP_FAILED || rc2 == MAP_FAILED) {
-      MTCP_PRINTF("mtcp_restart failed: "
-		  "gdb --mpi \"DMTCP_ROOT/bin/mtcp_restart\" to debug.\n");
-    }
-#endif
 
     // Now that we moved vdso/vvar, we need to update the vdso address
     //   in the auxv vector.  This will be needed when the lower half
@@ -830,13 +780,7 @@ main(int argc, char *argv[], char **environ)
 #endif
     typedef int (*getRankFptr_t)(void);
     int rank = -1;
-    /* FIXME: combine GNI load-unload for both centos and Cori
-    * 
-    * @Illio: Currently, the Gni driver is required only for cori. But, we want
-    *   to generalize this code. So, if on some platform, we need to do extra
-    *   stuff for their network driver or any other library. One can simply add
-    *   here.
-    * */
+    /* FIXME: combine GNI load-unload for both centos and Cori */
 #ifndef CENTOS
     beforeLoadingGniDriverBlockAddressRanges(start1, end1, start2, end2);
 #endif
@@ -1492,9 +1436,6 @@ unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo, LowerHalfInfo_t *lh_info
       DPRINTF("Skipping lower half memory section: %p-%p\n",
               area.addr, area.endAddr);
     } else if (area.addr == vdsoStartTmpCopy) {
-      // FIXME @Illio: we should replace this with the vDSO and vvar address.
-      // Or if we want to generalize then we can call a function that tells if
-      // the region should not be unmapped.
       DPRINTF("Skipping temporary vDSO section: %p-%p\n",
               area.addr, area.endAddr);
     } else if (area.addr == vvarStartTmpCopy) {
