@@ -1,0 +1,23 @@
+diff --git a/configure-mana b/configure-mana
+index b01f2ec..f3767b8 100755
+--- a/configure-mana
++++ b/configure-mana
+@@ -14,13 +14,13 @@ MPI_ETHERNET_INTERFACE=\
+ ./configure --enable-debug \
+              CFLAGS=-fno-stack-protector \
+              CXXFLAGS=-fno-stack-protector \
+-             MPI_BIN=$PWD/../mpich-3.3.2-build/bin \
+-             MPI_INCLUDE=$PWD/../mpich-3.3.2-build/include \
+-             MPI_LIB=$PWD/../mpich-3.3.2-build/lib \
++             MPI_BIN=/usr/local/bin \
++             MPI_INCLUDE=/usr/local/include \
++             MPI_LIB=/usr/local/lib \
+              MPICC='${MPI_BIN}/mpicc' \
+-             MPICXX='${MPI_BIN}/mpicxx' \
++             MPICXX='${MPI_BIN}/mpic++' \
+              MPIRUN='${MPI_BIN}/mpirun -iface '${MPI_ETHERNET_INTERFACE} \
+-             MPI_LD_FLAG=-lmpi \
++             MPI_LD_FLAG=-lmpich \
+              MPI_CFLAGS= \
+              MPI_CXXFLAGS= \
+              MPI_LDFLAGS= \
