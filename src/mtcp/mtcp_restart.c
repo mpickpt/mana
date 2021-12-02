@@ -508,8 +508,11 @@ mysetauxval(char **evp, unsigned long int type, unsigned long int val)
 // unmap_memory_areas_and_restore_vdso uses these variables subsequently.
 uint64_t vvarStartTmp = -1;
 uint64_t vdsoStartTmp = -1;
+
+// This function searches for a free memory region to temporarily remap the vdso
+// and vvar regions to, as these regions will be unmapped later on.
 static void
-setupTempRegions() {
+remap_vdso_and_vvar_regions() {
   Area area;
   uint64_t prev_addr = 0x10000;
   int mapsfd = mtcp_sys_open2("/proc/self/maps", O_RDONLY);
@@ -518,13 +521,14 @@ setupTempRegions() {
     mtcp_abort();
   }
 
+  // In May 2020, on Cori and elsewhere, vvar is 3 pages and vdso is 2 pages.
   while (mtcp_readmapsline(mapsfd, &area)) {
     if (prev_addr + 5 * PAGESIZE <= area.addr) {
       vvarStartTmp = prev_addr;
       vdsoStartTmp = prev_addr + 3 * PAGESIZE;
       break;
     }
-    prev_addr = ROUNDADDRUP((uint64_t) area.endAddr, 0x1000);
+    prev_addr = ROUNDADDRUP((uint64_t) area.endAddr, PAGESIZE);
   }
   mtcp_sys_close(mapsfd);
 
@@ -532,6 +536,32 @@ setupTempRegions() {
     MTCP_PRINTF("No free region found to temporarily map vvar/vdso to\n");
     mtcp_abort();
   }
+
+  // We have to iterate through the memory map separately to ensure that
+  // temporary regions have been found before we remap.
+  mapsfd = mtcp_sys_open2("/proc/self/maps", O_RDONLY);
+  if (mapsfd < 0) {
+    MTCP_PRINTF("error opening /proc/self/maps; errno: %d\n", mtcp_sys_errno);
+    mtcp_abort();
+  }
+
+  while (mtcp_readmapsline(mapsfd, &area)) {
+    void *rc = 0x0;
+    if (mtcp_strcmp(area.name, "[vvar]") == 0) {
+      rc = mtcp_sys_mremap(area.addr, area.size, area.size,
+                           MREMAP_FIXED | MREMAP_MAYMOVE, vvarStartTmp);
+    }
+    if (mtcp_strcmp(area.name, "[vdso]") == 0) {
+      rc = mtcp_sys_mremap(area.addr, area.size, area.size,
+                           MREMAP_FIXED | MREMAP_MAYMOVE, vdsoStartTmp);
+    }
+    if (rc == MAP_FAILED) {
+      MTCP_PRINTF("mtcp_restart failed: "
+                  "gdb --mpi \"DMTCP_ROOT/bin/mtcp_restart\" to debug.\n");
+    }
+  }
+  mtcp_sys_close(mapsfd);
+
 }
 
 #define shift argv++; argc--;
@@ -662,30 +692,8 @@ main(int argc, char *argv[], char **environ)
     //   before vvar and after vdso, and verify that we get an EFAULT.
     // In May, 2020, on Cori and elsewhere, vvar is 3 pages and vdso is 2 pages.
     char *vdsoStart = (char *)mygetauxval(environ, AT_SYSINFO_EHDR);
-    setupTempRegions();
-    Area area;
-    int mapsfd = mtcp_sys_open2("/proc/self/maps", O_RDONLY);
-    if (mapsfd < 0) {
-      MTCP_PRINTF("error opening /proc/self/maps; errno: %d\n", mtcp_sys_errno);
-      mtcp_abort();
-    }
 
-    while (mtcp_readmapsline(mapsfd, &area)) {
-      void *rc = 0x0;
-      if (mtcp_strcmp(area.name, "[vvar]") == 0) {
-        rc = mtcp_sys_mremap(area.addr, area.size, area.size,
-	                     MREMAP_FIXED | MREMAP_MAYMOVE, vvarStartTmp);
-      }
-      if (mtcp_strcmp(area.name, "[vdso]") == 0) {
-        rc = mtcp_sys_mremap(area.addr, area.size, area.size,
-                             MREMAP_FIXED | MREMAP_MAYMOVE, vdsoStartTmp);
-      }
-      if (rc == MAP_FAILED) {
-        MTCP_PRINTF("mtcp_restart failed: "
-                    "gdb --mpi \"DMTCP_ROOT/bin/mtcp_restart\" to debug.\n");
-      }
-    }
-    mtcp_sys_close(mapsfd);
+    remap_vdso_and_vvar_regions();
 
     // Now that we moved vdso/vvar, we need to update the vdso address
     //   in the auxv vector.  This will be needed when the lower half
