@@ -510,7 +510,8 @@ uint64_t vvarStartTmp = -1;
 uint64_t vdsoStartTmp = -1;
 
 // This function searches for a free memory region to temporarily remap the vdso
-// and vvar regions to, as these regions will be unmapped later on.
+// and vvar regions to, so that mtcp's vdso and vvar do not overlap with the
+// checkpointed process' vdso and vvar.
 static void
 remap_vdso_and_vvar_regions() {
   Area area;
@@ -537,8 +538,8 @@ remap_vdso_and_vvar_regions() {
     mtcp_abort();
   }
 
-  // We have to iterate through the memory map separately to ensure that
-  // temporary regions have been found before we remap.
+  // We have to iterate through the memory map twice, this time to ensure that
+  // free regions have been found for us to remap to.
   mapsfd = mtcp_sys_open2("/proc/self/maps", O_RDONLY);
   if (mapsfd < 0) {
     MTCP_PRINTF("error opening /proc/self/maps; errno: %d\n", mtcp_sys_errno);
