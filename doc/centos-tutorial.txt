@@ -144,7 +144,9 @@ Subsequently, we only need the following command to checkpoint the application.
   $ mana_status --checkpoint
 
 This creates one, or multiple, folder(s) in the current directory depending on
-the number of copies of the process running, ckpt_rank_{RANK OF PROCESS}.
+the number of copies of the process running, ckpt_rank_{RANK OF PROCESS}, each
+containing checkpoint images. It is important to note that while these folders
+can be found, mana_launch cannot be executed.
 
 This is an example of manual checkpointing, and there are other ways of
 checkpointing applications. The second is to use interval checkpointing with
