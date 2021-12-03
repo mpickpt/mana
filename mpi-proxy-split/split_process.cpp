@@ -24,6 +24,7 @@
 # define _GNU_SOURCE
 #endif
 
+#include <linux/version.h>
 #include <asm/prctl.h>
 #include <sys/prctl.h>
 #include <sys/personality.h>
@@ -46,6 +47,7 @@
 #include "lower_half_api.h"
 #include "split_process.h"
 #include "procmapsutils.h"
+#include "config.h" // for HAS_FSGSBASE
 #include "util.h"
 #include "dmtcp.h"
 
@@ -71,19 +73,54 @@ static char* proxyAddrInApp();
 static void compileProxy();
 #endif
 
+/* The support to set and get FS base register in user-space has been merged in
+ * Linux kernel v5.3 (see https://elixir.bootlin.com/linux/v5.3/C/ident/rdfsbase
+ *  or https://www.phoronix.com/scan.php?page=news_item&px=Linux-5.3-FSGSBASE).
+ *
+ * MANA leverages this faster user-space switch on kernel version >= 5.3.
+ */
+static inline unsigned long getFS(void)
+{
+  unsigned long fsbase;
+  // The prefix 'rex.W' is required or 'rdfsbase' will assume 32 bits.
+  asm volatile("rex.W\n rdfsbase %0" : "=r" (fsbase) :: "memory");
+  return fsbase;
+}
+
+static inline void setFS(unsigned long fsbase)
+{
+  // The prefix 'rex.W' is required or 'wrfsbase' will assume 32 bits.
+  asm volatile("rex.W\n wrfsbase %0" :: "r" (fsbase) : "memory");
+}
+
 SwitchContext::SwitchContext(unsigned long lowerHalfFs)
 {
   this->lowerHalfFs = lowerHalfFs;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,9,0) || defined(HAS_FSGSBASE)
+  // This user-space variant is equivalent, but faster.
+  // Optionally, this->upperHalfFs could be cached if MPI_THREAD_MULTIPLE
+  //   was not specified, but this should already be fast.
+  // #if:  Linux kernel 5.9 or higher guarantees that FSGSBASE is supported.
+  // For now, include "defined(HAS_FSGSBASE)" to see if FSGSBASE was backported.
+  this->upperHalfFs = getFS();
+  setFS(this->lowerHalfFs);
+#else
   JWARNING(syscall(SYS_arch_prctl, ARCH_GET_FS, &this->upperHalfFs) == 0)
           (JASSERT_ERRNO);
   JWARNING(syscall(SYS_arch_prctl, ARCH_SET_FS, this->lowerHalfFs) == 0)
           (JASSERT_ERRNO);
+#endif
 }
 
 SwitchContext::~SwitchContext()
 {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,9,0) || defined(HAS_FSGSBASE)
+  // This user-space variant is equivalent, but faster.
+  setFS(this->upperHalfFs);
+#else
   JWARNING(syscall(SYS_arch_prctl, ARCH_SET_FS, this->upperHalfFs) == 0)
           (JASSERT_ERRNO);
+#endif
 }
 
 int
