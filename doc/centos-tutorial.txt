@@ -17,6 +17,16 @@ existing packages on your machine.
   # yum install -y devtoolset-8-gcc devtoolset-8-gcc-c++
   # echo 'source scl_source enable devtoolset-8' > ~/.bashrc
   # source ~/.bashrc
+
+### INSTALLING DYNAMIC AND STATIC MPI LIBRARIES ###
+
+On CentOS, MANA uses mpich-3.3.2, along with some other static libraries for
+MPI function calls. We'll need to install them first, then point MANA to these
+libraries through certain environment variables while doing ./configure. A
+streamlined way of doing so is provided through ./configure-mana, although some
+additional changes are required -- this will be touched upon in a later
+section.
+
   # yum install -y glibc-static.x86_64
   # wget \
       https://www.mpich.org/static/downloads/3.3.2/mpich-3.3.2.tar.gz \
@@ -36,21 +46,40 @@ existing packages on your machine.
   # ./configure --enable-static
   # make
   # cp ./src/liblzma/.libs/liblzma.a /usr/lib64/
-  # cd ~
 
 2. Installing the MANA directory and compiling MANA
 
+In this tutorial, we'll install MANA in the home directory.
+
+  $ cd ~
   $ git clone https://github.com/mpickpt/mana.git
   $ cd mana
   $ git checkout feature/centos
   
-Here, we need to make some changes to the configure-mana file - these changes
+Here, we need to make some changes to the configure-mana file -- these changes
 will eventually be included in a new pull request and merged into this branch.
 For now, it is included as a patch in the root directory.
 
   $ git apply configure-mana.patch
   $ ./configure-mana
   $ make -j mana
+
+This patch applies changes that sets environment variables in ./configure to
+point to the correct directories for necessary libraries and commands. Notably,
+we have:
+
+  MPI_BIN=/usr/local/bin
+  MPI_INCLUDE=/usr/local/include
+  MPI_LIB=/usr/local/lib
+  MPICC='${MPI_BIN}/mpicc'
+  MPICXX='${MPI_BIN}/mpic++'
+  MPIRUN='${MPI_BIN}/mpirun -iface '${MPI_ETHERNET_INTERFACE}
+  MPI_LD_FLAG=-lmpich
+
+Depending on where you have installed certain libraries, these environment
+variables can be changed accordingly, but if you've been following these
+instructions, then specific changes beyond applying the patch will not be
+necessary.
 
 This should build MANA smoothly.
 
@@ -59,18 +88,19 @@ B. LAUNCHING, CHECKPOINTING AND RESTARTING A MPI APPLICATION
 We'll first add the bin directory to PATH. Ensure that these commands are done
 from within the root directory of MANA.
 
-  $ echo 'export PATH=$PATH:{PATH TO MANA}/bin' >> ~/.bashrc
+  $ echo 'export PATH=$PATH:{MANA_ROOT}/bin' >> ~/.bashrc
   $ source ~/.bashrc
 
-By default, this should be /home/{YOUR USERNAME}/mana.
+If you've been following this tutorial precisely, then {MANA_ROOT} should be
+/home/{YOUR USERNAME}/mana.
 
 1. Launching an MPI application
 
 The MANA directory comes with many test MPI applications that can be found in
 contrib/mpi-proxy-plugin/test. Depending on the application, we may require
-more than 1 copy of the process running - for example, ping_pong.mana.exe
-requires 2. To support this, change the argument after -np accordingly. For this
-tutorial, we'll use mpi_hello_world.mana.exe, which only requires 1 copy
+more than one copy of the process running -- for example, ping_pong.mana.exe
+requires two. To support this, change the argument after -np accordingly. For this
+tutorial, we'll use mpi_hello_world.mana.exe, which only requires one copy
 running.
 
   $ mana_coordinator
@@ -85,7 +115,7 @@ If the application is launched properly, you should see the following printed:
 From here, we can either exit the program (through CTRL-C), or continue on to
 the next set of instructions to checkpoint and restart the application.
 
-2. Checkpointing and restarting a MPI application
+2. Checkpointing a MPI application
 
 Currently, the fix for mana_restart has not been pushed to the feature/centos
 branch yet; it's going through some testing in the final phases, but we'll
@@ -113,10 +143,28 @@ Subsequently, we only need the following command to checkpoint the application.
 
   $ mana_status --checkpoint
 
+This creates one, or multiple, folder(s) in the current directory depending on
+the number of copies of the process running, ckpt_rank_{RANK OF PROCESS}.
+
+This is an example of manual checkpointing, and there are other ways of
+checkpointing applications. The second is to use interval checkpointing with
+the -i flag of mana_launch; more information can be found on the MANA manpage
+(in section C). The third is to modify the MPI application so that one and only
+one MPI process uses the mechanism outlined in
+MANA_ROOT/test/plugin/applic-initiated-ckpt.
+
+3. Restarting a MPI application
+
 To restart the application, we do the following:
 
   $ mana_coordinator
   $ mpirun -np 1 mana_restart
+
+By default, the mana_restart command looks for ckpt_rank_* folders in the
+current directory to restart, and will fail if such folders cannot be found.
+You can use the --restartdir flag of mana_restart to specify which directory
+to look for such folders; more information can be found on the MANA manpage
+(in section C).
 
 Depending on whether there is another instance of mana_coordinator running, we
 may need to either close all other instances or launch a coordinator with a
@@ -139,3 +187,7 @@ From the root MANA directory, do:
 
   $ nroff -man manpages/mana.1
 
+D. CAVEATS
+At the time of this writing (3rd Dec 2021), runtime overhead can be significant
+for MPI applications that make very frequent calls to MPI functions. This is a
+known issue, and future versions will have lower runtime overhead.
