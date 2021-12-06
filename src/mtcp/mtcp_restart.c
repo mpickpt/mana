@@ -506,8 +506,8 @@ mysetauxval(char **evp, unsigned long int type, unsigned long int val)
 #define ROUNDADDRUP(addr, size) ((addr + size - 1) & ~(size - 1))
 // I think we're forced to use global variables, since
 // unmap_memory_areas_and_restore_vdso uses these variables subsequently.
-uint64_t vvarStartTmp = -1;
-uint64_t vdsoStartTmp = -1;
+uint64_t vvarStartTmp = 0;
+uint64_t vdsoStartTmp = 0;
 
 // This function searches for a free memory region to temporarily remap the vdso
 // and vvar regions to, so that mtcp's vdso and vvar do not overlap with the
@@ -515,53 +515,76 @@ uint64_t vdsoStartTmp = -1;
 static void
 remap_vdso_and_vvar_regions() {
   Area area;
+  int rc = 0;
+  uint64_t vvarStart = 0;
+  uint64_t vdsoStart = 0;
+  uint64_t vvarSize = 0;
+  uint64_t vdsoSize = 0;
   uint64_t prev_addr = 0x10000;
+
   int mapsfd = mtcp_sys_open2("/proc/self/maps", O_RDONLY);
   if (mapsfd < 0) {
     MTCP_PRINTF("error opening /proc/self/maps; errno: %d\n", mtcp_sys_errno);
     mtcp_abort();
   }
 
-  // In May 2020, on Cori and elsewhere, vvar is 3 pages and vdso is 2 pages.
   while (mtcp_readmapsline(mapsfd, &area)) {
-    if (prev_addr + 5 * PAGESIZE <= area.addr) {
-      vvarStartTmp = prev_addr;
-      vdsoStartTmp = prev_addr + 3 * PAGESIZE;
+    if (mtcp_strcmp(area.name, "[vvar]") == 0) {
+      vvarStart = area.addr;
+      vvarSize = area.size;
+    }
+
+    if (mtcp_strcmp(area.name, "[vdso]") == 0) {
+      vdsoStart = area.addr;
+      vdsoSize = area.size;
+    }
+
+    if (vvarStartTmp == 0) {
+      // In May 2020, on Cori and elsewhere, vvar is 3 pages and vdso is 2
+      // pages.
+      if (prev_addr + 5 * PAGESIZE <= area.addr) {
+        vvarStartTmp = prev_addr;
+        vdsoStartTmp = prev_addr + 3 * PAGESIZE;
+      } else {
+        prev_addr = ROUNDADDRUP((uint64_t) area.endAddr, PAGESIZE);
+      }
+    }
+
+    if (vvarStart > 0 && vdsoStart > 0 && vvarStartTmp > 0 && vdsoStartTmp > 0)
+    {
       break;
     }
-    prev_addr = ROUNDADDRUP((uint64_t) area.endAddr, PAGESIZE);
   }
+
   mtcp_sys_close(mapsfd);
 
-  if (vvarStartTmp < 0 || vdsoStartTmp < 0) {
+  if ((vvarStart > 0 && vvarStartTmp == 0) ||
+    (vdsoStartTmp > 0 && vdsoStartTmp == 0)) {
     MTCP_PRINTF("No free region found to temporarily map vvar/vdso to\n");
     mtcp_abort();
   }
 
-  // We have to iterate through the memory map twice, this time to ensure that
-  // free regions have been found for us to remap to.
-  mapsfd = mtcp_sys_open2("/proc/self/maps", O_RDONLY);
-  if (mapsfd < 0) {
-    MTCP_PRINTF("error opening /proc/self/maps; errno: %d\n", mtcp_sys_errno);
+  if (vvarStart > 0) {
+    rc = mtcp_sys_mremap(vvarStart, vvarSize, vvarSize,
+                         MREMAP_FIXED | MREMAP_MAYMOVE, vvarStartTmp);
+  }
+
+  if (rc == MAP_FAILED) {
+    MTCP_PRINTF("mtcp_restart failed: "
+                "gdb --mpi \"DMTCP_ROOT/bin/mtcp_restart\" to debug.\n");
     mtcp_abort();
   }
 
-  while (mtcp_readmapsline(mapsfd, &area)) {
-    void *rc = 0x0;
-    if (mtcp_strcmp(area.name, "[vvar]") == 0) {
-      rc = mtcp_sys_mremap(area.addr, area.size, area.size,
-                           MREMAP_FIXED | MREMAP_MAYMOVE, vvarStartTmp);
-    }
-    if (mtcp_strcmp(area.name, "[vdso]") == 0) {
-      rc = mtcp_sys_mremap(area.addr, area.size, area.size,
-                           MREMAP_FIXED | MREMAP_MAYMOVE, vdsoStartTmp);
-    }
-    if (rc == MAP_FAILED) {
-      MTCP_PRINTF("mtcp_restart failed: "
-                  "gdb --mpi \"DMTCP_ROOT/bin/mtcp_restart\" to debug.\n");
-    }
+  if (vdsoStart > 0) {
+    rc = mtcp_sys_mremap(vdsoStart, vdsoSize, vdsoSize,
+                         MREMAP_FIXED | MREMAP_MAYMOVE, vdsoStartTmp);
   }
-  mtcp_sys_close(mapsfd);
+
+  if (rc == MAP_FAILED) {
+    MTCP_PRINTF("mtcp_restart failed: "
+                "gdb --mpi \"DMTCP_ROOT/bin/mtcp_restart\" to debug.\n");
+    mtcp_abort();
+  }
 
 }
 
