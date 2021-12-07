@@ -771,33 +771,13 @@ main(int argc, char *argv[], char **environ)
       //         mtcp_restart is statically linked, and doesn't need it.
       Area heap_area;
       MTCP_ASSERT(getMappedArea(&heap_area, "[heap]") == 1);
-      // FIXME:  choose higher of this
-      //           and lh_info.memRange.end; // 0x2aab00000000
       start1 = max(heap_area.endAddr, lh_info.memRange.end);
-      // FIXME:  choose lower of this and highMemStart
-      //        and make sure it doesn't intersect with lh_info.memRange
       Area stack_area;
       MTCP_ASSERT(getMappedArea(&stack_area, "[stack]") == 1);
       end1 = min(stack_area.endAddr - 4 * GB, highMemStart - 4 * GB);
-      // end1 = highMemStart - 4 * GB;
       start2 = 0;
       end2 = start2;
     }
-# if 0
-    // this is only here for Cori debugging - it will be deleted before this PR
-    // is merged in.
-    // ***** These constants are hardwired for Cori in May, 2020 *****
-    // *****   DELETE THIS WHEN NO LONGER NEEDED FOR DEBUGGING   *****
-    // The dynamic values of start1, end1 above are preferred to this.
-    void *start1 = (const void*)0x2aaaaaaaf000; // End of vdso
-    //  const void *end1 = (const void*)0x2aaaaaaf8000;
-    //  const size_t len1 = end1 - start1;
-    //  const void *start2 = (const void*)0x2aaaaab1b000; // Start of upper half
-    void *end1 = lh_info.memRange.start; //Start of lower half memory
-    size_t len1 = end1 - start1;
-    char *start2 = 0;
-    char *end2 = start2;
-#endif
     typedef int (*getRankFptr_t)(void);
     int rank = -1;
     reserveUpperHalfMemoryRegionsForCkptImgs(start1, end1, start2, end2);
