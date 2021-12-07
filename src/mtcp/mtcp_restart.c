@@ -65,13 +65,6 @@
 #include "mtcp_split_process.h"
 
 #define HUGEPAGES
-#define GNI
-
-/*TODO: This macro is used for CentOS specific changes for now.
- * Later, we want to merge the code that works both for CentOS and Cori. 
- */
-// if we define both GNI and CENTOS, assume we are running on CentOS
-#define CENTOS
 
 /* The use of NO_OPTIMIZE is deprecated and will be removed, since we
  * compile mtcp_restart.c with the -O0 flag already.
@@ -218,8 +211,10 @@ regionContains(const void *haystackStart,
   return needleStart >= haystackStart && needleEnd <= haystackEnd;
 }
 
+// We reserve these memory regions even if some OS's do not have drivers (such
+// as CentOS). On Cori, these regions are used for GNI drivers.
 static void
-beforeLoadingGniDriverBlockAddressRanges(char *start1, char *end1,
+reserveUpperHalfMemoryRegionsForCkptImgs(char *start1, char *end1,
 	                                 char *start2, char *end2)
 {
   // FIXME: This needs to be made dynamic.
@@ -239,8 +234,8 @@ beforeLoadingGniDriverBlockAddressRanges(char *start1, char *end1,
 }
 
 static void
-afterLoadingGniDriverUnblockAddressRanges(char *start1, char *end1,
-	                                  char *start2, char *end2)
+unreserveUpperHalfMemoryRegionsForCkptImgs(char *start1, char *end1,
+                                           char *start2, char *end2)
 {
   // FIXME: This needs to be made dynamic.
   const size_t len1 = end1 - start1;
@@ -532,9 +527,7 @@ remap_vdso_and_vvar_regions() {
     if (mtcp_strcmp(area.name, "[vvar]") == 0) {
       vvarStart = area.addr;
       vvarSize = area.size;
-    }
-
-    if (mtcp_strcmp(area.name, "[vdso]") == 0) {
+    } else if (mtcp_strcmp(area.name, "[vdso]") == 0) {
       vdsoStart = area.addr;
       vdsoSize = area.size;
     }
@@ -558,32 +551,32 @@ remap_vdso_and_vvar_regions() {
 
   mtcp_sys_close(mapsfd);
 
-  if ((vvarStart > 0 && vvarStartTmp == 0) ||
-    (vdsoStartTmp > 0 && vdsoStartTmp == 0)) {
-    MTCP_PRINTF("No free region found to temporarily map vvar/vdso to\n");
-    mtcp_abort();
-  }
-
   if (vvarStart > 0) {
+    if (vvarStartTmp == 0) {
+      MTCP_PRINTF("No free region found to temporarily map vvar/vdso to\n");
+      mtcp_abort();
+    }
     rc = mtcp_sys_mremap(vvarStart, vvarSize, vvarSize,
                          MREMAP_FIXED | MREMAP_MAYMOVE, vvarStartTmp);
-  }
-
-  if (rc == MAP_FAILED) {
-    MTCP_PRINTF("mtcp_restart failed: "
-                "gdb --mpi \"DMTCP_ROOT/bin/mtcp_restart\" to debug.\n");
-    mtcp_abort();
+    if (rc == MAP_FAILED) {
+      MTCP_PRINTF("mtcp_restart failed: "
+                  "gdb --mpi \"DMTCP_ROOT/bin/mtcp_restart\" to debug.\n");
+      mtcp_abort();
+    }
   }
 
   if (vdsoStart > 0) {
+    if (vvarStartTmp == 0) {
+      MTCP_PRINTF("No free region found to temporarily map vvar/vdso to\n");
+      mtcp_abort();
+    }
     rc = mtcp_sys_mremap(vdsoStart, vdsoSize, vdsoSize,
                          MREMAP_FIXED | MREMAP_MAYMOVE, vdsoStartTmp);
-  }
-
-  if (rc == MAP_FAILED) {
-    MTCP_PRINTF("mtcp_restart failed: "
-                "gdb --mpi \"DMTCP_ROOT/bin/mtcp_restart\" to debug.\n");
-    mtcp_abort();
+    if (rc == MAP_FAILED) {
+      MTCP_PRINTF("mtcp_restart failed: "
+                  "gdb --mpi \"DMTCP_ROOT/bin/mtcp_restart\" to debug.\n");
+      mtcp_abort();
+    }
   }
 
 }
@@ -747,7 +740,6 @@ main(int argc, char *argv[], char **environ)
     total_reserved_fds = reserve_fds_upper_half(reserved_fds);
 
     // Refer to "blocked memory" in MANA Plugin Documentation for the addresses
-#ifdef GNI
 # define GB (uint64_t)(1024 * 1024 * 1024)
     // FIXME:  Rewrite this logic more carefully.
     char *start1, *start2, *end1, *end2;
@@ -763,7 +755,6 @@ main(int argc, char *argv[], char **environ)
       // start2 == end2:  So, this will not be used.
       start2 = 0;
       end2 = start2;
-# ifdef MANA_USE_LH_FIXED_ADDRESS
     } else {
       // On standard Ubuntu/CentOS libs are mmap'ed downward in memory.
       // Allow an extra 1 GB for future upper-half libs and mmaps to be loaded.
@@ -782,22 +773,19 @@ main(int argc, char *argv[], char **environ)
       MTCP_ASSERT(getMappedArea(&heap_area, "[heap]") == 1);
       // FIXME:  choose higher of this
       //           and lh_info.memRange.end; // 0x2aab00000000
-      start1 = heap_area.endAddr;
+      start1 = max(heap_area.endAddr, lh_info.memRange.end);
       // FIXME:  choose lower of this and highMemStart
       //        and make sure it doesn't intersect with lh_info.memRange
       Area stack_area;
       MTCP_ASSERT(getMappedArea(&stack_area, "[stack]") == 1);
-      end1 = stack_area.endAddr - 4 * GB;
+      end1 = min(stack_area.endAddr - 4 * GB, highMemStart - 4 * GB);
       // end1 = highMemStart - 4 * GB;
       start2 = 0;
       end2 = start2;
-# else
-    } else {
-      MTCP_PRINTF("Upper half high end of libs memory too close to stack.\n");
-      mtcp_abort();
-# endif
     }
-#else
+# if 0
+    // this is only here for Cori debugging - it will be deleted before this PR
+    // is merged in.
     // ***** These constants are hardwired for Cori in May, 2020 *****
     // *****   DELETE THIS WHEN NO LONGER NEEDED FOR DEBUGGING   *****
     // The dynamic values of start1, end1 above are preferred to this.
@@ -812,18 +800,13 @@ main(int argc, char *argv[], char **environ)
 #endif
     typedef int (*getRankFptr_t)(void);
     int rank = -1;
-    /* FIXME: combine GNI load-unload for both centos and Cori */
-#ifndef CENTOS
-    beforeLoadingGniDriverBlockAddressRanges(start1, end1, start2, end2);
-#endif
+    reserveUpperHalfMemoryRegionsForCkptImgs(start1, end1, start2, end2);
     JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+    
     // MPI_Init is called here. GNI memory areas will be loaded by MPI_Init.
     rank = ((getRankFptr_t)lh_info.getRankFptr)();
     RETURN_TO_UPPER_HALF();
-
-#ifndef CENTOS
-    afterLoadingGniDriverUnblockAddressRanges(start1, end1, start2, end2);
-#endif
+    unreserveUpperHalfMemoryRegionsForCkptImgs(start1, end1, start2, end2);
     unreserve_fds_upper_half(reserved_fds,total_reserved_fds);
 
     if(getCkptImageByDir(ckptImageNew, 512, rank) != -1) {
