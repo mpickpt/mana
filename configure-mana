@@ -9,18 +9,21 @@
 MPI_ETHERNET_INTERFACE=\
 `ip addr |grep -B1 link/ether | head -1 |sed -e 's%[^ ]*: \([^ ]*\): .*%\1%'`
 
-# This works on our local test computer (Ubuntu-18.04).
+# Note: modify this path according to your environment.
+MPI_INSTALL_DIR=/usr/local
+
+# This works on our local test computer (CentOS 7).
 # But also read the note right after this command.
 ./configure --enable-debug \
              CFLAGS=-fno-stack-protector \
              CXXFLAGS=-fno-stack-protector \
-             MPI_BIN=$PWD/../mpich-3.3.2-build/bin \
-             MPI_INCLUDE=$PWD/../mpich-3.3.2-build/include \
-             MPI_LIB=$PWD/../mpich-3.3.2-build/lib \
+             MPI_BIN=$MPI_INSTALL_DIR/bin \
+             MPI_INCLUDE=$MPI_INSTALL_DIR/include \
+             MPI_LIB=$MPI_INSTALL_DIR/lib \
              MPICC='${MPI_BIN}/mpicc' \
-             MPICXX='${MPI_BIN}/mpicxx' \
+             MPICXX='${MPI_BIN}/mpic++' \
              MPIRUN='${MPI_BIN}/mpirun -iface '${MPI_ETHERNET_INTERFACE} \
-             MPI_LD_FLAG=-lmpi \
+             MPI_LD_FLAG=-lmpich \
              MPI_CFLAGS= \
              MPI_CXXFLAGS= \
              MPI_LDFLAGS= \
