@@ -52,7 +52,7 @@ USER_DEFINED_WRAPPER(int, Type_free, (MPI_Datatype *) type)
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Type_free)(&realType);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && LOGGING()) {
+  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
     // NOTE: We cannot remove the old type, since we'll need
     // to replay this call to reconstruct any new type that might
     // have been created using this type.
@@ -75,7 +75,7 @@ USER_DEFINED_WRAPPER(int, Type_commit, (MPI_Datatype *) type)
   if (retval != MPI_SUCCESS) {
     realType = REMOVE_OLD_TYPE(*type);
   } else {
-    if (LOGGING()) {
+    if (MPI_LOGGING()) {
       LOG_CALL(restoreTypes, Type_commit, *type);
     }
   }
@@ -92,7 +92,7 @@ USER_DEFINED_WRAPPER(int, Type_contiguous, (int) count, (MPI_Datatype) oldtype,
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Type_contiguous)(count, realType, newtype);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && LOGGING()) {
+  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
     MPI_Datatype virtType = ADD_NEW_TYPE(*newtype);
     *newtype = virtType;
     LOG_CALL(restoreTypes, Type_contiguous, count, oldtype, virtType);
@@ -112,7 +112,7 @@ USER_DEFINED_WRAPPER(int, Type_vector, (int) count, (int) blocklength,
   retval = NEXT_FUNC(Type_vector)(count, blocklength,
                                   stride, realType, newtype);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && LOGGING()) {
+  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
     MPI_Datatype virtType = ADD_NEW_TYPE(*newtype);
     *newtype = virtType;
     LOG_CALL(restoreTypes, Type_vector, count, blocklength,
@@ -145,7 +145,7 @@ USER_DEFINED_WRAPPER(int, Type_create_struct, (int) count,
                                    array_of_displacements,
                                    realTypes, newtype);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && LOGGING()) {
+  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
     MPI_Datatype virtType = ADD_NEW_TYPE(*newtype);
     *newtype = virtType;
     FncArg bs = CREATE_LOG_BUF(array_of_blocklengths, count * sizeof(int));
@@ -170,7 +170,7 @@ USER_DEFINED_WRAPPER(int, Type_indexed, (int) count,
                                    array_of_displacements,
                                    realType, newtype);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && LOGGING()) {
+  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
     MPI_Datatype virtType = ADD_NEW_TYPE(*newtype);
     *newtype = virtType;
     FncArg bs = CREATE_LOG_BUF(array_of_blocklengths, count * sizeof(int));

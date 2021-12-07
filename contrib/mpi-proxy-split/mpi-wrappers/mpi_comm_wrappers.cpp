@@ -70,7 +70,7 @@ USER_DEFINED_WRAPPER(int, Comm_create, (MPI_Comm) comm, (MPI_Group) group,
     JUMP_TO_LOWER_HALF(lh_info.fsaddr);
     retval = NEXT_FUNC(Comm_create)(realComm, realGroup, newcomm);
     RETURN_TO_UPPER_HALF();
-    if (retval == MPI_SUCCESS && LOGGING()) {
+    if (retval == MPI_SUCCESS && MPI_LOGGING()) {
       MPI_Comm virtComm = ADD_NEW_COMM(*newcomm);
       VirtualGlobalCommId::instance().createGlobalId(virtComm);
       *newcomm = virtComm;
@@ -124,7 +124,7 @@ USER_DEFINED_WRAPPER(int, Comm_free, (MPI_Comm *) comm)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
   int retval = MPI_Comm_free_internal(comm);
-  if (retval == MPI_SUCCESS && LOGGING()) {
+  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
     // NOTE: We cannot remove the old comm from the map, since
     // we'll need to replay this call to reconstruct any other comms that
     // might have been created using this comm.
@@ -147,7 +147,7 @@ USER_DEFINED_WRAPPER(int, Comm_set_errhandler,
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Comm_set_errhandler)(realComm, errhandler);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && LOGGING()) {
+  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
     LOG_CALL(restoreComms, Comm_set_errhandler, comm, errhandler);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -176,7 +176,7 @@ USER_DEFINED_WRAPPER(int, Comm_split_type, (MPI_Comm) comm, (int) split_type,
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Comm_split_type)(realComm, split_type, key, inf, newcomm);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && LOGGING()) {
+  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
     MPI_Comm virtComm = ADD_NEW_COMM(*newcomm);
     VirtualGlobalCommId::instance().createGlobalId(virtComm);
     *newcomm = virtComm;
@@ -211,7 +211,7 @@ USER_DEFINED_WRAPPER(int, Attr_delete, (MPI_Comm) comm, (int) keyval)
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Attr_delete)(realComm, realCommKeyval);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && LOGGING()) {
+  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
     LOG_CALL(restoreComms, Attr_delete, comm, keyval);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -228,7 +228,7 @@ USER_DEFINED_WRAPPER(int, Attr_put, (MPI_Comm) comm,
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Attr_put)(realComm, realCommKeyval, attribute_val);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && LOGGING()) {
+  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
     LOG_CALL(restoreComms, Attr_put, comm, keyval, attribute_val);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -247,7 +247,7 @@ USER_DEFINED_WRAPPER(int, Comm_create_keyval,
                                          comm_delete_attr_fn,
                                          comm_keyval, extra_state);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && LOGGING()) {
+  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
     int virtCommKeyval = ADD_NEW_COMM_KEYVAL(*comm_keyval);
     *comm_keyval = virtCommKeyval;
     LOG_CALL(restoreComms, Comm_create_keyval,
@@ -266,7 +266,7 @@ USER_DEFINED_WRAPPER(int, Comm_free_keyval, (int *) comm_keyval)
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Comm_free_keyval)(&realCommKeyval);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && LOGGING()) {
+  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
     // NOTE: We cannot remove the old comm_keyval from the map, since
     // we'll need to replay this call to reconstruct any other comms that
     // might have been created using this comm_keyval.
@@ -296,7 +296,7 @@ USER_DEFINED_WRAPPER(int, Comm_create_group, (MPI_Comm) comm,
 {
   std::function<int()> realBarrierCb = [=]() {
     int retval = MPI_Comm_create_group_internal(comm, group, tag, newcomm);
-    if (retval == MPI_SUCCESS && LOGGING()) {
+    if (retval == MPI_SUCCESS && MPI_LOGGING()) {
       MPI_Comm virtComm = ADD_NEW_COMM(*newcomm);
       VirtualGlobalCommId::instance().createGlobalId(virtComm);
       *newcomm = virtComm;

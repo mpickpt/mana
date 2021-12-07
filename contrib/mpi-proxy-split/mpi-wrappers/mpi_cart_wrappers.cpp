@@ -58,7 +58,7 @@ USER_DEFINED_WRAPPER(int, Cart_create, (MPI_Comm) old_comm, (int) ndims,
   retval = NEXT_FUNC(Cart_create)(realComm, ndims, dims,
                                   periods, reorder, comm_cart);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && LOGGING()) {
+  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
     MPI_Comm virtComm = ADD_NEW_COMM(*comm_cart);
     VirtualGlobalCommId::instance().createGlobalId(virtComm);
     *comm_cart = virtComm;
@@ -95,7 +95,7 @@ USER_DEFINED_WRAPPER(int, Cart_map, (MPI_Comm) comm, (int) ndims,
   // FIXME: Need to virtualize this newrank??
   retval = NEXT_FUNC(Cart_map)(realComm, ndims, dims, periods, newrank);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && LOGGING()) {
+  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
     FncArg ds = CREATE_LOG_BUF(dims, ndims * sizeof(int));
     FncArg ps = CREATE_LOG_BUF(periods, ndims * sizeof(int));
     LOG_CALL(restoreCarts, Cart_map, comm, ndims, ds, ps, newrank);
@@ -127,7 +127,7 @@ USER_DEFINED_WRAPPER(int, Cart_shift, (MPI_Comm) comm, (int) direction,
   retval = NEXT_FUNC(Cart_shift)(realComm, direction,
                                  disp, rank_source, rank_dest);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && LOGGING()) {
+  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
     LOG_CALL(restoreCarts, Cart_shift, comm, direction,
              disp, rank_source, rank_dest);
   }
@@ -145,7 +145,7 @@ USER_DEFINED_WRAPPER(int, Cart_sub, (MPI_Comm) comm,
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Cart_sub)(realComm, remain_dims, new_comm);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && LOGGING()) {
+  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
     int ndims = 0;
     MPI_Cartdim_get(comm, &ndims);
     MPI_Comm virtComm = ADD_NEW_COMM(*new_comm);

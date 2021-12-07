@@ -213,7 +213,7 @@ class VirtualIdTable
 	// to access _virTableMpiGroup in GDB.
 	// We need a cleaner way to access it.
 	string ss = out.str();
-	printf("Virtual To Real Mappings:\n_idMapTable.size(): %d\n%s\n",
+	printf("Virtual To Real Mappings:\n_idMapTable.size(): %zu\n%s\n",
 	       _idMapTable.size(), ss.c_str());
       }
     }

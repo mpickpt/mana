@@ -103,7 +103,7 @@ USER_DEFINED_WRAPPER(int, Ibcast,
   retval = NEXT_FUNC(Ibcast)(buffer, count, realType,
       root, realComm, request);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && LOGGING()) {
+  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
     MPI_Request virtRequest = ADD_NEW_REQUEST(*request);
     *request = virtRequest;
     LOG_CALL(restoreRequests, Ibcast, buffer, count, datatype,
@@ -159,7 +159,7 @@ USER_DEFINED_WRAPPER(int, Ibarrier, (MPI_Comm) comm, (MPI_Request *) request)
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Ibarrier)(realComm, request);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && LOGGING()) {
+  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
     MPI_Request virtRequest = ADD_NEW_REQUEST(*request);
     *request = virtRequest;
     LOG_CALL(restoreRequests, Ibarrier, comm, *request);
@@ -233,7 +233,7 @@ USER_DEFINED_WRAPPER(int, Ireduce,
   retval = NEXT_FUNC(Ireduce)(sendbuf, recvbuf, count,
       realType, realOp, root, realComm, request);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && LOGGING()) {
+  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
     MPI_Request virtRequest = ADD_NEW_REQUEST(*request);
     *request = virtRequest;
     LOG_CALL(restoreRequests, Ireduce, sendbuf, recvbuf,
@@ -481,7 +481,7 @@ USER_DEFINED_WRAPPER(int, Comm_split, (MPI_Comm) comm, (int) color, (int) key,
     JUMP_TO_LOWER_HALF(lh_info.fsaddr);
     retval = NEXT_FUNC(Comm_split)(realComm, color, key, newcomm);
     RETURN_TO_UPPER_HALF();
-    if (retval == MPI_SUCCESS && LOGGING()) {
+    if (retval == MPI_SUCCESS && MPI_LOGGING()) {
       MPI_Comm virtComm = ADD_NEW_COMM(*newcomm);
       VirtualGlobalCommId::instance().createGlobalId(virtComm);
       *newcomm = virtComm;
@@ -503,7 +503,7 @@ USER_DEFINED_WRAPPER(int, Comm_dup, (MPI_Comm) comm, (MPI_Comm *) newcomm)
     JUMP_TO_LOWER_HALF(lh_info.fsaddr);
     retval = NEXT_FUNC(Comm_dup)(realComm, newcomm);
     RETURN_TO_UPPER_HALF();
-    if (retval == MPI_SUCCESS && LOGGING()) {
+    if (retval == MPI_SUCCESS && MPI_LOGGING()) {
       MPI_Comm virtComm = ADD_NEW_COMM(*newcomm);
       VirtualGlobalCommId::instance().createGlobalId(virtComm);
       *newcomm = virtComm;

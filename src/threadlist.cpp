@@ -324,7 +324,7 @@ prepareMtcpHeaderInfoForMPI(MtcpHeader *mtcpHdr)
     while (1) {
       int rc = read(fd, buf, 1);
       if (rc == 1) break;
-      JASSERT(rc == -1 && errno == EAGAIN || rc == -1 && errno == EINTR);
+      JASSERT(rc == -1 && (errno == EAGAIN || errno == EINTR));
     }
   }
   if (*buf != '0') {

@@ -97,7 +97,7 @@ USER_DEFINED_WRAPPER(int, Test, (MPI_Request*) request,
     fflush(stdout);
 #endif
   }
-  if (retval == MPI_SUCCESS && *flag && LOGGING()) {
+  if (retval == MPI_SUCCESS && *flag && MPI_LOGGING()) {
     clearPendingRequestFromLog(*request);
     REMOVE_OLD_REQUEST(*request);
     *request = MPI_REQUEST_NULL;
@@ -206,7 +206,7 @@ USER_DEFINED_WRAPPER(int, Wait, (MPI_Request*) request, (MPI_Status*) status)
       fflush(stdout);
 #endif
     }
-    if (flag && LOGGING()) {
+    if (flag && MPI_LOGGING()) {
       clearPendingRequestFromLog(*request);
       REMOVE_OLD_REQUEST(*request);
       *request = MPI_REQUEST_NULL;
