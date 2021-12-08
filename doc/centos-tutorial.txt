@@ -23,9 +23,7 @@ existing packages on your machine.
 On CentOS, MANA uses mpich-3.3.2, along with some other static libraries for
 MPI function calls. We'll need to install them first, then point MANA to these
 libraries through certain environment variables while doing ./configure. A
-streamlined way of doing so is provided through ./configure-mana, although some
-additional changes are required -- this will be touched upon in a later
-section.
+streamlined way of doing so is provided through ./configure-mana.
 
   # yum install -y glibc-static.x86_64
   # wget \
@@ -54,19 +52,13 @@ In this tutorial, we'll install MANA in the home directory.
   $ cd ~
   $ git clone https://github.com/mpickpt/mana.git
   $ cd mana
-  $ git checkout feature/centos
-  
-Here, we need to make some changes to the configure-mana file -- these changes
-will eventually be included in a new pull request and merged into this branch.
-For now, it is included as a patch in the root directory.
-
-  $ git apply configure-mana.patch
+  $ git checkout feature/centos 
   $ ./configure-mana
   $ make -j mana
 
-This patch applies changes that sets environment variables in ./configure to
-point to the correct directories for necessary libraries and commands. Notably,
-we have:
+Here, we note that the locations of some libraries and commands differ based on 
+what operating system you're using, as well as where these packages are
+installed. In confiugre-mana, we have:
 
   MPI_BIN=/usr/local/bin
   MPI_INCLUDE=/usr/local/include
@@ -76,9 +68,17 @@ we have:
   MPIRUN='${MPI_BIN}/mpirun -iface '${MPI_ETHERNET_INTERFACE}
   MPI_LD_FLAG=-lmpich
 
-Depending on where you have installed certain libraries, these environment
-variables can be changed accordingly, but if you've been following these
-instructions, then specific changes beyond applying the patch will not be
+These are the default locations MANA assumes you have installed these packages:
+
+  /usr/local/bin/mpicc
+  /usr/local/bin/mpic++
+  /usr/local/include/mpi.h
+  /usr/local/lib/libmpi.a
+  /usr/local/lib/libmpi.so
+
+However, depending on where you have installed certain libraries, these
+environment variables can be changed accordingly, but if you've been following
+these instructions, then specific changes beyond applying the patch will not be
 necessary.
 
 This should build MANA smoothly.
