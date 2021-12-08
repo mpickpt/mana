@@ -553,7 +553,7 @@ remap_vdso_and_vvar_regions() {
 
   if (vvarStart > 0) {
     if (vvarStartTmp == 0) {
-      MTCP_PRINTF("No free region found to temporarily map vvar/vdso to\n");
+      MTCP_PRINTF("No free region found to temporarily map vvar to\n");
       mtcp_abort();
     }
     rc = mtcp_sys_mremap(vvarStart, vvarSize, vvarSize,
@@ -567,7 +567,7 @@ remap_vdso_and_vvar_regions() {
 
   if (vdsoStart > 0) {
     if (vdsoStartTmp == 0) {
-      MTCP_PRINTF("No free region found to temporarily map vvar/vdso to\n");
+      MTCP_PRINTF("No free region found to temporarily map vdso to\n");
       mtcp_abort();
     }
     rc = mtcp_sys_mremap(vdsoStart, vdsoSize, vdsoSize,
