@@ -532,20 +532,20 @@ remap_vdso_and_vvar_regions() {
       vdsoSize = area.size;
     }
 
-    if (vvarStartTmp == 0) {
-      // In May 2020, on Cori and elsewhere, vvar is 3 pages and vdso is 2
-      // pages.
-      if (prev_addr + 5 * PAGESIZE <= area.addr) {
-        vvarStartTmp = prev_addr;
-        vdsoStartTmp = prev_addr + 3 * PAGESIZE;
-      } else {
-        prev_addr = ROUNDADDRUP((uint64_t) area.endAddr, PAGESIZE);
-      }
-    }
-
-    if (vvarStart > 0 && vdsoStart > 0 && vvarStartTmp > 0 && vdsoStartTmp > 0)
-    {
+    if (vvarStart > 0 && vdsoStart > 0) {
       break;
+    }
+  }
+
+  mtcp_sys_lseek(mapsfd, 0, SEEK_SET);
+
+  while (mtcp_readmapsline(mapsfd, &area)) {
+    if (prev_addr + vvarSize + vdsoSize <= area.addr) {
+      vvarStartTmp = prev_addr;
+      vdsoStartTmp = prev_addr + vvarSize;
+      break;
+    } else {
+      prev_addr = ROUNDADDRUP((uint64_t) area.endAddr, PAGESIZE);
     }
   }
 
