@@ -65,7 +65,6 @@
 #include "mtcp_split_process.h"
 
 #define HUGEPAGES
-#define GNI
 
 /* The use of NO_OPTIMIZE is deprecated and will be removed, since we
  * compile mtcp_restart.c with the -O0 flag already.
@@ -212,8 +211,10 @@ regionContains(const void *haystackStart,
   return needleStart >= haystackStart && needleEnd <= haystackEnd;
 }
 
+// We reserve these memory regions even if some OS's do not have drivers (such
+// as CentOS). On Cori, these regions are used for GNI drivers.
 static void
-beforeLoadingGniDriverBlockAddressRanges(char *start1, char *end1,
+reserveUpperHalfMemoryRegionsForCkptImgs(char *start1, char *end1,
 	                                 char *start2, char *end2)
 {
   // FIXME: This needs to be made dynamic.
@@ -233,8 +234,8 @@ beforeLoadingGniDriverBlockAddressRanges(char *start1, char *end1,
 }
 
 static void
-afterLoadingGniDriverUnblockAddressRanges(char *start1, char *end1,
-	                                  char *start2, char *end2)
+unreserveUpperHalfMemoryRegionsForCkptImgs(char *start1, char *end1,
+                                           char *start2, char *end2)
 {
   // FIXME: This needs to be made dynamic.
   const size_t len1 = end1 - start1;
@@ -495,13 +496,92 @@ mysetauxval(char **evp, unsigned long int type, unsigned long int val)
   return -1;
 }
 
-#define PAGESIZE 4096 /* We hardwire this, since we can't make libc calls. */
-// We choose this address based on our observation on CORI that it won't overlap
-// with any other memory segments. We might change this address in the future,
-// for now, it doesn't matters.
-#define vvarStartTmp ((0x40000) - 5*PAGESIZE)
-#define vdsoStartTmp ((0x40000) - 2*PAGESIZE)
+/* We hardwire these, since we can't make libc calls. */
+#define PAGESIZE 4096
+#define ROUNDADDRUP(addr, size) ((addr + size - 1) & ~(size - 1))
+// We use global variables here, since both remap_vdso_and_vvar_regions and
+// unmap_memory_areas_and_restore_vdso use these variables. They're used to
+// track the temporary regions the vvar and vdso segments are remapped to, so
+// they are not unmapped later.
+uint64_t vvarStartTmp = 0;
+uint64_t vdsoStartTmp = 0;
 
+// This function searches for a free memory region to temporarily remap the vdso
+// and vvar regions to, so that mtcp's vdso and vvar do not overlap with the
+// checkpointed process' vdso and vvar.
+static void
+remap_vdso_and_vvar_regions() {
+  Area area;
+  int rc = 0;
+  uint64_t vvarStart = 0;
+  uint64_t vdsoStart = 0;
+  uint64_t vvarSize = 0;
+  uint64_t vdsoSize = 0;
+  uint64_t prev_addr = 0x10000;
+
+  int mapsfd = mtcp_sys_open2("/proc/self/maps", O_RDONLY);
+  if (mapsfd < 0) {
+    MTCP_PRINTF("error opening /proc/self/maps; errno: %d\n", mtcp_sys_errno);
+    mtcp_abort();
+  }
+
+  while (mtcp_readmapsline(mapsfd, &area)) {
+    if (mtcp_strcmp(area.name, "[vvar]") == 0) {
+      vvarStart = area.addr;
+      vvarSize = area.size;
+    } else if (mtcp_strcmp(area.name, "[vdso]") == 0) {
+      vdsoStart = area.addr;
+      vdsoSize = area.size;
+    }
+
+    if (vvarStart > 0 && vdsoStart > 0) {
+      break;
+    }
+  }
+
+  mtcp_sys_lseek(mapsfd, 0, SEEK_SET);
+
+  while (mtcp_readmapsline(mapsfd, &area)) {
+    if (prev_addr + vvarSize + vdsoSize <= area.addr) {
+      vvarStartTmp = prev_addr;
+      vdsoStartTmp = prev_addr + vvarSize;
+      break;
+    } else {
+      prev_addr = ROUNDADDRUP((uint64_t) area.endAddr, PAGESIZE);
+    }
+  }
+
+  mtcp_sys_close(mapsfd);
+
+  if (vvarStart > 0) {
+    if (vvarStartTmp == 0) {
+      MTCP_PRINTF("No free region found to temporarily map vvar to\n");
+      mtcp_abort();
+    }
+    rc = mtcp_sys_mremap(vvarStart, vvarSize, vvarSize,
+                         MREMAP_FIXED | MREMAP_MAYMOVE, vvarStartTmp);
+    if (rc == MAP_FAILED) {
+      MTCP_PRINTF("mtcp_restart failed: "
+                  "gdb --mpi \"DMTCP_ROOT/bin/mtcp_restart\" to debug.\n");
+      mtcp_abort();
+    }
+  }
+
+  if (vdsoStart > 0) {
+    if (vdsoStartTmp == 0) {
+      MTCP_PRINTF("No free region found to temporarily map vdso to\n");
+      mtcp_abort();
+    }
+    rc = mtcp_sys_mremap(vdsoStart, vdsoSize, vdsoSize,
+                         MREMAP_FIXED | MREMAP_MAYMOVE, vdsoStartTmp);
+    if (rc == MAP_FAILED) {
+      MTCP_PRINTF("mtcp_restart failed: "
+                  "gdb --mpi \"DMTCP_ROOT/bin/mtcp_restart\" to debug.\n");
+      mtcp_abort();
+    }
+  }
+
+}
 
 #define shift argv++; argc--;
 NO_OPTIMIZE
@@ -631,19 +711,9 @@ main(int argc, char *argv[], char **environ)
     //   before vvar and after vdso, and verify that we get an EFAULT.
     // In May, 2020, on Cori and elsewhere, vvar is 3 pages and vdso is 2 pages.
     char *vdsoStart = (char *)mygetauxval(environ, AT_SYSINFO_EHDR);
-    char *vvarStart = vdsoStart - 3 * PAGESIZE;
-    void *rc1 = mtcp_sys_mremap(vvarStart, 3*PAGESIZE, 3*PAGESIZE,
-		                MREMAP_FIXED | MREMAP_MAYMOVE, vvarStartTmp);
-    void *rc2 = mtcp_sys_mremap(vdsoStart, 2*PAGESIZE, 2*PAGESIZE,
-		                MREMAP_FIXED | MREMAP_MAYMOVE, vdsoStartTmp);
-    if (rc2 == MAP_FAILED) { // vdso segment can be one page or two pages.
-      rc2 = mtcp_sys_mremap(vdsoStart, 1*PAGESIZE, 1*PAGESIZE,
-		            MREMAP_FIXED | MREMAP_MAYMOVE, vdsoStartTmp);
-    }
-    if (rc1 == MAP_FAILED || rc2 == MAP_FAILED) {
-      MTCP_PRINTF("mtcp_restart failed: "
-		  "gdb --mpi \"DMTCP_ROOT/bin/mtcp_restart\" to debug.\n");
-    }
+
+    remap_vdso_and_vvar_regions();
+
     // Now that we moved vdso/vvar, we need to update the vdso address
     //   in the auxv vector.  This will be needed when the lower half
     //   starts up:  initializeLowerHalf() will be called from splitProcess().
@@ -672,7 +742,6 @@ main(int argc, char *argv[], char **environ)
     total_reserved_fds = reserve_fds_upper_half(reserved_fds);
 
     // Refer to "blocked memory" in MANA Plugin Documentation for the addresses
-#ifdef GNI
 # define GB (uint64_t)(1024 * 1024 * 1024)
     // FIXME:  Rewrite this logic more carefully.
     char *start1, *start2, *end1, *end2;
@@ -688,7 +757,6 @@ main(int argc, char *argv[], char **environ)
       // start2 == end2:  So, this will not be used.
       start2 = 0;
       end2 = start2;
-# ifdef MANA_USE_LH_FIXED_ADDRESS
     } else {
       // On standard Ubuntu/CentOS libs are mmap'ed downward in memory.
       // Allow an extra 1 GB for future upper-half libs and mmaps to be loaded.
@@ -705,45 +773,22 @@ main(int argc, char *argv[], char **environ)
       //         mtcp_restart is statically linked, and doesn't need it.
       Area heap_area;
       MTCP_ASSERT(getMappedArea(&heap_area, "[heap]") == 1);
-      // FIXME:  choose higher of this
-      //           and lh_info.memRange.end; // 0x2aab00000000
-      start1 = heap_area.endAddr;
-      // FIXME:  choose lower of this and highMemStart
-      //        and make sure it doesn't intersect with lh_info.memRange
+      start1 = max(heap_area.endAddr, lh_info.memRange.end);
       Area stack_area;
       MTCP_ASSERT(getMappedArea(&stack_area, "[stack]") == 1);
-      end1 = stack_area.endAddr - 4 * GB;
-      // end1 = highMemStart - 4 * GB;
+      end1 = min(stack_area.endAddr - 4 * GB, highMemStart - 4 * GB);
       start2 = 0;
       end2 = start2;
-# else
-    } else {
-      MTCP_PRINTF("Upper half high end of libs memory too close to stack.\n");
-      mtcp_abort();
-# endif
     }
-#else
-    // ***** These constants are hardwired for Cori in May, 2020 *****
-    // *****   DELETE THIS WHEN NO LONGER NEEDED FOR DEBUGGING   *****
-    // The dynamic values of start1, end1 above are preferred to this.
-    void *start1 = (const void*)0x2aaaaaaaf000; // End of vdso
-    //  const void *end1 = (const void*)0x2aaaaaaf8000;
-    //  const size_t len1 = end1 - start1;
-    //  const void *start2 = (const void*)0x2aaaaab1b000; // Start of upper half
-    void *end1 = lh_info.memRange.start; //Start of lower half memory
-    size_t len1 = end1 - start1;
-    char *start2 = 0;
-    char *end2 = start2;
-#endif
     typedef int (*getRankFptr_t)(void);
     int rank = -1;
-    beforeLoadingGniDriverBlockAddressRanges(start1, end1, start2, end2);
+    reserveUpperHalfMemoryRegionsForCkptImgs(start1, end1, start2, end2);
     JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+    
     // MPI_Init is called here. GNI memory areas will be loaded by MPI_Init.
     rank = ((getRankFptr_t)lh_info.getRankFptr)();
     RETURN_TO_UPPER_HALF();
-
-    afterLoadingGniDriverUnblockAddressRanges(start1, end1, start2, end2);
+    unreserveUpperHalfMemoryRegionsForCkptImgs(start1, end1, start2, end2);
     unreserve_fds_upper_half(reserved_fds,total_reserved_fds);
 
     if(getCkptImageByDir(ckptImageNew, 512, rank) != -1) {
@@ -1348,6 +1393,12 @@ unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo, LowerHalfInfo_t *lh_info
     mtcp_abort();
   }
 
+  // We create local copies of these, as they reside on the data section of
+  // mtcp_restart, which is unmapped later on.
+
+  uint64_t vdsoStartTmpCopy = vdsoStartTmp;
+  uint64_t vvarStartTmpCopy = vvarStartTmp;
+
   while (mtcp_readmapsline(mapsfd, &area)) {
     if (area.addr >= rinfo->restore_addr && area.addr < rinfo->restore_end) {
       // Do not unmap this restore image.
@@ -1380,6 +1431,12 @@ unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo, LowerHalfInfo_t *lh_info
     } else if (skip_lh_memory_region_ckpting(&area, lh_info)) {
       // Do not unmap lower half
       DPRINTF("Skipping lower half memory section: %p-%p\n",
+              area.addr, area.endAddr);
+    } else if (area.addr == vdsoStartTmpCopy) {
+      DPRINTF("Skipping temporary vDSO section: %p-%p\n",
+              area.addr, area.endAddr);
+    } else if (area.addr == vvarStartTmpCopy) {
+      DPRINTF("Skipping temporary vvar section: %p-%p\n",
               area.addr, area.endAddr);
     } else if (area.size > 0) {
       DPRINTF("***INFO: munmapping (%p..%p)\n", area.addr, area.endAddr);
