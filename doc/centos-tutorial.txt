@@ -117,14 +117,6 @@ the next set of instructions to checkpoint and restart the application.
 
 2. Checkpointing a MPI application
 
-Currently, the fix for mana_restart has not been pushed to the feature/centos
-branch yet; it's going through some testing in the final phases, but we'll
-simply grab the pull request and patch it in.
-
-  $ wget https://github.com/mpickpt/mana/pull/29.patch
-  $ git apply 29.patch
-  $ make -j mana
-
 Here, we want to either open another terminal, or have the launched MPI
 application be open in the background. The following demonstrates the latter.
 
