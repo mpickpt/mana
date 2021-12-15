@@ -499,8 +499,10 @@ mysetauxval(char **evp, unsigned long int type, unsigned long int val)
 /* We hardwire these, since we can't make libc calls. */
 #define PAGESIZE 4096
 #define ROUNDADDRUP(addr, size) ((addr + size - 1) & ~(size - 1))
-// I think we're forced to use global variables, since
-// unmap_memory_areas_and_restore_vdso uses these variables subsequently.
+// We use global variables here, since both remap_vdso_and_vvar_regions and
+// unmap_memory_areas_and_restore_vdso use these variables. They're used to
+// track the temporary regions the vvar and vdso segments are remapped to, so
+// they are not unmapped later.
 uint64_t vvarStartTmp = 0;
 uint64_t vdsoStartTmp = 0;
 
