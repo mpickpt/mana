@@ -15,7 +15,7 @@ existing packages on your machine.
   # yum install -y mlocate vim wget
   # yum install -y centos-release-scl
   # yum install -y devtoolset-8-gcc devtoolset-8-gcc-c++
-  # echo 'source scl_source enable devtoolset-8' > ~/.bashrc
+  # echo 'source scl_source enable devtoolset-8' >> ~/.bashrc
   # source ~/.bashrc
 
 ### INSTALLING DYNAMIC AND STATIC MPI LIBRARIES ###
