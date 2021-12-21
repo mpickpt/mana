@@ -75,7 +75,7 @@ mana: mana_prereqs
 	$(MAKE) mana_part2
 mana_part2: default \
 	bin/mana_launch bin/mana_restart bin/mana_coordinator bin/mana_status
-	cd contrib/mpi-proxy-split && make install && make -j tests
+	cd contrib/mpi-proxy-split && make mana && make -j tests
 
 ${targetdir}/bin/mana_launch: src/mana_launch.sh
 	cp src/mana_launch.sh ${targetdir}/bin/mana_launch

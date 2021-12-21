@@ -50,7 +50,7 @@ override CXXFLAGS += -fPIC -I${DMTCP_INCLUDE} -I${JALIB_INCLUDE} \
                      -I${DMTCP_ROOT}/src -I${LOWER_HALF_SRCDIR} -std=c++11
 
 # ${WRAPPERS_SRCDIR}/libmpiwrappers.a ia a prerequisite for libmana.so
-# Always do 'make default' or 'make install' -- not 'make libmana.so'
+# Always do 'make default' or 'make mana' -- not 'make libmana.so'
 default: ${MANA_COORD_OBJS}
 	make -C ${WRAPPERS_SRCDIR} libmpiwrappers.a
 	@make libmana.so
@@ -95,17 +95,17 @@ check-unit: libmana.so
 ${DMTCP_ROOT}/lib/dmtcp/libmana.so: libmana.so
 	cp -f $< $@
 ${DMTCP_ROOT}/lib/dmtcp/libmpidummy.so:
-	make -C ${WRAPPERS_SRCDIR} install
+	make -C ${WRAPPERS_SRCDIR} mana 
 ${DMTCP_ROOT}/bin/lh_proxy:
-	make -C ${LOWER_HALF_SRCDIR} install
+	make -C ${LOWER_HALF_SRCDIR} mana
 ${DMTCP_ROOT}/bin/gethostbyname_proxy:
-	make -C ${LOWER_HALF_SRCDIR}/gethostbyname-static install
+	make -C ${LOWER_HALF_SRCDIR}/gethostbyname-static mana
 
 # ${WRAPPERS_SRCDIR}/libmpiwrappers.a ia a prerequisite for libmana.so,
 #   which is a prerequisite for ${DMTCP_ROOT}/lib/dmtcp/libmana.so
-# Always do 'make default' or 'make install' -- not 'make libmana.so'
+# Always do 'make default' or 'make mana' -- not 'make libmana.so'
 # MANA_COORD_OBJS needed for 'make mana' at top level.
-install: ${MANA_COORD_OBJS}
+mana: ${MANA_COORD_OBJS}
 	make -C ${WRAPPERS_SRCDIR} libmpiwrappers.a
 	make ${DMTCP_ROOT}/lib/dmtcp/libmana.so
 	make ${DMTCP_ROOT}/lib/dmtcp/libmpidummy.so
@@ -132,4 +132,4 @@ dist: distclean
 	dir=`basename $$PWD` && ls -l ../$$dir.tgz
 
 .PHONY: default clean dist distclean vi vim touch gdb tidy check \
-        tests check-unit install
+        tests check-unit mana 

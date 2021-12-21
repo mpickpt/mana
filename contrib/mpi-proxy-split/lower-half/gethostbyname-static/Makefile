@@ -24,7 +24,7 @@ dist: clean
 	dir=`basename $$PWD` && cd .. && tar zcvf ./$$dir.tar.gz ./$$dir
 	dir=`basename $$PWD` && ls -l ../$$dir.tar.gz
 
-install:
+mana:
 	make gethostbyname_proxy
 	cp gethostbyname_proxy -f ../../../../bin
 

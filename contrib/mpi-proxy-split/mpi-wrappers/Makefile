@@ -112,7 +112,7 @@ tidy:
 	rm -f *~ .*.swp dmtcp_restart_script*.sh ckpt_*.dmtcp
 	rm -rf ckpt_rank_*
 
-install: libmpidummy.so
+mana: libmpidummy.so
 	cp -f libmpidummy.so ${DMTCP_ROOT}/lib/dmtcp/
 	cd ${DMTCP_ROOT}/lib/dmtcp && \
 		ln -sf libmpidummy.so libmpich_intel.so.3.0.1 && \
@@ -138,4 +138,4 @@ dist: distclean
 	dir=`basename $$PWD` && cd .. && tar czvf $$dir.tgz ./$$dir
 	dir=`basename $$PWD` && ls -l ../$$dir.tgz
 
-.PHONY: default clean dist distclean tidy install
+.PHONY: default clean dist distclean tidy mana

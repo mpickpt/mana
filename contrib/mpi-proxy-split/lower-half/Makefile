@@ -71,7 +71,7 @@ ${PROXY_BIN}: ${PROXY_OBJS} ${LIBPROXY}.a ${STATIC_GETHOSTBYNAME}
 ${LIBPROXY}.a: ${LIBPROXY_OBJS}
 	ar cr $@ $^
 
-install: ${PROXY_BIN} ${STATIC_GETHOSTBYNAME}
+mana: ${PROXY_BIN} ${STATIC_GETHOSTBYNAME}
 	cp -f $^ ${DMTCP_ROOT}/bin/
 
 tidy:
@@ -90,4 +90,4 @@ dist: distclean
 	dir=`basename $$PWD` && cd .. && tar czvf $$dir.tgz ./$$dir
 	dir=`basename $$PWD` && ls -l ../$$dir.tgz
 
-.PHONY: default clean dist distclean install
+.PHONY: default clean dist distclean mana
