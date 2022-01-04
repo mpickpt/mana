@@ -364,8 +364,6 @@ findLHMemRange(MemRange_t *lh_mem_range)
   if (readMapsLine(mapsfd, &area)) {
     // ROUNDADDRUP aligns the address such that HUGEPAGES/2MB can also be used.
     prev_addr_end = ROUNDADDRUP((uint64_t) area.endAddr, 2 * ONEMB);
-    strncpy(prev_path_name, area.name, PATH_MAX - 1);
-    prev_path_name[PATH_MAX - 1] = '\0';
   }
 
   while (readMapsLine(mapsfd, &area)) {
@@ -389,7 +387,6 @@ findLHMemRange(MemRange_t *lh_mem_range)
       break; 
     }
     prev_addr_end = next_addr_end;
-    strncpy(prev_path_name, next_path_name, PATH_MAX - 1);
   }
   close(mapsfd);
 

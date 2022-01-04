@@ -3,6 +3,9 @@ CONTENTS:
  * Debugging internals of MANA
  * Building and testing on ordinary CentOS 7 (not the Cori supercomputer)
 
+See doc/mana-centos7-tutorial.txt for detailed, step-by-step instructions for
+installing MANA on CentOS 7.
+
 ================================================================================
 General notes for building, testing and running on Cori supercomputer:
 

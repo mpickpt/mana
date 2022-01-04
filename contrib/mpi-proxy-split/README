@@ -2,6 +2,8 @@ Much of the information here is obsolete.  It is kept currently
 for reference to an earlier version of MANA.
 Please read 'INSTALL' in this directory for more up-to-date
 instructions on installing and debugging.
+See doc/mana-centos7-tutorial.txt for detailed, step-by-step instructions for
+installing MANA on CentOS 7.
 
 ## Instructions for building:
 
