@@ -10,7 +10,9 @@ MPI_ETHERNET_INTERFACE=\
 `ip addr |grep -B1 link/ether | head -1 |sed -e 's%[^ ]*: \([^ ]*\): .*%\1%'`
 
 # Note: modify this path according to your environment.
-MPI_INSTALL_DIR=/usr/local
+if [[ -z "${MPI__INSTALL_DIR}" ]]; then
+  MPI_INSTALL_DIR=/usr/local
+fi
 
 # This works on our local test computer (CentOS 7).
 # But also read the note right after this command.

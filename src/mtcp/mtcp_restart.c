@@ -234,7 +234,7 @@ reserveUpperHalfMemoryRegionsForCkptImgs(char *start1, char *end1,
 }
 
 static void
-unreserveUpperHalfMemoryRegionsForCkptImgs(char *start1, char *end1,
+releaseUpperHalfMemoryRegionsForCkptImgs(char *start1, char *end1,
                                            char *start2, char *end2)
 {
   // FIXME: This needs to be made dynamic.
@@ -788,7 +788,7 @@ main(int argc, char *argv[], char **environ)
     // MPI_Init is called here. GNI memory areas will be loaded by MPI_Init.
     rank = ((getRankFptr_t)lh_info.getRankFptr)();
     RETURN_TO_UPPER_HALF();
-    unreserveUpperHalfMemoryRegionsForCkptImgs(start1, end1, start2, end2);
+    releaseUpperHalfMemoryRegionsForCkptImgs(start1, end1, start2, end2);
     unreserve_fds_upper_half(reserved_fds,total_reserved_fds);
 
     if(getCkptImageByDir(ckptImageNew, 512, rank) != -1) {
