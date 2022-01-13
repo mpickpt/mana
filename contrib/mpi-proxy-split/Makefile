@@ -112,6 +112,10 @@ mana: ${MANA_COORD_OBJS}
 	make ${DMTCP_ROOT}/bin/lh_proxy
 	make ${DMTCP_ROOT}/bin/gethostbyname_proxy
 
+install:
+	cp ${DMTCP_ROOT}/bin/lh_proxy ${DESTDIR}
+	cp ${DMTCP_ROOT}/bin/gethostbyname_proxy ${DESTDIR}
+
 tidy:
 	rm -f *~ .*.swp dmtcp_restart_script*.sh ckpt_*.dmtcp
 	rm -rf ckpt_rank_*
@@ -132,4 +136,4 @@ dist: distclean
 	dir=`basename $$PWD` && ls -l ../$$dir.tgz
 
 .PHONY: default clean dist distclean vi vim touch gdb tidy check \
-        tests check-unit mana 
+        tests check-unit mana install 
