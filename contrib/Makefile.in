@@ -78,6 +78,7 @@ install: all
 
 uninstall:
 	for p in $(plugins); do (cd $$p && $(MAKE) uninstall); done
+	cd mpi-proxy-split && $(MAKE) uninstall DESTDIR=$(bindir)
 
 uninstall-libs:
 	for p in $(plugins); do (cd $$p && $(MAKE) uninstall-libs); done
