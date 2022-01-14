@@ -28,3 +28,4 @@ mana:
 	make gethostbyname_proxy
 	cp gethostbyname_proxy -f ../../../../bin
 
+.PHONY: gdb clean dist mana
