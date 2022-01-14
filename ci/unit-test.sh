@@ -7,7 +7,7 @@ cd $SCRIPT_DIR/..
 
 ./configure
 make clean
-make -j 8
+make -j 8 mana
 
 cd $SCRIPT_DIR/../contrib/mpi-proxy-split/unit-test
 make
