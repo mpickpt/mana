@@ -5,6 +5,12 @@ ifeq ($(findstring cori,$(PLATFORM)),cori)
   CFLAGS?= -g3 -O0 -std=c99 -fPIC
   CXXFLAGS?= -g3 -O0 -std=c99 -fPIC
   LDFLAGS?= -dynamic
+else ifeq ($(findstring gert,$(PLATFORM)),gert)
+  MPICC = cc
+  MPICXX = CC
+  CFLAGS?= -g3 -O0 -std=c99 -fPIC
+  CXXFLAGS?= -g3 -O0 -std=c99 -fPIC
+  LDFLAGS?= -dynamic
 else
   MPICC = mpicc
   MPICXX = mpic++

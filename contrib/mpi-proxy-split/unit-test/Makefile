@@ -4,6 +4,10 @@ ifeq ($(findstring cori,$(PLATFORM)),cori)
 MPIRUN = srun
 MPICC = cc
 MPICXX = CC
+else ifeq ($(findstring gert,$(PLATFORM)),gert)
+MPIRUN = srun
+MPICC = cc
+MPICXX = CC
 else
 MPIRUN = mpirun
 MPICC = mpicc

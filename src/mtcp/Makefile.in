@@ -5,9 +5,6 @@ MANA_USE_LH_FIXED_ADDRESS = @MANA_USE_LH_FIXED_ADDRESS@
 CC = @CC@
 M32=@M32@
 CFLAGS = @CFLAGS@
-ifeq ($(findstring cori,$(PLATFORM)),cori)
-  CFLAGS += -DGNI
-endif
 # Why do we define C preprocessor flags?  If we're not using them,
 #   then declaring them reduces the readability for a person.
 # - Gene
