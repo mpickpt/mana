@@ -468,7 +468,8 @@ int discover_union_ckpt_images(char *argv[],
   return rank;
 }
 
-// This is to satisfy compiler warnings.
+// This is to satisfy compiler warnings, although we can probably just remove
+// it.
 #if 0
 NO_OPTIMIZE
 static unsigned long int

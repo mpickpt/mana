@@ -4989,6 +4989,10 @@ if test -n "$ac_unrecognized_opts"; then
   esac
 fi
 
+CFLAGS="$CFLAGS -Werror"
+CPPFLAGS="$CPPFLAGS -Werror"
+CXXFLAGS="$CXXFLAGS -Werror"
+
 # Check whether --enable-logging was given.
 if test "${enable_logging+set}" = set; then :
   enableval=$enable_logging; use_logging=$enableval
