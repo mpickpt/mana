@@ -130,7 +130,8 @@ TwoPhaseAlgo::commit_begin(MPI_Comm comm)
   // Set state again incase we returned from beforeTrivialBarrier
   MPI_Request request;
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-  int flag = 0;
+  // Consider removing the #if 0 segment below? 
+  // int flag = 0;
   int tb_rc = -1;
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   tb_rc = NEXT_FUNC(Ibarrier)(realComm, &request);
@@ -198,8 +199,6 @@ TwoPhaseAlgo::replayTrivialBarrier()
   if (_replayTrivialBarrier) {
     MPI_Request request;
     MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(_comm);
-    int flag = 0;
-    int tb_rc = -1;
     JUMP_TO_LOWER_HALF(lh_info.fsaddr);
     tb_rc = NEXT_FUNC(Ibarrier)(realComm, &request);
     RETURN_TO_UPPER_HALF();

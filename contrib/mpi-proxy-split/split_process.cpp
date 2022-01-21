@@ -333,7 +333,8 @@ startProxy()
       // Read from stdout of lh_proxy full lh_info struct, including orig memRange.
       close(pipefd_out[1]); // close write end of pipe
       // FIXME: should be a readall. Check for return error code.
-      if (read(pipefd_out[0], &lh_info, sizeof lh_info) < sizeof lh_info) {
+      if ((unsigned long) read(pipefd_out[0], &lh_info, sizeof lh_info)
+        < sizeof lh_info) {
         JWARNING(false)(JASSERT_ERRNO) .Text("Read fewer bytes than expected");
         break;
       }
@@ -352,7 +353,6 @@ findLHMemRange(MemRange_t *lh_mem_range)
   bool is_set = false;
 
   Area area;
-  char prev_path_name[PATH_MAX];
   char next_path_name[PATH_MAX];
   uint64_t prev_addr_end;
   uint64_t next_addr_start;

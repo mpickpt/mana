@@ -128,7 +128,6 @@ logRequestInfo(MPI_Request request, mpi_req_t req_type)
 request_info_t*
 lookupRequestInfo(MPI_Request request)
 {
-  request_info_t *req_info;
   std::unordered_map<MPI_Request, request_info_t*>::iterator it;
   it = request_log.find(request);
   if (it != request_log.end()) {
