@@ -1,10 +1,12 @@
 # MPI compiler
 PLATFORM=${shell echo $$HOST}
 ifeq ($(findstring cori,$(PLATFORM)),cori)
-MPIRUN = srun
-MPICC = cc
-MPICXX = CC
-else ifeq ($(findstring gert,$(PLATFORM)),gert)
+is_cori = 1
+endif
+ifeq ($(findstring gert,$(PLATFORM)),gert)
+is_gerty = 1
+endif
+ifeq ($(or $(is_cori),$(is_gerty)), 1)
 MPIRUN = srun
 MPICC = cc
 MPICXX = CC

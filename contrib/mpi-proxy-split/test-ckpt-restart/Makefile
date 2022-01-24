@@ -1,11 +1,11 @@
 PLATFORM=${shell echo $$HOST}
 ifeq ($(findstring cori,$(PLATFORM)),cori)
-  MPICC = cc
-  MPICXX = CC
-  CFLAGS?= -g3 -O0 -std=c99 -fPIC
-  CXXFLAGS?= -g3 -O0 -std=c99 -fPIC
-  LDFLAGS?= -dynamic
-else ifeq ($(findstring gert,$(PLATFORM)),gert)
+is_cori = 1
+endif
+ifeq ($(findstring gert,$(PLATFORM)),gert)
+is_gerty = 1
+endif
+ifeq ($(or $(is_cori),$(is_gerty)), 1)
   MPICC = cc
   MPICXX = CC
   CFLAGS?= -g3 -O0 -std=c99 -fPIC
