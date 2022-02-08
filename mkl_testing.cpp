@@ -34,7 +34,7 @@ void print_all(std::vector<std::complex<double>>& in) {
 
 int main(int argc, char *argv) {
 
-  std::vector<std::complex<double>> in(10);
+  std::vector<std::complex<double>> in(100);
 
   // Seeded random generator yields a consistent vector of complex doubles
   // across runs.
@@ -44,15 +44,16 @@ int main(int argc, char *argv) {
           (double) std::rand() / RAND_MAX);
   }
 
-  printf("Iteration 0:\n");
+  printf("Initial vector:\n");
   print_all(in);
 
   for (int i = 0; i < 30; ++i) {
     // We do 30 runs, with a 1s sleep between each of them.
 
     // One iteration of FFT.
-    printf("Iteration %d:\n", i + 1);
+    printf("Starting iteration %d:\n", i + 1);
     fft_complex(in);
+    printf("Finished iteration %d:\n", i + 1);
     print_all(in);
 
     sleep(1);
