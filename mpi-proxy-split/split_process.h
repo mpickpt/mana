@@ -61,6 +61,12 @@ class SwitchContext
 #define RETURN_TO_UPPER_HALF() \
   } while (0)
 
+#define ONEMB (uint64_t)(1024 * 1024)
+#define ONEGB (uint64_t)(1024 * 1024 * 1024)
+
+// Rounds the given address up to the nearest region size, given as an input.
+#define ROUNDADDRUP(addr, size) ((addr + size - 1) & ~(size - 1))
+
 // This function splits the process by initializing the lower half with the
 // lh_proxy code. It returns 0 on success.
 extern int splitProcess();

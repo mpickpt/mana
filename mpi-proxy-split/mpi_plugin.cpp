@@ -116,26 +116,6 @@ initialize_segv_handler()
     (JASSERT_ERRNO).Text("Could not set up the segfault handler");
 }
 
-
-static void
-mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
-{
-  switch (event) {
-    case DMTCP_EVENT_INIT:
-    {
-      JTRACE("*** DMTCP_EVENT_INIT");
-      initialize_segv_handler();
-      JASSERT(!splitProcess()).Text("Failed to create, initialize lower haf");
-      break;
-    }
-    case DMTCP_EVENT_EXIT:
-      JTRACE("*** DMTCP_EVENT_EXIT");
-      break;
-    default:
-      break;
-  }
-}
-
 // Sets the global 'g_list' pointer to the beginning of the MmapInfo_t array
 // in the lower half
 static void
@@ -159,40 +139,112 @@ updateLhEnviron()
   fnc(__environ);
 }
 
-static DmtcpBarrier mpiPluginBarriers[] = {
-  { DMTCP_GLOBAL_BARRIER_PRE_SUSPEND, NULL,
-    "Drain-MPI-Collectives", drainMpiCollectives},
-  { DMTCP_PRIVATE_BARRIER_PRE_CKPT, logIbarrierIfInTrivBarrier,
-    "Log-MPI_Ibarrier-if-in-trivial-barrier"},
-  { DMTCP_PRIVATE_BARRIER_PRE_CKPT, getLhMmapList,
-    "GetLocalLhMmapList"},
-  { DMTCP_PRIVATE_BARRIER_PRE_CKPT, getLocalRankInfo,
-    "GetLocalRankInfo"},
-  { DMTCP_GLOBAL_BARRIER_PRE_CKPT, updateCkptDirByRank,
-    "update-ckpt-dir-by-rank" },
-  { DMTCP_GLOBAL_BARRIER_PRE_CKPT, registerLocalSendsAndRecvs,
-    "Register-local-sends-and-receives" },
-  { DMTCP_GLOBAL_BARRIER_PRE_CKPT, drainSendRecv,
-    "Drain-Send-Recv" },
-  { DMTCP_PRIVATE_BARRIER_RESUME, clearPendingCkpt,
-    "Clear-Pending-Ckpt-Msg"},
-  { DMTCP_PRIVATE_BARRIER_RESUME, resetDrainCounters,
-    "Reset-Drain-Send-Recv-Counters"},
-  { DMTCP_PRIVATE_BARRIER_RESTART, save2pcGlobals,
-    "save-global-variables-in-2pc" },
-  { DMTCP_PRIVATE_BARRIER_RESTART, updateLhEnviron,
-    "updateEnviron" },
-  { DMTCP_PRIVATE_BARRIER_RESTART, clearPendingCkpt,
-    "Clear-Pending-Ckpt-Msg-Post-Restart"},
-  { DMTCP_PRIVATE_BARRIER_RESTART, resetDrainCounters,
-    "Reset-Drain-Send-Recv-Counters"},
-  { DMTCP_GLOBAL_BARRIER_RESTART, restoreMpiLogState,
-    "restoreMpiLogState"},
-  { DMTCP_GLOBAL_BARRIER_RESTART, replayMpiP2pOnRestart,
-    "replay-async-receives" },
-  { DMTCP_PRIVATE_BARRIER_RESTART, restore2pcGlobals,
-    "restore-global-variables-in-2pc" },
-};
+
+static void
+mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
+{
+  switch (event) {
+    case DMTCP_EVENT_INIT:
+    {
+      JTRACE("*** DMTCP_EVENT_INIT");
+      initialize_segv_handler();
+      JASSERT(!splitProcess()).Text("Failed to create, initialize lower haf");
+      break;
+    }
+    case DMTCP_EVENT_EXIT:
+      JTRACE("*** DMTCP_EVENT_EXIT");
+      break;
+
+    case DMTCP_EVENT_PRESUSPEND:
+      // drainMpiCollectives() will send worker state and get coord response.
+      // Unfortunately, dmtcp_global_barrier()/DMT_BARRIER can't send worker
+      // state and get a coord responds.  So, drainMpiCollective() will use the
+      // special messages:  DMT_MPI_PRESUSPEND and DMT_MPI_PRESUSPEND_RESPONSE
+      // 'INTENT' (intend to ckpt) acts as the first corodinator response.
+      // * drainMpiCollective() calls preSuspendBarrier()
+      // * mpi_presuspend_barrier() calls waitForMpiPresuspendBarrier()
+      // FIXME:  See commant at: dmtcpplugin.cpp:'case DMTCP_EVENT_PRESUSPEND'
+      {
+        query_t coord_response = INTENT;
+        int64_t round = 0;
+        while (1) {
+          // FIXME: see informCoordinator...() for the 2pc_data that we send
+          //       to the coordinator.  Now, return it and use it below.
+          rank_state_t data_to_coord = drainMpiCollectives(coord_response);
+
+          string barrierId = "MANA-PRESUSPEND-" + jalib::XToString(round);
+          string csId = "MANA-PRESUSPEND-CS-" + jalib::XToString(round);
+          string commId = "MANA-PRESUSPEND-COMM-" + jalib::XToString(round);
+          int64_t commKey = (int64_t) data_to_coord.comm;
+
+          if (data_to_coord.st == IN_CS) {
+            dmtcp_kvdb64(DMTCP_KVDB_INCRBY, csId.c_str(), 0, 1);
+            dmtcp_kvdb64(DMTCP_KVDB_OR, commId.c_str(), commKey, 1);
+          }
+
+          dmtcp_global_barrier(barrierId.c_str());
+
+          int64_t counter;
+          if (dmtcp_kvdb64_get(csId.c_str(), 0, &counter) == -1) {
+            // No rank published IN_CS state.
+            coord_response == SAFE_TO_CHECKPOINT;
+            break;
+          }
+
+          int64_t commStatus;
+          if (dmtcp_kvdb64_get(commId.c_str(), commKey, &commStatus) == -1) {
+            // No rank in our communicator is in CS; set our state to
+            // WAIT_STRAGGLER
+            coord_response = WAIT_STRAGGLER;
+          } else if (data_to_coord.st == PHASE_1) {
+            // We are in Phase 1, so we get a free pass.
+            coord_response = FREE_PASS;
+          }
+
+          round++;
+        }
+      }
+      break;
+
+    case DMTCP_EVENT_PRECHECKPOINT:
+      logIbarrierIfInTrivBarrier(); // two-phase-algo.cpp
+      dmtcp_local_barrier("MPI:GetLocalLhMmapList");
+      getLhMmapList(); // two-phase-algo.cpp
+      dmtcp_local_barrier("MPI:GetLocalRankInfo");
+      getLocalRankInfo(); // p2p_log_replay.cpp
+      dmtcp_global_barrier("MPI:update-ckpt-dir-by-rank");
+      updateCkptDirByRank(); // mpi_plugin.cpp
+      dmtcp_global_barrier("MPI:Register-local-sends-and-receives");
+      registerLocalSendsAndRecvs(); // p2p_drain_send_recv.cpp
+      dmtcp_global_barrier("MPI:Drain-Send-Recv");
+      drainSendRecv(); // p2p_drain_send_recv.cpp
+
+    case DMTCP_EVENT_RESUME:
+      clearPendingCkpt(); // two-phase-algo.cpp
+      dmtcp_local_barrier("MPI:Reset-Drain-Send-Recv-Counters");
+      resetDrainCounters(); // p2p_drain_send_recv.cpp
+      break;
+
+    case DMTCP_EVENT_RESTART:
+      save2pcGlobals(); // two-phase-algo.cpp
+      dmtcp_local_barrier("MPI:updateEnviron");
+      updateLhEnviron(); // mpi-plugin.cpp
+      dmtcp_local_barrier("MPI:Clear-Pending-Ckpt-Msg-Post-Restart");
+      clearPendingCkpt(); // two-phase-algo.cpp
+      dmtcp_local_barrier("MPI:Reset-Drain-Send-Recv-Counters");
+      resetDrainCounters(); // p2p_drain_send_recv.cpp
+      dmtcp_global_barrier("MPI:restoreMpiLogState");
+      restoreMpiLogState(); // record-replay.cpp
+      dmtcp_global_barrier("MPI:record-replay.cpp-void");
+      replayMpiP2pOnRestart(); // p2p_log_replay.cpp
+      dmtcp_local_barrier("MPI:p2p_log_replay.cpp-void");
+      restore2pcGlobals(); // two-phase-algo.cpp
+      break;
+
+    default:
+      break;
+  }
+}
 
 DmtcpPluginDescriptor_t mpi_plugin = {
   DMTCP_PLUGIN_API_VERSION,
@@ -201,7 +253,6 @@ DmtcpPluginDescriptor_t mpi_plugin = {
   "DMTCP",
   "dmtcp@ccs.neu.edu",
   "MPI Proxy Plugin",
-  DMTCP_DECL_BARRIERS(mpiPluginBarriers),
   mpi_plugin_event_hook
 };
 
