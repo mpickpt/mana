@@ -4089,13 +4089,11 @@ ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
-orig_ac_configure_args="$ac_configure_args"
 ac_configure_args="$ac_configure_args --with-mana-helper-dir=../restart_plugin"
 
 
 subdirs="$subdirs dmtcp"
 
-ac_configure_args="$orig_ac_configure_args"
 
 ac_config_files="$ac_config_files Makefile mpi-proxy-split/Makefile_config"
 
