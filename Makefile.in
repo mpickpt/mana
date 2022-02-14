@@ -36,49 +36,24 @@ srcdir = @srcdir@
 VPATH = @srcdir@
 targetdir = $(top_builddir)
 
-ifeq ($(M32),1)
-  targetdir = $(top_builddir)/lib/$(PACKAGE)/32
-  INSTALL_FLAGS = libdir=$(libdir)/$(PACKAGE)/32/lib \
-		  bindir=$(libdir)/$(PACKAGE)/32/bin install-libs
-  UNINSTALL_FLAGS = libdir=$(libdir)/$(PACKAGE)/32/lib \
-		    bindir=$(libdir)/$(PACKAGE)/32/bin uninstall-libs
-else
-  INSTALL_FLAGS = install
-  UNINSTALL_FLAGS = uninstall
-endif
-
-MANPAGES_AUTOGEN=dmtcp_nocheckpoint.1.gz mtcp_restart.1.gz \
-		 dmtcp_ssh.1.gz dmtcp_sshd.1.gz \
-		 dmtcp_discover_rm.1.gz dmtcp_rm_loclaunch.1.gz
-
-MANPAGES=dmtcp.1.gz dmtcp_coordinator.1.gz dmtcp_command.1.gz \
-	 dmtcp_launch.1.gz dmtcp_restart.1.gz mana.1.gz
-
 # Macros TEST and XTERM_E used on command line by check1, check2, ...:
 #   make TEST=readline XTERM_E="xterm -e" check-readline
 
 default: display-build-env add-git-hooks mana_prereqs
-	$(MAKE) mkdirs
 	$(MAKE) mana
-
-mkdirs:
-	$(MKDIR_P) $(targetdir)/bin
-	$(MKDIR_P) $(targetdir)/lib/dmtcp
-
-scripts: bin/mana_launch bin/mana_restart bin/mana_coordinator bin/mana_status
-
-ifeq ($(M32),1)
-	cd lib/dmtcp && $(LN_S) 32/lib/dmtcp/* ./
-	mkdir -p bin && cd bin && $(LN_S) ../lib/dmtcp/32/bin/* ./
-endif
 
 all: default
 
-mana: scripts dmtcp
-	cd mpi-proxy-split && make install && make -j tests
+mana: dmtcp
+	cd mpi-proxy-split && $(MAKE) install && $(MAKE) -j tests
 
-${targetdir}/bin/%: scripts/%.sh
-	cp $< $@
+dmtcp:
+	cd dmtcp && $(MAKE)
+	cp -rf dmtcp/bin .
+	cp -rf dmtcp/lib .
+
+clean: 
+	- cd dmtcp && $(MAKE) clean
 
 mana_prereqs:
 	@ if test -n "$$HUGETLB_DEFAULT_PAGE_SIZE"; then \
@@ -142,229 +117,11 @@ ${_hooksdir}/%: util/hooks/%
 	  cd ${_hooksdir} && ln -s ../../$< . ; \
 	fi
 
-# Remove any stray src/config.h files that may still exist.
-# If the developer accidentally leaves an old src/config.h in place (e.g.,
-#   after examining an old revision when this really existed), then some
-#   source code would pull in src/config.h in preference to include/config.h
-dmtcp:
-	cd dmtcp && $(MAKE)
-
-tests: build
-ifeq ($(M32),0)
-	if file ./test/dmtcp1 | grep -cq "ELF 32-bit"; then \
-	  cd test && $(MAKE) clean; \
-	fi
-endif
-	cd test && $(MAKE)
-
-tests-32: build
-	if file ./test/dmtcp1 | grep -cq "ELF 64-bit"; then \
-	  cd test && $(MAKE) clean; \
-	fi
-	cd test && $(MAKE) M32=1
-
-# Prevent mtcp_restart from flying out of control
-# (but Java/IcedTea6-1.9.x/RHEL-6.1 uses lots of memory,
-#  and modifies most of the zero-mapped pages -- using 16 MB)
-# JDK Runtime Environment (Java/IcedTea6 1.12.4 (OpenJDK, Java 1.6.0_27)
-#   now needs at least 32 MB  (June, 2013)
-LIMIT=ulimit -v 33554432
-
-check: tests
-	@ if python -c 'print "Python exits."' > /dev/null; then \
-	  bash -c "$(LIMIT) && $(top_srcdir)/test/autotest.py ${AUTOTEST} $*"; \
-	  else echo '*** No python found in your path.'; echo '*** Please add' \
-	   ' python to path or build Python 2.x for x >= 3.'; \
-	  fi
-
-check-32: tests-32
-	@ if python -c 'print "Python exits."' > /dev/null; then \
-	  bash -c "$(LIMIT) && $(top_srcdir)/test/autotest.py ${AUTOTEST} $*"; \
-	  else echo '*** No python found in your path.'; echo '*** Please add' \
-	   ' python to path or build Python 2.x for x >= 3.'; \
-	  fi
-
-check-%: tests
-	bash -c "$(LIMIT) && $(top_srcdir)/test/autotest.py ${AUTOTEST} '$*'"
-
-check-32-%: tests-32
-	bash -c "$(LIMIT) && $(top_srcdir)/test/autotest.py ${AUTOTEST} '$*'"
-
-check1: icheck-dmtcp1
-
-check1-32: icheck-32-dmtcp1
-
-check2: tests
-	${MAKE} XTERM_E="xterm -e" icheck-readline
-
-check2-32: tests-32
-	${MAKE} XTERM_E="xterm -e" icheck-32-readline
-
-check3: icheck-shared-memory
-
-icheck-%: tests
-	@ echo ""
-	@ echo "*** Type:"
-	@ echo "***       h<return> for Help (optional)"
-	@ echo "***       c<return> to Checkpoint"
-	@ echo "***       k<return> to Kill and observe the Restart"
-	@ echo "***       c<return> to Checkpoint again"
-	@ echo "***       k<return> to Kill and restart again"
-	@ echo "***       q<return> to Quit"
-	@ echo ""
-	@ echo "Press <return> when ready to start."
-	@ read -p "> " dummy
-	@ rm -f ckpt_$*_* && sleep 3 && \
-	  echo "" && echo "*** Starting Program" && echo "" && \
-	  ${XTERM_E} $(targetdir)/bin/dmtcp_launch --join test/$* && \
-	  echo "" && echo "*** Restarting Program from Checkpoint" \
-	  "(press q<return> to quit)" && echo "" && \
-	  until ls ckpt_$*_*.dmtcp > /dev/null 2>&1; do true; done; \
-	  ${XTERM_E} $(targetdir)/bin/dmtcp_restart --join --quiet ckpt_$*_*.dmtcp; \
-	  echo "" && echo "*** Again Restarting Program from Checkpoint" \
-	  "(press q<return> to quit)" && echo "" && \
-	  until ls ckpt_$*_*.dmtcp > /dev/null 2>&1; do true; done; \
-	  ${XTERM_E} $(targetdir)/bin/dmtcp_restart --join --quiet ckpt_$*_*.dmtcp; \
-	  &
-	@ $(targetdir)/bin/dmtcp_coordinator
-
-# TODO: Consolidate it with icheck-% target to remove duplication.
-icheck-32-%: tests-32
-	@ echo ""
-	@ echo "*** Type:"
-	@ echo "***       h<return> for Help (optional)"
-	@ echo "***       c<return> to Checkpoint"
-	@ echo "***       k<return> to Kill and observe the Restart"
-	@ echo "***       c<return> to Checkpoint again"
-	@ echo "***       k<return> to Kill and restart again"
-	@ echo "***       q<return> to Quit"
-	@ echo ""
-	@ echo "Press <return> when ready to start."
-	@ read -p "> " dummy
-	@ rm -f ckpt_$*_* && sleep 3 && \
-	  echo "" && echo "*** Starting Program" && echo "" && \
-	  ${XTERM_E} $(targetdir)/bin/dmtcp_launch --join test/$* && \
-	  echo "" && echo "*** Restarting Program from Checkpoint" \
-	  "(press q<return> to quit)" && echo "" && \
-	  until ls ckpt_$*_*.dmtcp > /dev/null 2>&1; do true; done; \
-	  ${XTERM_E} $(targetdir)/bin/dmtcp_restart --join --quiet ckpt_$*_*.dmtcp; \
-	  echo "" && echo "*** Again Restarting Program from Checkpoint" \
-	  "(press q<return> to quit)" && echo "" && \
-	  until ls ckpt_$*_*.dmtcp > /dev/null 2>&1; do true; done; \
-	  ${XTERM_E} $(targetdir)/bin/dmtcp_restart --join --quiet ckpt_$*_*.dmtcp; \
-	  &
-	@ $(targetdir)/bin/dmtcp_coordinator
-
-tidy:
-	rm -rf dmtcp-autotest-* ckpt_*_files
-	rm -f ckpt_*.dmtcp dmtcp_restart_script* \
-	  dmtcp-shared-memory.* dmtcp-test-typescript.tmp core*
-	rm -rf ckpt_*
-
-clean: tidy
-	- cd src && $(MAKE) clean
-	- cd plugin && $(MAKE) clean
-	- cd contrib && $(MAKE) clean
-	- cd test && $(MAKE) clean
-	- cd manpages && ${MAKE} clean
-	- if test -z "$$DMTCP_TMPDIR"; then \
-	   if test -z "$$TMPDIR"; then \
-	     DMTCP_TMPDIR=/tmp/dmtcp-$$USER@`/bin/hostname`; \
-	   else \
-	     DMTCP_TMPDIR=$$TMPDIR/dmtcp-$$USER@`/bin/hostname`; \
-	   fi; \
-	 fi; \
-	 rm -rf $$DMTCP_TMPDIR
-
-# Obsolete, remove in 2.5.0.
-clean-64: clean
-
-distclean: clean
-	- cd src && $(MAKE) distclean
-	- cd plugin && $(MAKE) distclean
-	- cd contrib && $(MAKE) distclean
-	- cd test && $(MAKE) distclean
-	rm -f Makefile test/Makefile test/autotest_config.py \
-	  include/config.h include/stamp-h1 \
-	  config.log config.status config.cache
-	rm -rf autom4te.cache
-	rm -rf $(top_builddir)/lib $(top_builddir)/bin
-
-distsvn:
-	if test "`svn info`"; then \
-	  dir=$(PACKAGE_TARNAME)+svn`svnversion`; \
-	else \
-	  echo "svn info failed"; exit 1; \
-	fi; \
-	svn export . $$dir; \
-	tar czf $$dir.tar.gz $$dir; \
-	rm -rf $$dir 2&>/dev/null; \
-	ls -l $$dir.tar.gz;
-
-distgit:
-	if test "`git svn info|grep '^Revision:'|cut -d' ' -f2`"; then \
-	  svnversion="`git svn info|grep '^Revision:'|cut -d' ' -f2`" \
-	  dir=$(PACKAGE_TARNAME)+svn$$svnversion; \
-	else \
-	  echo "git svn info failed"; exit 1; \
-	fi; \
-	git archive --format=tar.gz --prefix=$$dir/ HEAD > $$dir.tar.gz \
-	rm -rf $$dir 2&>/dev/null; \
-	ls -l $$dir.tar.gz;
-
-dist_exclude.txt:
-	if ! test -r dist_exclude.txt; then touch dist_exclude.txt; fi
-
-dist: distclean dist_exclude.txt
-	dir=`pwd`; cd ..; tar czvf dmtcp.tgz \
-	    --exclude-from=$$dir/dist_exclude.txt \
-	    --exclude $$dir/dist_exclude.txt --exclude-vcs --exclude='*/.deps' \
-	    ./`basename $$dir`
-	ls -l ../dmtcp.tgz
-
-create-dirs:
-	$(INSTALL) -d $(DESTDIR)$(bindir)
-	$(INSTALL) -d $(DESTDIR)$(libdir)
-	$(INSTALL) -d $(DESTDIR)$(pkglibdir)
-ifeq ($(M32),0)
-	$(INSTALL) -d $(DESTDIR)$(includedir)
-	$(INSTALL) -d $(DESTDIR)$(docdir)
-	$(INSTALL) -d $(DESTDIR)$(mandir)/man1
-else
-	$(INSTALL) -d $(DESTDIR)$(libdir)/$(PACKAGE)/32/bin
-	$(INSTALL) -d $(DESTDIR)$(libdir)/$(PACKAGE)/32/lib/$(PACKAGE)
-endif
-
-install: all create-dirs
-	cd src && make DESTDIR=$(DESTDIR) $(INSTALL_FLAGS)
-	cd plugin && make DESTDIR=$(DESTDIR) $(INSTALL_FLAGS)
-	cd contrib && make DESTDIR=$(DESTDIR) $(INSTALL_FLAGS)
-	cd manpages && make ${INSTALL_FLAGS}
-ifeq ($(M32),0)
-	${INSTALL_DATA} $(top_srcdir)/QUICK-START.md $(DESTDIR)$(docdir)
-	${INSTALL_DATA} $(top_srcdir)/COPYING $(DESTDIR)$(docdir)
-	${INSTALL_DATA} $(top_srcdir)/AUTHORS $(DESTDIR)$(docdir)
-	${INSTALL_DATA} $(top_srcdir)/NEWS $(DESTDIR)$(docdir)
-	${INSTALL_DATA} $(top_srcdir)/manpages/*.1.gz $(DESTDIR)$(mandir)/man1
-	(cd $(DESTDIR)$(mandir)/man1; \
-	  for file in ${MANPAGES_AUTOGEN}; do $(LN_S) dmtcp.1.gz $$file; done)
-endif
-
-uninstall:
-	cd src && make DESTDIR=$(DESTDIR) $(UNINSTALL_FLAGS)
-	cd plugin && make DESTDIR=$(DESTDIR) $(UNINSTALL_FLAGS)
-	cd contrib && make DESTDIR=$(DESTDIR) $(UNINSTALL_FLAGS)
-ifeq ($(M32),0)
-	rm -Rf "$(DESTDIR)$(docdir)"
-	cd $(DESTDIR)$(mandir)/man1 && rm -f ${MANPAGES} ${MANPAGES_AUTOGEN}
-endif
-
 # src/Makefile tries to make this, to ensure that configure, config.status,
 #   and so on are up to date.  It's assuming that this directory is also
 #   under control of automake.  So, we add this stub to satisfy automake.
 am--refresh:
 
 .PHONY: default all add-git-hooks \
-	display-build-env display-release display-config build \
-	mkdirs dmtcp plugin contrib clean distclean am--refresh \
-	tests tests-32
+	display-build-env display-release display-config \
+	dmtcp clean
