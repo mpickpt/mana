@@ -1,12 +1,12 @@
-AC_INIT([DMTCP],
+AC_INIT([MANA],
         m4_esyscmd([tr -d '\n' < VERSION]),
-        [dmtcp-forum@lists.sourceforge.net],
-        [dmtcp],
-        [http://dmtcp.sourceforge.net])
+        [],
+        [],
+        [https://github.com/mpickpt/mana])
 
 AC_PREREQ([2.60])
 # TODO(kapil): Add 'subdir-objects after automake 1.16 has been released.
-AM_INIT_AUTOMAKE([foreign])
+# AM_INIT_AUTOMAKE([foreign])
 AM_MAINTAINER_MODE
 AC_CANONICAL_HOST
 AC_PROG_INSTALL
@@ -29,24 +29,9 @@ dnl This sets OPENMP_CXXFLAGS
 AC_LANG_PUSH([C++])
 AC_OPENMP
 AC_LANG_POP([C++])
-AC_CONFIG_HEADERS([include/config.h])
 AC_CONFIG_FILES([Makefile \
-                 contrib/Makefile \
-                 contrib/ckptfile/Makefile \
-                 contrib/infiniband/Makefile \
-                 plugin/Makefile \
-                 src/Makefile \
-                 src/mtcp/Makefile \
-                 src/plugin/Makefile \
-                 include/dmtcp.h \
-                 test/Makefile \
-                 test/autotest_config.py \
-                 test/plugin/Makefile])
+                 mpi-proxy-split/Makefile_config])
 #AC_CONFIG_FILES([test/credentials/Makefile])
-
-if test -e contrib/mpi-proxy-split/Makefile_config.in; then
-  AC_CONFIG_FILES([contrib/mpi-proxy-split/Makefile_config])
-fi
 
 #AC_CONFIG_SUBDIRS([dmtcp])
 
