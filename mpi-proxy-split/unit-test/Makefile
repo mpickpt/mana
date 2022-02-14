@@ -20,7 +20,7 @@ TEST_BINS=$(addsuffix .exe, ${TESTS})
 
 # Modify if your DMTCP_ROOT is located elsewhere.
 ifndef DMTCP_ROOT
-  DMTCP_ROOT=../../..
+  DMTCP_ROOT=../../dmtcp
 endif
 DMTCP_INCLUDE=${DMTCP_ROOT}/include
 JALIB_INCLUDE=${DMTCP_ROOT}/jalib

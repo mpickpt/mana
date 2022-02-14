@@ -15,7 +15,7 @@ TESTS=["mpi_hello_world", "Abort_test", "Allreduce_test", "Alltoall_test",
 
 NAME=path.basename(getcwd())
 LIBNAME="libdmtcp_%s" % (NAME)
-DMTCP_ROOT="../.."
+DMTCP_ROOT="../dmtcp
 # srun is for cori; change it to mpirun for local usage
 MPIRUN="srun"
 MPIRUN_FLAGS="-n 4"

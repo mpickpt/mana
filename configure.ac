@@ -29,6 +29,12 @@ dnl This sets OPENMP_CXXFLAGS
 AC_LANG_PUSH([C++])
 AC_OPENMP
 AC_LANG_POP([C++])
+
+orig_ac_configure_args="$ac_configure_args"
+ac_configure_args="$ac_configure_args --with-mana-helper-dir=../restart_plugin"
+AC_CONFIG_SUBDIRS([dmtcp])
+ac_configure_args="$orig_ac_configure_args"
+
 AC_CONFIG_FILES([Makefile \
                  mpi-proxy-split/Makefile_config])
 #AC_CONFIG_FILES([test/credentials/Makefile])

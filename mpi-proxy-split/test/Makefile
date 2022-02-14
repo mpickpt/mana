@@ -2,7 +2,7 @@ PLATFORM=${shell echo $$HOST}
 include ../Makefile_config
 
 ifndef DMTCP_ROOT
-  DMTCP_ROOT=../../..
+  DMTCP_ROOT=../../dmtcp
 endif
 DMTCP_BIN=${DMTCP_ROOT}/bin
 DMTCP_LIB=${DMTCP_ROOT}/lib/dmtcp

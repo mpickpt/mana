@@ -10,7 +10,7 @@ LIBPROXY_OBJS = libproxy.o procmapsutils.o sbrk.o mmap64.o munmap.o \
 
 # Modify if your DMTCP_ROOT is located elsewhere.
 ifndef DMTCP_ROOT
-  DMTCP_ROOT=../../..
+  DMTCP_ROOT=../../dmtcp
 endif
 
 ifndef PLUGIN_ROOT
