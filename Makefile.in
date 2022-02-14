@@ -57,13 +57,16 @@ MANPAGES=dmtcp.1.gz dmtcp_coordinator.1.gz dmtcp_command.1.gz \
 # Macros TEST and XTERM_E used on command line by check1, check2, ...:
 #   make TEST=readline XTERM_E="xterm -e" check-readline
 
-default: display-build-env add-git-hooks build
+default: display-build-env add-git-hooks mana_prereqs
+	$(MAKE) mkdirs
+	$(MAKE) mana
 
 mkdirs:
 	$(MKDIR_P) $(targetdir)/bin
 	$(MKDIR_P) $(targetdir)/lib/dmtcp
 
-build: mkdirs dmtcp plugin contrib
+scripts: bin/mana_launch bin/mana_restart bin/mana_coordinator bin/mana_status
+
 ifeq ($(M32),1)
 	cd lib/dmtcp && $(LN_S) 32/lib/dmtcp/* ./
 	mkdir -p bin && cd bin && $(LN_S) ../lib/dmtcp/32/bin/* ./
@@ -71,21 +74,11 @@ endif
 
 all: default
 
-mana: mana_prereqs
-	$(MAKE) mana_part2
-mana_part2: default \
-	bin/mana_launch bin/mana_restart bin/mana_coordinator bin/mana_status
-	cd contrib/mpi-proxy-split && make install && make -j tests
+mana: scripts dmtcp
+	cd mpi-proxy-split && make install && make -j tests
 
-${targetdir}/bin/mana_launch: src/mana_launch.sh
-	cp src/mana_launch.sh ${targetdir}/bin/mana_launch
-${targetdir}/bin/mana_restart: src/mana_restart.sh
-	cp src/mana_restart.sh ${targetdir}/bin/mana_restart
-${targetdir}/bin/mana_coordinator: src/mana_coordinator.sh
-	cp src/mana_coordinator.sh ${targetdir}/bin/mana_coordinator
-	cp src/mana_coordinator.sh ${targetdir}/bin/mana_start_coordinator
-${targetdir}/bin/mana_status: src/mana_status.sh
-	cp src/mana_status.sh ${targetdir}/bin/mana_status
+${targetdir}/bin/%: scripts/%.sh
+	cp $< $@
 
 mana_prereqs:
 	@ if test -n "$$HUGETLB_DEFAULT_PAGE_SIZE"; then \
@@ -154,14 +147,7 @@ ${_hooksdir}/%: util/hooks/%
 #   after examining an old revision when this really existed), then some
 #   source code would pull in src/config.h in preference to include/config.h
 dmtcp:
-	rm -f src/config.h
-	cd src && $(MAKE)
-
-plugin: dmtcp
-	cd plugin && $(MAKE)
-
-contrib: dmtcp
-	cd contrib && $(MAKE)
+	cd dmtcp && $(MAKE)
 
 tests: build
 ifeq ($(M32),0)

@@ -39,7 +39,7 @@ LIBPROXY = libproxy.a
 
 # Modify if your DMTCP_ROOT is located elsewhere.
 ifndef DMTCP_ROOT
-  DMTCP_ROOT=../..
+  DMTCP_ROOT=../dmtcp
 endif
 DMTCP_INCLUDE=${DMTCP_ROOT}/include
 JALIB_INCLUDE=${DMTCP_ROOT}/jalib
@@ -128,7 +128,7 @@ clean: tidy
 	@cd ${WRAPPERS_SRCDIR} && make clean
 
 distclean: clean
-	cd test && make clean
+	#cd test && make clean
 	cd unit-test && make clean
 
 dist: distclean
