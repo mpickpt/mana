@@ -20,6 +20,8 @@
  ****************************************************************************/
 
 #include <signal.h>
+#include <sys/personality.h>
+#include <sys/mman.h>
 
 #include "lower_half_api.h"
 #include "split_process.h"
@@ -46,6 +48,7 @@ MmapInfo_t *g_list = NULL;
 // #define DEBUG
 
 #undef dmtcp_skip_memory_region_ckpting
+const VA HIGH_ADDR_START = (VA)0x7fff00000000;
 
 static inline int
 regionContains(const void *haystackStart,
@@ -139,6 +142,84 @@ updateLhEnviron()
   fnc(__environ);
 }
 
+static void
+computeUnionOfCkptImageAddresses()
+{
+  ProcSelfMaps procSelfMaps; // This will be deleted when out of scope.
+  Area area;
+
+  // This code assumes that /proc/sys/kernel/randomize_va_space is 0
+  //   or that personality(ADDR_NO_RANDOMIZE) was set.
+  char buf;
+  JWARNING(Util::readAll("/proc/sys/kernel/randomize_va_space", &buf, 1) != 1 ||
+           buf == '0' ||
+           (personality(0xffffffff) & ADDR_NO_RANDOMIZE) == 0)
+    .Text("FIXME:  Linux process randomization is turned on.\n");
+
+  // Initialize the MPI information to NULL (unknown).
+  void *libsStart = NULL;
+  void *minLibsStart = NULL;
+  void *libsEnd = NULL;
+  void *maxLibsEnd = NULL;
+  void *highMemStart = NULL;
+  void *minHighMemStart = NULL;
+
+  // We discover the last address that the kernel had mapped:
+  // ASSUMPTIONS:  Target app is not using mmap
+  // ASSUMPTIONS:  Kernel does not go back and fill previos gap after munmap
+  libsEnd = mmap(NULL, 4096, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+  JASSERT(libsEnd != MAP_FAILED);
+  munmap(libsEnd, 4096);
+
+  // Preprocess memory regions as needed.
+  while (procSelfMaps.getNextArea(&area)) {
+    if (Util::strEndsWith(area.name, ".so")) {
+      if (libsStart == NULL) {
+        libsStart = area.addr;
+      }
+      libsEnd = area.endAddr;
+    }
+
+    // Set mtcpHdr->highMemStart if possible.
+    // highMemStart not currently used.  We could change the constant logic.
+    if (highMemStart == NULL && area.addr > HIGH_ADDR_START) {
+      highMemStart = area.addr;
+    }
+  }
+
+  string kvdb = "MANA_CKPT_UNION";
+  dmtcp_kvdb64(DMTCP_KVDB_MIN, kvdb.c_str(), 0, (int64_t) libsStart);
+  dmtcp_kvdb64(DMTCP_KVDB_MAX, kvdb.c_str(), 1, (int64_t) libsEnd);
+  dmtcp_kvdb64(DMTCP_KVDB_MIN, kvdb.c_str(), 2, (int64_t) highMemStart);
+
+  dmtcp_global_barrier(kvdb.c_str());
+
+  JASSERT(dmtcp_kvdb64_get(kvdb.c_str(), 0, (int64_t*) &minLibsStart) == 0);
+  JASSERT(dmtcp_kvdb64_get(kvdb.c_str(), 1, (int64_t*) &maxLibsEnd) == 0);
+  JASSERT(dmtcp_kvdb64_get(kvdb.c_str(), 2, (int64_t*) &minHighMemStart) == 0);
+
+  ostringstream o;
+
+#define HEXSTR(o, x) o << #x << std::hex << x;
+  HEXSTR(o, libsStart);
+  HEXSTR(o, libsEnd);
+  HEXSTR(o, highMemStart);
+  HEXSTR(o, minLibsStart);
+  HEXSTR(o, maxLibsEnd);
+  HEXSTR(o, minHighMemStart);
+
+  JTRACE("Union of memory regions") (o.str());
+
+  // Now publish these values to DMTCP ckpt-header.
+  dmtcp_add_to_ckpt_header("MANA_MinLibsStart",
+                           jalib::XToHexString(minLibsStart).c_str());
+  dmtcp_add_to_ckpt_header("MANA_MaxLibsEnd",
+                           jalib::XToHexString(maxLibsEnd).c_str());
+  dmtcp_add_to_ckpt_header("MANA_MinHighMemStart",
+                           jalib::XToHexString(minHighMemStart).c_str());
+}
+
+
 
 static void
 mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
@@ -218,6 +299,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       registerLocalSendsAndRecvs(); // p2p_drain_send_recv.cpp
       dmtcp_global_barrier("MPI:Drain-Send-Recv");
       drainSendRecv(); // p2p_drain_send_recv.cpp
+      computeUnionOfCkptImageAddresses();
 
     case DMTCP_EVENT_RESUME:
       clearPendingCkpt(); // two-phase-algo.cpp
