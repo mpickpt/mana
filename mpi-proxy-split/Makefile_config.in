@@ -20,8 +20,8 @@ default2: default
 ## But this .o file will be linked with src/dmtcp_coordinator.o, which
 ##   is built with g++.  So, we use $(CXX) for compatibility.
 ## An alternative is to use -O2, which inlines calls to memcpy.
-mana_coordinator.o: mana_coordinator.cpp
-	${CXX} ${CXXFLAGS} `CC --cray-print-opts=cflags` -c -o $@ $<
+#mana_coordinator.o: mana_coordinator.cpp
+#	${CXX} ${CXXFLAGS} `CC --cray-print-opts=cflags` -c -o $@ $<
 else
   MPICC = mpicc
   MPICXX = mpic++

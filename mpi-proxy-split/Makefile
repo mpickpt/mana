@@ -33,7 +33,7 @@ LIBOBJS = mpi_plugin.o p2p_drain_send_recv.o p2p_log_replay.o \
           record-replay.o two-phase-algo.o \
           split_process.o ${LOWER_HALF_SRCDIR}/procmapsutils.o
 
-MANA_COORD_OBJS = mana_coordinator.o
+#MANA_COORD_OBJS = mana_coordinator.o
 
 LIBPROXY = libproxy.a
 
