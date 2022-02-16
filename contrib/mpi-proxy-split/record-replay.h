@@ -93,6 +93,8 @@ namespace dmtcp_mpi
     TYPE_VOID_PTR,
     TYPE_VOID_CONST_PTR,
     TYPE_MPI_USER_FNC,
+    TYPE_COMM_COPY_FNC,
+    TYPE_COMM_DELETE_FNC,
   };
 
   // Struct for saving arbitrary function arguments
@@ -184,6 +186,16 @@ namespace dmtcp_mpi
     {
       return *(MPI_User_function**)_data;
     }
+
+    operator MPI_Comm_copy_attr_function*() const
+    {
+      return *(MPI_Comm_copy_attr_function**)_data;
+    }
+
+    operator MPI_Comm_delete_attr_function*() const
+    {
+      return *(MPI_Comm_delete_attr_function**)_data;
+    }
   };
 
   template<typename T>
@@ -194,6 +206,8 @@ namespace dmtcp_mpi
     void *c;
     void const *d;
     MPI_User_function *e;
+    MPI_Comm_copy_attr_function *f;
+    MPI_Comm_delete_attr_function *g;
 
     if (typeid(data) == typeid(a)) {
       return FncArg(&data, sizeof(data), TYPE_INT);
@@ -209,6 +223,12 @@ namespace dmtcp_mpi
     }
     if (typeid(data) == typeid(e)) {
       return FncArg(&data, sizeof(data), TYPE_MPI_USER_FNC);
+    }
+    if (typeid(data) == typeid(f)) {
+      return FncArg(&data, sizeof(data), TYPE_COMM_COPY_FNC);
+    }
+    if (typeid(data) == typeid(g)) {
+      return FncArg(&data, sizeof(data), TYPE_COMM_DELETE_FNC);
     }
     JASSERT(false).Text("Unkown type for FncArg");
     return FncArgTyped(-1);
