@@ -150,7 +150,7 @@ fi
 #         (We could create xpmam plugin for DMTCP, but it shouldn't be needed.)
 
 env MPICH_SMP_SINGLE_COPY_OFF=1 \
-  $dir/dmtcp_launch  --coord-host $submissionHost \
+  $dir/dmtcp_launch --mpi --coord-host $submissionHost \
           --coord-port $submissionPort --no-gzip \
           --join-coordinator --disable-dl-plugin \
           --with-plugin $plugindir/lib/dmtcp/libmana.so $options
