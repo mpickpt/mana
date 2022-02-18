@@ -1,6 +1,8 @@
 /****************************************************************************
- *   Copyright (C) 2019-2021 by Gene Cooperman, Rohan Garg, Yao Xu          *
- *   gene@ccs.neu.edu, rohgarg@ccs.neu.edu, xu.yao1@northeastern.edu        *
+ *   Copyright (C) 2019-2022 by Gene Cooperman, Illio Suardi, Rohan Garg,   *
+ *   Yao Xu                                                                 *
+ *   gene@ccs.neu.edu, illio@u.nus.edu, rohgarg@ccs.neu.edu,                *
+ *   xu.yao1@northeastern.edu                                               *
  *                                                                          *
  *  This file is part of DMTCP.                                             *
  *                                                                          *
@@ -19,6 +21,10 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include <unordered_map>
+#include <vector>
+
+#include <mpi.h>
 #include "mpi_plugin.h"
 #include "config.h"
 #include "dmtcp.h"
@@ -34,6 +40,56 @@
 #include "p2p_drain_send_recv.h"
 
 using namespace dmtcp_mpi;
+
+// TODO
+// - validate operation status (right now we assume them to be successful by
+//   default)
+// - immediately abort if comm == MPI_NULL_COMM in any of those cases
+
+// We implement our own data structure that bypasses the lower half for:
+// * MPI_Comm_create_keyval
+// * MPI_Comm_get_attr
+// * MPI_Comm_set_attr
+// * MPI_Comm_delete_attr
+// * MPI_Comm_free
+
+// The general workflow goes:
+// [create keyval] -> [get/set/delete attributes for keyval] -> [free keyval]
+// Attribute keys are locally unique in processes, and are used to associate
+// and access attributes on any locally defined communicator. This means that
+// multiple communicators can use the same attribute key for different
+// attributes. Thus, we use a structure like the following:
+// [keyval -> {[communicator -> attribute], extra_state, copy_fn, delete_fn}]
+struct KeyvalTuple {
+  KeyvalTuple () = default;
+
+  KeyvalTuple (void *extraState,
+           MPI_Comm_copy_attr_function *copyFn,
+           MPI_Comm_delete_attr_function *deleteFn,
+           std::unordered_map<MPI_Comm, void*> attributeMap)
+    : _extraState(extraState),
+      _copyFn(copyFn),
+      _deleteFn(deleteFn),
+      _attributeMap(attributeMap) {};
+  void *_extraState;
+  MPI_Comm_copy_attr_function *_copyFn;
+  MPI_Comm_delete_attr_function *_deleteFn;
+  std::unordered_map<MPI_Comm, void*> _attributeMap;
+};
+
+static std::vector<int> keyvalVec;
+static std::unordered_map<int, KeyvalTuple> tupleMap;
+
+// The following are prvalues, so we need an address to point them to.
+// On Cori, this is 2^22 - 1, but it just needs to be greater than 2^15 - 1.
+static const int MAX_TAG_COUNT = 2097151;
+// We're actually supposed to check the rank of the HOST process in the group
+// associated with the MPI_COMM_WORLD communicator, but even the standard says
+// "MPI does not specify what it means for a process to be a HOST, nor does it
+// require that a HOST exists", so we just use a no HOST value.
+static const int MPI_HOST_RANK = MPI_PROC_NULL;
+static const int MPI_IO_SOURCE = MPI_ANY_SOURCE;
+static const int MPI_WTIME_IS_GLOBAL_VAL = 0;
 
 USER_DEFINED_WRAPPER(int, Comm_size, (MPI_Comm) comm, (int *) world_size)
 {
@@ -122,6 +178,28 @@ MPI_Comm_free_internal(MPI_Comm *comm)
 
 USER_DEFINED_WRAPPER(int, Comm_free, (MPI_Comm *) comm)
 {
+  // This bit of code is to execute the delete callback function when
+  // MPI_Comm_free is called. Typically we call this function for each
+  // attribute, but since our structure here is a bit different, we check, for
+  // each key value, if a communicator/attribute value pairing exists, and if
+  // it does then we call the callback function.
+  for (auto &tuplePair : tupleMap) {
+    KeyvalTuple *tuple = &tuplePair.second;
+    std::unordered_map<MPI_Comm, void*> *attributeMap = &tuple->_attributeMap;
+    auto attributeMapIter = attributeMap->begin();
+    while (attributeMapIter != attributeMap->end()) {
+      MPI_Comm currComm = attributeMapIter->first;
+      if (currComm == *comm && tuple->_deleteFn != MPI_COMM_NULL_DELETE_FN) {
+        tuple->_deleteFn(*comm,
+                         tuplePair.first,
+                         attributeMap->at(currComm),
+                         tuple->_extraState);
+        attributeMapIter = attributeMap->erase(attributeMapIter);
+        break;
+      }
+      attributeMapIter++;
+    }
+  }
   DMTCP_PLUGIN_DISABLE_CKPT();
   int retval = MPI_Comm_free_internal(comm);
   if (retval == MPI_SUCCESS && MPI_LOGGING()) {
@@ -135,6 +213,98 @@ USER_DEFINED_WRAPPER(int, Comm_free, (MPI_Comm *) comm)
     LOG_CALL(restoreComms, Comm_free, *comm);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
+  return retval;
+}
+
+USER_DEFINED_WRAPPER(int, Comm_get_attr, (MPI_Comm) comm,
+                     (int) comm_keyval, (void *) attribute_val, (int *) flag)
+{
+  int retval = MPI_SUCCESS;
+  *flag = 0;
+  if (comm == MPI_COMM_NULL) {
+    return MPI_ERR_COMM;
+  }
+  // Environmental inquiries
+  switch (comm_keyval) {
+    case MPI_TAG_UB:
+      * (const int **) attribute_val = &MAX_TAG_COUNT;
+      *flag = 1;
+      return retval;
+    case MPI_HOST:
+      * (const int **) attribute_val = &MPI_HOST_RANK;
+      *flag = 1;
+      return retval;
+    case MPI_IO:
+      * (const int **) attribute_val = &MPI_IO_SOURCE;
+      *flag = 1;
+      return retval;
+    case MPI_WTIME_IS_GLOBAL:
+      * (const int **) attribute_val = &MPI_WTIME_IS_GLOBAL_VAL;
+      *flag = 1;
+      return retval;
+  }
+
+  // Regular queries
+  if (tupleMap.find(comm_keyval) == tupleMap.end()) {
+    return MPI_ERR_KEYVAL;
+  }
+  KeyvalTuple *tuple = &tupleMap.at(comm_keyval);
+  std::unordered_map<MPI_Comm, void*> *attributeMap = &tuple->_attributeMap;
+  if (attributeMap->find(comm) != attributeMap->end()) {
+    * (void **) attribute_val = attributeMap->at(comm);
+    * flag = 1;
+  }
+  return retval;
+}
+
+USER_DEFINED_WRAPPER(int, Comm_set_attr, (MPI_Comm) comm,
+                     (int) comm_keyval, (void *) attribute_val)
+{
+  int retval = MPI_SUCCESS;
+  if (comm == MPI_COMM_NULL) {
+    retval = MPI_ERR_COMM;
+    return retval;
+  }
+  if (tupleMap.find(comm_keyval) == tupleMap.end()) {
+    retval = MPI_ERR_KEYVAL;
+    return retval;
+  }
+  KeyvalTuple *tuple = &tupleMap.at(comm_keyval);
+  std::unordered_map<MPI_Comm, void*> *attributeMap = &tuple->_attributeMap;
+  if (attributeMap->find(comm) != attributeMap->end()) {
+    if (tuple->_deleteFn != MPI_COMM_NULL_DELETE_FN) {
+      tuple->_deleteFn(comm,
+                       comm_keyval,
+                       attributeMap->at(comm),
+                       tuple->_extraState);
+    }
+    attributeMap->erase(comm);
+  }
+  attributeMap->emplace(comm, attribute_val);
+  return retval;
+}
+
+USER_DEFINED_WRAPPER(int, Comm_delete_attr, (MPI_Comm) comm, (int) comm_keyval)
+{
+  int retval = MPI_SUCCESS;
+  if (comm == MPI_COMM_NULL) {
+    retval = MPI_ERR_COMM;
+    return retval;
+  }
+  if (tupleMap.find(comm_keyval) == tupleMap.end()) {
+    return retval;
+  }
+  KeyvalTuple *tuple = &tupleMap.at(comm_keyval);
+  std::unordered_map<MPI_Comm, void*> *attributeMap = &tuple->_attributeMap;
+  if (attributeMap->find(comm) != attributeMap->end()) {
+    if (tuple->_deleteFn != MPI_COMM_NULL_DELETE_FN) {
+      tuple->_deleteFn(comm,
+                       comm_keyval,
+                       attributeMap->at(comm),
+                       tuple->_extraState);
+    }
+    attributeMap->erase(comm);
+  }
   return retval;
 }
 
@@ -191,6 +361,8 @@ USER_DEFINED_WRAPPER(int, Comm_split_type, (MPI_Comm) comm, (int) split_type,
 USER_DEFINED_WRAPPER(int, Attr_get, (MPI_Comm) comm, (int) keyval,
                      (void*) attribute_val, (int*) flag)
 {
+  JWARNING(false).Text(
+    "Use of MPI_Attr_get is deprecated - use MPI_Comm_get_attr instead");
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
@@ -204,6 +376,9 @@ USER_DEFINED_WRAPPER(int, Attr_get, (MPI_Comm) comm, (int) keyval,
 
 USER_DEFINED_WRAPPER(int, Attr_delete, (MPI_Comm) comm, (int) keyval)
 {
+
+  JWARNING(false).Text(
+    "Use of MPI_Attr_delete is deprecated - use MPI_Comm_delete_attr instead");
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
@@ -221,6 +396,8 @@ USER_DEFINED_WRAPPER(int, Attr_delete, (MPI_Comm) comm, (int) keyval)
 USER_DEFINED_WRAPPER(int, Attr_put, (MPI_Comm) comm,
                      (int) keyval, (void*) attribute_val)
 {
+  JWARNING(false).Text(
+    "Use of MPI_Attr_put is deprecated - use MPI_Comm_set_attr instead");
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
@@ -240,39 +417,43 @@ USER_DEFINED_WRAPPER(int, Comm_create_keyval,
                      (MPI_Comm_delete_attr_function *) comm_delete_attr_fn,
                      (int *) comm_keyval, (void *) extra_state)
 {
-  int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  retval = NEXT_FUNC(Comm_create_keyval)(comm_copy_attr_fn,
-                                         comm_delete_attr_fn,
-                                         comm_keyval, extra_state);
-  RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
-    int virtCommKeyval = ADD_NEW_COMM_KEYVAL(*comm_keyval);
-    *comm_keyval = virtCommKeyval;
-    LOG_CALL(restoreComms, Comm_create_keyval,
-             comm_copy_attr_fn, comm_delete_attr_fn,
-             virtCommKeyval, extra_state);
+  int retval = MPI_SUCCESS;
+  int keyval = 0;
+  for (; keyval < keyvalVec.size(); keyval++) {
+    if (keyval == MPI_ERR_KEYVAL) {
+      continue;
+    }
+    if (keyvalVec[keyval] == -1) {
+      keyvalVec[keyval] = keyval;
+      *comm_keyval = keyvalVec[keyval];
+      tupleMap.emplace(keyval, KeyvalTuple(
+                       extra_state,
+                       comm_copy_attr_fn,
+                       comm_delete_attr_fn,
+                       std::unordered_map<MPI_Comm, void*>()));
+      return retval;
+    }
   }
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  keyvalVec.push_back(keyval);
+  *comm_keyval = keyvalVec[keyval];
+  tupleMap.emplace(keyval, KeyvalTuple(
+                   extra_state,
+                   comm_copy_attr_fn,
+                   comm_delete_attr_fn,
+                   std::unordered_map<MPI_Comm, void*>()));
   return retval;
 }
 
 USER_DEFINED_WRAPPER(int, Comm_free_keyval, (int *) comm_keyval)
 {
-  int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  int realCommKeyval = VIRTUAL_TO_REAL_COMM_KEYVAL(*comm_keyval);
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  retval = NEXT_FUNC(Comm_free_keyval)(&realCommKeyval);
-  RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
-    // NOTE: We cannot remove the old comm_keyval from the map, since
-    // we'll need to replay this call to reconstruct any other comms that
-    // might have been created using this comm_keyval.
-    LOG_CALL(restoreComms, Comm_free_keyval, *comm_keyval);
+  int retval = MPI_SUCCESS;
+  int keyval = *comm_keyval;
+  if (keyval < keyvalVec.size() && keyvalVec[keyval] != -1) {
+    keyvalVec[keyval] = -1;
+    tupleMap.erase(keyval);
+  } else {
+    JWARNING(false)(keyval).Text("Attempted to free an invalid key!");
   }
-  DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
 
@@ -315,6 +496,10 @@ PMPI_IMPL(int, MPI_Comm_create, MPI_Comm comm, MPI_Group group,
           MPI_Comm *newcomm)
 PMPI_IMPL(int, MPI_Comm_compare, MPI_Comm comm1, MPI_Comm comm2, int *result)
 PMPI_IMPL(int, MPI_Comm_free, MPI_Comm *comm)
+PMPI_IMPL(int, MPI_Comm_get_attr, MPI_Comm comm, int comm_keyval,
+          void *attribute_val, int *flag)
+PMPI_IMPL(int, MPI_Comm_set_attr, MPI_Comm comm, int comm_keyval,
+          void *attribute_val)
 PMPI_IMPL(int, MPI_Comm_set_errhandler, MPI_Comm comm,
           MPI_Errhandler errhandler)
 PMPI_IMPL(int, MPI_Topo_test, MPI_Comm comm, int* status)
