@@ -1,4 +1,6 @@
 #include <asm/prctl.h>
+#define _GNU_SOURCE // needed for MREMAP_MAYMOVE
+#include <sys/mman.h>
 #include <sys/prctl.h>
 
 #include "mtcp_restart.h"
@@ -7,6 +9,7 @@
 #include "mtcp_split_process.h"
 
 # define GB (uint64_t)(1024 * 1024 * 1024)
+#define ROUNDADDRUP(addr, size) ((addr + size - 1) & ~(size - 1))
 
 NO_OPTIMIZE
 char*
@@ -236,9 +239,79 @@ int getCkptImageByDir(RestoreInfo *rinfo, char *buffer, size_t buflen, int rank)
   return len;
 }
 
+// This function searches for a free memory region to temporarily remap the vdso
+// and vvar regions to, so that mtcp's vdso and vvar do not overlap with the
+// checkpointed process' vdso and vvar.
+static void
+remap_vdso_and_vvar_regions(RestoreInfo *rinfo) {
+  Area area;
+  void *rc = NULL;
+  uint64_t vvarStart = (uint64_t) rinfo->newVvarStart;
+  uint64_t vvarSize = rinfo->newVvarEnd - rinfo->newVvarStart;
+  uint64_t vdsoStart = (uint64_t) rinfo->newVdsoEnd;
+  uint64_t vdsoSize = rinfo->newVdsoEnd - rinfo->newVdsoStart;
+  uint64_t prev_addr = 0x10000;
+
+  uint64_t vvarStartTmp = 0;
+  uint64_t vdsoStartTmp = 0;
+
+  int mapsfd = mtcp_sys_open2("/proc/self/maps", O_RDONLY);
+  if (mapsfd < 0) {
+    MTCP_PRINTF("error opening /proc/self/maps; errno: %d\n", mtcp_sys_errno);
+    mtcp_abort();
+  }
+
+  while (mtcp_readmapsline(mapsfd, &area)) {
+    if (prev_addr + vvarSize + vdsoSize <= (uint64_t) area.addr) {
+      vvarStartTmp = prev_addr;
+      vdsoStartTmp = prev_addr + vvarSize;
+      break;
+    } else {
+      prev_addr = ROUNDADDRUP((uint64_t) area.endAddr, MTCP_PAGE_SIZE);
+    }
+  }
+
+  mtcp_sys_close(mapsfd);
+
+  if (vvarStart > 0) {
+    if (vvarStartTmp == 0) {
+      MTCP_PRINTF("No free region found to temporarily map vvar to\n");
+      mtcp_abort();
+    }
+    rc = mtcp_sys_mremap(vvarStart, vvarSize, vvarSize,
+                         MREMAP_FIXED | MREMAP_MAYMOVE, vvarStartTmp);
+    if (rc == MAP_FAILED) {
+      MTCP_PRINTF("mtcp_restart failed: "
+                  "gdb --mpi \"DMTCP_ROOT/bin/mtcp_restart\" to debug.\n");
+      mtcp_abort();
+    }
+  }
+
+  if (vdsoStart > 0) {
+    if (vdsoStartTmp == 0) {
+      MTCP_PRINTF("No free region found to temporarily map vdso to\n");
+      mtcp_abort();
+    }
+    rc = mtcp_sys_mremap(vdsoStart, vdsoSize, vdsoSize,
+                         MREMAP_FIXED | MREMAP_MAYMOVE, vdsoStartTmp);
+    if (rc == MAP_FAILED) {
+      MTCP_PRINTF("mtcp_restart failed: "
+                  "gdb --mpi \"DMTCP_ROOT/bin/mtcp_restart\" to debug.\n");
+      mtcp_abort();
+    }
+  }
+
+  rinfo->newVvarStart = (VA) vvarStartTmp;
+  rinfo->newVvarEnd = (VA) vvarStartTmp + vvarSize;
+  rinfo->newVdsoStart = (VA) vdsoStartTmp;
+  rinfo->newVdsoEnd = (VA) vdsoStartTmp + vdsoSize;
+}
+
 void
 mtcp_plugin_hook(RestoreInfo *rinfo)
 {
+  remap_vdso_and_vvar_regions(rinfo);
+
   // NOTE: We use mtcp_restart's original stack to initialize the lower
   // half. We need to do this in order to call MPI_Init() in the lower half,
   // which is required to figure out our rank, and hence, figure out which
