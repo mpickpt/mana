@@ -210,9 +210,9 @@ computeUnionOfCkptImageAddresses()
 
   JTRACE("Union of memory regions") (o.str());
 
-  string minLibsStartStr = jalib::XToHexString(minLibsStart);
-  string maxLibsEndStr = jalib::XToHexString(maxLibsEnd);
-  string minHighMemStartStr = jalib::XToHexString(minHighMemStart);
+  string minLibsStartStr = jalib::XToString(minLibsStart);
+  string maxLibsEndStr = jalib::XToString(maxLibsEnd);
+  string minHighMemStartStr = jalib::XToString(minHighMemStart);
 
   // Now publish these values to DMTCP ckpt-header.
   dmtcp_add_to_ckpt_header("MANA_MinLibsStart", minLibsStartStr.c_str());
