@@ -246,10 +246,10 @@ static void
 remap_vdso_and_vvar_regions(RestoreInfo *rinfo) {
   Area area;
   void *rc = NULL;
-  uint64_t vvarStart = (uint64_t) rinfo->newVvarStart;
-  uint64_t vvarSize = rinfo->newVvarEnd - rinfo->newVvarStart;
-  uint64_t vdsoStart = (uint64_t) rinfo->newVdsoEnd;
-  uint64_t vdsoSize = rinfo->newVdsoEnd - rinfo->newVdsoStart;
+  uint64_t vvarStart = (uint64_t) rinfo->currentVvarStart;
+  uint64_t vvarSize = rinfo->currentVvarEnd - rinfo->currentVvarStart;
+  uint64_t vdsoStart = (uint64_t) rinfo->currentVdsoEnd;
+  uint64_t vdsoSize = rinfo->currentVdsoEnd - rinfo->currentVdsoStart;
   uint64_t prev_addr = 0x10000;
 
   uint64_t vvarStartTmp = 0;
@@ -301,10 +301,10 @@ remap_vdso_and_vvar_regions(RestoreInfo *rinfo) {
     }
   }
 
-  rinfo->newVvarStart = (VA) vvarStartTmp;
-  rinfo->newVvarEnd = (VA) vvarStartTmp + vvarSize;
-  rinfo->newVdsoStart = (VA) vdsoStartTmp;
-  rinfo->newVdsoEnd = (VA) vdsoStartTmp + vdsoSize;
+  rinfo->currentVvarStart = (VA) vvarStartTmp;
+  rinfo->currentVvarEnd = (VA) vvarStartTmp + vvarSize;
+  rinfo->currentVdsoStart = (VA) vdsoStartTmp;
+  rinfo->currentVdsoEnd = (VA) vdsoStartTmp + vdsoSize;
 }
 
 void
