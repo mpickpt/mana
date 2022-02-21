@@ -248,7 +248,7 @@ remap_vdso_and_vvar_regions(RestoreInfo *rinfo) {
   void *rc = NULL;
   uint64_t vvarStart = (uint64_t) rinfo->currentVvarStart;
   uint64_t vvarSize = rinfo->currentVvarEnd - rinfo->currentVvarStart;
-  uint64_t vdsoStart = (uint64_t) rinfo->currentVdsoEnd;
+  uint64_t vdsoStart = (uint64_t) rinfo->currentVdsoStart;
   uint64_t vdsoSize = rinfo->currentVdsoEnd - rinfo->currentVdsoStart;
   uint64_t prev_addr = 0x10000;
 
