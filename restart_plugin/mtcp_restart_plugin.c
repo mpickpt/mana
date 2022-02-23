@@ -2,7 +2,7 @@
 #define _GNU_SOURCE // needed for MREMAP_MAYMOVE
 #include <sys/mman.h>
 #include <sys/prctl.h>
-
+#include <sys/auxv.h>
 #include "mtcp_restart.h"
 #include "mtcp_sys.h"
 #include "mtcp_util.h"
@@ -307,10 +307,27 @@ remap_vdso_and_vvar_regions(RestoreInfo *rinfo) {
   rinfo->currentVdsoEnd = (VA) vdsoStartTmp + vdsoSize;
 }
 
+NO_OPTIMIZE
+static int
+mysetauxval(char **evp, unsigned long int type, unsigned long int val)
+{ while (*evp++ != NULL) {};
+  Elf64_auxv_t *auxv = (Elf64_auxv_t *)evp;
+  Elf64_auxv_t *p;
+  for (p = auxv; p->a_type != AT_NULL; p++) {
+    if (p->a_type == type) {
+       p->a_un.a_val = val;
+       return 0;
+    }
+  }
+  return -1;
+}
+
 void
 mtcp_plugin_hook(RestoreInfo *rinfo)
 {
   remap_vdso_and_vvar_regions(rinfo);
+  mysetauxval(rinfo->environ, AT_SYSINFO_EHDR,
+              (unsigned long int) rinfo->currentVdsoStart);
 
   // NOTE: We use mtcp_restart's original stack to initialize the lower
   // half. We need to do this in order to call MPI_Init() in the lower half,
@@ -391,11 +408,12 @@ mtcp_plugin_skip_memory_region_munmap(Area *area, RestoreInfo *rinfo)
 {
   LowerHalfInfo_t *lh_info = &rinfo->pluginInfo;
 
-  static MmapInfo_t *g_list = NULL;
-  static int g_numMmaps = 0;
+  MmapInfo_t *g_list = NULL;
+  int g_numMmaps = 0;
   int i = 0;
 
   getMmappedList_t fnc = (getMmappedList_t)lh_info->getMmappedListFptr;
+  // FIXME: use assert(fnc) instread.
   if (fnc) {
     g_list = fnc(&g_numMmaps);
   }
@@ -409,6 +427,7 @@ mtcp_plugin_skip_memory_region_munmap(Area *area, RestoreInfo *rinfo)
       area->addr == lh_info->startData) {
     return 1;
   }
+  // FIXME: use assert(g_list) instread.
   if (!g_list) return 0;
 
   for (i = 0; i < g_numMmaps; i++) {
