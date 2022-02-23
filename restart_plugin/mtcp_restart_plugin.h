@@ -44,8 +44,6 @@ typedef struct LowerHalfInfo
   void *getMmappedListFptr;
   void *resetMmappedListFptr;
   MemRange_t memRange;
-  void *ckptImageListAddr;
-  size_t ckptImageListSize;
 } LowerHalfInfo_t;
 
 typedef LowerHalfInfo_t PluginInfo;
