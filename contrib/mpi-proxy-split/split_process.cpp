@@ -24,6 +24,7 @@
 # define _GNU_SOURCE
 #endif
 
+#include <linux/version.h>
 #include <asm/prctl.h>
 #include <sys/prctl.h>
 #include <sys/personality.h>
@@ -48,6 +49,7 @@
 #include "procmapsutils.h"
 #include "util.h"
 #include "dmtcp.h"
+#include "config.h"
 
 static unsigned long origPhnum;
 static unsigned long origPhdr;
@@ -70,19 +72,51 @@ static char* proxyAddrInApp();
 static void compileProxy();
 #endif
 
+#ifdef HAS_FSGSBASE
+/* The support to set and get the FS base register in user space was merged in
+ * Linux kernel v5.9(see https://elixir.bootlin.com/linux/v5.9/C/ident/rdfsbase)
+ *
+ * MANA leverages this faster user-space switch on kernel version >= 5.9.
+ */
+static inline unsigned long getFS(void)
+{
+  unsigned long fsbase;
+  asm volatile("rdfsbase %0" : "=r" (fsbase) :: "memory");
+  return fsbase;
+}
+
+static inline void setFS(unsigned long fsbase)
+{
+  asm volatile("wrfsbase %0" :: "r" (fsbase) : "memory");
+}
+#endif
+
 SwitchContext::SwitchContext(unsigned long lowerHalfFs)
 {
   this->lowerHalfFs = lowerHalfFs;
+#ifdef HAS_FSGSBASE
+  // NOTE: This variant can always get and set the FS base in user space.
+  //       The Linux kernel introduced FSGSBASE in version 5.9.
+  this->upperHalfFs = getFS();
+  setFS(this->lowerHalfFs);
+#else
+  // #if LINUX_VERSION_CODE <= KERNEL_VERSION(5,9,0)
   JWARNING(syscall(SYS_arch_prctl, ARCH_GET_FS, &this->upperHalfFs) == 0)
           (JASSERT_ERRNO);
   JWARNING(syscall(SYS_arch_prctl, ARCH_SET_FS, this->lowerHalfFs) == 0)
           (JASSERT_ERRNO);
+#endif
 }
 
 SwitchContext::~SwitchContext()
 {
+#ifdef HAS_FSGSBASE
+  setFS(this->upperHalfFs);
+#else
+  // #if LINUX_VERSION_CODE <= KERNEL_VERSION(5,9,0)
   JWARNING(syscall(SYS_arch_prctl, ARCH_SET_FS, this->upperHalfFs) == 0)
           (JASSERT_ERRNO);
+#endif
 }
 
 int
