@@ -160,7 +160,7 @@ USER_DEFINED_WRAPPER(int, Waitall, (int) count,
   DMTCP_PLUGIN_ENABLE_CKPT();
 #else
   for (int i = 0; i < count; i++) {
-    if (array_of_statuses != MPI_STATUS_IGNORE) {
+    if (array_of_statuses != MPI_STATUSES_IGNORE) {
       retval = MPI_Wait(&array_of_requests[i], &array_of_statuses[i]);
     } else {
       retval = MPI_Wait(&array_of_requests[i], MPI_STATUS_IGNORE);
