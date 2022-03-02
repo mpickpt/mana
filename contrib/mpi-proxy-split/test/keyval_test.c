@@ -22,8 +22,8 @@ int main( int argc, char *argv[] )
 
   int *val;
   for (i = 0; i < 3; i++) {
-    MPI_Attr_put( comm, key[i], &attrval[i] );
-    MPI_Attr_get(comm, key[i], &val, &flag);
+    MPI_Comm_set_attr(comm, key[i], &attrval[i]);
+    MPI_Comm_get_attr(comm, key[i], &val, &flag);
     printf("keyval: %lx, attrval: %d\n", key[i], *val);
     fflush(stdout);
   }
@@ -40,7 +40,7 @@ int main( int argc, char *argv[] )
   }
 
   for (i = 0; i < 3; i++) {
-    MPI_Attr_get(comm, key[i], &val, &flag);
+    MPI_Comm_get_attr(comm, key[i], &val, &flag);
     printf("keyval: %lx, attrval: %d\n", key[i], *val);
     fflush(stdout);
   }

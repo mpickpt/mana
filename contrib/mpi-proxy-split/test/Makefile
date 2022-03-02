@@ -20,15 +20,15 @@ DEMO_PORT=7787
 #       Alltoallv_test Barrier_test Bcast_test Comm_split_test Reduce_test \
 #       send_recv send_recv_many ping_pong Comm_dup_test Sendrecv_test \
 #       Waitall_test Allgather_test Group_size_rank Type_commit_contiguous \
-#       Irecv_test Alloc_mem f_ibarrier
+#       Irecv_test Alloc_mem f_ibarrier \ file_test Waitany_test
 ## Reordering the tests:
 FILES=mpi_hello_world \
       hello_mpi_init_thread \
-      keyval_test \
+      keyval_test file_test \
       send_recv send_recv_many ping_pong Comm_dup_test Sendrecv_test \
       multi_send_recv \
       Barrier_test Bcast_test Comm_split_test Reduce_test \
-      Waitall_test \
+      Waitall_test Waitany_test \
       two-phase-commit-1 two-phase-commit-2 \
       Ibcast_test Ibarrier_test Isend_test \
       Abort_test Allreduce_test Alltoall_test Alltoallv_test \
