@@ -157,6 +157,17 @@ USER_DEFINED_WRAPPER(int, Type_create_struct, (int) count,
   return retval;
 }
 
+USER_DEFINED_WRAPPER(int, Type_size_x, (MPI_Datatype) type, (MPI_Count *) size)
+{
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  retval = NEXT_FUNC(Type_size_x)(type, size);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return retval;
+}
+
 USER_DEFINED_WRAPPER(int, Type_indexed, (int) count,
                      (const int*) array_of_blocklengths,
                      (const int*) array_of_displacements,
@@ -235,6 +246,7 @@ PMPI_IMPL(int, MPI_Type_vector, int count, int blocklength,
 PMPI_IMPL(int, MPI_Type_create_struct, int count, const int array_of_blocklengths[],
           const MPI_Aint array_of_displacements[], const MPI_Datatype array_of_types[],
           MPI_Datatype *newtype)
+PMPI_IMPL(int, MPI_Type_size_x, MPI_Datatype type, MPI_Count *size)
 PMPI_IMPL(int, MPI_Type_indexed, int count, const int array_of_blocklengths[],
           const int array_of_displacements[], MPI_Datatype oldtype,
           MPI_Datatype *newtype)
