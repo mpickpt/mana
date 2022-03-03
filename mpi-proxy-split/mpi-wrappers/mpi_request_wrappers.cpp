@@ -1,6 +1,8 @@
 /****************************************************************************
- *   Copyright (C) 2019-2021 by Gene Cooperman, Rohan Garg, Yao Xu          *
- *   gene@ccs.neu.edu, rohgarg@ccs.neu.edu, xu.yao1@northeastern.edu        *
+ *   Copyright (C) 2019-2022 by Gene Cooperman, Illio Suardi, Rohan Garg,   *
+ *   Yao Xu                                                                 *
+ *   gene@ccs.neu.edu, illio@u.nus.edu, rohgarg@ccs.neu.edu,                *
+ *   xu.yao1@northeastern.edu                                               *
  *                                                                          *
  *  This file is part of DMTCP.                                             *
  *                                                                          *
@@ -137,11 +139,42 @@ USER_DEFINED_WRAPPER(int, Testall, (int) count, (MPI_Request*) requests,
   return retval;
 }
 
+USER_DEFINED_WRAPPER(int, Testany, (int) count,
+                     (MPI_Request *) array_of_requests, (int *) index,
+                     (int *) flag, (MPI_Status *) status)
+{
+  // NOTE: We're seeing a weird bug with the Fortran-to-C interface when nimrod
+  // is being ran with MANA, where it seems like a Fortran routine is passing
+  // these arguments in registers instead of on the stack, which causes the
+  // values inside to be corrupted when a function call returns. We use a
+  // temporary workaround below.
+  int local_count = count;
+  MPI_Request *local_array_of_requests = array_of_requests;
+  int *local_index = index;
+  int *local_flag = flag;
+  MPI_Status *local_status = status;
+
+  int retval;
+  *local_flag = 0;
+  *local_index = MPI_UNDEFINED;
+  for (int i = 0; i < local_count; i++) {
+    retval = MPI_Test(&local_array_of_requests[i], local_flag, local_status);
+    if (retval != MPI_SUCCESS) {
+      break;
+    }
+    if (*local_flag) {
+      *local_index = i;
+      break;
+    }
+  }
+  return retval;
+}
+
 USER_DEFINED_WRAPPER(int, Waitall, (int) count,
                      (MPI_Request *) array_of_requests,
                      (MPI_Status *) array_of_statuses)
 {
-  // FIXME: Revisit this wrapper
+  // FIXME: Revisit this wrapper - call VIRTUAL_TO_REAL_REQUEST on array
   int retval;
 #if 0
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -167,6 +200,47 @@ USER_DEFINED_WRAPPER(int, Waitall, (int) count,
   }
 #endif
   return retval;
+}
+
+USER_DEFINED_WRAPPER(int, Waitany, (int) count,
+                     (MPI_Request *) array_of_requests, (int *) index,
+                     (MPI_Status *) status)
+{
+  // NOTE: See MPI_Testany above for the rationale for these variables.
+  int local_count = count;
+  MPI_Request *local_array_of_requests = array_of_requests;
+  int *local_index = index;
+  MPI_Status *local_status = status;
+
+  int retval = MPI_SUCCESS;
+  int flag = 0;
+  bool all_null = true;
+  *local_index = MPI_UNDEFINED;
+  while (1) {
+    for (int i = 0; i < count; i++) {
+      if (local_array_of_requests[i] == MPI_REQUEST_NULL) {
+        continue;
+      }
+      all_null = false;
+      retval = MPI_Test_internal(&local_array_of_requests[i], &flag,
+                                 local_status, false);
+      if (retval != MPI_SUCCESS) {
+        return retval;
+      }
+      if (flag) {
+        if (MPI_LOGGING()) {
+          clearPendingRequestFromLog(local_array_of_requests[i]);
+          REMOVE_OLD_REQUEST(local_array_of_requests[i]);
+          local_array_of_requests[i] = MPI_REQUEST_NULL;
+        }
+        *local_index = i;
+        return retval;
+      }
+    }
+    if (all_null) {
+      return retval;
+    }
+  }
 }
 
 USER_DEFINED_WRAPPER(int, Wait, (MPI_Request*) request, (MPI_Status*) status)
@@ -231,9 +305,8 @@ USER_DEFINED_WRAPPER(int, Probe, (int) source, (int) tag,
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, Iprobe,
-                     (int) source, (int) tag, (MPI_Comm) comm, (int*) flag,
-                     (MPI_Status *) status)
+USER_DEFINED_WRAPPER(int, Iprobe, (int) source, (int) tag, (MPI_Comm) comm,
+                     (int *) flag, (MPI_Status *) status)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -250,7 +323,7 @@ USER_DEFINED_WRAPPER(int, Iprobe,
 }
 
 USER_DEFINED_WRAPPER(int, Request_get_status, (MPI_Request) request,
-                     (int*) flag, (MPI_Status*) status)
+                     (int *) flag, (MPI_Status *) status)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -262,6 +335,10 @@ USER_DEFINED_WRAPPER(int, Request_get_status, (MPI_Request) request,
   return retval;
 }
 
+DEFINE_FNC(int, Get_elements, (const MPI_Status *) status,
+           (MPI_Datatype) datatype, (int *) count);
+DEFINE_FNC(int, Get_elements_x, (const MPI_Status *) status,
+           (MPI_Datatype) datatype, (MPI_Count *) count);
 
 PMPI_IMPL(int, MPI_Test, MPI_Request* request, int* flag, MPI_Status* status)
 PMPI_IMPL(int, MPI_Wait, MPI_Request* request, MPI_Status* status)
@@ -271,7 +348,16 @@ PMPI_IMPL(int, MPI_Probe, int source, int tag,
           MPI_Comm comm, MPI_Status *status)
 PMPI_IMPL(int, MPI_Waitall, int count, MPI_Request array_of_requests[],
           MPI_Status *array_of_statuses)
+PMPI_IMPL(int, MPI_Waitany, int count, MPI_Request array_of_requests[],
+          int *index, MPI_Status *status)
 PMPI_IMPL(int, MPI_Testall, int count, MPI_Request *requests,
           int *flag, MPI_Status *statuses)
+PMPI_IMPL(int, MPI_Testany, int count, MPI_Request array_of_requests[],
+          int *index, int *flag, MPI_Status *status);
+PMPI_IMPL(int, MPI_Get_elements, const MPI_Status *status,
+          MPI_Datatype datatype, int *count)
+PMPI_IMPL(int, MPI_Get_elements_x, const MPI_Status *status,
+          MPI_Datatype datatype, MPI_Count *count)
 PMPI_IMPL(int, MPI_Request_get_status, MPI_Request request, int* flag,
-          MPI_Status* status)
+          MPI_Status *status)
+
