@@ -1,6 +1,8 @@
 /****************************************************************************
- *   Copyright (C) 2019-2021 by Gene Cooperman, Rohan Garg, Yao Xu          *
- *   gene@ccs.neu.edu, rohgarg@ccs.neu.edu, xu.yao1@northeastern.edu        *
+ *   Copyright (C) 2019-2022 by Gene Cooperman, Illio Suardi, Rohan Garg,   *
+ *   Yao Xu                                                                 *
+ *   gene@ccs.neu.edu, illio@u.nus.edu, rohgarg@ccs.neu.edu,                *
+ *   xu.yao1@northeastern.edu                                               *
  *                                                                          *
  *  This file is part of DMTCP.                                             *
  *                                                                          *
@@ -236,9 +238,8 @@ USER_DEFINED_WRAPPER(int, Probe, (int) source, (int) tag,
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, Iprobe,
-                     (int) source, (int) tag, (MPI_Comm) comm, (int*) flag,
-                     (MPI_Status *) status)
+USER_DEFINED_WRAPPER(int, Iprobe, (int) source, (int) tag, (MPI_Comm) comm,
+		     (int *) flag, (MPI_Status *) status)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -254,8 +255,32 @@ USER_DEFINED_WRAPPER(int, Iprobe,
   return retval;
 }
 
+USER_DEFINED_WRAPPER(int, Get_elements, (const MPI_Status *) status,
+		     (MPI_Datatype) datatype, (int *) count)
+{
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  retval = NEXT_FUNC(Get_elements)(status, datatype, count);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return retval;
+}
+
+USER_DEFINED_WRAPPER(int, Get_elements_x, (const MPI_Status *) status,
+		     (MPI_Datatype) datatype, (MPI_Count *) count)
+{
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  retval = NEXT_FUNC(Get_elements_x)(status, datatype, count);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return retval;
+}
+
 USER_DEFINED_WRAPPER(int, Request_get_status, (MPI_Request) request,
-                     (int*) flag, (MPI_Status*) status)
+                     (int *) flag, (MPI_Status *) status)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -278,5 +303,10 @@ PMPI_IMPL(int, MPI_Waitall, int count, MPI_Request array_of_requests[],
           MPI_Status *array_of_statuses)
 PMPI_IMPL(int, MPI_Testall, int count, MPI_Request *requests,
           int *flag, MPI_Status *statuses)
+PMPI_IMPL(int, MPI_Get_elements, const MPI_Status *status,
+	  MPI_Datatype datatype, int *count)
+PMPI_IMPL(int, MPI_Get_elements_x, const MPI_Status *status,
+	  MPI_Datatype datatype, MPI_Count *count)
 PMPI_IMPL(int, MPI_Request_get_status, MPI_Request request, int* flag,
-          MPI_Status* status)
+          MPI_Status *status)
+
