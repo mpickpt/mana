@@ -145,7 +145,7 @@ USER_DEFINED_WRAPPER(int, Waitall, (int) count,
                      (MPI_Request *) array_of_requests,
                      (MPI_Status *) array_of_statuses)
 {
-  // FIXME: Revisit this wrapper
+  // FIXME: Revisit this wrapper - call VIRTUAL_TO_REAL_REQUEST on array
   int retval;
 #if 0
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -170,6 +170,32 @@ USER_DEFINED_WRAPPER(int, Waitall, (int) count,
     }
   }
 #endif
+  return retval;
+}
+
+USER_DEFINED_WRAPPER(int, Waitany, (int) count,
+		     (MPI_Request *) array_of_requests, (int *) index,
+		     (MPI_Status *) status)
+{
+  int retval;
+  int flag = 0;
+  *index = MPI_UNDEFINED;
+  while (1) {
+    for (int i = 0; i < count; i++) {
+      if (array_of_requests[i] == MPI_REQUEST_NULL) {
+        continue;
+      }
+      retval = MPI_Test_internal(&array_of_requests[i], &flag, status, false);
+      if (flag != 0) {
+	*index = i;
+	break;
+      }
+      if (retval != MPI_SUCCESS) {
+        break;
+      }
+    }
+    sleep(1);
+  }
   return retval;
 }
 
@@ -301,6 +327,8 @@ PMPI_IMPL(int, MPI_Probe, int source, int tag,
           MPI_Comm comm, MPI_Status *status)
 PMPI_IMPL(int, MPI_Waitall, int count, MPI_Request array_of_requests[],
           MPI_Status *array_of_statuses)
+PMPI_IMPL(int, MPI_Waitany, int count, MPI_Request array_of_requests[],
+	  int *index, MPI_Status *status)
 PMPI_IMPL(int, MPI_Testall, int count, MPI_Request *requests,
           int *flag, MPI_Status *statuses)
 PMPI_IMPL(int, MPI_Get_elements, const MPI_Status *status,
