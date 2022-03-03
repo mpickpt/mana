@@ -270,7 +270,6 @@ int MPI_Type_lb(MPI_Datatype type, MPI_Aint *lb);
 int MPI_Type_match_size(int typeclass, int size, MPI_Datatype *type);
 int MPI_Type_set_attr(MPI_Datatype type, int type_keyval, void *attr_val);
 int MPI_Type_set_name(MPI_Datatype type, const char *type_name);
-int MPI_Type_size_x(MPI_Datatype type, MPI_Count *size);
 int MPI_Type_struct(int count, const int array_of_blocklengths[], const MPI_Aint array_of_displacements[], const MPI_Datatype array_of_types[], MPI_Datatype *newtype);
 int MPI_Type_ub(MPI_Datatype mtype, MPI_Aint *ub);
 int MPI_Unpack(const void *inbuf, int insize, int *position, void *outbuf, int outcount, MPI_Datatype datatype, MPI_Comm comm);
