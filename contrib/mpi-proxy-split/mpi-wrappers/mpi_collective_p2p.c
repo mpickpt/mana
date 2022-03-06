@@ -432,54 +432,6 @@ int MPI_Reduce(const void* sendbuf, void* recvbuf, int count,
   }
   return MPI_SUCCESS;
 }
-#else
-// FIXME:  This wuld still need to implement MPI_Reduce over two processes
-int MPI_Reduce(const void* sendbuf, void* recvbuf, int count,
-               MPI_Datatype datatype, MPI_Op op, int root, MPI_Comm comm) {
-  PROLOG_rank_size;
-  MPI_Aint lower_bound;
-  MPI_Aint extent;
-  MPI_Type_get_extent(datatype, &lower_bound, &extent);
-  int inplace = (sendbuf == MPI_IN_PLACE);
-  if (inplace && rank == root) {
-    memcpy(recvbuf, sendbuf, count * extent);
-  }
-  // It would have been nice if MPI had a way to use 'op' locally on array.
-  int other_root = (root != 0 ? 0 : 1);
-  char *tmp_recvbuf = NULL;
-  if (rank == other_root) {
-    tmp_recvbuf = malloc(count * extent);
-    MPI_Gather(sendbuf, count, datatype, tmp_recvbuf, count, datatype,
-               other_root, comm);
-  } else {
-    MPI_Gather(sendbuf, count, datatype, NULL, 0, datatype,
-               other_root, comm);
-  }
-  if (rank == root || rank == other_root) {
-    MPI_Group group, tmpgroup;
-    MPI_Comm tmpcomm;
-    MPI_Comm_group(comm, &group);
-    int ranks[] = {root, other_root};
-    int i;
-    MPI_Group_incl(group, 2, ranks, &tmpgroup);
-    MPI_Comm_create(comm, tmpgroup, &tmpcomm);
-    for (i = 0; i < size; i++) {
-      if (rank == other_root) {
-        MPI_Reduce(tmp_recvbuf + i*extent*count, recvbuf, count,
-                   datatype, op, 0 /* root for tmpcomm */, tmpcomm)
-      } else if (rank == root) {
-        MPI_Reduce(tmp_recvbuf + i*extent*count, recvbuf, count,
-                   datatype, op, 0 /* root for tmpcomm */, tmpcomm)
-      }
-    }
-    if (rank == other_root) {
-      free(tmp_recvbuf);
-    }
-    MPI_Comm_free(&tmpcomm);
-  }
-  return MPI_SUCCESS;
-}
-#endif
 
 int MPI_Allreduce(const void* sendbuf, void* recvbuf, int count,
                   MPI_Datatype datatype, MPI_Op op, MPI_Comm comm) {
