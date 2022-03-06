@@ -34,9 +34,15 @@
 #include "p2p_log_replay.h"
 #include "p2p_drain_send_recv.h"
 
+#define MPI_COLLECTIVE_P2P
+#ifdef MPI_COLLECTIVE_P2P
+# include "mpi_collective_p2p.c"
+#endif
+
 // #define NO_BARRIER_BCAST
 using namespace dmtcp_mpi;
 
+#ifndef MPI_COLLECTIVE_P2P
 #ifdef NO_BARRIER_BCAST
 USER_DEFINED_WRAPPER(int, Bcast,
                      (void *) buffer, (int) count, (MPI_Datatype) datatype,
@@ -469,6 +475,7 @@ USER_DEFINED_WRAPPER(int, Scan, (const void *) sendbuf, (void *) recvbuf,
   };
   return twoPhaseCommit(comm, realBarrierCb);
 }
+#endif // #ifndef MPI_COLLECTIVE_P2P
 
 // FIXME: Also check the MPI_Cart family, if they use collective communications.
 USER_DEFINED_WRAPPER(int, Comm_split, (MPI_Comm) comm, (int) color, (int) key,
@@ -517,6 +524,7 @@ USER_DEFINED_WRAPPER(int, Comm_dup, (MPI_Comm) comm, (MPI_Comm *) newcomm)
 }
 
 
+#ifndef MPI_COLLECTIVE_P2P
 PMPI_IMPL(int, MPI_Bcast, void *buffer, int count, MPI_Datatype datatype,
           int root, MPI_Comm comm)
 PMPI_IMPL(int, MPI_Ibcast, void *buffer, int count, MPI_Datatype datatype,
@@ -557,6 +565,7 @@ PMPI_IMPL(int, MPI_Scatterv, const void *sendbuf, const int sendcounts[],
           int recvcount, MPI_Datatype recvtype, int root, MPI_Comm comm)
 PMPI_IMPL(int, MPI_Scan, const void *sendbuf, void *recvbuf, int count,
           MPI_Datatype datatype, MPI_Op op, MPI_Comm comm)
+#endif // #ifndef MPI_COLLECTIVE_P2P
 PMPI_IMPL(int, MPI_Comm_split, MPI_Comm comm, int color, int key,
           MPI_Comm *newcomm)
 PMPI_IMPL(int, MPI_Comm_dup, MPI_Comm comm, MPI_Comm *newcomm)
