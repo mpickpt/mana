@@ -23,7 +23,7 @@
 // Add:  #define ADD_UNDEFINED
 //   if you want to define functions that are also in mpi_unimplemented_wrappers.txt
 
-#define PROLOG_rank_size \
+#define PROLOG_Comm_rank_size \
   int rank; \
   int size; \
   MPI_Comm_rank(comm, &rank); \
@@ -45,7 +45,7 @@
 /*
  * TEMPLATE FOR EACH COLLECTIVE CALL:
 ....(...) {
-  PROLOG_rank_size;
+  PROLOG_Comm_rank_size;
   if (rank == root) {
     int i;
     for (i = 0; i < size; i++) {
@@ -67,7 +67,7 @@ extern "C" {
 
 // MPI standard 3.1:  Section 5.3
 int MPI_Barrier(MPI_Comm comm) {
-  PROLOG_rank_size;
+  PROLOG_Comm_rank_size;
   // Does MPI specify that a send/recv count of 0 must be blocking?
   int buffer[1] = {98};
   int count = 1;
@@ -95,7 +95,7 @@ int MPI_Barrier(MPI_Comm comm) {
 // MPI standard 3.1:  Section 5.4
 int MPI_Bcast(void* buffer, int count, MPI_Datatype datatype,
               int root, MPI_Comm comm) {
-  PROLOG_rank_size;
+  PROLOG_Comm_rank_size;
   if (rank == root) {
     int i;
     for (i = 0; i < size; i++) {
@@ -113,7 +113,7 @@ int MPI_Bcast(void* buffer, int count, MPI_Datatype datatype,
 int MPI_Gather(const void* sendbuf, int sendcount, MPI_Datatype sendtype,
                void* recvbuf, int recvcount, MPI_Datatype recvtype,
                int root, MPI_Comm comm) {
-  PROLOG_rank_size;
+  PROLOG_Comm_rank_size;
   int i;
   int inplace = (sendbuf == MPI_IN_PLACE);
   if (rank != root) {
@@ -144,7 +144,7 @@ int MPI_Gather(const void* sendbuf, int sendcount, MPI_Datatype sendtype,
 int MPI_Gatherv(const void* sendbuf, int sendcount, MPI_Datatype sendtype,
                 void* recvbuf, const int recvcounts[], const int displs[],
                 MPI_Datatype recvtype, int root, MPI_Comm comm) {
-  PROLOG_rank_size;
+  PROLOG_Comm_rank_size;
   int i;
   int inplace = (sendbuf == MPI_IN_PLACE);
   if (rank != root) {
@@ -180,7 +180,7 @@ int MPI_Gatherv(const void* sendbuf, int sendcount, MPI_Datatype sendtype,
 int MPI_Scatter(const void* sendbuf, int sendcount, MPI_Datatype sendtype,
                 void* recvbuf, int recvcount, MPI_Datatype recvtype,
                 int root, MPI_Comm comm) {
-  PROLOG_rank_size;
+  PROLOG_Comm_rank_size;
   int i;
   int inplace = (recvbuf == MPI_IN_PLACE);
   if (inplace) { // if true, MPI says to ignore recvcount/recvtype
@@ -222,7 +222,7 @@ int MPI_Scatterv(const void* sendbuf, const int sendcounts[],
                  const int displs[], MPI_Datatype sendtype,
                  void* recvbuf, int recvcount, MPI_Datatype recvtype,
                  int root, MPI_Comm comm) {
-  PROLOG_rank_size;
+  PROLOG_Comm_rank_size;
   int i;
   int inplace = (recvbuf == MPI_IN_PLACE);
   if (rank == root) {
@@ -254,7 +254,7 @@ int MPI_Scatterv(const void* sendbuf, const int sendcounts[],
 int MPI_Allgather(const void* sendbuf, int sendcount, MPI_Datatype sendtype,
                   void* recvbuf, int recvcount, MPI_Datatype recvtype,
                   MPI_Comm comm) {
-  PROLOG_rank_size;
+  PROLOG_Comm_rank_size;
   int root;
   for (root = 0; root < size; root++) {
     MPI_Gather(sendbuf, sendcount, sendtype, recvbuf, recvcount, recvtype,
@@ -266,7 +266,7 @@ int MPI_Allgather(const void* sendbuf, int sendcount, MPI_Datatype sendtype,
 int MPI_Allgatherv(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
                    void *recvbuf, const int recvcounts[], const int displs[],
                    MPI_Datatype recvtype, MPI_Comm comm) {
-  PROLOG_rank_size;
+  PROLOG_Comm_rank_size;
   int root;
   for (root = 0; root < size; root++) {
     MPI_Gatherv(sendbuf, sendcount, sendtype, recvbuf, recvcounts,
@@ -279,7 +279,7 @@ int MPI_Allgatherv(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
 int MPI_Alltoall(const void* sendbuf, int sendcount, MPI_Datatype sendtype,
                  void* recvbuf, int recvcount, MPI_Datatype recvtype,
                  MPI_Comm comm) {
-  PROLOG_rank_size;
+  PROLOG_Comm_rank_size;
   int i;
   int inplace = (recvbuf == MPI_IN_PLACE);
   if (inplace) { // if true, MPI says to ignore recvcount/recvtype
@@ -332,7 +332,7 @@ int MPI_Alltoallv(const void* sendbuf, const int sendcounts[],
                   const int rdispls[], MPI_Datatype recvtype,
                   MPI_Comm comm) {
 
-  PROLOG_rank_size;
+  PROLOG_Comm_rank_size;
   int i;
   int inplace = (recvbuf == MPI_IN_PLACE);
   if (inplace) { // if true, MPI says to ignore recvcount/recvtype
@@ -420,7 +420,7 @@ int MPI_Alltoallw(const void* sendbuf, const int sendcounts[],
  */
 int MPI_Reduce(const void* sendbuf, void* recvbuf, int count,
                MPI_Datatype datatype, MPI_Op op, int root, MPI_Comm comm) {
-  PROLOG_rank_size;
+  PROLOG_Comm_rank_size;
   MPI_Aint lower_bound;
   MPI_Aint extent;
   MPI_Type_get_extent(datatype, &lower_bound, &extent);
@@ -483,7 +483,7 @@ int MPI_Reduce_scatter(const void* sendbuf, void* recvbuf,
 // MPI standard 3.1:  Section 5.11
 int MPI_Scan(const void* sendbuf, void* recvbuf, int count,
              MPI_Datatype datatype, MPI_Op op, MPI_Comm comm) {
-  PROLOG_rank_size;
+  PROLOG_Comm_rank_size;
   int root = 0;
   MPI_Aint lower_bound;
   MPI_Aint extent;
