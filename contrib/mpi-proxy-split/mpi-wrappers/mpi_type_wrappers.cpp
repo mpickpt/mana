@@ -181,6 +181,19 @@ USER_DEFINED_WRAPPER(int, Type_indexed, (int) count,
   return retval;
 }
 
+USER_DEFINED_WRAPPER(int, Type_get_extent, (MPI_Datatype) datatype,
+                     (MPI_Aint*) lb, (MPI_Aint*) extent)
+{
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  retval = NEXT_FUNC(Type_get_extent)(realType, lb, extent);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return retval;
+}
+
 USER_DEFINED_WRAPPER(int, Pack_size, (int) incount,
                      (MPI_Datatype) datatype, (MPI_Comm) comm,
                      (int*) size)
@@ -225,6 +238,8 @@ PMPI_IMPL(int, MPI_Type_create_struct, int count, const int array_of_blocklength
 PMPI_IMPL(int, MPI_Type_indexed, int count, const int array_of_blocklengths[],
           const int array_of_displacements[], MPI_Datatype oldtype,
           MPI_Datatype *newtype)
+PMPI_IMPL(int, MPI_Type_get_extent, MPI_Datatype datatype, MPI_Aint *lb,
+          MPI_Aint *extent)
 PMPI_IMPL(int, MPI_Pack_size, int incount, MPI_Datatype datatype,
           MPI_Comm comm, int *size)
 PMPI_IMPL(int, MPI_Pack, const void *inbuf, int incount, MPI_Datatype datatype,
