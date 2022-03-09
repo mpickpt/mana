@@ -367,6 +367,7 @@ int MPI_Alltoallv(const void* sendbuf, const int sendcounts[],
   return MPI_SUCCESS;
 }
 
+#ifdef ADD_UNDEFINED
 int MPI_Alltoallw(const void* sendbuf, const int sendcounts[],
                   const int sdispls[], const MPI_Datatype sendtypes[],
                   void* recvbuf, const int recvcounts[], const int rdispls[],
@@ -375,6 +376,7 @@ int MPI_Alltoallw(const void* sendbuf, const int sendcounts[],
   ABORT();
   return -1;
 }
+#endif
 
 // MPI standard 3.1:  Section 5.9
 /* NOTE:  MPI-3.1 standard (Section 5.9.1):
@@ -440,6 +442,7 @@ int MPI_Allreduce(const void* sendbuf, void* recvbuf, int count,
   return MPI_SUCCESS;
 }
 
+#ifdef ADD_UNDEFINED
 // MPI standard 3.1:  Section 5.10
 int MPI_Reduce_scatter_block(const void* sendbuf, void* recvbuf,
                              int recvcount, MPI_Datatype datatype, MPI_Op op,
@@ -448,6 +451,8 @@ int MPI_Reduce_scatter_block(const void* sendbuf, void* recvbuf,
   ABORT();
   return -1;
 }
+#endif
+
 int MPI_Reduce_scatter(const void* sendbuf, void* recvbuf,
                        const int recvcounts[], MPI_Datatype datatype, MPI_Op op,
                        MPI_Comm comm) {
@@ -496,7 +501,7 @@ int MPI_Scan(const void* sendbuf, void* recvbuf, int count,
   }
   return MPI_SUCCESS;
 }
-#if ADD_UNDEFINED
+#ifdef ADD_UNDEFINED
 int MPI_Exscan(const void* sendbuf, void* recvbuf, int count,
              MPI_Datatype datatype, MPI_Op op, MPI_Comm comm) {
   fprintf(stderr, "%s not implemented\n", __FUNCTION__);
