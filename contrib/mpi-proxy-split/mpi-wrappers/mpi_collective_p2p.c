@@ -413,7 +413,7 @@ int MPI_Reduce(const void* sendbuf, void* recvbuf, int count,
   if (rank == root) {
     // Gather data into tmp_sendbuf at root
     int i;
-    char *tmp_sendbuf = (char *)malloc(count * extent);
+    char *tmp_sendbuf = (char *)malloc(count * extent * size);
     MPI_Gather(sendbuf, count, datatype, tmp_sendbuf, count, datatype,
                root, comm);
     // Initialize tmp_recvbuf from sendbuf at rank 0
