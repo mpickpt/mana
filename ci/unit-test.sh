@@ -13,7 +13,7 @@ fi
 
 ./configure
 make clean
-make -j 8 mana || exit 1
+make -j 8 mana
 
 cd $SCRIPT_DIR/../contrib/mpi-proxy-split/unit-test
 make || exit 1
