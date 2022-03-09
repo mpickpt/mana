@@ -51,7 +51,8 @@ mpi_unimplemented_wrappers.cpp: generate-mpi-unimplemented-wrappers.py \
 fortran_constants.o: fortran_constants.f90
 	${MPIFORTRAN} -fPIC -g3 -O0 -c -o $@ $< 
 
-mpi_collective_wrappers.o: mpi_collective_wrappers.cpp ../virtual-ids.h
+mpi_collective_wrappers.o: mpi_collective_wrappers.cpp ../virtual-ids.h \
+                           mpi_collective_p2p.c
 	${MPICXX} ${CXXFLAGS} -Wall -g3 -O0 -DDEBUG -fPIC -I../../../include \
 	-I../../../jalib -I.. -I../../../src -I../lower-half -std=c++11 -c $<
 
