@@ -31,7 +31,7 @@
 #include "mpi_nextfunc.h"
 #include "virtual-ids.h"
 
-extern int MPI_Alltoall_internal(const void *sendbuf, int sendcount,
+extern "C" int MPI_Alltoall_internal(const void *sendbuf, int sendcount,
                                  MPI_Datatype sendtype, void *recvbuf,
                                  int recvcount, MPI_Datatype recvtype,
                                  MPI_Comm comm);
