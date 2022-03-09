@@ -295,22 +295,30 @@ int MPI_Alltoall(const void* sendbuf, int sendcount, MPI_Datatype sendtype,
     MPI_Type_get_extent(recvtype, &lower_bound, &recvextent);
   }
   assert(sendextent*sendcount == recvextent*recvcount);
+  // Phase 1: Send to higher ranks, recv from lower ranks to avoid deadlock
   for (i = 0; i < size; i++) {
-    if (i == rank) {
+    if (rank == i) {
       if (!inplace) {
         // NOTE: if inplace, MPI guarantees that rank's data is already correct
         memcpy(recvbuf + i*recvextent*recvcount,
                sendbuf + i*sendextent*sendcount,
                sendextent*sendcount);
       }
-    } else { // else: i != rank
+    } else if (rank < i) {
       MPI_Send(sendbuf + i*sendcount*sendextent, sendcount, sendtype,
                i, 0, comm);
+    } else { // rank > i
+      MPI_Recv(recvbuf + i*recvextent*recvcount, recvcount, recvtype,
+               i, 0, comm, MPI_STATUS_IGNORE);
     }
   }
+  // Phase 2: Send to lower ranks, recv from higher ranks to avoid deadlock
   for (i = 0; i < size; i++) {
-    // NOTE: if i == rank, we handled it during MPI_Send
-    if (i != rank) {
+    // NOTE: if i == rank, we handled it during Phase 1
+    if (rank > i) {
+      MPI_Send(sendbuf + i*sendcount*sendextent, sendcount, sendtype,
+               i, 0, comm);
+    } else if (rank < i) {
       MPI_Recv(recvbuf + i*recvextent*recvcount, recvcount, recvtype,
                i, 0, comm, MPI_STATUS_IGNORE);
     }
@@ -342,23 +350,34 @@ int MPI_Alltoallv(const void* sendbuf, const int sendcounts[],
   }
   // FIXME:  Add assert: Sum of sendcounts[]*extent(sendtype) == SAME_FOR_RECV
   // assert(sendextent*sendcount == recvextent*recvcount);
+  const int *displs = (inplace ? sdispls : rdispls);
+  // Phase 1: Send to higher ranks, recv from lower ranks to avoid deadlock
   for (i = 0; i < size; i++) {
-    if (i == rank) {
+    if (rank == i) {
       if (!inplace) {
+        // NOTE: if inplace, MPI guarantees that rank's data is already correct
         memcpy(recvbuf + rdispls[i]*recvextent /* i*recvextent*recvcount */,
                sendbuf + sdispls[i]*sendextent /* i*sendextent*sendcount */,
                sendextent*sendcounts[i]);
-      } // NOTE: if inplace, MPI guarantees that rank's data is already correct
-    } else { // else: i != rank
+      }
+    } else if (rank < i) {
       MPI_Send(sendbuf + sdispls[i]*sendextent /* sdispls[i] == i*sendcount */,
                sendcounts[i], sendtype,
                i, 0, comm);
+    } else { // rank > i
+      MPI_Recv(recvbuf + displs[i]*recvextent /* rdispls[i] == i*recvcount */,
+               recvcounts[i], recvtype,
+               i, 0, comm, MPI_STATUS_IGNORE);
     }
   }
+  // Phase 2: Send to lower ranks, recv from higher ranks to avoid deadlock
   for (i = 0; i < size; i++) {
-    // NOTE: if i == rank, we handled it during MPI_Send
-    if (i != rank) {
-      const int *displs = (inplace ? sdispls : rdispls);
+    // NOTE: if i == rank, we handled it during Phase 1
+    if (rank > i) {
+      MPI_Send(sendbuf + sdispls[i]*sendextent /* sdispls[i] == i*sendcount */,
+               sendcounts[i], sendtype,
+               i, 0, comm);
+    } else if (rank < i) {
       MPI_Recv(recvbuf + displs[i]*recvextent /* rdispls[i] == i*recvcount */,
                recvcounts[i], recvtype,
                i, 0, comm, MPI_STATUS_IGNORE);
