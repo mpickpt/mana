@@ -288,8 +288,8 @@ int MPI_Alltoall(const void* sendbuf, int sendcount, MPI_Datatype sendtype,
   }
   MPI_Aint lower_bound;
   MPI_Aint sendextent, recvextent;
+  MPI_Type_get_extent(sendtype, &lower_bound, &sendextent);
   if (inplace) {
-    MPI_Type_get_extent(sendtype, &lower_bound, &sendextent);
     recvextent = sendextent;
   } else {
     MPI_Type_get_extent(recvtype, &lower_bound, &recvextent);
