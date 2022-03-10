@@ -129,7 +129,7 @@ USER_DEFINED_WRAPPER(int, Cart_shift, (MPI_Comm) comm, (int) direction,
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS && MPI_LOGGING()) {
     LOG_CALL(restoreCarts, Cart_shift, comm, direction,
-             disp, rank_source, rank_dest);
+             disp, *rank_source, *rank_dest);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
