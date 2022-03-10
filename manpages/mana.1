@@ -1,5 +1,5 @@
 '\" t
-.\" Manual page created with latex2man on Sun Jun 20 15:09:00 2021
+.\" Manual page created with latex2man on Thu Mar 10 05:08:52 2022
 .\" NOTE: This file is generated, DO NOT EDIT.
 .de Vb
 .ft CW
@@ -10,7 +10,7 @@
 
 .fi
 ..
-.TH "MANA" "1" "20 June 2021" "MPI\-Agnostic Netw.\-Agnostic Ckpt " "MPI\-Agnostic Netw.\-Agnostic Ckpt "
+.TH "MANA" "1" "10 March 2022" "MPI\-Agnostic Netw.\-Agnostic Ckpt " "MPI\-Agnostic Netw.\-Agnostic Ckpt "
 .SH NAME
 
 \fBmana\fP
@@ -133,6 +133,13 @@ inside mtcp/mtcp_restart.c shortly before calling splitProcess()
  DMTCP/MANA will 
 pause during restart, before resuming execution, to allow `gdb 
 attach\&' (GDB must be on same node.) 
+.TP
+\fBDEFINE_mpi_collective_p2p\fP
+ For debugging only (high 
+runtime overhead): If this env. var. is set, and if re\-building 
+any files in contrib/mpi\-proxy\-split/mpi\-wrappers, then MPI 
+collective communication calls are translated to MPI_Send/Recv 
+at runtime. (Try \&'touch mpi_collective_p2p.c\&' if not re\-building.) 
 .PP
 To see status of ranks (especially during checkpoint), try: 
 .Vb
