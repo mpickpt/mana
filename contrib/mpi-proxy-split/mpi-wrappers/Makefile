@@ -35,7 +35,13 @@ override CXXFLAGS += -g3 -O0 -fPIC -I${DMTCP_INCLUDE} -I${JALIB_INCLUDE} \
 # We don't build libmpiwrappers.a.  Instead, we use *.o to build libmana.so.
 default: ${LIBNAME}.a libmpidummy.so
 
+# If any .o file is re-built, then re-build mpi_collective_wrappers.o .
+# That recipe will test the environment variable: DEFINE_mpi_collective_p2p
+# If the env. var. is set, then the Makefile will cause
+#   mpi_collective_wrappers.cpp to include mpi_collective_p2p.c .
 ${LIBNAME}.a: ${LIBWRAPPER_OBJS}
+	touch mpi_collective_wrappers.cpp
+	${MAKE} mpi_collective_wrappers.o
 	ar cr $@ $^
 
 mpi_unimplemented_wrappers.cpp: generate-mpi-unimplemented-wrappers.py \
@@ -53,8 +59,12 @@ fortran_constants.o: fortran_constants.f90
 
 mpi_collective_wrappers.o: mpi_collective_wrappers.cpp ../virtual-ids.h \
                            mpi_collective_p2p.c
-	${MPICXX} ${CXXFLAGS} -Wall -g3 -O0 -DDEBUG -fPIC -I../../../include \
-	-I../../../jalib -I.. -I../../../src -I../lower-half -std=c++11 -c $<
+	if [ ! -z "$$MPI_COLLECTIVE_P2P" ]; then \
+	  DEFINE_mpi_collective_p2p="-DMPI_COLLECTIVE_P2P"; \
+	fi && \
+	${MPICXX} ${CXXFLAGS} -Wall -g3 -O0 -DDEBUG \
+	  $$DEFINE_mpi_collective_p2p -fPIC -I../../../include \
+	  -I../../../jalib -I.. -I../../../src -I../lower-half -std=c++11 -c $<
 
 # Some of these functions are also collective; e.g., MPI_Win_allocate_shared
 mpi_win_wrappers.o: mpi_win_wrappers.cpp ../virtual-ids.h

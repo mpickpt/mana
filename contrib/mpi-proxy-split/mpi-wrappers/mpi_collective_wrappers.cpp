@@ -34,7 +34,6 @@
 #include "p2p_log_replay.h"
 #include "p2p_drain_send_recv.h"
 
-#define MPI_COLLECTIVE_P2P
 #ifdef MPI_COLLECTIVE_P2P
 # include "mpi_collective_p2p.c"
 #endif
