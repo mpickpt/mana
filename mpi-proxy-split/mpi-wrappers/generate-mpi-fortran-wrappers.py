@@ -6,6 +6,7 @@
 import sys
 import os
 import re
+import warnings
 
 if len(sys.argv) != 2:
   print("***  Usage: " + sys.argv[0] + " <SPLIT_PROCESS.decl>")
@@ -90,6 +91,12 @@ def emit_wrapper(decl, ret_type, fnc, args, arg_vars):
     print("  return " + fnc + "(" + cargs + ");")
   else:
       print("  *ierr = " + fnc + "(" + cargs + ");")
+      if "int* index" in fargs:
+        if not (fnc in ['MPI_Waitany', 'MPI_Testany']):
+          warnings.warn("'int* index' found in {fnc} - likely to cause erroneous behavior".format(fnc=fnc))
+        # We need this line because Fortran arrays start from 1, and *index
+        # refers to the index of the first request that completes in an array.
+        print("  *index = *index + 1;")
       print("  return *ierr;")
   print("}")
   # print(ret_type + " " + fnc.lower() + "_ (" + args + ") __attribute__ ((weak, alias (\"" + fnc + "\")));")
