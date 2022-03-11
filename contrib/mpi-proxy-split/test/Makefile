@@ -142,10 +142,10 @@ check-integrated_dmtcp_text: tidy integrated_dmtcp_test
 	 $(MPICC) -g3 -O0 -c -o $@ $< $(MPI_CFLAGS)
 
 %.exe: %.f90
-	ftn -g3 -O0 -o $@ $< -fPIC
+	$(MPIFORTRAN) -g3 -O0 -o $@ $< -fPIC
 
 %.mana.exe: %.f90
-	ftn -g3 -O0 -o $@ $< -fPIC ${LDFLAGS_DUMMY}
+	$(MPIFORTRAN) -g3 -O0 -o $@ $< -fPIC ${LDFLAGS_DUMMY}
 
 %.exe: %.o
 	 $(MPICC) -o $@ $< ${MPI_LDFLAGS}
