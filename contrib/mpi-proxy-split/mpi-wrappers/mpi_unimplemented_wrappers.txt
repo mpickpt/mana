@@ -236,7 +236,6 @@ int MPI_Startall(int count, MPI_Request array_of_requests[]);
 int MPI_Status_set_cancelled(MPI_Status *status, int flag);
 int MPI_Status_set_elements(MPI_Status *status, MPI_Datatype datatype, int count);
 int MPI_Status_set_elements_x(MPI_Status *status, MPI_Datatype datatype, MPI_Count count);
-int MPI_Testany(int count, MPI_Request array_of_requests[], int *index, int *flag, MPI_Status *status);
 int MPI_Test_cancelled(const MPI_Status *status, int *flag);
 int MPI_Testsome(int incount, MPI_Request array_of_requests[], int *outcount, int array_of_indices[], MPI_Status array_of_statuses[]);
 

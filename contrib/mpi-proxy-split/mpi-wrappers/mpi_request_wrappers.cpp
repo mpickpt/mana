@@ -141,6 +141,28 @@ USER_DEFINED_WRAPPER(int, Testall, (int) count, (MPI_Request*) requests,
   return retval;
 }
 
+USER_DEFINED_WRAPPER(int, Testany, (int) count,
+                     (MPI_Request *) array_of_requests, (int *) index,
+                     (int *) flag, (MPI_Status *) status)
+{
+  int retval;
+  bool incomplete = false;
+  for (int i = 0; i < count; i++) {
+    retval = MPI_Test(&array_of_requests[i], flag, status);
+    if (retval != MPI_SUCCESS) {
+      *flag = 0;
+      break;
+    }
+    if (*flag == 0) {
+      incomplete = true;
+    }
+  }
+  if (incomplete) {
+    *flag = 0;
+  }
+  return retval;
+}
+
 USER_DEFINED_WRAPPER(int, Waitall, (int) count,
                      (MPI_Request *) array_of_requests,
                      (MPI_Status *) array_of_statuses)
@@ -174,25 +196,39 @@ USER_DEFINED_WRAPPER(int, Waitall, (int) count,
 }
 
 USER_DEFINED_WRAPPER(int, Waitany, (int) count,
-		     (MPI_Request *) array_of_requests, (int *) index,
-		     (MPI_Status *) status)
+                     (MPI_Request *) array_of_requests, (int *) index,
+                     (MPI_Status *) status)
 {
+  // FIXME: handle when one or more handles are inactive. currently returns
+  // *index = i instead of MPI_UNDEFINED - likely to require a logic rewrite
   int retval;
   int flag = 0;
+  bool all_null = true;
   *index = MPI_UNDEFINED;
   while (1) {
     for (int i = 0; i < count; i++) {
       if (array_of_requests[i] == MPI_REQUEST_NULL) {
         continue;
       }
+      all_null = false;
+      DMTCP_PLUGIN_DISABLE_CKPT();
       retval = MPI_Test_internal(&array_of_requests[i], &flag, status, false);
-      if (flag != 0) {
-	*index = i;
-	break;
+      DMTCP_PLUGIN_ENABLE_CKPT();
+      if (flag) {
+        if (MPI_LOGGING()) {
+          clearPendingRequestFromLog(array_of_requests[i]);
+          REMOVE_OLD_REQUEST(array_of_requests[i]);
+          array_of_requests[i] = MPI_REQUEST_NULL;
+        }
+        *index = i;
+        return retval;
       }
       if (retval != MPI_SUCCESS) {
-        break;
+        return retval;
       }
+    }
+    if (all_null) {
+      return retval;
     }
     sleep(1);
   }
@@ -265,7 +301,7 @@ USER_DEFINED_WRAPPER(int, Probe, (int) source, (int) tag,
 }
 
 USER_DEFINED_WRAPPER(int, Iprobe, (int) source, (int) tag, (MPI_Comm) comm,
-		     (int *) flag, (MPI_Status *) status)
+                     (int *) flag, (MPI_Status *) status)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -282,7 +318,7 @@ USER_DEFINED_WRAPPER(int, Iprobe, (int) source, (int) tag, (MPI_Comm) comm,
 }
 
 USER_DEFINED_WRAPPER(int, Get_elements, (const MPI_Status *) status,
-		     (MPI_Datatype) datatype, (int *) count)
+                     (MPI_Datatype) datatype, (int *) count)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -294,7 +330,7 @@ USER_DEFINED_WRAPPER(int, Get_elements, (const MPI_Status *) status,
 }
 
 USER_DEFINED_WRAPPER(int, Get_elements_x, (const MPI_Status *) status,
-		     (MPI_Datatype) datatype, (MPI_Count *) count)
+                     (MPI_Datatype) datatype, (MPI_Count *) count)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -328,13 +364,15 @@ PMPI_IMPL(int, MPI_Probe, int source, int tag,
 PMPI_IMPL(int, MPI_Waitall, int count, MPI_Request array_of_requests[],
           MPI_Status *array_of_statuses)
 PMPI_IMPL(int, MPI_Waitany, int count, MPI_Request array_of_requests[],
-	  int *index, MPI_Status *status)
+          int *index, MPI_Status *status)
 PMPI_IMPL(int, MPI_Testall, int count, MPI_Request *requests,
           int *flag, MPI_Status *statuses)
+PMPI_IMPL(int, MPI_Testany, int count, MPI_Request array_of_requests[],
+          int *index, int *flag, MPI_Status *status);
 PMPI_IMPL(int, MPI_Get_elements, const MPI_Status *status,
-	  MPI_Datatype datatype, int *count)
+          MPI_Datatype datatype, int *count)
 PMPI_IMPL(int, MPI_Get_elements_x, const MPI_Status *status,
-	  MPI_Datatype datatype, MPI_Count *count)
+          MPI_Datatype datatype, MPI_Count *count)
 PMPI_IMPL(int, MPI_Request_get_status, MPI_Request request, int* flag,
           MPI_Status *status)
 
