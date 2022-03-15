@@ -11,13 +11,13 @@ existing packages on your machine.
 
 ### CENTOS 7 ###
 
-  # yum install -y git
-  # yum groupinstall 'Development Tools'
-  # yum install -y mlocate vim wget
-  # yum install -y centos-release-scl
-  # yum install -y devtoolset-8-gcc devtoolset-8-gcc-c++ glibc-static.x86_64
-  # echo 'source scl_source enable devtoolset-8' >> ~/.bashrc
-  # source ~/.bashrc
+  $ yum install -y git
+  $ yum groupinstall 'Development Tools'
+  $ yum install -y mlocate vim wget
+  $ yum install -y centos-release-scl
+  $ yum install -y devtoolset-8-gcc devtoolset-8-gcc-c++ glibc-static.x86_64
+  $ echo 'source scl_source enable devtoolset-8' >> ~/.bashrc
+  $ source ~/.bashrc
 
 ### INSTALLING DYNAMIC AND STATIC MPI LIBRARIES ###
 
@@ -31,35 +31,35 @@ provided through ./configure-mana. Note that these libraries have to be static.
 Installing required libraries (as root):
 
 a. Install libxml2
-  # yum install -y libxml2-static
+  $ yum install -y libxml2-static
 
 b. Install zlib
-  # yum install -y zlib-static
+  $ yum install -y zlib-static
 
 c. Install libxz
-  # yum install -y xz-devel
+  $ yum install -y xz-devel
 
 d. Download and install liblzma
-  # yum install -y yum-utils.noarch
-  # mkdir liblzma_TEMP && cd liblzma_TEMP
-  # yumdownloader --source xz-devel
-  # rpm2cpio xz-5.2.2-1.el7.src.rpm | cpio -idv
-  # tar xf xz-5.2.2.tar.gz
-  # cd xz-5.2.2
-  # patch -Np1 < ../xz-5.2.2-compat-libs.patch
-  # patch -Np1 < ../xz-5.2.2-man-page-day.patch
-  # ./configure --enable-static
-  # make -j install
-  # cp ./src/liblzma/.libs/liblzma.a /usr/lib64/
+  $ yum install -y yum-utils.noarch
+  $ mkdir liblzma_TEMP && cd liblzma_TEMP
+  $ yumdownloader --source xz-devel
+  $ rpm2cpio xz-5.2.2-1.el7.src.rpm | cpio -idv
+  $ tar xf xz-5.2.2.tar.gz
+  $ cd xz-5.2.2
+  $ patch -Np1 < ../xz-5.2.2-compat-libs.patch
+  $ patch -Np1 < ../xz-5.2.2-man-page-day.patch
+  $ ./configure --enable-static
+  $ make -j install
+  $ cp ./src/liblzma/.libs/liblzma.a /usr/lib64/
 
 e. Download and install mpich
-  # wget \
+  $ wget \
       https://www.mpich.org/static/downloads/3.3.2/mpich-3.3.2.tar.gz \
       --no-check-certificate
-  # tar xf mpich-3.3.2.tar.gz
-  # cd mpich-3.3.2
-  # ./configure
-  # make -j install
+  $ tar xf mpich-3.3.2.tar.gz
+  $ cd mpich-3.3.2
+  $ ./configure
+  $ make -j install
 
 Installing required libraries (as non-root):
 
@@ -206,19 +206,19 @@ These steps are largely similar to the ones above. The SCL repository no longer
 exists on CentOS 8 Stream, and instead the relevant tools are included in
 Development Tools.
 
-  # dnf install -y git
-  # dnf groupinstall 'Development Tools'
-  # dnf install -y mlocate vim wget
+  $ dnf install -y git
+  $ dnf groupinstall 'Development Tools'
+  $ dnf install -y mlocate vim wget
 
-At the time of writing (11 Mar 2022), the updated versions of glibc can neither
-build a static copy stably nor reliably, so we have to fetch an earlier version
-of it. We use glibc-static-2.17, the version that CentOS 7 uses.
+At the time of writing (11 Mar 2022), the updated versions of glibc can build
+a static copy neither stably nor reliably, so we have to fetch an earlier
+version of it. We use glibc-static-2.17, the version that CentOS 7 uses.
 
-  # wget \
+  $ wget \
       http://mirror.centos.org/centos/7/os/x86_64/Packages/glibc-static-2.17-317.el7.x86_64.rpm \
       --no-check-certificate
-  # rpm2cpio glibc-static-2.17-317.el7.x86_64.rpm | cpio -idv
-  # cp ./usr/lib64/* /usr/lib64
+  $ rpm2cpio glibc-static-2.17-317.el7.x86_64.rpm | cpio -idv
+  $ cp ./usr/lib64/* /usr/lib64
 
 ### INSTALLING DYNAMIC AND STATIC MPI LIBRARIES ###
 
@@ -229,43 +229,43 @@ streamlined way of doing so is provided through ./configure-mana. Note that
 these libraries have to be static.
 
 a. Download and install libxml2
-  # wget \
+  $ wget \
       https://buildlogs.centos.org/c7.1511.u/libxml2/20160623141405/2.9.1-6.el7_2.3.x86_64/libxml2-static-2.9.1-6.el7_2.3.x86_64.rpm \
       --no-check-certificate
-  # rpm2cpio libxml2-static-2.9.1-6.el7_2.3.x86_64.rpm | cpio -idv
-  # cp ./usr/lib64/libxml2.a /usr/lib64
+  $ rpm2cpio libxml2-static-2.9.1-6.el7_2.3.x86_64.rpm | cpio -idv
+  $ cp ./usr/lib64/libxml2.a /usr/lib64
 
 b. Download and install zlib
-  # dnf config-manager --set-enabled powertools
-  # dnf install zlib-static
+  $ dnf config-manager --set-enabled powertools
+  $ dnf install zlib-static
 
 c. Install libxz
-  # dnf install -y xz-devel
+  $ dnf install -y xz-devel
 
 d. Download and install liblzma
-  # dnf install -y yum-utils
-  # yumdownloader --source xz-devel
-  # rpm2cpio xz-5.2.4-3.el8.src.rpm | cpio -idv
-  # tar xf xz-5.2.4.tar.xz
-  # ./configure --enable-static
-  # make
-  # cp ./src/liblzma/.libs/liblzma.a /usr/lib64/
+  $ dnf install -y yum-utils
+  $ yumdownloader --source xz-devel
+  $ rpm2cpio xz-5.2.4-3.el8.src.rpm | cpio -idv
+  $ tar xf xz-5.2.4.tar.xz
+  $ ./configure --enable-static
+  $ make
+  $ cp ./src/liblzma/.libs/liblzma.a /usr/lib64/
 
 e. Download and install mpich
-  # wget \
+  $ wget \
       https://www.mpich.org/static/downloads/3.3.2/mpich-3.3.2.tar.gz \
       --no-check-certificate
-  # tar xzf mpich-3.3.2.tar.gz
-  # cd mpich-3.3.2
-  # dnf install -y gcc-gfortran.x86_64
-  # ./configure
-  # make -j install
+  $ tar xzf mpich-3.3.2.tar.gz
+  $ cd mpich-3.3.2
+  $ dnf install -y gcc-gfortran.x86_64
+  $ ./configure
+  $ make -j install
 
 We will also call `python` in the build process.
 
-  # dnf install -y python2
-  # cd /usr/bin
-  # ln -s python2.7 python
+  $ dnf install -y python2
+  $ cd /usr/bin
+  $ ln -s python2.7 python
 
 2. Installing the MANA directory and compiling MANA
 In this tutorial, we'll install MANA in the home directory.
