@@ -18,6 +18,7 @@ LIBWRAPPER_OBJS = mpi_p2p_wrappers.o mpi_collective_wrappers.o \
                   mpi_unimplemented_wrappers.o mpi_fortran_wrappers.o \
                   mpi_wrappers.o get_fortran_constants.o fortran_constants.o \
 		  mpi_win_wrappers.o \
+		  p2p-deterministic.o
 
 # Modify if your DMTCP_ROOT is located elsewhere.
 ifndef DMTCP_ROOT
@@ -51,7 +52,17 @@ mpi_unimplemented_wrappers.cpp: generate-mpi-unimplemented-wrappers.py \
 .c.o:
 	${MPICC} ${CFLAGS} -g3 -O0 -c -o $@ $<
 
+mana_p2p_update_logs: mana_p2p_update_logs.c
+	${MPICC} ${CFLAGS} -g3 -O0 -o $@ $<
+
 .cpp.o: ../virtual-ids.h
+	${MPICXX} ${CXXFLAGS} -g3 -O0 -c -o $@ $<
+
+p2p-deterministic.h: p2p-deterministic.txt p2p-deterministic.py
+	./p2p-deterministic.py $< > $@
+mpi_p2p_wrappers.o: mpi_p2p_wrappers.cpp p2p-deterministic.h
+	${MPICXX} ${CXXFLAGS} -g3 -O0 -c -o $@ $<
+mpi_request_wrappers.o: mpi_request_wrappers.cpp p2p-deterministic.h
 	${MPICXX} ${CXXFLAGS} -g3 -O0 -c -o $@ $<
 
 fortran_constants.o: fortran_constants.f90
@@ -110,7 +121,7 @@ tidy:
 	rm -f *~ .*.swp dmtcp_restart_script*.sh ckpt_*.dmtcp
 	rm -rf ckpt_rank_*
 
-install: libmpidummy.so
+install: libmpidummy.so mana_p2p_update_logs
 	cp -f libmpidummy.so ${DMTCP_ROOT}/lib/dmtcp/
 	cd ${DMTCP_ROOT}/lib/dmtcp && \
 		ln -sf libmpidummy.so libmpich_intel.so.3.0.1 && \
@@ -118,6 +129,7 @@ install: libmpidummy.so
 	cd ${DMTCP_ROOT}/lib/dmtcp && \
 		ln -sf libmpidummy.so libpmi.so.0.5.0 && \
 		ln -sf libpmi.so.0.5.0 libpmi.so.0
+	cp -f mana_p2p_update_logs ${DMTCP_ROOT}/bin/
 
 clean: tidy
 	rm -f ${LIBWRAPPER_OBJS}

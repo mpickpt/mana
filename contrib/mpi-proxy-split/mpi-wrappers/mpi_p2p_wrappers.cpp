@@ -32,6 +32,8 @@
 #include "mpi_nextfunc.h"
 #include "virtual-ids.h"
 #include "record-replay.h"
+// To support MANA_P2P_LOG and MANA_P2P_REPLAY:
+#include "p2p-deterministic.h"
 
 USER_DEFINED_WRAPPER(int, Send,
                      (const void *) buf, (int) count, (MPI_Datatype) datatype,
@@ -166,6 +168,7 @@ USER_DEFINED_WRAPPER(int, Irecv,
   size = size * count;
 
   DMTCP_PLUGIN_DISABLE_CKPT();
+  LOG_PRE_Irecv(&status);
   if (isBufferedPacket(source, tag, comm, &flag, &status)) {
     consumeBufferedPacket(buf, count, datatype, source, tag, comm,
                           &status, size);
@@ -189,6 +192,7 @@ USER_DEFINED_WRAPPER(int, Irecv,
     logRequestInfo(*request, IRECV_REQUEST);
 #endif
   }
+  LOG_POST_Irecv(source,tag,comm,&status,request);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
