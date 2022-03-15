@@ -32,6 +32,8 @@
 #include "mpi_plugin.h"
 #include "mpi_nextfunc.h"
 #include "virtual-ids.h"
+// To support MANA_LOG_P2P and MANA_REPLAY_P2P:
+#include "p2p-deterministic.h"
 
 int MPI_Test_internal(MPI_Request *request, int *flag, MPI_Status *status,
                       bool isRealRequest)
@@ -233,11 +235,14 @@ USER_DEFINED_WRAPPER(int, Iprobe,
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
+  LOG_PRE_Iprobe(status);
 
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Iprobe)(source, tag, realComm, flag, status);
   RETURN_TO_UPPER_HALF();
+  LOG_POST_Iprobe(source,tag,comm,status,request);
+  REPLAY_POST_Iprobe(count,datatype,source,tag,comm,status);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }

@@ -18,6 +18,7 @@ LIBWRAPPER_OBJS = mpi_p2p_wrappers.o mpi_collective_wrappers.o \
                   mpi_unimplemented_wrappers.o mpi_fortran_wrappers.o \
                   mpi_wrappers.o get_fortran_constants.o fortran_constants.o \
 		  mpi_win_wrappers.o \
+		  p2p-deterministic.o
 
 # Modify if your DMTCP_ROOT is located elsewhere.
 ifndef DMTCP_ROOT
@@ -51,7 +52,17 @@ mpi_unimplemented_wrappers.cpp: generate-mpi-unimplemented-wrappers.py \
 .c.o:
 	${MPICC} ${CFLAGS} -g3 -O0 -c -o $@ $<
 
+p2p-update-logs: p2p-update-logs.c
+	${MPICC} ${CFLAGS} -g3 -O0 -o $@ $<
+
 .cpp.o: ../virtual-ids.h
+	${MPICXX} ${CXXFLAGS} -g3 -O0 -c -o $@ $<
+
+p2p-deterministic.h: p2p-deterministic.txt p2p-deterministic.py
+	./p2p-deterministic.py $< > $@
+mpi_p2p_wrappers.o: mpi_p2p_wrappers.cpp p2p-deterministic.h
+	${MPICXX} ${CXXFLAGS} -g3 -O0 -c -o $@ $<
+mpi_request_wrappers.o: mpi_request_wrappers.cpp p2p-deterministic.h
 	${MPICXX} ${CXXFLAGS} -g3 -O0 -c -o $@ $<
 
 fortran_constants.o: fortran_constants.f90

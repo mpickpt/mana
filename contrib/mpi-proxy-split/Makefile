@@ -67,6 +67,9 @@ mpi_unimplemented_wrappers.cpp: generate-mpi-unimplemented-wrappers.py mpi_unimp
 .c.o:
 	${MPICC} ${CFLAGS} -c -o $@ $<
 
+p2p-deterministic.h: p2p-deterministic.txt
+	./p2p-deterministic.py $< > $@
+
 .cpp.o: virtual-ids.h
 	${MPICXX} ${CXXFLAGS} -c -o $@ $<
 
