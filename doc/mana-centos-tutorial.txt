@@ -2,13 +2,14 @@ This document outlines the necessary steps to take to install and compile MANA
 on a new CentOS machine, as well as launch, checkpoint and restart a given MPI
 application.
 
-Root privileges are required to install many of the necessary packages, and this
-tutorial will assume you have them.
+Root privileges are required to install some of the necessary packages.
 
 A. INSTALLING AND COMPILING MANA
 
 1. Installing essential packages - this section can be skipped depending on the
 existing packages on your machine.
+
+### CENTOS 7 ###
 
   $ yum install -y git
   $ yum groupinstall 'Development Tools'
@@ -23,14 +24,23 @@ existing packages on your machine.
 On CentOS, MANA uses mpich-3.3.2, along with some other static libraries for
 MPI function calls. Default packages for some essential libraries including
 MPICH does not offer static versions of them. So, we'll need to install them
-from the source first, then point MANA to these
-libraries through certain environment variables while doing ./configure. A
-streamlined way of doing so is provided through ./configure-mana.
+from the source first, then point MANA to these libraries through certain
+environment variables while doing ./configure. A streamlined way of doing so is
+provided through ./configure-mana. Note that these libraries have to be static.
 
 Installing required libraries (as root):
-  $ yum install -y libxml2-static zlib-static xz-devel.x86_64 yum-utils.noarch
 
-  # Install liblzma.a
+a. Install libxml2
+  $ yum install -y libxml2-static
+
+b. Install zlib
+  $ yum install -y zlib-static
+
+c. Install libxz
+  $ yum install -y xz-devel
+
+d. Download and install liblzma
+  $ yum install -y yum-utils.noarch
   $ mkdir liblzma_TEMP && cd liblzma_TEMP
   $ yumdownloader --source xz-devel
   $ rpm2cpio xz-5.2.2-1.el7.src.rpm | cpio -idv
@@ -40,21 +50,20 @@ Installing required libraries (as root):
   $ patch -Np1 < ../xz-5.2.2-man-page-day.patch
   $ ./configure --enable-static
   $ make -j install
-    Or
-    cp ./src/liblzma/.libs/liblzma.a /usr/lib64/
+  $ cp ./src/liblzma/.libs/liblzma.a /usr/lib64/
 
-  # Install MPICH package from source
+e. Download and install mpich
   $ wget \
       https://www.mpich.org/static/downloads/3.3.2/mpich-3.3.2.tar.gz \
       --no-check-certificate
-  $ tar xzf mpich-3.3.2.tar.gz
+  $ tar xf mpich-3.3.2.tar.gz
   $ cd mpich-3.3.2
   $ ./configure
   $ make -j install
 
 Installing required libraries (as non-root):
 
-# Download and install libpciaccess
+a. Download and install libpciaccess
   $ cd $HOME
   $ mkdir local_install
   $ mkdir libpciaccess
@@ -86,40 +95,7 @@ Installing required libraries (as non-root):
   $ ./configure --prefix=$HOME/local_install
   $ make install
 
-# Download and install libxz
-  $ cd $HOME
-  $ mkdir libxz
-  $ cd libxz
-  $ wget \
-      https://mirror.chpc.utah.edu/pub/vault.centos.org/7.6.1810/os/Source/SPackages/xz-5.2.2-1.el7.src.rpm \
-      --no-check-certificate
-  $ rpm2cpio xz-5.2.2-1.el7.src.rpm | cpio -idv
-  $ tar xf xz-5.2.2.tar.gz
-  $ cd xz-5.2.2/
-  $ patch -Np1 <../xz-5.2.2-compat-libs.patch
-  $ patch -Np1 <../xz-5.2.2-man-page-day.patch
-  $ ./configure --prefix=$HOME/local_install
-  $ make -j install
-
-# Download and install zlib
-  $ cd $HOME
-  $ mkdir zlib
-  $ cd zlib/
-  $ wget \
-      https://mirror.chpc.utah.edu/pub/vault.centos.org/7.6.1810/os/Source/SPackages/zlib-1.2.7-18.el7.src.rpm \
-      --no-check-certificate
-  $ rpm2cpio zlib-1.2.7-18.el7.src.rpm | cpio -idv
-  $ tar xf zlib-1.2.7.tar.bz2
-  $ cd zlib-1.2.7/
-  $ patch -Np1 < ../zlib-1.2.5-minizip-fixuncrypt.patch
-  $ patch -Np1 < ../zlib-1.2.7-optimized-s390.patch
-  $ patch -Np1 < ../zlib-1.2.7-z-block-flush.patch
-  $ patch -Np1 < ../zlib-1.2.7-fix-serious-but-very-rare-decompression-bug-in-inftr.patch
-  $ patch -Np1 < ../zlib-1.2.7-Fix-bug-where-gzopen-gzclose-would-write-an-empty-fi.patch
-  $ ./configure --prefix=$HOME/local_install
-  $ make install
-
-# Download and install libxml2
+b. Download and install libxml2
   # FIXME: make install would end in error for installing python but libxml2.a
     should be installed to destination folder before we reach to the error
   $ cd $HOME
@@ -176,7 +152,40 @@ Installing required libraries (as non-root):
   $ ./configure --prefix=$HOME/local_install
   $ make -j install
 
-# Download and install MPICH from source using locally installed libraries
+c. Download and install zlib
+  $ cd $HOME
+  $ mkdir zlib
+  $ cd zlib/
+  $ wget \
+      https://mirror.chpc.utah.edu/pub/vault.centos.org/7.6.1810/os/Source/SPackages/zlib-1.2.7-18.el7.src.rpm \
+      --no-check-certificate
+  $ rpm2cpio zlib-1.2.7-18.el7.src.rpm | cpio -idv
+  $ tar xf zlib-1.2.7.tar.bz2
+  $ cd zlib-1.2.7/
+  $ patch -Np1 < ../zlib-1.2.5-minizip-fixuncrypt.patch
+  $ patch -Np1 < ../zlib-1.2.7-optimized-s390.patch
+  $ patch -Np1 < ../zlib-1.2.7-z-block-flush.patch
+  $ patch -Np1 < ../zlib-1.2.7-fix-serious-but-very-rare-decompression-bug-in-inftr.patch
+  $ patch -Np1 < ../zlib-1.2.7-Fix-bug-where-gzopen-gzclose-would-write-an-empty-fi.patch
+  $ ./configure --prefix=$HOME/local_install
+  $ make install
+
+d. Download and install libxz (for liblzma)
+  $ cd $HOME
+  $ mkdir libxz
+  $ cd libxz
+  $ wget \
+      https://mirror.chpc.utah.edu/pub/vault.centos.org/7.6.1810/os/Source/SPackages/xz-5.2.2-1.el7.src.rpm \
+      --no-check-certificate
+  $ rpm2cpio xz-5.2.2-1.el7.src.rpm | cpio -idv
+  $ tar xf xz-5.2.2.tar.gz
+  $ cd xz-5.2.2/
+  $ patch -Np1 <../xz-5.2.2-compat-libs.patch
+  $ patch -Np1 <../xz-5.2.2-man-page-day.patch
+  $ ./configure --prefix=$HOME/local_install
+  $ make -j install
+
+e. Download and install MPICH from source using locally installed libraries
   $ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$HOME/local_install/lib
   $ mkdir $HOME/mpich-static/
   $ wget \
@@ -191,18 +200,84 @@ NOTE: In some cases, where there's an Nvidia GPU is installed, one may need to
   install extra libraries (e.g., libX11, libXau, libXext, libxcb) similarly
   as mentioned above.
 
+### CENTOS 8 STREAM ###
+
+These steps are largely similar to the ones above. The SCL repository no longer
+exists on CentOS 8 Stream, and instead the relevant tools are included in
+Development Tools.
+
+  $ dnf install -y git
+  $ dnf groupinstall 'Development Tools'
+  $ dnf install -y mlocate vim wget
+
+At the time of writing (11 Mar 2022), the updated versions of glibc can build
+a static copy neither stably nor reliably, so we have to fetch an earlier
+version of it. We use glibc-static-2.17, the version that CentOS 7 uses.
+
+  $ wget \
+      http://mirror.centos.org/centos/7/os/x86_64/Packages/glibc-static-2.17-317.el7.x86_64.rpm \
+      --no-check-certificate
+  $ rpm2cpio glibc-static-2.17-317.el7.x86_64.rpm | cpio -idv
+  $ cp ./usr/lib64/* /usr/lib64
+
+### INSTALLING DYNAMIC AND STATIC MPI LIBRARIES ###
+
+On CentOS, MANA uses mpich-3.3.2, along with some other static libraries for
+MPI function calls. We'll need to install them first, then point MANA to these
+libraries through certain environment variables while doing ./configure. A
+streamlined way of doing so is provided through ./configure-mana. Note that
+these libraries have to be static.
+
+a. Download and install libxml2
+  $ wget \
+      https://buildlogs.centos.org/c7.1511.u/libxml2/20160623141405/2.9.1-6.el7_2.3.x86_64/libxml2-static-2.9.1-6.el7_2.3.x86_64.rpm \
+      --no-check-certificate
+  $ rpm2cpio libxml2-static-2.9.1-6.el7_2.3.x86_64.rpm | cpio -idv
+  $ cp ./usr/lib64/libxml2.a /usr/lib64
+
+b. Download and install zlib
+  $ dnf config-manager --set-enabled powertools
+  $ dnf install zlib-static
+
+c. Install libxz
+  $ dnf install -y xz-devel
+
+d. Download and install liblzma
+  $ dnf install -y yum-utils
+  $ yumdownloader --source xz-devel
+  $ rpm2cpio xz-5.2.4-3.el8.src.rpm | cpio -idv
+  $ tar xf xz-5.2.4.tar.xz
+  $ ./configure --enable-static
+  $ make
+  $ cp ./src/liblzma/.libs/liblzma.a /usr/lib64/
+
+e. Download and install mpich
+  $ dnf install -y gcc-gfortran.x86_64
+  $ wget \
+      https://www.mpich.org/static/downloads/3.3.2/mpich-3.3.2.tar.gz \
+      --no-check-certificate
+  $ tar xzf mpich-3.3.2.tar.gz
+  $ cd mpich-3.3.2
+  $ ./configure
+  $ make -j install
+
+We will also call `python` in the build process.
+
+  $ dnf install -y python2
+  $ cd /usr/bin
+  $ ln -s python2.7 python
+
 2. Installing the MANA directory and compiling MANA
 In this tutorial, we'll install MANA in the home directory.
   $ cd $HOME
   $ git clone https://github.com/mpickpt/mana.git
   $ cd mana
-  $ git checkout feature/centos
   $ ./configure-mana
   $ make -j mana
 
 Here, we note that the locations of some libraries and commands differ based on
 what operating system you're using, as well as where these packages are
-installed. In confiugre-mana, we have:
+installed. In configure-mana, we have:
 
   MPI_BIN=/usr/local/bin
   MPI_INCLUDE=/usr/local/include
