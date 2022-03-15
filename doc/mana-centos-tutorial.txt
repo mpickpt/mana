@@ -235,14 +235,14 @@ a. Download and install libxml2
   # rpm2cpio libxml2-static-2.9.1-6.el7_2.3.x86_64.rpm | cpio -idv
   # cp ./usr/lib64/libxml2.a /usr/lib64
 
-b. zlib
+b. Download and install zlib
   # dnf config-manager --set-enabled powertools
   # dnf install zlib-static
 
-c. libxz
+c. Install libxz
   # dnf install -y xz-devel
 
-d. liblzma
+d. Download and install liblzma
   # dnf install -y yum-utils
   # yumdownloader --source xz-devel
   # rpm2cpio xz-5.2.4-3.el8.src.rpm | cpio -idv
@@ -251,7 +251,7 @@ d. liblzma
   # make
   # cp ./src/liblzma/.libs/liblzma.a /usr/lib64/
 
-e. mpich
+e. Download and install mpich
   # wget \
       https://www.mpich.org/static/downloads/3.3.2/mpich-3.3.2.tar.gz \
       --no-check-certificate
