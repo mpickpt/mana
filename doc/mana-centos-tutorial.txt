@@ -170,7 +170,7 @@ c. Download and install zlib
   $ ./configure --prefix=$HOME/local_install
   $ make install
 
-d. Download and install libxz
+d. Download and install libxz (for liblzma)
   $ cd $HOME
   $ mkdir libxz
   $ cd libxz
@@ -252,12 +252,12 @@ d. Download and install liblzma
   $ cp ./src/liblzma/.libs/liblzma.a /usr/lib64/
 
 e. Download and install mpich
+  $ dnf install -y gcc-gfortran.x86_64
   $ wget \
       https://www.mpich.org/static/downloads/3.3.2/mpich-3.3.2.tar.gz \
       --no-check-certificate
   $ tar xzf mpich-3.3.2.tar.gz
   $ cd mpich-3.3.2
-  $ dnf install -y gcc-gfortran.x86_64
   $ ./configure
   $ make -j install
 
