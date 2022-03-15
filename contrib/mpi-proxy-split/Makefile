@@ -100,6 +100,8 @@ ${DMTCP_ROOT}/bin/lh_proxy:
 	make -C ${LOWER_HALF_SRCDIR} install
 ${DMTCP_ROOT}/bin/gethostbyname_proxy:
 	make -C ${LOWER_HALF_SRCDIR}/gethostbyname-static install
+${DMTCP_ROOT}/bin/mana_p2p_update_logs: ${WRAPPERS_SRCDIR}/mana_p2p_update_logs.c
+	make -C ${WRAPPERS_SRCDIR} install
 
 # ${WRAPPERS_SRCDIR}/libmpiwrappers.a ia a prerequisite for libmana.so,
 #   which is a prerequisite for ${DMTCP_ROOT}/lib/dmtcp/libmana.so
@@ -111,6 +113,7 @@ install: ${MANA_COORD_OBJS}
 	make ${DMTCP_ROOT}/lib/dmtcp/libmpidummy.so
 	make ${DMTCP_ROOT}/bin/lh_proxy
 	make ${DMTCP_ROOT}/bin/gethostbyname_proxy
+	make ${DMTCP_ROOT}/bin/mana_p2p_update_logs
 
 tidy:
 	rm -f *~ .*.swp dmtcp_restart_script*.sh ckpt_*.dmtcp
