@@ -24,6 +24,7 @@ fi
              MPI_LIB=$MPI_INSTALL_DIR/lib \
              MPICC='${MPI_BIN}/mpicc' \
              MPICXX='${MPI_BIN}/mpic++' \
+             MPIFORTRAN='${MPI_BIN}/mpifort' \
              MPIRUN='${MPI_BIN}/mpirun -iface '${MPI_ETHERNET_INTERFACE} \
              MPI_LD_FLAG=-lmpich \
              MPI_CFLAGS= \
