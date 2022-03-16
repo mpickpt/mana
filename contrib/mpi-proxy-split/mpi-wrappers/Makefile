@@ -32,6 +32,12 @@ override CXXFLAGS += -g3 -O0 -fPIC -I${DMTCP_INCLUDE} -I${JALIB_INCLUDE} \
                      -I${PLUGIN_HALF_SRCDIR} -I${DMTCP_ROOT}/src \
                      -I${LOWER_HALF_SRCDIR} -std=c++11
 
+ifeq ($(shell which python),python)
+  PYTHON = python
+else
+  PYTHON = python2.7
+endif
+
 # We don't build libmpiwrappers.a.  Instead, we use *.o to build libmana.so.
 default: ${LIBNAME}.a libmpidummy.so
 
@@ -46,7 +52,7 @@ ${LIBNAME}.a: ${LIBWRAPPER_OBJS}
 
 mpi_unimplemented_wrappers.cpp: generate-mpi-unimplemented-wrappers.py \
 	mpi_unimplemented_wrappers.txt
-	python $^ > $@
+	$(PYTHON) $^ > $@
 
 .c.o:
 	${MPICC} ${CFLAGS} -g3 -O0 -c -o $@ $<
@@ -78,7 +84,7 @@ mpi_dummy_wrappers.c: generate-mpi-dummy-wrappers.py mpi_dummy_wrappers.txt
 	tmp=$@.tmp.$$$$ ; \
 	printf "%s\n\n" \
 	 "// *** THIS FILE IS AUTO-GENERATED! DO 'make' TO UPDATE. ***" >$$tmp;\
-	python $^ >> $$tmp && mv -f $$tmp $@ || (rm -f $$tmp && false)
+	$(PYTHON) $^ >> $$tmp && mv -f $$tmp $@ || (rm -f $$tmp && false)
 
 mpi_fortran_wrappers.cpp: generate-mpi-fortran-wrappers.py \
                           mpi_fortran_wrappers.txt
@@ -86,7 +92,7 @@ mpi_fortran_wrappers.cpp: generate-mpi-fortran-wrappers.py \
 	tmp=$@.tmp.$$$$ ; \
 	printf "%s\n\n" \
 	 "// *** THIS FILE IS AUTO-GENERATED! DO 'make' TO UPDATE. ***" >$$tmp;\
-	python $^ >> $$tmp && mv -f $$tmp $@ || (rm -f $$tmp && false)
+	$(PYTHON) $^ >> $$tmp && mv -f $$tmp $@ || (rm -f $$tmp && false)
 
 mpi_dummy_wrappers.o: mpi_dummy_wrappers.c
 	${MPICC} ${CFLAGS} -g3 -O0 -c -o $@ $<
