@@ -121,6 +121,8 @@ mana: libmpidummy.so
 		ln -sf libmpidummy.so libpmi.so.0.5.0 && \
 		ln -sf libpmi.so.0.5.0 libpmi.so.0
 
+install: mana
+
 clean: tidy
 	rm -f ${LIBWRAPPER_OBJS}
 	rm -f ${LIBNAME}.a libmpidummy.so
@@ -138,4 +140,4 @@ dist: distclean
 	dir=`basename $$PWD` && cd .. && tar czvf $$dir.tgz ./$$dir
 	dir=`basename $$PWD` && ls -l ../$$dir.tgz
 
-.PHONY: default clean dist distclean tidy mana
+.PHONY: default clean dist distclean tidy mana install

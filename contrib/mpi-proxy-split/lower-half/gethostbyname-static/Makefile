@@ -26,6 +26,8 @@ dist: clean
 
 mana:
 	make gethostbyname_proxy
-	cp gethostbyname_proxy -f ../../../../bin
+	install gethostbyname_proxy ../../../../bin
+
+install: mana
 
 .PHONY: gdb clean dist mana

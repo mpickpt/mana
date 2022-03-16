@@ -93,13 +93,10 @@ check-unit: libmana.so
 	@make -C unit-test/ check
 
 ${DMTCP_ROOT}/lib/dmtcp/libmana.so: libmana.so
-	cp -f $< $@
-${DMTCP_ROOT}/lib/dmtcp/libmpidummy.so:
-	make -C ${WRAPPERS_SRCDIR} mana 
-${DMTCP_ROOT}/bin/lh_proxy:
-	make -C ${LOWER_HALF_SRCDIR} mana
-${DMTCP_ROOT}/bin/gethostbyname_proxy:
-	make -C ${LOWER_HALF_SRCDIR}/gethostbyname-static mana
+	install $< $@
+libmpidummy.so=-C ${WRAPPERS_SRCDIR}
+lh_proxy=-C ${LOWER_HALF_SRCDIR}
+gethostbyname_proxy=-C ${LOWER_HALF_SRCDIR}/gethostbyname-static
 
 # ${WRAPPERS_SRCDIR}/libmpiwrappers.a ia a prerequisite for libmana.so,
 #   which is a prerequisite for ${DMTCP_ROOT}/lib/dmtcp/libmana.so
@@ -108,17 +105,21 @@ ${DMTCP_ROOT}/bin/gethostbyname_proxy:
 mana: ${MANA_COORD_OBJS}
 	make -C ${WRAPPERS_SRCDIR} libmpiwrappers.a
 	make ${DMTCP_ROOT}/lib/dmtcp/libmana.so
-	make ${DMTCP_ROOT}/lib/dmtcp/libmpidummy.so
-	make ${DMTCP_ROOT}/bin/lh_proxy
-	make ${DMTCP_ROOT}/bin/gethostbyname_proxy
+	make $(libmpidummy.so) mana
+	make $(lh_proxy) mana
+	make $(gethostbyname_proxy) mana
 
 install:
-	cp ${DMTCP_ROOT}/bin/lh_proxy ${DESTDIR}
-	cp ${DMTCP_ROOT}/bin/gethostbyname_proxy ${DESTDIR}
+	install ${DMTCP_ROOT}/lib/dmtcp/libmana.so $(PKGLIBDIR)
+	make $(libmpidummy.so) install DESTDIR=$(PKGLIBDIR)
+	make $(lh_proxy) install DESTDIR=$(BINDIR)
+	make $(gethostbyname_proxy) install DESTDIR=$(BINDIR)
 
 uninstall:
-	rm ${DESTDIR}/lh_proxy
-	rm ${DESTDIR}/gethostbyname_proxy
+	rm -f $(PKGLIBDIR)/libmana.so
+	rm -f $(PKGLIBDIR)/libmpidummy.so
+	rm -f $(BINDIR)/lh_proxy
+	rm -f $(BINDIR)/gethostbyname_proxy
 
 tidy:
 	rm -f *~ .*.swp dmtcp_restart_script*.sh ckpt_*.dmtcp
