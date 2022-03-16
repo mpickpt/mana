@@ -31,7 +31,11 @@
 #include "mpi_nextfunc.h"
 #include "virtual-ids.h"
 
+#ifdef MPI_COLLECTIVE_P2P
 extern "C" int MPI_Alltoall_internal(const void *sendbuf, int sendcount,
+#else
+extern int MPI_Alltoall_internal(const void *sendbuf, int sendcount,
+#endif
                                  MPI_Datatype sendtype, void *recvbuf,
                                  int recvcount, MPI_Datatype recvtype,
                                  MPI_Comm comm);
