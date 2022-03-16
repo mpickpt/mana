@@ -30,4 +30,4 @@ mana:
 
 install: mana
 
-.PHONY: gdb clean dist mana
+.PHONY: gdb clean dist mana install
