@@ -35,7 +35,7 @@ override CXXFLAGS += -g3 -O0 -fPIC -I${DMTCP_INCLUDE} -I${JALIB_INCLUDE} \
 ifeq ($(shell which python),python)
   PYTHON = python
 else
-  PYTHON = python2.7
+  PYTHON = python3
 endif
 
 # We don't build libmpiwrappers.a.  Instead, we use *.o to build libmana.so.

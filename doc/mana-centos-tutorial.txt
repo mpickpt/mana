@@ -261,11 +261,6 @@ e. Download and install mpich
   $ ./configure
   $ make -j install
 
-We will also call `python` in the build process. Since Python is generally not
-forward compatible, it's safer to install python2.7.
-
-  $ dnf install -y python2
-
 2. Installing the MANA directory and compiling MANA
 In this tutorial, we'll install MANA in the home directory.
   $ cd $HOME
