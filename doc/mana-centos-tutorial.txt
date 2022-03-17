@@ -15,6 +15,7 @@ existing packages on your machine.
   $ yum groupinstall 'Development Tools'
   $ yum install -y mlocate vim wget
   $ yum install -y centos-release-scl
+  $ yum install -y python3
   $ yum install -y devtoolset-8-gcc devtoolset-8-gcc-c++ glibc-static.x86_64
   $ echo 'source scl_source enable devtoolset-8' >> ~/.bashrc
   $ source ~/.bashrc
@@ -260,12 +261,6 @@ e. Download and install mpich
   $ cd mpich-3.3.2
   $ ./configure
   $ make -j install
-
-We will also call `python` in the build process.
-
-  $ dnf install -y python2
-  $ cd /usr/bin
-  $ ln -s python2.7 python
 
 2. Installing the MANA directory and compiling MANA
 In this tutorial, we'll install MANA in the home directory.
