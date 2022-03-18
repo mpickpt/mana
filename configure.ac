@@ -501,6 +501,42 @@ else
 fi
 AC_MSG_RESULT([$has_cma])
 
+dnl The Linux FSGSBASE commits were pushed in with Linux 5.9.0.
+dnl This allows x86_64 assembly "rdfsbase" to be called in user space.
+dnl However, some earlier Linux kernels
+dnl have backported this feature (e.g., HPE Cray in Linux 5.3.18).
+dnl So, testing the kernel version does not suffice.  Here, we use AC_TRY_RUN.
+AC_MSG_CHECKING([if FSGSBASE for x86_64 (setting fs in user space) is available])
+dnl AC_CANONICAL_HOST
+dnl HOST_OS=""
+dnl AS_CASE([$host_cpu], [x86_64], [ HOST_OS="x86_64" ])
+has_fsgsbase='no'
+if test `uname -m` == x86_64; then
+  AC_TRY_RUN([
+       int
+       main(void)
+       {
+           // FIXME:  This always crashed, even with the FSGSBASE patch.
+           unsigned long fsbase;
+           asm volatile("rdfsbase %0" : "=r" (fsbase) :: "memory");
+           asm volatile("wrfsbase %0" :: "r" (fsbase) : "memory");
+           asm volatile("rdfsbase %0" : "=r" (fsbase) :: "memory");
+           if (fsbase == 0) {
+           return 0;
+           } else {
+           return 1;
+           }
+       }
+       ], [has_fsgsbase='yes'], [has_fsgsbase='no'])
+fi
+if test "$has_fsgsbase" == "yes"; then
+  AC_DEFINE([HAS_FSGSBASE],[1],[Define to 1 if you have FSGSBASE in kernel.])
+  AC_SUBST([HAS_FSGSBASE], [yes])
+else
+  AC_SUBST([HAS_FSGSBASE], [no])
+fi
+AC_MSG_RESULT([$has_fsgsbase])
+
 AC_MSG_CHECKING([if epoll_create1 available])
 AC_CHECK_FUNC(epoll_create1, [has_epoll_create1='yes'], [has_epoll_create1='no'])
 if test "$has_epoll_create1" == "yes"; then
