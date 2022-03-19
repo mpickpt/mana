@@ -61,6 +61,8 @@ mpi_collective_wrappers.o: mpi_collective_wrappers.cpp ../virtual-ids.h \
                            mpi_collective_p2p.c
 	if [ ! -z "$$MPI_COLLECTIVE_P2P" ]; then \
 	  DEFINE_mpi_collective_p2p="-DMPI_COLLECTIVE_P2P"; \
+	else \
+	  DEFINE_mpi_collective_p2p=""; \
 	fi && \
 	${MPICXX} ${CXXFLAGS} -Wall -g3 -O0 -DDEBUG \
 	  $$DEFINE_mpi_collective_p2p -fPIC -I../../../include \

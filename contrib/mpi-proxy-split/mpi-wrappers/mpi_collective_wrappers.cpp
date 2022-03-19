@@ -271,7 +271,15 @@ USER_DEFINED_WRAPPER(int, Reduce_scatter,
   };
   return twoPhaseCommit(comm, realBarrierCb);
 }
+#endif // #ifndef MPI_COLLECTIVE_P2P
 
+// NOTE:  This C++ function in needed by p2p_drain_send_recv.cpp
+//        both when MPI_COLLECTIVE_P2P is not defined and when it's defined.
+//        With MPI_COLLECTIVE_P2P, p2p_drain_send_recv.cpp will need this
+//        at checkpoint time, to make a direct call to the lower half, as part
+//        of draining the point-to-point MPI calls.  p2p_drain_send_recv.cpp
+//        cannot use the C version in mpi-wrappers/mpi_collective_p2p.c,
+//        which would generate extra point-to-point MPI calls.
 int
 MPI_Alltoall_internal(const void *sendbuf, int sendcount,
                       MPI_Datatype sendtype, void *recvbuf, int recvcount,
@@ -290,6 +298,7 @@ MPI_Alltoall_internal(const void *sendbuf, int sendcount,
   return retval;
 }
 
+#ifndef MPI_COLLECTIVE_P2P
 USER_DEFINED_WRAPPER(int, Alltoall,
                      (const void *) sendbuf, (int) sendcount,
                      (MPI_Datatype) sendtype, (void *) recvbuf, (int) recvcount,
