@@ -309,7 +309,7 @@ namespace dmtcp_mpi
         MPI_Allgather(&worldRank, 1, MPI_INT, rbuf, 1, MPI_INT, comm);
 #endif
         for (int i = 0; i < commSize; i++) {
-          gid ^= hash(rbuf[i]);
+          gid ^= hash(rbuf[i] + 1);
         }
         // FIXME: We assume the hash collision between communicators who
         // have different members is low.
