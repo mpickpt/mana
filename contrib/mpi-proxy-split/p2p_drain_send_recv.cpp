@@ -179,7 +179,6 @@ removePendingSendRequests()
   for (it = g_async_calls.begin(); it != g_async_calls.end();) {
     MPI_Request request = it->first;
     mpi_async_call_t *call = it->second;
-    int flag = 0;
     if (call->type == ISEND_REQUEST) {
       UPDATE_REQUEST_MAP(request, MPI_REQUEST_NULL);
       // FIXME: We should free `call' to avoid memory leak

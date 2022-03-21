@@ -468,6 +468,9 @@ int discover_union_ckpt_images(char *argv[],
   return rank;
 }
 
+// This is to satisfy compiler warnings, although we can probably just remove
+// it.
+#if 0
 NO_OPTIMIZE
 static unsigned long int
 mygetauxval(char **evp, unsigned long int type)
@@ -480,6 +483,7 @@ mygetauxval(char **evp, unsigned long int type)
   }
   return 0;
 }
+#endif
 
 NO_OPTIMIZE
 static int
@@ -512,7 +516,7 @@ uint64_t vdsoStartTmp = 0;
 static void
 remap_vdso_and_vvar_regions() {
   Area area;
-  int rc = 0;
+  void *rc = 0;
   uint64_t vvarStart = 0;
   uint64_t vdsoStart = 0;
   uint64_t vvarSize = 0;
@@ -527,11 +531,11 @@ remap_vdso_and_vvar_regions() {
 
   while (mtcp_readmapsline(mapsfd, &area)) {
     if (mtcp_strcmp(area.name, "[vvar]") == 0) {
-      vvarStart = area.addr;
-      vvarSize = area.size;
+      vvarStart = (uint64_t) area.addr;
+      vvarSize = (uint64_t) area.size;
     } else if (mtcp_strcmp(area.name, "[vdso]") == 0) {
-      vdsoStart = area.addr;
-      vdsoSize = area.size;
+      vdsoStart = (uint64_t) area.addr;
+      vdsoSize = (uint64_t) area.size;
     }
 
     if (vvarStart > 0 && vdsoStart > 0) {
@@ -542,7 +546,7 @@ remap_vdso_and_vvar_regions() {
   mtcp_sys_lseek(mapsfd, 0, SEEK_SET);
 
   while (mtcp_readmapsline(mapsfd, &area)) {
-    if (prev_addr + vvarSize + vdsoSize <= area.addr) {
+    if (prev_addr + vvarSize + vdsoSize <= (uint64_t) area.addr) {
       vvarStartTmp = prev_addr;
       vdsoStartTmp = prev_addr + vvarSize;
       break;
@@ -710,8 +714,6 @@ main(int argc, char *argv[], char **environ)
     // If we want to test this, we can add code to do a trial mremap with a page
     //   before vvar and after vdso, and verify that we get an EFAULT.
     // In May, 2020, on Cori and elsewhere, vvar is 3 pages and vdso is 2 pages.
-    char *vdsoStart = (char *)mygetauxval(environ, AT_SYSINFO_EHDR);
-
     remap_vdso_and_vvar_regions();
 
     // Now that we moved vdso/vvar, we need to update the vdso address
@@ -773,10 +775,12 @@ main(int argc, char *argv[], char **environ)
       //         mtcp_restart is statically linked, and doesn't need it.
       Area heap_area;
       MTCP_ASSERT(getMappedArea(&heap_area, "[heap]") == 1);
-      start1 = max(heap_area.endAddr, lh_info.memRange.end);
+      start1 = (char *) max((uint64_t) heap_area.endAddr,
+                            (uint64_t) lh_info.memRange.end);
       Area stack_area;
       MTCP_ASSERT(getMappedArea(&stack_area, "[stack]") == 1);
-      end1 = min(stack_area.endAddr - 4 * GB, highMemStart - 4 * GB);
+      end1 = (char *) min((uint64_t) stack_area.endAddr - 4 * GB,
+                          (uint64_t) highMemStart - 4 * GB);
       start2 = 0;
       end2 = start2;
     }
@@ -1432,10 +1436,10 @@ unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo, LowerHalfInfo_t *lh_info
       // Do not unmap lower half
       DPRINTF("Skipping lower half memory section: %p-%p\n",
               area.addr, area.endAddr);
-    } else if (area.addr == vdsoStartTmpCopy) {
+    } else if ((uint64_t) area.addr == vdsoStartTmpCopy) {
       DPRINTF("Skipping temporary vDSO section: %p-%p\n",
               area.addr, area.endAddr);
-    } else if (area.addr == vvarStartTmpCopy) {
+    } else if ((uint64_t) area.addr == vvarStartTmpCopy) {
       DPRINTF("Skipping temporary vvar section: %p-%p\n",
               area.addr, area.endAddr);
     } else if (area.size > 0) {
