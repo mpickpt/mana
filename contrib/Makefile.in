@@ -12,6 +12,7 @@ exec_prefix=@exec_prefix@
 datarootdir=@datarootdir@
 bindir=@bindir@
 libdir=@libdir@
+pkglibdir = @libdir@/@PACKAGE@
 docdir=@docdir@
 includedir=@includedir@
 mandir=@mandir@
@@ -74,9 +75,13 @@ install: all
 	test -e $(DESTDIR)$(libdir) || $(MKDIR_P) $(DESTDIR)$(libdir)
 	test -e $(DESTDIR)$(includedir) || $(MKDIR_P) $(DESTDIR)$(includedir)
 	for p in $(plugins); do (cd $$p && $(MAKE) install); done
+	cd mpi-proxy-split && $(MAKE) install BINDIR=$(DESTDIR)$(bindir) \
+	  PKGLIBDIR=$(DESTDIR)$(pkglibdir)
 
 uninstall:
 	for p in $(plugins); do (cd $$p && $(MAKE) uninstall); done
+	cd mpi-proxy-split && $(MAKE) uninstall BINDIR=$(DESTDIR)$(bindir) \
+	  PKGLIBDIR=$(DESTDIR)$(pkglibdir)
 
 uninstall-libs:
 	for p in $(plugins); do (cd $$p && $(MAKE) uninstall-libs); done
