@@ -7,6 +7,7 @@
 
 // FIXME: Make it dynamic
 #define getpagesize()  4096
+#define MAX_REGIONS 10
 
 #define ROUND_UP(addr) ((addr + getpagesize() - 1) & ~(getpagesize()-1))
 #define ROUND_DOWN(addr) ((unsigned long)addr & ~(getpagesize()-1))
@@ -29,13 +30,20 @@ typedef struct __MmapInfo
   int guard;
 } MmapInfo_t;
 
+typedef struct __LhCoreRegions
+{
+  void * start_addr; // Start address of core region
+  void * end_addr; // End address of the same region
+  int prot;
+} LhCoreRegions_t;
+
 // The transient proxy process introspects its memory layout and passes this
 // information back to the main application process using this struct.
 typedef struct LowerHalfInfo
 {
   void *startText;
   void *endText;
-  void *startData;
+  // void *startData;
   void *endOfHeap;
   void *libc_start_main;
   void *main;
@@ -51,10 +59,12 @@ typedef struct LowerHalfInfo
   void *updateEnvironFptr;
   void *getMmappedListFptr;
   void *resetMmappedListFptr;
+  int numCoreRegions;
   MemRange_t memRange;
 } LowerHalfInfo_t;
 
 extern LowerHalfInfo_t lh_info;
+extern LhCoreRegions_t lh_regions_list[MAX_REGIONS];
 
 // Helper macro to be used whenever making a jump from the upper half to
 // the lower half.

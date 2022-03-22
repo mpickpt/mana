@@ -32,6 +32,9 @@
 #define PAGE_SIZE              0x1000
 #define HUGE_PAGE              0x200000
 
+/* Maximum core regions Lower-half can have */
+#define MAX_REGIONS 10
+
 #ifdef MAIN_AUXVEC_ARG
 /* main gets passed a pointer to the auxiliary.  */
 # define MAIN_AUXVEC_DECL , void *
@@ -65,13 +68,20 @@ typedef struct __MmapInfo
   int guard;    // 1 if the region has additional guard pages around it; 0 otherwise
 } MmapInfo_t;
 
+typedef struct __LhCoreRegions
+{
+  void * start_addr; // Start address of core region
+  void * end_addr; // End address of the same region
+  int prot;
+} LhCoreRegions_t;
+
 // The transient lh_proxy process introspects its memory layout and passes this
 // information back to the main application process using this struct.
 typedef struct _LowerHalfInfo
 {
   void *startText; // Start address of text segment (R-X) of lower half
   void *endText;   // End address of text segmeent (R-X) of lower half
-  void *startData; // Start address of data segment (RW-) of lower half
+  // void *startData; // Start address of data segment (RW-) of lower half
   void *endOfHeap; // Pointer to the end of heap segment of lower half
   void *libc_start_main; // Pointer to libc's __libc_start_main function in statically-linked lower half
   void *main;      // Pointer to the main() function in statically-linked lower half
@@ -87,6 +97,7 @@ typedef struct _LowerHalfInfo
   void *updateEnvironFptr; // Pointer to updateEnviron() function in the lower half
   void *getMmappedListFptr; // Pointer to getMmapedList() function in the lower half
   void *resetMmappedListFptr; // Pointer to resetMmapedList() function in the lower half
+  int numCoreRegions; // total number of core regions
   MemRange_t memRange; // MemRange_t object in the lower half
 } LowerHalfInfo_t;
 
@@ -130,6 +141,7 @@ extern LowerHalfInfo_t lh_info;
 // the transient lh_proxy process in DMTCP_EVENT_INIT.
 // initializeLowerHalf() will initialize this to: (proxyDlsym_t)lh_info.lh_dlsym
 extern proxyDlsym_t pdlsym;
+extern LhCoreRegions_t lh_regions_list[MAX_REGIONS];
 
 // API
 

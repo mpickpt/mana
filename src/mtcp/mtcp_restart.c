@@ -1343,14 +1343,19 @@ skip_lh_memory_region_ckpting(const Area *area, LowerHalfInfo_t *lh_info)
   if (fnc) {
     g_list = fnc(&g_numMmaps);
   }
-  if (area->addr == lh_info->startText ||
-      mtcp_strstr(area->name, "/dev/zero") ||
+  if (mtcp_strstr(area->name, "/dev/zero") ||
       mtcp_strstr(area->name, "/dev/kgni") ||
       mtcp_strstr(area->name, "/dev/xpmem") ||
       mtcp_strstr(area->name, "/dev/shm") ||
-      mtcp_strstr(area->name, "/SYS") ||
-      area->addr == lh_info->startData) {
+      mtcp_strstr(area->name, "/SYS")) {
     return 1;
+  }
+  if (!lh_regions_list) return 0;
+  for (int i = 0; i < lh_info->numCoreRegions; i++) {
+    void *lhStartAddr = lh_regions_list[i].start_addr;
+    if (area->addr == lhStartAddr) {
+      return 1;
+    }
   }
   if (!g_list) return 0;
   for (i = 0; i < g_numMmaps; i++) {

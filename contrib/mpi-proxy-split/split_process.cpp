@@ -53,6 +53,7 @@ static unsigned long origPhnum;
 static unsigned long origPhdr;
 LowerHalfInfo_t lh_info;
 proxyDlsym_t pdlsym; // initialized to (proxyDlsym_t)lh_info.lh_dlsym
+LhCoreRegions_t lh_regions_list[MAX_REGIONS];
 
 static unsigned long getStackPtr();
 static void patchAuxv(ElfW(auxv_t) *, unsigned long , unsigned long , int );
@@ -222,41 +223,31 @@ static int
 read_lh_proxy_bits(pid_t childpid)
 {
   int ret = -1;
-  const int IOV_SZ = 2;
-  const int RWX_PERMS = PROT_READ | PROT_EXEC | PROT_WRITE;
-  const int RW_PERMS = PROT_READ | PROT_WRITE;
+  const int IOV_SZ = lh_info.numCoreRegions;
   struct iovec remote_iov[IOV_SZ];
 
-  // text segment
-  remote_iov[0].iov_base = lh_info.startText;
-  remote_iov[0].iov_len = (unsigned long)lh_info.endText -
-                          (unsigned long)lh_info.startText;
-  ret = mmap_iov(&remote_iov[0], RWX_PERMS);
-  JWARNING(ret == 0)(lh_info.startText)(remote_iov[0].iov_len)
-          .Text("Error mapping text segment for lh_proxy");
-  // data segment
-  remote_iov[1].iov_base = lh_info.startData;
-  remote_iov[1].iov_len = (unsigned long)lh_info.endOfHeap -
-                          (unsigned long)lh_info.startData;
-  ret = mmap_iov(&remote_iov[1], RW_PERMS);
-  JASSERT(ret == 0)(lh_info.startData)(remote_iov[1].iov_len)
-          .Text("Error mapping data segment for lh_proxy");
-
-  // NOTE:  For the process_vm_readv call, the local_iov will be same as
-  //        remote_iov, since we are just duplicating child processes memory.
-  // NOTE:  This requires same privilege as ptrace_attach (valid for child).
-  //        Anecdotally, in containers, we've seen a case where this errors out
-  //        with ESRCH (no such proc.); it may need CAP_SYS_PTRACE privilege??
   for (int i = 0; i < IOV_SZ; i++) {
+  // get metadata and map the segment
+    remote_iov[i].iov_base = lh_regions_list[i].start_addr;
+    remote_iov[i].iov_len = (unsigned long)lh_regions_list[i].end_addr -
+                            (unsigned long)lh_regions_list[i].start_addr;
+    ret = mmap_iov(&remote_iov[i], lh_regions_list[i].prot | PROT_WRITE);
+    JWARNING(ret == 0)(remote_iov[i].iov_base)(remote_iov[i].iov_len)
+          .Text("Error mapping lh_proxy memory segment");
+
+    // NOTE: For the process_vm_readv call, the local_iov will be same as
+    //       remote_iov, since we are just duplicating child processes memory.
+    // NOTE: This requires same privilege as ptrace_attach (valid for child).
+    //       Anecdotally, in containers, we've seen a case where this errors out
+    //       with ESRCH (no such proc.); it may need CAP_SYS_PTRACE privilege??
     JTRACE("Reading segment from lh_proxy")
           (remote_iov[i].iov_base)(remote_iov[i].iov_len);
     ret = process_vm_readv(childpid, remote_iov + i, 1, remote_iov + i, 1, 0);
     JASSERT(ret != -1)(JASSERT_ERRNO).Text("Error reading data from lh_proxy");
+    // Can remove PROT_WRITE now that we've populated the segment.
+    ret = mprotect(remote_iov[i].iov_base, remote_iov[i].iov_len,
+                  lh_regions_list[i].prot);
   }
-
-  // Can remove PROT_WRITE now that we've populated the text segment.
-  ret = mprotect((void *)ROUND_DOWN(remote_iov[0].iov_base),
-                 ROUND_UP(remote_iov[0].iov_len), PROT_READ | PROT_EXEC);
   return ret;
 }
 
@@ -337,9 +328,14 @@ startProxy()
         JWARNING(false)(JASSERT_ERRNO) .Text("Read fewer bytes than expected");
         break;
       }
+      size_t total_bytes = lh_info.numCoreRegions*sizeof(LhCoreRegions_t);
+      if (read(pipefd_out[0], &lh_regions_list, total_bytes) < total_bytes) {
+        JWARNING(false)(JASSERT_ERRNO) .Text("Read fewer bytes than expected");
+        break;
+      }
       close(pipefd_out[0]);
       addPathFor_gethostbyname_proxy(); // used by statically linked lower half
-    } 
+    }
   }
   return childpid;
 }
