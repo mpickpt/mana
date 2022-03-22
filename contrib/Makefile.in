@@ -76,11 +76,12 @@ install: all
 	test -e $(DESTDIR)$(includedir) || $(MKDIR_P) $(DESTDIR)$(includedir)
 	for p in $(plugins); do (cd $$p && $(MAKE) install); done
 	cd mpi-proxy-split && $(MAKE) install BINDIR=$(DESTDIR)$(bindir) \
-		PKGLIBDIR=$(DESTDIR)$(pkglibdir)
+	  PKGLIBDIR=$(DESTDIR)$(pkglibdir)
 
 uninstall:
 	for p in $(plugins); do (cd $$p && $(MAKE) uninstall); done
-	cd mpi-proxy-split && $(MAKE) uninstall DESTDIR=$(bindir)
+	cd mpi-proxy-split && $(MAKE) uninstall BINDIR=$(DESTDIR)$(bindir) \
+	  PKGLIBDIR=$(DESTDIR)$(pkglibdir)
 
 uninstall-libs:
 	for p in $(plugins); do (cd $$p && $(MAKE) uninstall-libs); done

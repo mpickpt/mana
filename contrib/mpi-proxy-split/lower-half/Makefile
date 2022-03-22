@@ -41,8 +41,6 @@ ${STATIC_GETHOSTBYNAME}: gethostbyname-static/gethostbyname_static.c \
 	cd gethostbyname-static && make gethostbyname_proxy
 endif
 
-GETHOSTBYNAME_PROXY=gethostbyname-static/gethostbyname_proxy
-
 .c.o:
 	${MPICC} ${CFLAGS} -g3 -O0 -c -o $@ $<
 
@@ -73,11 +71,11 @@ ${PROXY_BIN}: ${PROXY_OBJS} ${LIBPROXY}.a ${STATIC_GETHOSTBYNAME}
 ${LIBPROXY}.a: ${LIBPROXY_OBJS}
 	ar cr $@ $^
 
-mana: ${PROXY_BIN} ${STATIC_GETHOSTBYNAME}
-	install $< ${GETHOSTBYNAME_PROXY} ${DMTCP_ROOT}/bin/
+mana: ${PROXY_BIN}
+	install $< ${DMTCP_ROOT}/bin/
 
 install: mana
-	install ${PROXY_BIN} ${GETHOSTBYNAME_PROXY} $(DESTDIR)
+	install ${PROXY_BIN} $(DESTDIR)
 
 tidy:
 	rm -f *~ .*.swp dmtcp_restart_script*.sh ckpt_*.dmtcp

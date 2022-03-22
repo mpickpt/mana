@@ -1,5 +1,10 @@
 CFLAGS=-g3 -O0
 
+# Modify if your DMTCP_ROOT is located elsewhere.
+ifndef DMTCP_ROOT
+  DMTCP_ROOT=../../../..
+endif
+
 # getaddrinfo ntp-wwv.nist.gov time: sin_port: 9472; sin_addr: 132.163.97.5
 test: a.out
 	./a.out localhost
@@ -24,10 +29,10 @@ dist: clean
 	dir=`basename $$PWD` && cd .. && tar zcvf ./$$dir.tar.gz ./$$dir
 	dir=`basename $$PWD` && ls -l ../$$dir.tar.gz
 
-mana:
-	make gethostbyname_proxy
-	install gethostbyname_proxy ../../../../bin
+mana: gethostbyname_proxy
+	install $< ${DMTCP_ROOT}/bin
 
 install: mana
+	install gethostbyname_proxy $(DESTDIR) 
 
 .PHONY: gdb clean dist mana install

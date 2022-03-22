@@ -113,7 +113,7 @@ tidy:
 	rm -rf ckpt_rank_*
 
 mana: libmpidummy.so
-	cp -f libmpidummy.so ${DMTCP_ROOT}/lib/dmtcp/
+	install libmpidummy.so ${DMTCP_ROOT}/lib/dmtcp/
 	cd ${DMTCP_ROOT}/lib/dmtcp && \
 		ln -sf libmpidummy.so libmpich_intel.so.3.0.1 && \
 		ln -sf libmpich_intel.so.3.0.1 libmpich_intel.so.3
@@ -122,6 +122,7 @@ mana: libmpidummy.so
 		ln -sf libpmi.so.0.5.0 libpmi.so.0
 
 install: mana
+	install libmpidummy.so $(DESTDIR)
 
 clean: tidy
 	rm -f ${LIBWRAPPER_OBJS}
