@@ -75,7 +75,7 @@ mana: mana_prereqs
 	$(MAKE) mana_part2
 mana_part2: default \
 	bin/mana_launch bin/mana_restart bin/mana_coordinator bin/mana_status
-	cd contrib/mpi-proxy-split && make mana && make -j tests
+	cd contrib/mpi-proxy-split && make install && make -j tests
 
 ${targetdir}/bin/mana_launch: src/mana_launch.sh
 	cp src/mana_launch.sh ${targetdir}/bin/mana_launch
@@ -354,11 +354,6 @@ install: all create-dirs
 	cd plugin && make DESTDIR=$(DESTDIR) $(INSTALL_FLAGS)
 	cd contrib && make DESTDIR=$(DESTDIR) $(INSTALL_FLAGS)
 	cd manpages && make ${INSTALL_FLAGS}
-	install ${targetdir}/bin/mana_launch $(DESTDIR)$(bindir)
-	install ${targetdir}/bin/mana_restart $(DESTDIR)$(bindir)
-	install ${targetdir}/bin/mana_coordinator $(DESTDIR)$(bindir)
-	install ${targetdir}/bin/mana_start_coordinator $(DESTDIR)$(bindir)
-	install ${targetdir}/bin/mana_status $(DESTDIR)$(bindir) 
 ifeq ($(M32),0)
 	${INSTALL_DATA} $(top_srcdir)/QUICK-START.md $(DESTDIR)$(docdir)
 	${INSTALL_DATA} $(top_srcdir)/COPYING $(DESTDIR)$(docdir)
@@ -373,11 +368,6 @@ uninstall:
 	cd src && make DESTDIR=$(DESTDIR) $(UNINSTALL_FLAGS)
 	cd plugin && make DESTDIR=$(DESTDIR) $(UNINSTALL_FLAGS)
 	cd contrib && make DESTDIR=$(DESTDIR) $(UNINSTALL_FLAGS)
-	rm -f $(DESTDIR)$(bindir)/mana_launch
-	rm -f $(DESTDIR)$(bindir)/mana_restart
-	rm -f $(DESTDIR)$(bindir)/mana_coordinator
-	rm -f $(DESTDIR)$(bindir)/mana_start_coordinator
-	rm -f $(DESTDIR)$(bindir)/mana_status
 ifeq ($(M32),0)
 	rm -Rf "$(DESTDIR)$(docdir)"
 	cd $(DESTDIR)$(mandir)/man1 && rm -f ${MANPAGES} ${MANPAGES_AUTOGEN}

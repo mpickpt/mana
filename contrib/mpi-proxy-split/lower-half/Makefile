@@ -30,7 +30,6 @@ PROXY_LD_FLAGS=-static -Wl,-Ttext-segment -Wl,0xE000000 -Wl,--wrap -Wl,__munmap 
 default: ${PROXY_BIN} ${STATIC_GETHOSTBYNAME}
 
 # We should remove the special case for Cori, once we know this works on Cori.
-# FIXME: this seems duplicated - gethostbyname-static has its own Makefile. 
 ifeq ($(findstring cori,$(PLATFORM)),cori)
   STATIC_GETHOSTBYNAME=
 else
@@ -39,6 +38,7 @@ ${STATIC_GETHOSTBYNAME}: gethostbyname-static/gethostbyname_static.c \
                          gethostbyname-static/gethostbyname_proxy.c
 	cd gethostbyname-static && make gethostbyname_static.o
 	cd gethostbyname-static && make gethostbyname_proxy
+	cp gethostbyname-static/gethostbyname_proxy -f ${DMTCP_ROOT}/bin/
 endif
 
 .c.o:
@@ -71,11 +71,8 @@ ${PROXY_BIN}: ${PROXY_OBJS} ${LIBPROXY}.a ${STATIC_GETHOSTBYNAME}
 ${LIBPROXY}.a: ${LIBPROXY_OBJS}
 	ar cr $@ $^
 
-mana: ${PROXY_BIN}
-	install $< ${DMTCP_ROOT}/bin/
-
-install: mana
-	install ${PROXY_BIN} $(DESTDIR)
+install: ${PROXY_BIN} ${STATIC_GETHOSTBYNAME}
+	cp -f $^ ${DMTCP_ROOT}/bin/
 
 tidy:
 	rm -f *~ .*.swp dmtcp_restart_script*.sh ckpt_*.dmtcp
@@ -93,4 +90,4 @@ dist: distclean
 	dir=`basename $$PWD` && cd .. && tar czvf $$dir.tgz ./$$dir
 	dir=`basename $$PWD` && ls -l ../$$dir.tgz
 
-.PHONY: default clean dist distclean mana install
+.PHONY: default clean dist distclean install
