@@ -8,7 +8,7 @@ default:
 # 	./latex2man -t ./macros.trans $< $@
 
 %.1.gz: %.1
-	gzip < $< > $<.gz
+	gzip --keep $<
 
 install: ${MANPAGES}
 
