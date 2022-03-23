@@ -1,5 +1,5 @@
 '\" t
-.\" Manual page created with latex2man on Thu Mar 10 05:08:52 2022
+.\" Manual page created with latex2man on Wed Mar 23 02:36:27 2022
 .\" NOTE: This file is generated, DO NOT EDIT.
 .de Vb
 .ft CW
@@ -10,7 +10,7 @@
 
 .fi
 ..
-.TH "MANA" "1" "10 March 2022" "MPI\-Agnostic Netw.\-Agnostic Ckpt " "MPI\-Agnostic Netw.\-Agnostic Ckpt "
+.TH "MANA" "1" "23 March 2022" "MPI\-Agnostic Netw.\-Agnostic Ckpt " "MPI\-Agnostic Netw.\-Agnostic Ckpt "
 .SH NAME
 
 \fBmana\fP
@@ -140,6 +140,24 @@ runtime overhead): If this env. var. is set, and if re\-building
 any files in contrib/mpi\-proxy\-split/mpi\-wrappers, then MPI 
 collective communication calls are translated to MPI_Send/Recv 
 at runtime. (Try \&'touch mpi_collective_p2p.c\&' if not re\-building.) 
+.TP
+\fBMANA_P2P_LOG"\fP
+ For debugging: Set this before mana_launch
+in order to log the order of point\-to\-point 
+calls (MPI_Send and family) for later deterministic replay. See 
+details at top of contrib/mpi\-proxy\-split/mpi\-wrappers/p2p\-deterministic.c 
+(IMPORTANT: If you checkpoint, continue running for a few minutes 
+after that, for final updating of the log files.) 
+.TP
+\fBMANA_P2P_REPLAY"\fP
+ For debugging: If a checkpoint was created 
+with MANA_P2P_LOG,
+then execute mana_p2p_update_logs
+and set this variable before mana_restart\&.
+(Currently, 
+you need to set this before mana_launch,
+but this may be 
+fixed later.) 
 .PP
 To see status of ranks (especially during checkpoint), try: 
 .Vb
