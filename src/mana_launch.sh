@@ -31,11 +31,14 @@ options=""
 help=0
 verbose=0
 srun_sbatch_found=0
+version=0
 while [ -n "$1" ]; do
   if [ "$1" == --verbose ]; then
     verbose=1
   elif [ "$1" == --help ]; then
     help=1
+  elif [ "$1" == --version ]; then
+    version=1
   elif [ "$1" == srun ] || [ "$1" == sbatch ]; then
     srun_sbatch_found=1
   elif [ "$1" == --ckptdir ]; then
@@ -52,6 +55,13 @@ done
 
 if [ "$help" -eq 1 ]; then
   $dir/dmtcp_launch --help $options
+  exit 0
+fi
+
+if [ "$version" -eq 1 ]; then
+  MANA_VERSION_FILE=$dir/../include/mana-version.h
+  MANA_VERSION=`awk '/MANA_VERSION / {print $4}' $MANA_VERSION_FILE`
+  echo "`basename $0` (MANA) ${MANA_VERSION}"
   exit 0
 fi
 

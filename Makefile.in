@@ -57,9 +57,9 @@ MANPAGES=dmtcp.1.gz dmtcp_coordinator.1.gz dmtcp_command.1.gz \
 # Version header.
 include Makefile.versions
 
-VERSION_HEADER := include/mana-version.h
-GITID_FILE     := .gitid
-GITID          := $(shell if [ -d ".git" ]; then git describe --always; fi)
+VERSION_HEADER    := contrib/mpi-proxy-split/mana-version.h
+GITID_FILE        := .gitid
+GITID             := $(shell if [ -d ".git" ]; then git describe --always; fi)
 
 # Git repository wasn't inited in MANA folder
 ifeq ($(GITID),)
@@ -313,8 +313,8 @@ clean: tidy
 	- cd contrib && $(MAKE) clean
 	- cd test && $(MAKE) clean
 	- cd manpages && ${MAKE} clean
-	- rm .gitid
-	- rm include/mana-version.h
+	- rm -f .gitid
+	- rm -f include/mana-version.h
 	- if test -z "$$DMTCP_TMPDIR"; then \
 	   if test -z "$$TMPDIR"; then \
 	     DMTCP_TMPDIR=/tmp/dmtcp-$$USER@`/bin/hostname`; \

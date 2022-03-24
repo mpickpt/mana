@@ -20,11 +20,14 @@ submissionPort=`grep Port: $HOME/.mana | sed -e 's%Port: %%'|sed -e 's% .*$%%'`
 options=""
 verbose=0
 help=0
+version=0
 while [ -n "$1" ]; do
   if [ "$1" == --verbose ]; then
     verbose=1
   elif [ "$1" == --help ]; then
     help=1
+  elif [ "$1" == --version ]; then
+    version=1
   else
     options="$options $1"
   fi
@@ -33,6 +36,13 @@ done
 
 if [ "$help" -eq 1 ]; then
   $dir/dmtcp_command --help $options
+  exit 0
+fi
+
+if [ "$version" -eq 1 ]; then
+  MANA_VERSION_FILE=$dir/../include/mana-version.h
+  MANA_VERSION=`awk '/MANA_VERSION / {print $4}' $MANA_VERSION_FILE`
+  echo "`basename $0` (MANA) ${MANA_VERSION}"
   exit 0
 fi
 
