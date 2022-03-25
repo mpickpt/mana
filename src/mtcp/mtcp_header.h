@@ -88,6 +88,12 @@ typedef struct RestoreInfo {
   // See note below in the restart_fast_path() function.
   fnptr_t restorememoryareas_fptr;
 
+  // VDSO/VVAR regions for the mtcp_restart program.
+  VA currentVdsoStart;
+  VA currentVdsoEnd;
+  VA currentVvarStart;
+  VA currentVvarEnd;
+
   // void (*post_restart)();
   // void (*post_restart_debug)();
   // void (*restorememoryareas_fptr)();
