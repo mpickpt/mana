@@ -244,8 +244,9 @@ c. Install libxz
   $ dnf install -y xz-devel
 
 d. Download and install liblzma
-  $ dnf install -y yum-utils
-  $ yumdownloader --source xz-devel
+  $ wget \
+      http://vault.centos.org/8-stream/BaseOS/Source/SPackages/xz-5.2.4-3.el8.src.rpm \
+      --no-check-certificate 
   $ rpm2cpio xz-5.2.4-3.el8.src.rpm | cpio -idv
   $ tar xf xz-5.2.4.tar.xz
   $ ./configure --enable-static
