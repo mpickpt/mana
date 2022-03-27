@@ -150,8 +150,7 @@ void save_request_info(MPI_Request *request, MPI_Status *status) {
     int rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     snprintf(buf, sizeof(buf)-1, P2P_LOG_REQUEST, rank);
-    fd = open(buf, sizeof(buf)-1,
-              O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR );
+    fd = open(buf, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR );
     if (fd == -1) {
       perror("save_request_info: open: couldn't create request file");
       exit(1);
