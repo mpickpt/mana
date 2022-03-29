@@ -64,6 +64,7 @@ USER_DEFINED_WRAPPER(int, Test, (MPI_Request*) request,
     return MPI_SUCCESS;
   }
   DMTCP_PLUGIN_DISABLE_CKPT();
+  LOG_PRE_Test(status);
   MPI_Status statusBuffer;
   MPI_Status *statusPtr = status;
   if (statusPtr == MPI_STATUS_IGNORE) {
@@ -99,6 +100,7 @@ USER_DEFINED_WRAPPER(int, Test, (MPI_Request*) request,
     fflush(stdout);
 #endif
   }
+  LOG_POST_Test(request, statusPtr);
   if (retval == MPI_SUCCESS && *flag && MPI_LOGGING()) {
     clearPendingRequestFromLog(*request);
     REMOVE_OLD_REQUEST(*request);
@@ -241,7 +243,7 @@ USER_DEFINED_WRAPPER(int, Iprobe,
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Iprobe)(source, tag, realComm, flag, status);
   RETURN_TO_UPPER_HALF();
-  LOG_POST_Iprobe(source,tag,comm,status,request);
+  LOG_POST_Iprobe(source,tag,comm,status);
   REPLAY_POST_Iprobe(count,datatype,source,tag,comm,status);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
