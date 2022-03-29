@@ -172,6 +172,7 @@ USER_DEFINED_WRAPPER(int, Waitall, (int) count,
 USER_DEFINED_WRAPPER(int, Wait, (MPI_Request*) request, (MPI_Status*) status)
 {
   int retval;
+  LOG_PRE_Wait(status);
   if (*request == MPI_REQUEST_NULL) {
     // *request might be in read-only memory. So we can't overwrite it with
     // MPI_REQUEST_NULL later.
@@ -210,6 +211,7 @@ USER_DEFINED_WRAPPER(int, Wait, (MPI_Request*) request, (MPI_Status*) status)
       fflush(stdout);
 #endif
     }
+    LOG_POST_Wait(request, statusPtr);
     if (flag && MPI_LOGGING()) {
       clearPendingRequestFromLog(*request);
       REMOVE_OLD_REQUEST(*request);
