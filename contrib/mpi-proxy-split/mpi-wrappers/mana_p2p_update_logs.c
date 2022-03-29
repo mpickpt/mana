@@ -70,7 +70,7 @@ void fill_in_log(struct p2p_log_msg *p2p_log) {
     }
   }
   close(fd2);
-#ifdef 0
+#if 0
   // The following code has infinite loop. Comment out for now.
   fd2 = dup(fd_request);
   while (1) {
@@ -79,5 +79,5 @@ void fill_in_log(struct p2p_log_msg *p2p_log) {
       readall(fd_request, &p2p_request, sizeof(p2p_request));
     }
   }
-#endif // ifdef 0
+#endif // if 0
 }
