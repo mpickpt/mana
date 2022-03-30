@@ -63,8 +63,8 @@ USER_DEFINED_WRAPPER(int, Test, (MPI_Request*) request,
     *flag = true;
     return MPI_SUCCESS;
   }
-  DMTCP_PLUGIN_DISABLE_CKPT();
   LOG_PRE_Test(status);
+  DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Status statusBuffer;
   MPI_Status *statusPtr = status;
   if (statusPtr == MPI_STATUS_IGNORE) {
@@ -172,7 +172,6 @@ USER_DEFINED_WRAPPER(int, Waitall, (int) count,
 USER_DEFINED_WRAPPER(int, Wait, (MPI_Request*) request, (MPI_Status*) status)
 {
   int retval;
-  LOG_PRE_Wait(status);
   if (*request == MPI_REQUEST_NULL) {
     // *request might be in read-only memory. So we can't overwrite it with
     // MPI_REQUEST_NULL later.
@@ -211,7 +210,6 @@ USER_DEFINED_WRAPPER(int, Wait, (MPI_Request*) request, (MPI_Status*) status)
       fflush(stdout);
 #endif
     }
-    LOG_POST_Wait(request, statusPtr);
     if (flag && MPI_LOGGING()) {
       clearPendingRequestFromLog(*request);
       REMOVE_OLD_REQUEST(*request);
