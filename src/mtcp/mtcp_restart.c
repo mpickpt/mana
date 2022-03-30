@@ -499,25 +499,24 @@ mysetauxval(char **evp, unsigned long int type, unsigned long int val)
 /* We hardwire these, since we can't make libc calls. */
 #define PAGESIZE 4096
 #define ROUNDADDRUP(addr, size) ((addr + size - 1) & ~(size - 1))
-// We use global variables here, since both remap_vdso_and_vvar_regions and
-// unmap_memory_areas_and_restore_vdso use these variables. They're used to
-// track the temporary regions the vvar and vdso segments are remapped to, so
-// they are not unmapped later.
-uint64_t vvarStartTmp = 0;
-uint64_t vdsoStartTmp = 0;
 
 // This function searches for a free memory region to temporarily remap the vdso
 // and vvar regions to, so that mtcp's vdso and vvar do not overlap with the
 // checkpointed process' vdso and vvar.
 static void
-remap_vdso_and_vvar_regions() {
+remap_vdso_and_vvar_regions(RestoreInfo *rinfo) {
   Area area;
-  int rc = 0;
-  uint64_t vvarStart = 0;
-  uint64_t vdsoStart = 0;
-  uint64_t vvarSize = 0;
-  uint64_t vdsoSize = 0;
+  void *rc = 0;
+  uint64_t tmpVvarStart = 0;
+  uint64_t tmpVdsoStart = 0;
+  size_t vvarSize = 0;
+  size_t vdsoSize = 0;
   uint64_t prev_addr = 0x10000;
+
+  rinfo->currentVdsoStart = NULL;
+  rinfo->currentVdsoEnd = NULL;
+  rinfo->currentVvarStart = NULL;
+  rinfo->currentVvarEnd = NULL;
 
   int mapsfd = mtcp_sys_open2("/proc/self/maps", O_RDONLY);
   if (mapsfd < 0) {
@@ -527,14 +526,16 @@ remap_vdso_and_vvar_regions() {
 
   while (mtcp_readmapsline(mapsfd, &area)) {
     if (mtcp_strcmp(area.name, "[vvar]") == 0) {
-      vvarStart = area.addr;
+      rinfo->currentVvarStart = area.addr;
+      rinfo->currentVvarEnd = area.endAddr;
       vvarSize = area.size;
     } else if (mtcp_strcmp(area.name, "[vdso]") == 0) {
-      vdsoStart = area.addr;
+      rinfo->currentVdsoStart = area.addr;
+      rinfo->currentVdsoEnd = area.endAddr;
       vdsoSize = area.size;
     }
 
-    if (vvarStart > 0 && vdsoStart > 0) {
+    if (vvarSize > 0 && vdsoSize > 0) {
       break;
     }
   }
@@ -542,9 +543,13 @@ remap_vdso_and_vvar_regions() {
   mtcp_sys_lseek(mapsfd, 0, SEEK_SET);
 
   while (mtcp_readmapsline(mapsfd, &area)) {
-    if (prev_addr + vvarSize + vdsoSize <= area.addr) {
-      vvarStartTmp = prev_addr;
-      vdsoStartTmp = prev_addr + vvarSize;
+    if (prev_addr + vvarSize + vdsoSize <= area.__addr) {
+      if (vvarSize > 0) {
+        /* some kernel doesn't have vvar */
+        tmpVvarStart = prev_addr;
+      }
+      /* Assuming vdso always comes right after vvar */
+      tmpVdsoStart = prev_addr + vvarSize;
       break;
     } else {
       prev_addr = ROUNDADDRUP((uint64_t) area.endAddr, PAGESIZE);
@@ -553,34 +558,37 @@ remap_vdso_and_vvar_regions() {
 
   mtcp_sys_close(mapsfd);
 
-  if (vvarStart > 0) {
-    if (vvarStartTmp == 0) {
+  if (vvarSize > 0) {
+    if (tmpVvarStart == 0) {
       MTCP_PRINTF("No free region found to temporarily map vvar to\n");
       mtcp_abort();
     }
-    rc = mtcp_sys_mremap(vvarStart, vvarSize, vvarSize,
-                         MREMAP_FIXED | MREMAP_MAYMOVE, vvarStartTmp);
+    rc = mtcp_sys_mremap(rinfo->currentVvarStart, vvarSize, vvarSize,
+                         MREMAP_FIXED | MREMAP_MAYMOVE, (void *)tmpVvarStart);
     if (rc == MAP_FAILED) {
       MTCP_PRINTF("mtcp_restart failed: "
                   "gdb --mpi \"DMTCP_ROOT/bin/mtcp_restart\" to debug.\n");
       mtcp_abort();
     }
+    rinfo->currentVvarStart = (VA)tmpVvarStart;
+    rinfo->currentVvarEnd = (VA)(tmpVvarStart + vvarSize);
   }
 
-  if (vdsoStart > 0) {
-    if (vdsoStartTmp == 0) {
+  if (vdsoSize > 0) {
+    if (tmpVdsoStart == 0) {
       MTCP_PRINTF("No free region found to temporarily map vdso to\n");
       mtcp_abort();
     }
-    rc = mtcp_sys_mremap(vdsoStart, vdsoSize, vdsoSize,
-                         MREMAP_FIXED | MREMAP_MAYMOVE, vdsoStartTmp);
+    rc = mtcp_sys_mremap(rinfo->currentVdsoStart, vdsoSize, vdsoSize,
+                         MREMAP_FIXED | MREMAP_MAYMOVE, (void *)tmpVdsoStart);
     if (rc == MAP_FAILED) {
       MTCP_PRINTF("mtcp_restart failed: "
                   "gdb --mpi \"DMTCP_ROOT/bin/mtcp_restart\" to debug.\n");
       mtcp_abort();
     }
+    rinfo->currentVdsoStart = (VA)tmpVdsoStart;
+    rinfo->currentVdsoEnd = (VA)(tmpVdsoStart + vdsoSize);
   }
-
 }
 
 #define shift argv++; argc--;
@@ -703,7 +711,6 @@ main(int argc, char *argv[], char **environ)
       }
     }
 
-    DPRINTF("vdsoStart: %p\n", mygetauxval(environ, AT_SYSINFO_EHDR));
     // We could have read /proc/self/maps for vdsoStart, etc.  But that code
     //   is long, and is used to discover many things about the maps.
     //   By using mygetauxval(), we have a much shorter mechanism now.
@@ -711,13 +718,20 @@ main(int argc, char *argv[], char **environ)
     //   before vvar and after vdso, and verify that we get an EFAULT.
     // In May, 2020, on Cori and elsewhere, vvar is 3 pages and vdso is 2 pages.
     char *vdsoStart = (char *)mygetauxval(environ, AT_SYSINFO_EHDR);
+    DPRINTF("vdsoStart: %p\n", vdsoStart);
 
-    remap_vdso_and_vvar_regions();
+    /* FIXME: 1. We used to use `mygetauxval` to get VdsoStart, now seems we have to
+     * parse the proc map, shall we remove the lines above?
+     * 2. Is this only needed for MANA? I think this could be a general routine which
+     * dmtcp also need to do it
+     * 3. Can we check and only do it when there is an overlap? I think we don't have
+     * to do it if there was no overlap */
+    remap_vdso_and_vvar_regions(&rinfo);
 
     // Now that we moved vdso/vvar, we need to update the vdso address
     //   in the auxv vector.  This will be needed when the lower half
     //   starts up:  initializeLowerHalf() will be called from splitProcess().
-    mysetauxval(environ, AT_SYSINFO_EHDR, vdsoStartTmp);
+    mysetauxval(environ, AT_SYSINFO_EHDR, (uint64_t)rinfo.currentVdsoStart);
   }
 
   if (runMpiProxy) {
@@ -1105,6 +1119,8 @@ restart_fast_path()
   DPRINTF("We have copied mtcp_restart to higher address.  We will now\n"
           "    jump into a copy of restorememoryareas().\n");
 
+  DPRINTF("rinfo address: %p current vdso: %p\n", &rinfo, rinfo.currentVdsoStart);
+
 #if defined(__i386__) || defined(__x86_64__)
   asm volatile (CLEAN_FOR_64_BIT(mov %0, %%esp; )
 # ifndef __clang__
@@ -1221,6 +1237,9 @@ restorememoryareas(RestoreInfo *rinfo_ptr, LowerHalfInfo_t *linfo_ptr)
 {
   int mtcp_sys_errno;
 
+  /* the address has been changed, the values become 0 */
+  DPRINTF("rinfo address: %p local rinfo ptr: %p current vdso: global(%p) local(%p)\n",
+	  &rinfo, rinfo_ptr, rinfo.currentVdsoStart, rinfo_ptr->currentVdsoStart);
   DPRINTF("Entering copy of restorememoryareas().  Will now unmap old memory"
           "\n    and restore memory sections from the checkpoint image.\n");
 
@@ -1374,15 +1393,11 @@ unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo, LowerHalfInfo_t *lh_info
   /* Unmap everything except this image, vdso, vvar and vsyscall. */
   int mtcp_sys_errno;
   Area area;
-#if LINUX_VERSION_CODE > KERNEL_VERSION(3, 10, 0) 
-  VA vdsoStart = NULL;
-  VA vdsoEnd = NULL;
-#else
-  // This Linux kernel does not re-label vdso/vvar after calling mremap on it.
-  // So, lower down, we will fail to find vdeso in /proc/self/maps
-  VA vdsoStart = (VA)vdsoStartTmp;
-  VA vdsoEnd = (VA)(vdsoStartTmp + 2*PAGESIZE);
-#endif
+  /* If we haven't set currentVdsoStart, it should be NULL, and we should get it by parsing vdso memory segment.
+   * If we have mremap it, 1) we lost vdso label, we just use what we saved. 2) vdso label is still there
+   * should be the same with what we saved */
+  VA vdsoStart = rinfo->currentVdsoStart;
+  VA vdsoEnd = rinfo->currentVdsoEnd;;
   VA vvarStart = NULL;
   VA vvarEnd = NULL;
 
@@ -1393,16 +1408,14 @@ unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo, LowerHalfInfo_t *lh_info
     mtcp_abort();
   }
 
-  // We create local copies of these, as they reside on the data section of
-  // mtcp_restart, which is unmapped later on.
-
-  uint64_t vdsoStartTmpCopy = vdsoStartTmp;
-  uint64_t vvarStartTmpCopy = vvarStartTmp;
-
   while (mtcp_readmapsline(mapsfd, &area)) {
     if (area.addr >= rinfo->restore_addr && area.addr < rinfo->restore_end) {
       // Do not unmap this restore image.
     } else if (mtcp_strcmp(area.name, "[vdso]") == 0) {
+      if (rinfo->currentVdsoStart != NULL && rinfo->currentVdsoStart != area.addr) {
+        MTCP_PRINTF("***WARNING: current vdso %p is not matched with what rinfo saved %p\n",
+                    area.addr, rinfo->currentVdsoStart);
+      }
       // Do not unmap vdso.
       vdsoStart = area.addr;
       vdsoEnd = area.endAddr;
@@ -1417,6 +1430,10 @@ unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo, LowerHalfInfo_t *lh_info
 #endif /* if defined(__i386__) && LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 18)
           */
     else if (mtcp_strcmp(area.name, "[vvar]") == 0) {
+      if (rinfo->currentVvarStart != NULL && rinfo->currentVvarStart != area.addr) {
+        MTCP_PRINTF("***WARNING: current vvar %p is not matched with what rinfo saved %p\n",
+                    area.addr, rinfo->currentVvarStart);
+      }
       // Do not unmap vvar.
       vvarStart = area.addr;
       vvarEnd = area.endAddr;
@@ -1432,10 +1449,11 @@ unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo, LowerHalfInfo_t *lh_info
       // Do not unmap lower half
       DPRINTF("Skipping lower half memory section: %p-%p\n",
               area.addr, area.endAddr);
-    } else if (area.addr == vdsoStartTmpCopy) {
+    } else if (area.addr == rinfo->currentVdsoStart) {
+      /* We need it becasue the memory segment might lost [vdso] label after mremap */
       DPRINTF("Skipping temporary vDSO section: %p-%p\n",
               area.addr, area.endAddr);
-    } else if (area.addr == vvarStartTmpCopy) {
+    } else if (area.addr == rinfo->currentVvarStart) {
       DPRINTF("Skipping temporary vvar section: %p-%p\n",
               area.addr, area.endAddr);
     } else if (area.size > 0) {
@@ -1590,6 +1608,8 @@ unmap_memory_areas_and_restore_vdso(RestoreInfo *rinfo, LowerHalfInfo_t *lh_info
     MTCP_ASSERT(vdso == vdsoStart);
     mtcp_memcpy(vdsoStart, rinfo->vdsoStart, vdsoEnd - vdsoStart);
 #endif /* if defined(__i386__) */
+  } else {
+    MTCP_PRINTF("***WARNING: vdso is missing\n");
   }
 }
 
