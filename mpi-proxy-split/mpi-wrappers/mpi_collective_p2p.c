@@ -663,37 +663,6 @@ int MPI_Iexscan(const void* sendbuf, void* recvbuf, int count,
 }
 #endif  // #ifdef ADD_UNDEFINED
 
-#if 0
-//FIXME:  Delete this, once we confirm it's not needed.  When MPI_COLLECTIVE_P2P is
-//        defined, the file p2p_drain_send_recv.cpp should call the C++ version
-//        of this, defined in mpi-wrappers/mpi_collective_wrappers.cpp.  (See the
-//        comment in the latter file.)  That is a call to the C++ version of
-//        MPI_Alltoall_internal.  So, this C version should never be used.
-// This routine is called from mpi-proxy-split/p2p_drain_send_recv.cpp.
-// The code in that file is invoked only at checkpoint time. It uses
-// MPI_Alltoall to drain any remaining Send/Recv messages.
-// So, it must not convert MPI_Alltoall_internal to use use point-to-point
-// communication. This is an exception that makes a collective call to the
-// lower half.
-int
-MPI_Alltoall_internal(const void *sendbuf, int sendcount,
-                      MPI_Datatype sendtype, void *recvbuf, int recvcount,
-                      MPI_Datatype recvtype, MPI_Comm comm)
-{
-  int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-  MPI_Datatype realSendType = VIRTUAL_TO_REAL_TYPE(sendtype);
-  MPI_Datatype realRecvType = VIRTUAL_TO_REAL_TYPE(recvtype);
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  retval = NEXT_FUNC(Alltoall)(sendbuf, sendcount, realSendType, recvbuf,
-      recvcount, realRecvType, realComm);
-  RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
-  return retval;
-}
-#endif
-
 #ifdef __cplusplus
 } // end of: extern "C"
 #endif
