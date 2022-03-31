@@ -1,5 +1,5 @@
 '\" t
-.\" Manual page created with latex2man on Wed Mar 23 02:36:27 2022
+.\" Manual page created with latex2man on Thu Mar 31 02:23:15 2022
 .\" NOTE: This file is generated, DO NOT EDIT.
 .de Vb
 .ft CW
@@ -10,7 +10,7 @@
 
 .fi
 ..
-.TH "MANA" "1" "23 March 2022" "MPI\-Agnostic Netw.\-Agnostic Ckpt " "MPI\-Agnostic Netw.\-Agnostic Ckpt "
+.TH "MANA" "1" "31 March 2022" "MPI\-Agnostic Netw.\-Agnostic Ckpt " "MPI\-Agnostic Netw.\-Agnostic Ckpt "
 .SH NAME
 
 \fBmana\fP
@@ -134,18 +134,29 @@ inside mtcp/mtcp_restart.c shortly before calling splitProcess()
 pause during restart, before resuming execution, to allow `gdb 
 attach\&' (GDB must be on same node.) 
 .TP
-\fBDEFINE_mpi_collective_p2p\fP
+\fBMPI_COLLECTIVE_P2P\fP
  For debugging only (high 
 runtime overhead): If this env. var. is set, and if re\-building 
 any files in contrib/mpi\-proxy\-split/mpi\-wrappers, then MPI 
 collective communication calls are translated to MPI_Send/Recv 
 at runtime. (Try \&'touch mpi_collective_p2p.c\&' if not re\-building.) 
+.br
+NOTE: You can select specific collective calls for translation
+to MPI_Send/Recv by copying MPI wrappers from
+mpi_collective_p2p.c
+to mpi_collective_wrappers.cpp
+in the mpi\-wrappers
+subdirectory; or block certain
+translations by adjusting \&'#ifdef/#ifndef MPI_COLLECTIVE_P2P\&'
+in those files.
 .TP
 \fBMANA_P2P_LOG"\fP
- For debugging: Set this before mana_launch
+ For debugging: Set this before 
+mana_launch
 in order to log the order of point\-to\-point 
 calls (MPI_Send and family) for later deterministic replay. See 
-details at top of contrib/mpi\-proxy\-split/mpi\-wrappers/p2p\-deterministic.c 
+details at top of 
+contrib/mpi\-proxy\-split/mpi\-wrappers/p2p\-deterministic.c 
 (IMPORTANT: If you checkpoint, continue running for a few minutes 
 after that, for final updating of the log files.) 
 .TP
