@@ -20,7 +20,9 @@ if sys.argv[-1] == "-":
 else:
   declarations_file = open(sys.argv[1])
 
-declarations = declarations_file.read().split(';')[:-1]  # Each decl ends in ';'
+declarations = declarations_file.read()
+declarations = re.sub('\n//', ';\n//', declarations) # ';' is marker to split line
+declarations = declarations.split(';')[:-1]  # Each decl ends in ';'
 declarations_file.close()
 
 # =============================================================
