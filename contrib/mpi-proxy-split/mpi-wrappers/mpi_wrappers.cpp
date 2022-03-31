@@ -35,8 +35,21 @@ DEFINE_FNC(int, Init, (int *) argc, (char ***) argv)
 DEFINE_FNC(int, Init_thread, (int *) argc, (char ***) argv,
            (int) required, (int *) provided)
 #else
+static const char collective_p2p_string[] =
+   "\n"
+   "   ***************************************************************************\n"
+   "   *** The environment variable MPI_COLLECTIVE_P2P was set when this MANA was\n"
+   "   ***   compiled.  It's for debugging/testing.  MPI collective calls will be\n"
+   "   ***   translated to MPI_Send/Recv, and so the application will be _much_\n"
+   "   ***   slower. See mpi_wrappers.cpp and mpi_collective_p2p.c for selecting\n"
+   "   ***   individual MPI collective calls for translation to MPI_Send/Recv.\n"
+   "   ***************************************************************************\n"
+   "\n";
 USER_DEFINED_WRAPPER(int, Init, (int *) argc, (char ***) argv) {
   int retval;
+  if (isUsingCollectiveToP2p()) {
+    fprintf(stderr, collective_p2p_string);
+  }
   DMTCP_PLUGIN_DISABLE_CKPT();
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Init)(argc, argv);
@@ -48,6 +61,9 @@ USER_DEFINED_WRAPPER(int, Init, (int *) argc, (char ***) argv) {
 USER_DEFINED_WRAPPER(int, Init_thread, (int *) argc, (char ***) argv,
                      (int) required, (int *) provided) {
   int retval;
+  if (isUsingCollectiveToP2p()) {
+    fprintf(stderr, collective_p2p_string);
+  }
   DMTCP_PLUGIN_DISABLE_CKPT();
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Init_thread)(argc, argv, required, provided);

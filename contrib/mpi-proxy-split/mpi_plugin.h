@@ -51,4 +51,6 @@
 extern int g_numMmaps;
 extern MmapInfo_t *g_list;
 
+bool isUsingCollectiveToP2p();
+
 #endif // ifndef _MPI_PLUGIN_H
