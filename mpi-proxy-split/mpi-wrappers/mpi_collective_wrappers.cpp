@@ -38,6 +38,18 @@
 # include "mpi_collective_p2p.c"
 #endif
 
+// Returns true if the environment variable MPI_COLLECTIVE_P2P
+//   was set when the MANA plugin was compiled.
+//   MPI collective calls will be translated to use MPI_Send/Recv.
+bool
+isUsingCollectiveToP2p() {
+#ifdef MPI_COLLECTIVE_P2P
+  return true;
+#else
+  return false;
+#endif
+}
+
 // #define NO_BARRIER_BCAST
 using namespace dmtcp_mpi;
 

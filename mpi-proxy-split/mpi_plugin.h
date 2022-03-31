@@ -51,6 +51,8 @@
 extern int g_numMmaps;
 extern MmapInfo_t *g_list;
 
+bool isUsingCollectiveToP2p();
+
 enum mana_state_t {
   UNKNOWN_STATE,
   RUNNING,
