@@ -15,6 +15,7 @@ void fill_in_log(struct p2p_log_msg *p2p_log);
 int main() {
   char buf[100];
   int rank;
+  MPI_Init(NULL, NULL);
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   snprintf(buf, sizeof(buf)-1, P2P_LOG_MSG, rank);
   int fd_log = open(buf, O_RDWR);
@@ -37,6 +38,7 @@ int main() {
     lseek(fd_log, offset, SEEK_SET);
     writeall(fd_log, &p2p_log, sizeof(p2p_log));
   }
+  MPI_Finalize();
 
   return 0;
 }
@@ -68,11 +70,4 @@ void fill_in_log(struct p2p_log_msg *p2p_log) {
     }
   }
   close(fd2);
-  fd2 = dup(fd_request);
-  while (1) {
-    readall(fd2, &p2p_request, sizeof(p2p_request));
-    if (p2p_request.request == MPI_REQUEST_NULL) {
-      readall(fd_request, &p2p_request, sizeof(p2p_request));
-    }
-  }
 }
