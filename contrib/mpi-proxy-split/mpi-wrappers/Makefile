@@ -27,9 +27,10 @@ endif
 DMTCP_INCLUDE=${DMTCP_ROOT}/include
 JALIB_INCLUDE=${DMTCP_ROOT}/jalib
 
-override CFLAGS += -g3 -O0 -fPIC -I${DMTCP_INCLUDE} -I${PLUGIN_HALF_SRCDIR} \
+# This inherits the CFLAGS/CXXFLAGS from './configure' (w/ optional --enable-debug)..
+override CFLAGS += -fPIC -I${DMTCP_INCLUDE} -I${PLUGIN_HALF_SRCDIR} \
 	                 -I${LOWER_HALF_SRCDIR} -std=gnu11
-override CXXFLAGS += -g3 -O0 -fPIC -I${DMTCP_INCLUDE} -I${JALIB_INCLUDE} \
+override CXXFLAGS += -fPIC -I${DMTCP_INCLUDE} -I${JALIB_INCLUDE} \
                      -I${PLUGIN_HALF_SRCDIR} -I${DMTCP_ROOT}/src \
                      -I${LOWER_HALF_SRCDIR} -std=c++11
 
@@ -50,23 +51,25 @@ mpi_unimplemented_wrappers.cpp: generate-mpi-unimplemented-wrappers.py \
 	python3 $^ > $@
 
 .c.o:
-	${MPICC} ${CFLAGS} -g3 -O0 -c -o $@ $<
+	${MPICC} ${CFLAGS} -c -o $@ $<
 
 mana_p2p_update_logs: mana_p2p_update_logs.c
-	${MPICC} ${CFLAGS} -g3 -O0 -o $@ $<
+	${MPICC} ${CFLAGS} -o $@ $<
 
 .cpp.o: ../virtual-ids.h
-	${MPICXX} ${CXXFLAGS} -g3 -O0 -c -o $@ $<
+	${MPICXX} ${CXXFLAGS} -c -o $@ $<
 
 p2p-deterministic.h: p2p-deterministic.txt p2p-deterministic.py
 	./p2p-deterministic.py $< > $@
 mpi_p2p_wrappers.o: mpi_p2p_wrappers.cpp p2p-deterministic.h
-	${MPICXX} ${CXXFLAGS} -g3 -O0 -c -o $@ $<
+	${MPICXX} ${CXXFLAGS} -c -o $@ $<
 mpi_request_wrappers.o: mpi_request_wrappers.cpp p2p-deterministic.h
-	${MPICXX} ${CXXFLAGS} -g3 -O0 -c -o $@ $<
+	${MPICXX} ${CXXFLAGS} -c -o $@ $<
 
+# FIXME:  This assumes that the 'CFLAGS' are compatible with the FORTRAN.
+#         But MANA does not define 'FFLAGS'.
 fortran_constants.o: fortran_constants.f90
-	${MPIFORTRAN} -fPIC -g3 -O0 -c -o $@ $< 
+	${MPIFORTRAN} ${CFLAGS} -fPIC -c -o $@ $<
 
 mpi_collective_wrappers.o: mpi_collective_wrappers.cpp ../virtual-ids.h \
                            mpi_collective_p2p.c
@@ -75,13 +78,13 @@ mpi_collective_wrappers.o: mpi_collective_wrappers.cpp ../virtual-ids.h \
 	else \
 	  DEFINE_mpi_collective_p2p=""; \
 	fi && \
-	${MPICXX} ${CXXFLAGS} -Wall -g3 -O0 -DDEBUG \
+	${MPICXX} ${CXXFLAGS} -Wall -DDEBUG \
 	  $$DEFINE_mpi_collective_p2p -fPIC -I../../../include \
 	  -I../../../jalib -I.. -I../../../src -I../lower-half -std=c++11 -c $<
 
 # Some of these functions are also collective; e.g., MPI_Win_allocate_shared
 mpi_win_wrappers.o: mpi_win_wrappers.cpp ../virtual-ids.h
-	${MPICXX} ${CXXFLAGS} -Wall -g3 -O0 -DDEBUG -fPIC -I../../../include \
+	${MPICXX} ${CXXFLAGS} -Wall -DDEBUG -fPIC -I../../../include \
 	-I../../../jalib -I.. -I../../../src -I../lower-half -std=c++11 -c $<
 
 # We need to write to mpi_dummy_wrappers.c.tmp.$$ first, in case of 'make -j'.
@@ -102,10 +105,10 @@ mpi_fortran_wrappers.cpp: generate-mpi-fortran-wrappers.py \
 	python3 $^ >> $$tmp && mv -f $$tmp $@ || (rm -f $$tmp && false)
 
 mpi_dummy_wrappers.o: mpi_dummy_wrappers.c
-	${MPICC} ${CFLAGS} -g3 -O0 -c -o $@ $<
+	${MPICC} ${CFLAGS} -c -o $@ $<
 
 libmpidummy.so: mpi_dummy_wrappers.o
-	${CC} -fPIC -g3 -O0 $< -shared -o $@
+	${CC} -fPIC $< -shared -o $@
 
 libmpich_intel.so.3.0.1: libmpidummy.so
 	ln -sf $< $@

@@ -21,8 +21,8 @@ DMTCP_INCLUDE=${DMTCP_ROOT}/include
 JALIB_INCLUDE=${DMTCP_ROOT}/jalib
 PLUGIN_INCLUDE=${PLUGIN_ROOT}
 
-override CFLAGS += -g3 -O0 -fPIC -I${DMTCP_INCLUDE} -std=gnu11
-override CXXFLAGS += -g3 -O0 -fPIC -I${DMTCP_INCLUDE} -I${JALIB_INCLUDE} \
+override CFLAGS += -fPIC -I${DMTCP_INCLUDE} -std=gnu11
+override CXXFLAGS += -fPIC -I${DMTCP_INCLUDE} -I${JALIB_INCLUDE} \
                      -I${DMTCP_ROOT}/src -std=c++11
 
 PROXY_LD_FLAGS=-static -Wl,-Ttext-segment -Wl,0xE000000 -Wl,--wrap -Wl,__munmap -Wl,--wrap -Wl,shmat -Wl,--wrap -Wl,shmget
@@ -42,7 +42,7 @@ ${STATIC_GETHOSTBYNAME}: gethostbyname-static/gethostbyname_static.c \
 endif
 
 .c.o:
-	${MPICC} ${CFLAGS} -g3 -O0 -c -o $@ $<
+	${MPICC} ${CFLAGS} -c -o $@ $<
 
 # CAVEATS:
 # If the Makefile complains about a missing libxml2.a, it can be because of

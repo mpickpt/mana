@@ -61,7 +61,8 @@ default: ${MANA_COORD_OBJS}
 libmana.so: ${LIBOBJS} ${WRAPPERS_SRCDIR}/libmpiwrappers.a
 	${CXX} -shared -fPIC -g3 -O0 -o $@ ${LIBOBJS} -Wl,--whole-archive ${WRAPPERS_SRCDIR}/libmpiwrappers.a -Wl,--no-whole-archive
 
-mpi_unimplemented_wrappers.cpp: generate-mpi-unimplemented-wrappers.py mpi_unimplemented_wrappers.txt
+mpi_unimplemented_wrappers.cpp: generate-mpi-unimplemented-wrappers.py \
+                                mpi_unimplemented_wrappers.txt
 	python $^ > $@
 
 .c.o:
