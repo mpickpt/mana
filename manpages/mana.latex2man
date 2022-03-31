@@ -85,15 +85,22 @@ the last checkpoint.
     \item[\Opt{DMTCP_RESTART_PAUSE}] DMTCP/MANA will
 	pause during restart, before resuming execution, to allow `gdb
 	attach' (GDB must be on same node.)
-    \item[\Opt{DEFINE_mpi_collective_p2p}] For debugging only (high
+    \item[\Opt{MPI_COLLECTIVE_P2P}] For debugging only (high
 	runtime overhead): If this env. var. is set, and if re-building
 	any files in contrib/mpi-proxy-split/mpi-wrappers, then MPI
 	collective communication calls are translated to MPI_Send/Recv
-	at runtime. (Try 'touch mpi_collective_p2p.c' if not re-building.)
-    \item[\Opt{MANA_P2P_LOG"}] For debugging:  Set this before \texttt{mana_launch}
-	in order to log the order of point-to-point
+	at runtime. (Try 'touch mpi_collective_p2p.c' if not re-building.) \\
+	NOTE:  You can select specific collective calls for translation
+	to MPI_Send/Recv by copying MPI wrappers from
+	\texttt{mpi_collective_p2p.c} to \texttt{mpi_collective_wrappers.cpp}
+	in the \texttt{mpi-wrappers} subdirectory; or block certain
+	translations by adjusting '\#ifdef/\#ifndef MPI_COLLECTIVE_P2P'
+	in those files.
+    \item[\Opt{MANA_P2P_LOG"}] For debugging:  Set this before
+	\texttt{mana_launch} in order to log the order of point-to-point
 	calls (MPI_Send and family) for later deterministic replay.  See
-	details at top of contrib/mpi-proxy-split/mpi-wrappers/p2p-deterministic.c
+	details at top of
+	contrib/mpi-proxy-split/mpi-wrappers/p2p-deterministic.c
 	(IMPORTANT:  If you checkpoint, continue running for a few minutes
 	after that, for final updating of the log files.)
     \item[\Opt{MANA_P2P_REPLAY"}] For debugging:  If a checkpoint was created

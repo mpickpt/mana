@@ -20,8 +20,8 @@
  *        This version does not test for return values.
  ************************************************************************/
 
-// Add:  #define ADD_UNDEFINED
-//   if you want to define functions that are also in mpi_unimplemented_wrappers.txt
+// Add '#define ADD_UNDEFINED' if you want to define functions that are
+//   also in mpi_unimplemented_wrappers.txt
 
 #define PROLOG_Comm_rank_size \
   int rank; \
@@ -129,7 +129,7 @@ int MPI_Gather(const void* sendbuf, int sendcount, MPI_Datatype sendtype,
     }
     assert(sendextent*sendcount == recvextent*recvcount);
     if (!inplace) {
-      memcpy(recvbuf + rank*recvextent*recvcount, sendbuf, sendextent*sendcount);
+     memcpy(recvbuf + rank*recvextent*recvcount, sendbuf, sendextent*sendcount);
     } // NOTE: if inplace, MPI guarantees that the root data is already correct
     for (i = 0; i < size; i++) {
       if (i != root) {
@@ -211,7 +211,7 @@ int MPI_Scatter(const void* sendbuf, int sendcount, MPI_Datatype sendtype,
   } else { // else: rank != root
     for (i = 0; i < size; i++) {
       if (i != root) {
-        MPI_Recv(recvbuf, recvcount, recvtype, root, 0, comm, MPI_STATUS_IGNORE);
+       MPI_Recv(recvbuf, recvcount, recvtype, root, 0, comm, MPI_STATUS_IGNORE);
       }
     }
   }
@@ -230,7 +230,8 @@ int MPI_Scatterv(const void* sendbuf, const int sendcounts[],
     MPI_Aint sendextent;
     MPI_Type_get_extent(sendtype, &lower_bound, &sendextent);
     if (!inplace) {
-      memcpy(recvbuf, sendbuf + displs[root]*sendextent, sendextent*sendcounts[root]);
+      memcpy(recvbuf, sendbuf + displs[root]*sendextent,
+             sendextent*sendcounts[root]);
     } // NOTE: if inplace, MPI guarantees that the root data is already correct
     for (i = 0; i < size; i++) {
       if (i != root) {
