@@ -794,25 +794,25 @@ testScreen(char **argv, char ***newArgv)
 #ifdef MPI
 static void
 setLDLibraryPathForMPI(bool is32bitElf) {
-  // If libmpidummy.so found, add it to LD_LIBRARY_PATH and assume we're
+  // If libmpistub.so found, add it to LD_LIBRARY_PATH and assume we're
   // running with runMPI.  We don't need an explicit --mpi flag here.
-  // If this DMTCP was configured with libmpidummy.so and yet this is
-  // not running with the mpi-proxy-split plugin, then libmpidummy.so is
+  // If this DMTCP was configured with libmpistub.so and yet this is
+  // not running with the mpi-proxy-split plugin, then libmpistub.so is
   // never called, and so the extra library is harmless.
   if (is32bitElf) return;  // exit if 32-bit applications; this shouldn't be MPI
-  string libmpidummy = Util::getPath("libmpidummy.so");
-  if (strcmp(libmpidummy.c_str(), "libmpidummy.so") == 0) {
-    return; // libmpidummy.so was not found.
+  string libmpistub = Util::getPath("libmpistub.so");
+  if (strcmp(libmpistub.c_str(), "libmpistub.so") == 0) {
+    return; // libmpistub.so was not found.
   }
   
-  char *last_slash = const_cast <char *>(strrchr(libmpidummy.c_str(), '/'));
+  char *last_slash = const_cast <char *>(strrchr(libmpistub.c_str(), '/'));
   if (last_slash) {
     *last_slash = '\0'; // Modify the C string in place
   }
-  // libmpidummy.so must appear before libmpi.so in library search order.
+  // libmpistub.so must appear before libmpi.so in library search order.
   // Let's hope the MPI application is not running as root (no LD_LIBRARY_PATH),
   // and is not using ELF's rpath.  (But ELF runpath is fine.)
-  string ld_library_path = libmpidummy.c_str(); // Using the modified C string.
+  string ld_library_path = libmpistub.c_str(); // Using the modified C string.
   if (getenv("LD_LIBRARY_PATH") != NULL) {
     ld_library_path += ":";
     ld_library_path += getenv("LD_LIBRARY_PATH");

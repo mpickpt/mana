@@ -40,7 +40,7 @@ OBJS=$(addsuffix .o, ${FILES})
 
 TESTS_DUMMY=$(addsuffix .mana.exe, ${FILES})
 TESTS=$(addsuffix .exe, ${FILES})
-LDFLAGS_DUMMY=-L$$PWD/../mpi-wrappers -lmpidummy
+LDFLAGS_DUMMY=-L$$PWD/../mpi-wrappers -lmpistub
 
 default: default_prereqs
 	$(MAKE) default_part2
