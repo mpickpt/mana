@@ -22,7 +22,7 @@ if [ -z "$1" ]; then
   echo "USAGE:  $0 [--verbose] [DMTCP_OPTIONS ...] [--ckptdir DIR]" \\
   echo "                                                       MANA_EXECUTABLE"
   echo "        For DMTCP options, do: $0 --help"
-  echo "  NOTE: MANA_EXECUTABLE must be compiled with libmpidummy.so"
+  echo "  NOTE: MANA_EXECUTABLE must be compiled with libmpistub.so"
   echo "        See $dir/../contrib/mpi-proxy-split/test/ for examples."
   exit 1
 fi
@@ -131,10 +131,10 @@ elif [ -z "$MPI_LOCALNRANKS" ]; then
   echo ""
 fi
 
-# FIXME: Should we detect if the MANA job was not linked with libmpidummy.so
+# FIXME: Should we detect if the MANA job was not linked with libmpistub.so
 #        and point the user toward dmtcp_launch/dmtcp_restart?
 #        Since mana_launch includes the MANA plugin, it's not for non-MPI jobs.
-# if ldd "$target" | grep -q libmpidummy.so; then
+# if ldd "$target" | grep -q libmpistub.so; then
 # fi
 
 if [ "$verbose" == 1 ]; then

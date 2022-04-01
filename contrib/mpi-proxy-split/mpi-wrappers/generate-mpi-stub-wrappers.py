@@ -86,9 +86,9 @@ for decl in declarations:
 
   # NOTE:
   # We replace actual args by zero args.  Our goal is simply to create
-  # a symbol in the symbol table of mpi_dummy.o.  We can remove the
+  # a symbol in the symbol table of mpi_stub_wrappers.o.  We can remove the
   # args in the function signature, since we will not use those args
-  # in the function definition in mpi_dummy.c.  So, the caller places
+  # in the function definition in mpi_stub_wrappers.c.  So, the caller places
   # args on the stack (or in registers), and those args will not be used.
   decl_oneline = decl_oneline.split('(', 1)[0] + '()' + \
                  decl_oneline.split(')', 1)[1]

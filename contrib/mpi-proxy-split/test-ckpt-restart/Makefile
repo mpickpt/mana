@@ -30,7 +30,7 @@ OBJS=$(addsuffix .o, ${FILES})
 
 TESTS_DUMMY=$(addsuffix .dummy.exe, ${FILES})
 TESTS=$(addsuffix .exe, ${FILES})
-LDFLAGS_DUMMY=-L../mpi-wrappers -lmpidummy
+LDFLAGS_DUMMY=-L../mpi-wrappers -lmpistub
 
 default: ${TESTS} ${TESTS_DUMMY}
 

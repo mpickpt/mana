@@ -35,7 +35,7 @@ override CXXFLAGS += -fPIC -I${DMTCP_INCLUDE} -I${JALIB_INCLUDE} \
                      -I${LOWER_HALF_SRCDIR} -std=c++11
 
 # We don't build libmpiwrappers.a.  Instead, we use *.o to build libmana.so.
-default: ${LIBNAME}.a libmpidummy.so
+default: ${LIBNAME}.a libmpistub.so
 
 # If any .o file is re-built, then re-build mpi_collective_wrappers.o .
 # That recipe will test the environment variable: DEFINE_mpi_collective_p2p
@@ -87,9 +87,9 @@ mpi_win_wrappers.o: mpi_win_wrappers.cpp ../virtual-ids.h
 	${MPICXX} ${CXXFLAGS} -Wall -DDEBUG -fPIC -I../../../include \
 	-I../../../jalib -I.. -I../../../src -I../lower-half -std=c++11 -c $<
 
-# We need to write to mpi_dummy_wrappers.c.tmp.$$ first, in case of 'make -j'.
-# The parallel make would generate mpi_dummy_wrappers.c 3 times, and overwrite.
-mpi_dummy_wrappers.c: generate-mpi-dummy-wrappers.py mpi_dummy_wrappers.txt
+# We need to write to mpi_stub_wrappers.c.tmp.$$ first, in case of 'make -j'.
+# The parallel make would generate mpi_stub_wrappers.c 3 times, and overwrite.
+mpi_stub_wrappers.c: generate-mpi-stub-wrappers.py mpi_stub_wrappers.txt
 	rm -f $@
 	tmp=$@.tmp.$$$$ ; \
 	printf "%s\n\n" \
@@ -104,19 +104,19 @@ mpi_fortran_wrappers.cpp: generate-mpi-fortran-wrappers.py \
 	 "// *** THIS FILE IS AUTO-GENERATED! DO 'make' TO UPDATE. ***" >$$tmp;\
 	python3 $^ >> $$tmp && mv -f $$tmp $@ || (rm -f $$tmp && false)
 
-mpi_dummy_wrappers.o: mpi_dummy_wrappers.c
+mpi_stub_wrappers.o: mpi_stub_wrappers.c
 	${MPICC} ${CFLAGS} -c -o $@ $<
 
-libmpidummy.so: mpi_dummy_wrappers.o
+libmpistub.so: mpi_stub_wrappers.o
 	${CC} -fPIC $< -shared -o $@
 
-libmpich_intel.so.3.0.1: libmpidummy.so
+libmpich_intel.so.3.0.1: libmpistub.so
 	ln -sf $< $@
 
 libmpich_intel.so.3: libmpich_intel.so.3.0.1
 	ln -sf $< $@
 
-libpmi.so.0.5.0: libmpidummy.so
+libpmi.so.0.5.0: libmpistub.so
 	ln -sf $< $@
 
 libpmi.so.0: libpmi.so.0.5.0
@@ -126,21 +126,21 @@ tidy:
 	rm -f *~ .*.swp dmtcp_restart_script*.sh ckpt_*.dmtcp
 	rm -rf ckpt_rank_*
 
-install: libmpidummy.so mana_p2p_update_logs
-	cp -f libmpidummy.so ${DMTCP_ROOT}/lib/dmtcp/
+install: libmpistub.so mana_p2p_update_logs
+	cp -f libmpistub.so ${DMTCP_ROOT}/lib/dmtcp/
 	cd ${DMTCP_ROOT}/lib/dmtcp && \
-		ln -sf libmpidummy.so libmpich_intel.so.3.0.1 && \
+		ln -sf libmpistub.so libmpich_intel.so.3.0.1 && \
 		ln -sf libmpich_intel.so.3.0.1 libmpich_intel.so.3
 	cd ${DMTCP_ROOT}/lib/dmtcp && \
-		ln -sf libmpidummy.so libpmi.so.0.5.0 && \
+		ln -sf libmpistub.so libpmi.so.0.5.0 && \
 		ln -sf libpmi.so.0.5.0 libpmi.so.0
 	cp -f mana_p2p_update_logs ${DMTCP_ROOT}/bin/
 
 clean: tidy
 	rm -f ${LIBWRAPPER_OBJS}
-	rm -f ${LIBNAME}.a libmpidummy.so
-	rm -f ${DMTCP_ROOT}/lib/dmtcp/libmpidummy.so
-	rm -f mpi_dummy_wrappers.c
+	rm -f ${LIBNAME}.a libmpistub.so
+	rm -f ${DMTCP_ROOT}/lib/dmtcp/libmpistub.so
+	rm -f mpi_stub_wrappers.c
 	rm -f mpi_unimplemented_wrappers.cpp
 	rm -f mpi_fortran_wrappers.cpp
 	rm -f libmpich_intel.so.3.0.1 libmpich_intel.so.3

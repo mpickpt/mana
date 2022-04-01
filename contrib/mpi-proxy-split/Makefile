@@ -17,7 +17,7 @@ ifeq (${MPICC},)
 endif
 
 # Targets to install:
-#   libmana.so (using mpi-wrappers/libmpiwrappers.a), lh_proxy, libmpidummy.so,
+#   libmana.so (using mpi-wrappers/libmpiwrappers.a), lh_proxy, libmpistub.so,
 #   mana_coordinator.o (needed to compile dmtcp_coordinator)
 
 # Subdirectories needed to install
@@ -55,7 +55,7 @@ default: ${MANA_COORD_OBJS}
 	make -C ${WRAPPERS_SRCDIR} libmpiwrappers.a
 	@make libmana.so
 	@make -C ${LOWER_HALF_SRCDIR} lh_proxy
-	@make -C ${WRAPPERS_SRCDIR} libmpidummy.so
+	@make -C ${WRAPPERS_SRCDIR} libmpistub.so
 
 # ${WRAPPERS_SRCDIR}/libmpiwrappers.a made in install/default before libmana.so
 libmana.so: ${LIBOBJS} ${WRAPPERS_SRCDIR}/libmpiwrappers.a
@@ -95,7 +95,7 @@ check-unit: libmana.so
 
 ${DMTCP_ROOT}/lib/dmtcp/libmana.so: libmana.so
 	cp -f $< $@
-${DMTCP_ROOT}/lib/dmtcp/libmpidummy.so:
+${DMTCP_ROOT}/lib/dmtcp/libmpistub.so:
 	make -C ${WRAPPERS_SRCDIR} install
 ${DMTCP_ROOT}/bin/lh_proxy:
 	make -C ${LOWER_HALF_SRCDIR} install
@@ -111,7 +111,7 @@ ${DMTCP_ROOT}/bin/mana_p2p_update_logs: ${WRAPPERS_SRCDIR}/mana_p2p_update_logs.
 install: ${MANA_COORD_OBJS}
 	make -C ${WRAPPERS_SRCDIR} libmpiwrappers.a
 	make ${DMTCP_ROOT}/lib/dmtcp/libmana.so
-	make ${DMTCP_ROOT}/lib/dmtcp/libmpidummy.so
+	make ${DMTCP_ROOT}/lib/dmtcp/libmpistub.so
 	make ${DMTCP_ROOT}/bin/lh_proxy
 	make ${DMTCP_ROOT}/bin/gethostbyname_proxy
 	make ${DMTCP_ROOT}/bin/mana_p2p_update_logs
