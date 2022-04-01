@@ -1,3 +1,22 @@
+// This is used to generate libmpistub.so.  It should contain the same symbols
+//   as libmpi.so.  This is to allow end users to compile an upper half linked
+//   against libmpistub.so, so that it can be loaded even if the original
+//   libmpi.so is no longer present.
+// At compile-time, the Makefile of an MPI application may still compile against
+//   libmpi.so, libmpich.so, etc.  The top-level lib/dmtcp directory has
+//   symbolic links for these libraries, that link to libmpistub.so.
+//   By convention, these executables have file type ./mana.exe .
+//   Hence, as long as a lower-half (static) MPI library is present, we don't
+//   need the dynamic MPI library to build the upper-half executable.
+// At runtime, using mana_launch or dmtcp_launch, the library libmana.so will be
+//   preloaded by setting LD_PRELOAD.  Normally, libmana.so includes all
+//   symbols present in a libmpi.so.  So libmpistub.so normally is never
+//   called ar tuntime.
+//   (Note that mpi_unimplemented_wrappers.cpp is also compiled into libmana.so.)
+// In principle, MANA could be launched with a native MPI executable (e.g., .exe)
+//   instead of an executable of type .mana.exe.
+//   FIXME:  Does it work to just use the .exe file?
+
 // native signatures from local mpi.h conflict with this.
 // #include <mpi.h>;
 #include <assert.h>;
