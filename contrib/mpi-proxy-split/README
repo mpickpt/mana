@@ -37,7 +37,7 @@ installing MANA on CentOS 7.
     library, we link the target program with this. For example,
 
       $ cc -c mpi-test.c -o mpi-test.o
-      $ cc mpi-test.o -o mpi-test.exe -lmpidummy
+      $ cc mpi-test.o -o mpi-test.exe -lmpistub
 
       $ make tests
 
@@ -46,7 +46,7 @@ installing MANA on CentOS 7.
  4. I have a version of GROMACS (mdrun_mpi) linked with the MPI stub
     library at:
 
-       ~rohgarg/local/bin/mdrun_mpi.dummy
+       ~rohgarg/local/bin/mdrun_mpi.mana.exe
 
 ## Instructions for running:
 
@@ -69,7 +69,7 @@ I typically run interactively.
 
       $ cd $DMTCP_ROOT/contrib/mpi-proxy-split/
       $ export LD_LIBRAY_PATH=$LD_LIBRAY_PATH:`pwd`
-      $ srun -n 2 $DMTCP_ROOT/bin/dmtcp_launch --no-gzip -j -h <coord-host> --disable-dl-plugin --with-plugin ./libdmtcp_mpi-proxy-split.so  ./test/ping_pong.dummy.exe
+      $ srun -n 2 $DMTCP_ROOT/bin/dmtcp_launch --no-gzip -j -h <coord-host> --disable-dl-plugin --with-plugin ./libdmtcp_mpi-proxy-split.so  ./test/ping_pong.mana.exe
 
     (Right now, the program has an additional fixed 2 second startup
      time. I'll fix this in the next iteration.)
