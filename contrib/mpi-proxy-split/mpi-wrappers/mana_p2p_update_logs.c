@@ -5,18 +5,27 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <mpi.h>
+#include <string.h>
 // To support MANA_P2P_LOG and MANA_P2P_REPLAY:
 #define USE_READALL
 #define USE_WRITEALL
 #include "p2p-deterministic.h"
 
 void fill_in_log(struct p2p_log_msg *p2p_log);
+int show_log(char *name);
 
-int main() {
+int main(int argc, char *argv[]) {
   char buf[100];
   int rank;
+  int rc;
   MPI_Init(NULL, NULL);
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+  if (argc == 2) {
+    rc = show_log(argv[1]);
+    return rc;
+  }
+
   snprintf(buf, sizeof(buf)-1, P2P_LOG_MSG, rank);
   int fd_log = open(buf, O_RDWR);
   if (fd_log == -1) {
@@ -28,7 +37,7 @@ int main() {
   while (1) {
     struct p2p_log_msg p2p_log;
     off_t offset = lseek(fd_log, 0, SEEK_CUR);
-    int rc = readall(fd_log, &p2p_log, sizeof(p2p_log));
+    rc = readall(fd_log, &p2p_log, sizeof(p2p_log));
     if (rc == 0) {
       break;
     }
@@ -71,3 +80,28 @@ void fill_in_log(struct p2p_log_msg *p2p_log) {
   }
   close(fd2);
 }
+
+int show_log(char *name)
+{
+  int fd_log = open(name, O_RDWR);
+  if (fd_log == -1) {
+    fprintf(stderr, "show_log open: fle %s, error: %s\n", name, strerror(errno)); 
+    return 1; 
+  }
+
+  while (1) {
+    struct p2p_log_msg p2p_log;
+    int rc = readall(fd_log, &p2p_log, sizeof(p2p_log));
+    if (rc == 0) {
+      break;
+    }
+
+    char comm_name[MPI_MAX_OBJECT_NAME];
+    int comm_name_len;
+    MPI_Comm_get_name(p2p_log.comm, comm_name, &comm_name_len);
+    printf("MSG(source,tag,count,comm_name): %d, %d, %d, %s\n",
+	   p2p_log.source, p2p_log.tag, p2p_log.count, comm_name);
+  }
+  return 0;
+}
+ 
