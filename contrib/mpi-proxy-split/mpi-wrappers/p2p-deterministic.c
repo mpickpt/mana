@@ -48,24 +48,18 @@ void p2p_log(int count, MPI_Datatype datatype, int source, int tag,
   set_next_msg(count, datatype, source, tag, comm, NULL, request);
 }
 
-void initialize_next_msg(int fd) {
+void initialize_next_msg() {
   next_msg = &next_msg_entry;
-  readall(fd, next_msg, sizeof(*next_msg));
 }
 
 int iprobe_next_msg(struct p2p_log_msg *p2p_msg) {
-  /* FIXME:  This isn't comiling yet.
-  if (!next_msg) {
-    initialize_next_msg(fd);
-  }
-  */
   if (p2p_msg) {
     *p2p_msg = next_msg_entry;
   }
   return (next_msg_entry.comm != MPI_COMM_NULL);
 }
 
-void get_next_msg(struct p2p_log_msg *p2p_msg) {
+int get_next_msg(struct p2p_log_msg *p2p_msg) {
   static int fd = -2;
   if (fd == -2) {
     char buf[100];
@@ -78,11 +72,9 @@ void get_next_msg(struct p2p_log_msg *p2p_msg) {
       exit(1);
     }
   }
-  if (!next_msg) {
-    initialize_next_msg(fd);
-  }
+  readall(fd, &next_msg_entry, sizeof(*next_msg));
   *p2p_msg = next_msg_entry;
-  readall(fd, next_msg, sizeof(*next_msg));
+  return 0;
 }
 
 
