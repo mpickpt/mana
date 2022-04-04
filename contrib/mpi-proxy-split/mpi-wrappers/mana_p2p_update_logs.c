@@ -99,8 +99,8 @@ int show_log(char *name)
     char comm_name[MPI_MAX_OBJECT_NAME];
     int comm_name_len;
     MPI_Comm_get_name(p2p_log.comm, comm_name, &comm_name_len);
-    printf("MSG(source,tag,count,comm_name): %d, %d, %d, %s\n",
-	   p2p_log.source, p2p_log.tag, p2p_log.count, comm_name);
+    printf("MSG(request,source,tag,count,comm_name): %d,%d,%d,%d,%s\n",
+	   p2p_log.request, p2p_log.source, p2p_log.tag, p2p_log.count, comm_name);
   }
   return 0;
 }
