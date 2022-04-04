@@ -33,6 +33,8 @@ struct p2p_log_request {
 
 void p2p_log(int count, MPI_Datatype datatype, int source, int tag,
              MPI_Comm comm, MPI_Status *status, MPI_Request *request);
+void  p2p_replay(int count, MPI_Datatype datatype, int *source, int *tag,
+                 MPI_Comm comm);
 int get_next_msg(struct p2p_log_msg *p2p_msg);
 int iprobe_next_msg(struct p2p_log_msg *p2p_msg);
 void set_next_msg(int count, MPI_Datatype datatype,
@@ -99,8 +101,8 @@ ssize_t writeall(int fd, void *buf, size_t count) {
 // NOT USED:  MPI_Recv wrapper calls MPI_Irecv
 #define LOG_POST_Recv(source,tag,comm,status,request)
   if (getenv("MANA_P2P_LOG")) {
-    p2p_log(bytesRecvd, MPI_CHAR, source, tag, comm,
-            status, NULL /* no request */);
+    p2p_log(count, datatype, source, tag, comm,
+            status, request);
   }
 
 // Before MPI_Irecv during original launch/log

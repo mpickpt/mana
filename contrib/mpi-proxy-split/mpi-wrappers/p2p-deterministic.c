@@ -35,6 +35,7 @@
 
 static struct p2p_log_msg next_msg_entry;
 static struct p2p_log_msg *next_msg = NULL;
+static MPI_Request cur_request = MPI_REQUEST_NULL;
 
 void p2p_log(int count, MPI_Datatype datatype, int source, int tag,
              MPI_Comm comm, MPI_Status *status, MPI_Request *request) {
@@ -64,12 +65,20 @@ int get_next_msg(struct p2p_log_msg *p2p_msg) {
   if (fd == -2) {
     char buf[100];
     int rank;
+    int rc;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     snprintf(buf, sizeof(buf)-1, P2P_LOG_MSG, rank);
     fd = open(buf, O_RDONLY);
     if (fd == -1) {
       perror("get_next_msg: open");
       exit(1);
+    }
+    while (1) {
+      rc = readall(fd, &next_msg_entry, sizeof(*next_msg));
+      if (rc <=0 ) return 1;
+      if (next_msg_entry.request == cur_request) {
+	break;
+      }
     }
   }
   readall(fd, &next_msg_entry, sizeof(*next_msg));
@@ -112,6 +121,8 @@ void set_next_msg(int count, MPI_Datatype datatype,
       exit(1);
     }
   }
+  assert(p2p_msg.request != MPI_REQUEST_NULL);
+  cur_request = p2p_msg.request;
   writeall(fd, &p2p_msg, sizeof(p2p_msg));
   static int i = 100;
   if (i-- == 0) {
