@@ -80,6 +80,7 @@ int get_next_msg(struct p2p_log_msg *p2p_msg) {
 	break;
       }
     }
+    assert(cur_request != MPI_REQUEST_NULL);
   }
   readall(fd, &next_msg_entry, sizeof(*next_msg));
   *p2p_msg = next_msg_entry;
