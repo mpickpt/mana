@@ -141,11 +141,23 @@ USER_DEFINED_WRAPPER(int, Recv,
   RETURN_TO_UPPER_HALF();
 #else
   MPI_Request req;
+  MPI_Request saved_req;
+  MPI_Status saved_status;
+  MPI_Status *statusPtr;
+  REPLAY_PRE_Recv(count,datatype,source,tag,comm);
   retval = MPI_Irecv(buf, count, datatype, source, tag, comm, &req);
   if (retval != MPI_SUCCESS) {
     return retval;
   }
-  retval = MPI_Wait(&req, status);
+  saved_req = req;
+  if (status == MPI_STATUS_IGNORE) {
+    statusPtr = &saved_status;
+  } else {
+    statusPtr = status;
+  }
+  retval = MPI_Wait(&req, statusPtr);
+
+  LOG_POST_Recv(source,tag,comm,statusPtr,&saved_req);
 #endif
   // updateLocalRecvs();
 #if 0
@@ -194,7 +206,6 @@ USER_DEFINED_WRAPPER(int, Irecv,
     logRequestInfo(*request, IRECV_REQUEST);
 #endif
   }
-  LOG_POST_Irecv(source,tag,comm,&status,request);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
