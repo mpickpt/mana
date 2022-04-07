@@ -62,27 +62,27 @@ int iprobe_next_msg(struct p2p_log_msg *p2p_msg) {
 
 int get_next_msg(struct p2p_log_msg *p2p_msg) {
   static int fd = -2;
+  int rc;
   if (fd == -2) {
     char buf[100];
     int rank;
-    int rc;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     snprintf(buf, sizeof(buf)-1, P2P_LOG_MSG, rank);
     fd = open(buf, O_RDONLY);
     if (fd == -1) {
-      perror("get_next_msg: open");
-      exit(1);
+      return 1;
     }
     while (1) {
       rc = readall(fd, &next_msg_entry, sizeof(*next_msg));
-      if (rc <=0 ) return 1;
+      if (rc <=0 ) return 1; // EOF when readall returns zero
       if (next_msg_entry.request == cur_request) {
 	break;
       }
     }
     assert(cur_request != MPI_REQUEST_NULL);
   }
-  readall(fd, &next_msg_entry, sizeof(*next_msg));
+  rc = readall(fd, &next_msg_entry, sizeof(*next_msg));
+  if (rc <= 0) return 1;
   *p2p_msg = next_msg_entry;
   return 0;
 }
@@ -136,7 +136,9 @@ void set_next_msg(int count, MPI_Datatype datatype,
 void  p2p_replay(int count, MPI_Datatype datatype, int *source, int *tag,
                  MPI_Comm comm) {
   struct p2p_log_msg p2p_msg;
-  get_next_msg(&p2p_msg);
+  int rc;
+  rc = get_next_msg(&p2p_msg);
+  if (rc != 0) return;
   *source = p2p_msg.source;
   *tag = p2p_msg.tag;
   assert(comm = p2p_msg.comm);
