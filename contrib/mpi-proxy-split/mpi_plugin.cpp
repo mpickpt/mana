@@ -21,6 +21,7 @@
 
 #include <signal.h>
 
+#include "mpi_plugin.h"
 #include "lower_half_api.h"
 #include "split_process.h"
 #include "p2p_log_replay.h"
@@ -42,6 +43,7 @@ using namespace dmtcp;
 
 int g_numMmaps = 0;
 MmapInfo_t *g_list = NULL;
+mana_state_t mana_state = UNKNOWN_STATE;
 
 // #define DEBUG
 
@@ -125,6 +127,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     {
       JTRACE("*** DMTCP_EVENT_INIT");
       initialize_segv_handler();
+      mana_state = RUNNING;
       JASSERT(!splitProcess()).Text("Failed to create, initialize lower haf");
       break;
     }
@@ -159,7 +162,36 @@ updateLhEnviron()
   fnc(__environ);
 }
 
+/* ===============================================================
+ * Helper functions that sets mana_state. These functions are used
+ * in mpiPluginBarriers according to different events.
+ *
+ * FIXME: In feature/dmtcp-master, all events are handled in the
+ * mpi_plugin_event_hook() function. In that case, we can use
+ * functions with argument. Therefore, we can merge all of these
+ * helper functions into one function: set_mana_state(state).
+ */
+static void setManaStateRunning() {
+  mana_state = RUNNING;
+}
+
+static void setManaStateCkptCollective() {
+  mana_state = CKPT_COLLECTIVE;
+}
+
+static void setManaStateCkptP2p() {
+  mana_state = CKPT_P2P;
+}
+
+static void setManaStateRestartReplay() {
+  mana_state = RESTART_REPLAY;
+}
+/* =============================================================== */
+
+
 static DmtcpBarrier mpiPluginBarriers[] = {
+  { DMTCP_GLOBAL_BARRIER_PRE_SUSPEND, setManaStateCkptCollective,
+    "set-mana-state-ckpt-collective"},
   { DMTCP_GLOBAL_BARRIER_PRE_SUSPEND, NULL,
     "Drain-MPI-Collectives", drainMpiCollectives},
   { DMTCP_PRIVATE_BARRIER_PRE_CKPT, logIbarrierIfInTrivBarrier,
@@ -170,6 +202,8 @@ static DmtcpBarrier mpiPluginBarriers[] = {
     "GetLocalRankInfo"},
   { DMTCP_GLOBAL_BARRIER_PRE_CKPT, updateCkptDirByRank,
     "update-ckpt-dir-by-rank" },
+  { DMTCP_GLOBAL_BARRIER_PRE_CKPT, setManaStateCkptP2p,
+    "set-mana-state-ckpt-p2p" },
   { DMTCP_GLOBAL_BARRIER_PRE_CKPT, registerLocalSendsAndRecvs,
     "Register-local-sends-and-receives" },
   { DMTCP_GLOBAL_BARRIER_PRE_CKPT, drainSendRecv,
@@ -178,6 +212,8 @@ static DmtcpBarrier mpiPluginBarriers[] = {
     "Clear-Pending-Ckpt-Msg"},
   { DMTCP_PRIVATE_BARRIER_RESUME, resetDrainCounters,
     "Reset-Drain-Send-Recv-Counters"},
+  { DMTCP_PRIVATE_BARRIER_RESUME, setManaStateRunning,
+    "set-mana-state-running" },
   { DMTCP_PRIVATE_BARRIER_RESTART, save2pcGlobals,
     "save-global-variables-in-2pc" },
   { DMTCP_PRIVATE_BARRIER_RESTART, updateLhEnviron,
@@ -186,12 +222,16 @@ static DmtcpBarrier mpiPluginBarriers[] = {
     "Clear-Pending-Ckpt-Msg-Post-Restart"},
   { DMTCP_PRIVATE_BARRIER_RESTART, resetDrainCounters,
     "Reset-Drain-Send-Recv-Counters"},
+  { DMTCP_GLOBAL_BARRIER_RESTART, setManaStateRestartReplay,
+    "set-mana-state-restart-replay"},
   { DMTCP_GLOBAL_BARRIER_RESTART, restoreMpiLogState,
     "restoreMpiLogState"},
   { DMTCP_GLOBAL_BARRIER_RESTART, replayMpiP2pOnRestart,
     "replay-async-receives" },
   { DMTCP_PRIVATE_BARRIER_RESTART, restore2pcGlobals,
     "restore-global-variables-in-2pc" },
+  { DMTCP_PRIVATE_BARRIER_RESTART, setManaStateRunning,
+    "set-mana-state-running" },
 };
 
 DmtcpPluginDescriptor_t mpi_plugin = {
