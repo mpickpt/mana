@@ -51,4 +51,15 @@
 extern int g_numMmaps;
 extern MmapInfo_t *g_list;
 
+enum mana_state_t {
+  UNKNOWN_STATE,
+  RUNNING,
+  CKPT_COLLECTIVE,
+  CKPT_P2P,
+  RESTART_RETORE,
+  RESTART_REPLAY
+};
+
+extern mana_state_t mana_state;
+
 #endif // ifndef _MPI_PLUGIN_H
