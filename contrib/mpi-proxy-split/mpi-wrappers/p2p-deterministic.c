@@ -61,9 +61,9 @@ int iprobe_next_msg(struct p2p_log_msg *p2p_msg) {
 }
 
 int get_next_msg(struct p2p_log_msg *p2p_msg) {
-  static int fd = -2;
+  static int fd = -1;
   int rc;
-  if (fd == -2) {
+  if (fd == -1) {
     char buf[100];
     int rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
