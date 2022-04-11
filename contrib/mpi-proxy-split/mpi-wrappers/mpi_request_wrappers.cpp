@@ -235,8 +235,6 @@ USER_DEFINED_WRAPPER(int, Iprobe,
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  LOG_PRE_Iprobe(status);
-
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Iprobe)(source, tag, realComm, flag, status);
