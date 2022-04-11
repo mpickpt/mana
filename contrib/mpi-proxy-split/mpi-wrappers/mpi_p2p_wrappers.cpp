@@ -170,7 +170,8 @@ USER_DEFINED_WRAPPER(int, Irecv,
   DMTCP_PLUGIN_DISABLE_CKPT();
   LOG_PRE_Irecv(&status);
   REPLAY_PRE_Irecv(count,datatype,source,tag,comm);
-  if (isBufferedPacket(source, tag, comm, &flag, &status)) {
+  if (mana_state == RUNNING &&
+      isBufferedPacket(source, tag, comm, &flag, &status)) {
     consumeBufferedPacket(buf, count, datatype, source, tag, comm,
                           &status, size);
     *request = MPI_REQUEST_NULL;
