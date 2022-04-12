@@ -136,6 +136,24 @@ completePendingIrecvs()
         g_recvBytesByRank[worldRank] += call->count * size;
         bytesReceived += call->count * size;
         it = g_async_calls.erase(it);
+      } else {
+        /*  We update the iterator even if the MPI_Test fails.
+         * Otherwise, the message we are waiting for will be sent
+         * after the checkpoint. This can result in an infinite loop.
+         *
+         * NOTE: This function will be called only if the global arrays
+         * do not match. This can happen if a second sender has sent
+         * a message to us, and we will receive the message only
+         * after the checkpoint. The following diagram is an example:
+         *
+         * RANK 0           RANK 1              RANK 2        TIME
+         *                                    Send to Rank 1   |
+         *                Recv from Rank 0                     |
+         * =====CKPT=======CKPT======CKPT======CKPT========    |
+         *                Recv from Rank 2                     |
+         * Send to Rank 1                                      V
+         */
+        it++;
       }
     } else {
       it++;
