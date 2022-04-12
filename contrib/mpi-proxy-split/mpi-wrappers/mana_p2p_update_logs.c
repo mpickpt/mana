@@ -18,14 +18,14 @@ int main(int argc, char *argv[]) {
   char buf[100];
   int rank;
   int rc;
-  MPI_Init(NULL, NULL);
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
   if (argc == 2) {
     rc = show_log(argv[1]);
     return rc;
   }
 
+  MPI_Init(NULL, NULL);
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   snprintf(buf, sizeof(buf)-1, P2P_LOG_MSG, rank);
   int fd_log = open(buf, O_RDWR);
   if (fd_log == -1) {
@@ -96,11 +96,8 @@ int show_log(char *name)
       break;
     }
 
-    char comm_name[MPI_MAX_OBJECT_NAME];
-    int comm_name_len;
-    MPI_Comm_get_name(p2p_log.comm, comm_name, &comm_name_len);
-    printf("MSG(request,source,tag,count,comm_name): %d,%d,%d,%d,%s\n",
-	   p2p_log.request, p2p_log.source, p2p_log.tag, p2p_log.count, comm_name);
+    printf("MSG(request,source,tag,count,comm): %d,%d,%d,%d,%d\n",
+	   p2p_log.request, p2p_log.source, p2p_log.tag, p2p_log.count, p2p_log.comm);
   }
   return 0;
 }
