@@ -83,7 +83,10 @@ int get_next_msg(struct p2p_log_msg *p2p_msg) {
   }
   rc = readall(fd, &next_msg_entry, sizeof(*next_msg));
   if (rc <= 0) return 1;
-  if (next_msg_entry.request == cur_request) return 1;
+  if (next_msg_entry.request == cur_request) {
+    rc = readall(fd, &next_msg_entry, sizeof(*next_msg));
+    if (rc == 0) return 1;
+  }
   *p2p_msg = next_msg_entry;
   return 0;
 }
