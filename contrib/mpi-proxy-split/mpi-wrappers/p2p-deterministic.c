@@ -140,6 +140,8 @@ void  p2p_replay(int count, MPI_Datatype datatype, int *source, int *tag,
   int rc;
   rc = get_next_msg(&p2p_msg);
   if (rc != 0) return;
+  assert(*source == MPI_ANY_SOURCE || *source == p2p_msg.source);
+  assert(*tag == MPI_ANY_TAG || *tag == p2p_msg.tag);
   *source = p2p_msg.source;
   *tag = p2p_msg.tag;
   assert(comm = p2p_msg.comm);
