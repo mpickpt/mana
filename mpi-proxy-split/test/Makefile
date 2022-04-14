@@ -35,7 +35,8 @@ FILES=mpi_hello_world \
       Allgather_test Group_size_rank Type_commit_contiguous \
       Irecv_test Alloc_mem \
       f_ibarrier \
-      wave_mpi day1_mpi quad_mpi poisson_nonblock_mpi
+      wave_mpi day1_mpi quad_mpi poisson_nonblock_mpi \
+      send_recv_loop
 
 OBJS=$(addsuffix .o, ${FILES})
 

@@ -141,6 +141,7 @@ clean: tidy
 	rm -f ${LIBNAME}.a libmpistub.so
 	rm -f ${DMTCP_ROOT}/lib/dmtcp/libmpistub.so
 	rm -f mpi_stub_wrappers.c
+	rm -f p2p-deterministic.h
 	rm -f mpi_unimplemented_wrappers.cpp
 	rm -f mpi_fortran_wrappers.cpp
 	rm -f libmpich_intel.so.3.0.1 libmpich_intel.so.3
