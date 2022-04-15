@@ -79,7 +79,6 @@ int get_next_msg(struct p2p_log_msg *p2p_msg) {
 	break;
       }
     }
-    assert(cur_request != MPI_REQUEST_NULL);
   }
   rc = readall(fd, &next_msg_entry, sizeof(*next_msg));
   if (rc <= 0) return 1;
@@ -117,6 +116,7 @@ void set_next_msg(int count, MPI_Datatype datatype,
   p2p_msg.comm = comm;
   // request is NULL for MPI_Recv (no such arg), and for MPI_Wait (block until done)
   // We save requests in a separate file.
+  assert(request != NULL);
   p2p_msg.request = (request ? *request : MPI_REQUEST_NULL);
   if (status != NULL) {
     p2p_msg.source = status->MPI_SOURCE;
@@ -126,7 +126,6 @@ void set_next_msg(int count, MPI_Datatype datatype,
       exit(1);
     }
   }
-  assert(p2p_msg.request != MPI_REQUEST_NULL);
   cur_request = p2p_msg.request;
   writeall(fd, &p2p_msg, sizeof(p2p_msg));
   static int i = 100;
