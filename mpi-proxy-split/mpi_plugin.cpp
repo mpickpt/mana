@@ -23,6 +23,7 @@
 #include <sys/personality.h>
 #include <sys/mman.h>
 
+#include "mpi_plugin.h"
 #include "lower_half_api.h"
 #include "split_process.h"
 #include "p2p_log_replay.h"
@@ -44,6 +45,7 @@ using namespace dmtcp;
 
 int g_numMmaps = 0;
 MmapInfo_t *g_list = NULL;
+mana_state_t mana_state = UNKNOWN_STATE;
 
 // #define DEBUG
 
@@ -229,6 +231,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       JTRACE("*** DMTCP_EVENT_INIT");
       initialize_segv_handler();
       JASSERT(!splitProcess()).Text("Failed to create, initialize lower haf");
+      mana_state = RUNNING;
       break;
     }
     case DMTCP_EVENT_EXIT:
@@ -236,6 +239,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       break;
 
     case DMTCP_EVENT_PRESUSPEND:
+      mana_state = CKPT_COLLECTIVE;
       // drainMpiCollectives() will send worker state and get coord response.
       // Unfortunately, dmtcp_global_barrier()/DMT_BARRIER can't send worker
       // state and get a coord responds.  So, drainMpiCollective() will use the
@@ -295,6 +299,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       dmtcp_global_barrier("MPI:update-ckpt-dir-by-rank");
       updateCkptDirByRank(); // mpi_plugin.cpp
       dmtcp_global_barrier("MPI:Register-local-sends-and-receives");
+      mana_state = CKPT_P2P;
       registerLocalSendsAndRecvs(); // p2p_drain_send_recv.cpp
       dmtcp_global_barrier("MPI:Drain-Send-Recv");
       drainSendRecv(); // p2p_drain_send_recv.cpp
@@ -304,6 +309,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       clearPendingCkpt(); // two-phase-algo.cpp
       dmtcp_local_barrier("MPI:Reset-Drain-Send-Recv-Counters");
       resetDrainCounters(); // p2p_drain_send_recv.cpp
+      mana_state = RUNNING;
       break;
 
     case DMTCP_EVENT_RESTART:
@@ -314,12 +320,14 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       clearPendingCkpt(); // two-phase-algo.cpp
       dmtcp_local_barrier("MPI:Reset-Drain-Send-Recv-Counters");
       resetDrainCounters(); // p2p_drain_send_recv.cpp
+      mana_state = RESTART_REPLAY;
       dmtcp_global_barrier("MPI:restoreMpiLogState");
       restoreMpiLogState(); // record-replay.cpp
       dmtcp_global_barrier("MPI:record-replay.cpp-void");
       replayMpiP2pOnRestart(); // p2p_log_replay.cpp
       dmtcp_local_barrier("MPI:p2p_log_replay.cpp-void");
       restore2pcGlobals(); // two-phase-algo.cpp
+      mana_state = RUNNING;
       break;
 
     default:
