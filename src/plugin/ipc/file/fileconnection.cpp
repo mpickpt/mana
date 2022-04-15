@@ -355,8 +355,11 @@ FileConnection::refill(bool isRestart)
         if (statbuf.st_size > _st_size &&
             ((_fcntlFlags & O_WRONLY) || (_fcntlFlags & O_RDWR))) {
           errno = 0;
-          JASSERT(truncate(_path.c_str(), _st_size) == 0)
-            (_path.c_str()) (_st_size) (JASSERT_ERRNO);
+          JWARNING(false) (_path) (_st_size) (statbuf.st_size)
+          .Text("Foo, set _st_size to statbuf.st_size");
+	  _st_size = statbuf.st_size;
+          // JASSERT(truncate(_path.c_str(), _st_size) == 0)
+          //  (_path.c_str()) (_st_size) (JASSERT_ERRNO);
         } else if (statbuf.st_size < _st_size) {
           JWARNING(false).Text("Size of file smaller than what we expected");
         }
