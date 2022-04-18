@@ -264,6 +264,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
           if (data_to_coord.st == IN_CS) {
             dmtcp_kvdb64(DMTCP_KVDB_INCRBY, csId.c_str(), 0, 1);
             dmtcp_kvdb64(DMTCP_KVDB_OR, commId.c_str(), commKey, 1);
+            coord_response = WAIT_STRAGGLER;
           }
 
           dmtcp_global_barrier(barrierId.c_str());
@@ -275,14 +276,12 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
             break;
           }
 
-          int64_t commStatus;
-          if (dmtcp_kvdb64_get(commId.c_str(), commKey, &commStatus) == -1) {
-            // No rank in our communicator is in CS; set our state to
-            // WAIT_STRAGGLER
-            coord_response = WAIT_STRAGGLER;
-          } else if (data_to_coord.st == PHASE_1) {
-            // We are in Phase 1, so we get a free pass.
+          int64_t commStatus = 0;
+          dmtcp_kvdb64_get(commId.c_str(), commKey, &commStatus);
+          if (commStatus == 1 && data_to_coord.st == PHASE_1) {
             coord_response = FREE_PASS;
+          } else {
+            coord_response = WAIT_STRAGGLER;
           }
 
           round++;
