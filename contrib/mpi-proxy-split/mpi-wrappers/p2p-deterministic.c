@@ -33,7 +33,7 @@
  * Utilities for point-to-point deterministic log-and-replay
  ***********************************************************/
 
-static struct p2p_log_msg next_msg_entry;
+static struct p2p_log_msg next_msg_entry = {0, MPI_CHAR, 0, 0, 0, MPI_COMM_NULL, MPI_REQUEST_NULL};
 static struct p2p_log_msg *next_msg = NULL;
 
 void p2p_log(int count, MPI_Datatype datatype, int source, int tag,
@@ -54,35 +54,38 @@ void initialize_next_msg(int fd) {
 }
 
 int iprobe_next_msg(struct p2p_log_msg *p2p_msg) {
-  /* FIXME:  This isn't comiling yet.
+  int rc = 0;
   if (!next_msg) {
-    initialize_next_msg(fd);
+    rc = get_next_msg(NULL);
+    if (rc == 1) return -1;
   }
-  */
   if (p2p_msg) {
     *p2p_msg = next_msg_entry;
   }
   return (next_msg_entry.comm != MPI_COMM_NULL);
 }
 
-void get_next_msg(struct p2p_log_msg *p2p_msg) {
-  static int fd = -2;
-  if (fd == -2) {
+int get_next_msg(struct p2p_log_msg *p2p_msg) {
+  static int fd = -1;
+  int rc = 1;
+  if (fd == -1) {
     char buf[100];
     int rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     snprintf(buf, sizeof(buf)-1, P2P_LOG_MSG, rank);
     fd = open(buf, O_RDONLY);
     if (fd == -1) {
-      perror("get_next_msg: open");
-      exit(1);
+      return 1;
     }
   }
-  if (!next_msg) {
-    initialize_next_msg(fd);
-  }
-  *p2p_msg = next_msg_entry;
-  readall(fd, next_msg, sizeof(*next_msg));
+  rc = readall(fd, &next_msg_entry, sizeof(next_msg_entry));
+  if (rc <= 0) return 1;
+  rc = readall(fd, &next_msg_entry, sizeof(next_msg_entry));
+  if (rc <= 0) return 1;
+  // Found the next message
+  if (p2p_msg != NULL) *p2p_msg = next_msg_entry;
+  if (next_msg == NULL) next_msg = &next_msg_entry;
+  return 0;
 }
 
 
@@ -126,6 +129,27 @@ void set_next_msg(int count, MPI_Datatype datatype,
     fflush(stdout);
     i = 100;
   }
+}
+
+void p2p_replay_irecv(int count, MPI_Datatype datatype, int source, int tag,
+		      MPI_Comm comm) {
+  struct p2p_log_msg p2p_msg;
+  int rc = 0;
+  int rc_iprobe = 0;
+  int rc_get = 0;
+  rc_iprobe = iprobe_next_msg(NULL);
+  if (rc_iprobe == -1) return; // no next msg
+  while (iprobe_next_msg(NULL) == 0) {
+    // consume messages where log says MPI_Iprobe: flag==0
+    rc_get = get_next_msg(&p2p_msg);
+    if (rc_get == 1) return; // no next msg
+  }
+  // Now log says MPI_Iprobe returned with flag==1
+  iprobe_next_msg(&p2p_msg);
+  assert(source == MPI_ANY_SOURCE || source == p2p_msg.source);
+  assert(tag == MPI_ANY_TAG || tag == p2p_msg.tag);
+  source = p2p_msg.source;
+  tag = p2p_msg.tag;
 }
 
 /* source and tag are INOUT parameters */
