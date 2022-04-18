@@ -97,8 +97,11 @@ recvMsgIntoInternalBuffer(MPI_Status status, MPI_Comm comm)
   MPI_Type_size(MPI_BYTE, &size);
   JASSERT(size == 1);
   void *buf = JALLOC_HELPER_MALLOC(count);
-  MPI_Recv(buf, count, MPI_BYTE, status.MPI_SOURCE, status.MPI_TAG,
+  int rc = MPI_Recv(buf, count, MPI_BYTE, status.MPI_SOURCE, status.MPI_TAG,
            comm, MPI_STATUS_IGNORE);
+  if (rc != MPI_SUCCESS) {
+    fprintf(stderr, "MPI_Recv failed\n");
+  }
 
   mpi_message_t *message = (mpi_message_t *)JALLOC_HELPER_MALLOC(sizeof(mpi_message_t));
   message->buf        = buf;
@@ -116,7 +119,7 @@ recvMsgIntoInternalBuffer(MPI_Status status, MPI_Comm comm)
 
 // Go through each MPI_Irecv in the g_async_calls map and try to complete
 // the MPI_Irecv before checkpointing.
-int
+static int
 completePendingIrecvs()
 {
   int bytesReceived = 0;
@@ -135,6 +138,7 @@ completePendingIrecvs()
                                               call->comm);
         g_recvBytesByRank[worldRank] += call->count * size;
         bytesReceived += call->count * size;
+        JALLOC_HELPER_FREE(call);
         it = g_async_calls.erase(it);
       } else {
         /*  We update the iterator even if the MPI_Test fails.
@@ -162,7 +166,7 @@ completePendingIrecvs()
   return bytesReceived;
 }
 
-int
+static int
 recvFromAllComms()
 {
   int bytesReceived = 0;
@@ -190,17 +194,16 @@ recvFromAllComms()
   return bytesReceived;
 }
 
-void
+static void
 removePendingSendRequests()
 {
   dmtcp::map<MPI_Request, mpi_async_call_t*>::iterator it;
   for (it = g_async_calls.begin(); it != g_async_calls.end();) {
     MPI_Request request = it->first;
     mpi_async_call_t *call = it->second;
-    int flag = 0;
     if (call->type == ISEND_REQUEST) {
       UPDATE_REQUEST_MAP(request, MPI_REQUEST_NULL);
-      // FIXME: We should free `call' to avoid memory leak
+      JALLOC_HELPER_FREE(call);
       it = g_async_calls.erase(it);
     } else {
       it++;

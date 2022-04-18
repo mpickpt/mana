@@ -247,12 +247,10 @@ read_lh_proxy_bits(pid_t childpid)
   // NOTE:  This requires same privilege as ptrace_attach (valid for child).
   //        Anecdotally, in containers, we've seen a case where this errors out
   //        with ESRCH (no such proc.); it may need CAP_SYS_PTRACE privilege??
-  for (int i = 0; i < IOV_SZ; i++) {
-    JTRACE("Reading segment from lh_proxy")
-          (remote_iov[i].iov_base)(remote_iov[i].iov_len);
-    ret = process_vm_readv(childpid, remote_iov + i, 1, remote_iov + i, 1, 0);
-    JASSERT(ret != -1)(JASSERT_ERRNO).Text("Error reading data from lh_proxy");
-  }
+  JTRACE("Reading segment from lh_proxy")
+         (remote_iov[0].iov_base)(remote_iov[0].iov_len);
+  ret = process_vm_readv(childpid, remote_iov, IOV_SZ, remote_iov, IOV_SZ, 0);
+  JASSERT(ret != -1)(JASSERT_ERRNO).Text("Error reading data from lh_proxy");
 
   // Can remove PROT_WRITE now that we've populated the text segment.
   ret = mprotect((void *)ROUND_DOWN(remote_iov[0].iov_base),
@@ -333,7 +331,7 @@ startProxy()
       // Read from stdout of lh_proxy full lh_info struct, including orig memRange.
       close(pipefd_out[1]); // close write end of pipe
       // FIXME: should be a readall. Check for return error code.
-      if (read(pipefd_out[0], &lh_info, sizeof lh_info) < sizeof lh_info) {
+      if (read(pipefd_out[0], &lh_info, sizeof lh_info) < (ssize_t) sizeof lh_info) {
         JWARNING(false)(JASSERT_ERRNO) .Text("Read fewer bytes than expected");
         break;
       }
@@ -352,7 +350,6 @@ findLHMemRange(MemRange_t *lh_mem_range)
   bool is_set = false;
 
   Area area;
-  char prev_path_name[PATH_MAX];
   char next_path_name[PATH_MAX];
   uint64_t prev_addr_end;
   uint64_t next_addr_start;
