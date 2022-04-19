@@ -110,7 +110,9 @@ getTextSegmentRange(pid_t proc,                 // IN
   if (proc == -1) {
     f = fopen("/proc/self/stat", "r");
   } else {
-    char pids[] = "/proc/XXXXXX/stat";
+    // On 64-bit systems, pid_max can be set to any value up to 2^22
+    // (PID_MAX_LIMIT, approximately 4 million).
+    char pids[PATH_MAX];
     snprintf(pids, sizeof pids, "/proc/%u/stat", proc);
     f = fopen(pids, "r");
   }
