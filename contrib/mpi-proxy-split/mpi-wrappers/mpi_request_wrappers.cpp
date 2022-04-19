@@ -245,7 +245,7 @@ USER_DEFINED_WRAPPER(int, Iprobe,
   retval = NEXT_FUNC(Iprobe)(source, tag, realComm, flag, status);
   RETURN_TO_UPPER_HALF();
   LOG_POST_Iprobe(source,tag,comm,status);
-  REPLAY_POST_Iprobe(count,datatype,source,tag,comm,status);
+  REPLAY_POST_Iprobe(source,tag,comm,status,flag);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }

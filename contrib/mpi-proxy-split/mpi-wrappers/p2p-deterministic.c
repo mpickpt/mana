@@ -131,26 +131,54 @@ void set_next_msg(int count, MPI_Datatype datatype,
   }
 }
 
-void p2p_replay_irecv(int count, MPI_Datatype datatype, int source, int tag,
-		      MPI_Comm comm) {
+void p2p_replay_pre_irecv(int count, MPI_Datatype datatype, int *source,
+                          int *tag, MPI_Comm comm) {
   struct p2p_log_msg p2p_msg;
   int rc = 0;
-  int rc_iprobe = 0;
-  int rc_get = 0;
-  rc_iprobe = iprobe_next_msg(NULL);
-  if (rc_iprobe == -1) return; // no next msg
+  rc = iprobe_next_msg(NULL);
+  if (rc == -1) return; // no next msg
   while (iprobe_next_msg(NULL) == 0) {
     // consume messages where log says MPI_Iprobe: flag==0
-    rc_get = get_next_msg(&p2p_msg);
-    if (rc_get == 1) return; // no next msg
+    rc = get_next_msg(&p2p_msg);
+    if (rc == 1) return; // no next msg
   }
   // Now log says MPI_Iprobe returned with flag==1
   iprobe_next_msg(&p2p_msg);
-  assert(source == MPI_ANY_SOURCE || source == p2p_msg.source);
-  assert(tag == MPI_ANY_TAG || tag == p2p_msg.tag);
-  source = p2p_msg.source;
-  tag = p2p_msg.tag;
+  assert(*source == MPI_ANY_SOURCE || *source == p2p_msg.source);
+  assert(*tag == MPI_ANY_TAG || *tag == p2p_msg.tag);
+  *source = p2p_msg.source;
+  *tag = p2p_msg.tag;
 }
+
+void p2p_replay_post_iprobe(int *source, int *tag, MPI_Comm comm,
+                            MPI_Status *status, int *flag)
+{
+  static int MPI_Iprobe_recurse = 0;
+  if (!MPI_Iprobe_recurse) {
+    struct p2p_log_msg p2p_msg;
+    int rc = 0;
+    rc = iprobe_next_msg(NULL);
+    if (rc == -1) return; // no next message
+    if (*flag != 0 || iprobe_next_msg(NULL) == 1) { // There is a message.
+      while (iprobe_next_msg(NULL) == 0) {
+        // consume messages where log says MPI_Iprobe: flag==0
+        rc = get_next_msg(&p2p_msg);
+	if (rc == 1) return;
+      } // Now log says MPI_Iprobe returned with flag==1
+      // Call blocking probe until implicit *flag and log agree
+      assert(*source == MPI_ANY_SOURCE || *source == p2p_msg.source);
+      assert(*tag == MPI_ANY_TAG || *tag == p2p_msg.tag);
+      MPI_Iprobe_recurse = 1;
+      MPI_Probe(p2p_msg.source, p2p_msg.tag, p2p_msg.comm, status);
+      MPI_Iprobe_recurse = 0;
+      *flag = 1;
+    } else { // else: *flag == 0; log says MPI_Iprobe returned with flag==0
+      get_next_msg(&p2p_msg); // flag and log agree: consume this message
+      *flag = 0;
+    }
+  }
+}
+
 
 /* source and tag are INOUT parameters */
 void  p2p_replay(int count, MPI_Datatype datatype, int *source, int *tag,
