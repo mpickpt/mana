@@ -221,7 +221,6 @@ ssize_t writeall(int fd, void *buf, size_t count) {
 #define LOG_PRE_Test(status) LOG_PRE_Wait(status)
 
 // After MPI_Wait, MPI_Test during log/launch
-// NOT USED:  MPI_Wait wrapper calls MPI_Test
 #define LOG_POST_Wait(request,status)
   if (getenv("MANA_P2P_LOG")) {
     if (flag) {

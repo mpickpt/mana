@@ -210,6 +210,7 @@ USER_DEFINED_WRAPPER(int, Wait, (MPI_Request*) request, (MPI_Status*) status)
       fflush(stdout);
 #endif
     }
+    if (flag) LOG_POST_Wait(request, statusPtr);
     if (flag && MPI_LOGGING()) {
       clearPendingRequestFromLog(*request);
       REMOVE_OLD_REQUEST(*request);

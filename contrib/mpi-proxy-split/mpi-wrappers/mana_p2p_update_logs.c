@@ -74,18 +74,17 @@ void fill_in_log(struct p2p_log_msg *p2p_log) {
     if (p2p_request.request == p2p_log->request) {
       p2p_log->source = p2p_request.source;
       p2p_log->tag = p2p_request.tag;
-      p2p_log->request = MPI_REQUEST_NULL;
       break;
     }
   }
   close(fd2);
 }
 
-int show_log(char *name)
+int show_msg_file(char *name)
 {
   int fd_log = open(name, O_RDWR);
   if (fd_log == -1) {
-    fprintf(stderr, "show_log open: fle %s, error: %s\n", name, strerror(errno)); 
+    fprintf(stderr, "show_log_file open: fle %s, error: %s\n", name, strerror(errno));
     return 1; 
   }
 
@@ -101,4 +100,40 @@ int show_log(char *name)
   }
   return 0;
 }
+
+int show_request_file(char *name)
+{
+  int fd_log = open(name, O_RDWR);
+  if (fd_log == -1) {
+    fprintf(stderr, "show_request_file open: fle %s, error: %s\n", name, strerror(errno));
+    return 1;
+  }
+
+  while (1) {
+    struct p2p_log_request p2p_request;
+    int rc = readall(fd_log, &p2p_request, sizeof(p2p_request));
+    if (rc == 0) {
+      break;
+    }
+
+    printf("MSG(request,source,tag): %d,%d,%d\n",
+	   p2p_request.request, p2p_request.source, p2p_request.tag);
+  }
+  return 0;
+}
  
+int show_log(char *name)
+{
+  int rank;
+
+  if (sscanf(name, P2P_LOG_MSG, &rank) == 1) {
+    show_msg_file(name);
+  } else if (sscanf(name, P2P_LOG_REQUEST, &rank) == 1) {
+    show_request_file(name);
+  } else {
+    fprintf(stderr, "Not a p2p log fle %s, error: %s\n", name, strerror(errno));
+    return 1;
+  }
+
+  return 0;
+}
