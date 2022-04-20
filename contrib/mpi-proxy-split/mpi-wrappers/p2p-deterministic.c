@@ -167,14 +167,8 @@ void p2p_replay_pre_irecv(int count, MPI_Datatype datatype, int *source,
                           int *tag, MPI_Comm comm) {
   struct p2p_log_msg p2p_msg;
   int rc = 0;
-  rc = iprobe_next_msg(NULL);
-  if (rc == -1) return; // no next msg
-  while (iprobe_next_msg(NULL) == 0) {
-    // consume messages where log says MPI_Iprobe: flag==0
-    rc = get_next_msg_irecv(&p2p_msg);
-    if (rc == 1) return; // no next msg
-  }
-  // Now log says MPI_Iprobe returned with flag==1
+  rc = get_next_msg_irecv(&p2p_msg);
+  if (rc == 1) return; // no next msg
   iprobe_next_msg(&p2p_msg);
   assert(*source == MPI_ANY_SOURCE || *source == p2p_msg.source);
   assert(*tag == MPI_ANY_TAG || *tag == p2p_msg.tag);
