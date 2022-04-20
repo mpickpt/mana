@@ -56,7 +56,7 @@ void initialize_next_msg(int fd) {
 int iprobe_next_msg(struct p2p_log_msg *p2p_msg) {
   int rc = 0;
   if (!next_msg) {
-    rc = get_next_msg(NULL);
+    rc = get_next_msg_iprobe(NULL);
     if (rc == 1) return -1;
   }
   if (p2p_msg) {
@@ -65,7 +65,7 @@ int iprobe_next_msg(struct p2p_log_msg *p2p_msg) {
   return (next_msg_entry.comm != MPI_COMM_NULL);
 }
 
-int get_next_msg(struct p2p_log_msg *p2p_msg) {
+int get_next_msg_irecv(struct p2p_log_msg *p2p_msg) {
   static int fd = -1;
   int rc = 1;
   if (fd == -1) {
@@ -78,17 +78,49 @@ int get_next_msg(struct p2p_log_msg *p2p_msg) {
       return 1;
     }
   }
-  rc = readall(fd, &next_msg_entry, sizeof(next_msg_entry));
-  if (rc <= 0) return 1;
-  rc = readall(fd, &next_msg_entry, sizeof(next_msg_entry));
-  if (rc <= 0) return 1;
+  // Irecv request is _not_ MPI_REQUEST_NULL.
+  // Read current Irecv entries
+  do {
+    rc = readall(fd, &next_msg_entry, sizeof(next_msg_entry));
+    if (rc <= 0) return 1;
+  } while (next_msg_entry.request == MPI_REQUEST_NULL);
+  // Read next Irecv entriea
+  do {
+    rc = readall(fd, &next_msg_entry, sizeof(next_msg_entry));
+    if (rc <= 0) return 1;
+  } while (next_msg_entry.request == MPI_REQUEST_NULL);
+  // Found the next message
+  if (p2p_msg != NULL) *p2p_msg = next_msg_entry;
+  return 0;
+}
+
+int get_next_msg_iprobe(struct p2p_log_msg *p2p_msg) {
+  static int fd = -1;
+  int rc = 1;
+  if (fd == -1) {
+    char buf[100];
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    snprintf(buf, sizeof(buf)-1, P2P_LOG_MSG, rank);
+    fd = open(buf, O_RDONLY);
+    if (fd == -1) {
+      return 1;
+    }
+  }
+  // Read Iprobe entries
+  do {
+    rc = readall(fd, &next_msg_entry, sizeof(next_msg_entry));
+    if (rc <= 0) return 1;
+  } while (next_msg_entry.request != MPI_REQUEST_NULL);
+  do {
+    rc = readall(fd, &next_msg_entry, sizeof(next_msg_entry));
+    if (rc <= 0) return 1;
+  } while (next_msg_entry.request != MPI_REQUEST_NULL);
   // Found the next message
   if (p2p_msg != NULL) *p2p_msg = next_msg_entry;
   if (next_msg == NULL) next_msg = &next_msg_entry;
   return 0;
 }
-
-
 // comm defined
 // Either status and request are non-null, or source, tag defined.
 void set_next_msg(int count, MPI_Datatype datatype,
@@ -139,7 +171,7 @@ void p2p_replay_pre_irecv(int count, MPI_Datatype datatype, int *source,
   if (rc == -1) return; // no next msg
   while (iprobe_next_msg(NULL) == 0) {
     // consume messages where log says MPI_Iprobe: flag==0
-    rc = get_next_msg(&p2p_msg);
+    rc = get_next_msg_irecv(&p2p_msg);
     if (rc == 1) return; // no next msg
   }
   // Now log says MPI_Iprobe returned with flag==1
@@ -162,7 +194,7 @@ void p2p_replay_post_iprobe(int *source, int *tag, MPI_Comm comm,
     if (*flag != 0 || iprobe_next_msg(NULL) == 1) { // There is a message.
       while (iprobe_next_msg(NULL) == 0) {
         // consume messages where log says MPI_Iprobe: flag==0
-        rc = get_next_msg(&p2p_msg);
+        rc = get_next_msg_iprobe(&p2p_msg);
 	if (rc == 1) return;
       } // Now log says MPI_Iprobe returned with flag==1
       // Call blocking probe until implicit *flag and log agree
@@ -173,7 +205,7 @@ void p2p_replay_post_iprobe(int *source, int *tag, MPI_Comm comm,
       MPI_Iprobe_recurse = 0;
       *flag = 1;
     } else { // else: *flag == 0; log says MPI_Iprobe returned with flag==0
-      get_next_msg(&p2p_msg); // flag and log agree: consume this message
+      get_next_msg_iprobe(&p2p_msg); // flag and log agree: consume this message
       *flag = 0;
     }
   }
@@ -183,11 +215,15 @@ void p2p_replay_post_iprobe(int *source, int *tag, MPI_Comm comm,
 /* source and tag are INOUT parameters */
 void  p2p_replay(int count, MPI_Datatype datatype, int *source, int *tag,
                  MPI_Comm comm) {
+  // Fix me: need to differentiate the caller is Recv or Probe
+  assert(0);
+#if 0
   struct p2p_log_msg p2p_msg;
   get_next_msg(&p2p_msg);
   *source = p2p_msg.source;
   *tag = p2p_msg.tag;
   assert(comm = p2p_msg.comm);
+#endif
 }
 
 /******************************
