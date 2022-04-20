@@ -66,15 +66,23 @@ void fill_in_log(struct p2p_log_msg *p2p_log) {
     }
   }
 
-  static off_t request_start = 0;
+  static off_t req_start_offset = 0;
   struct p2p_log_request p2p_request;
   int fd2 = dup(fd_request);
+  if (req_start_offset != 0) {
+    lseek(fd2, req_start_offset, SEEK_SET);
+    req_start_offset = 0;
+  }
   while (1) {
     readall(fd2, &p2p_request, sizeof(p2p_request));
     if (p2p_request.request == p2p_log->request) {
       p2p_log->source = p2p_request.source;
       p2p_log->tag = p2p_request.tag;
       break;
+    }
+    // The request sequence is out of order
+    if (req_start_offset == 0 && p2p_request.request > p2p_log->request) {
+      req_start_offset = lseek(fd2, 0, SEEK_CUR) - sizeof(p2p_request);
     }
   }
   close(fd2);
