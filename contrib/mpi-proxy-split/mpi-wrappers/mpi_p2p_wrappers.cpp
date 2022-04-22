@@ -168,8 +168,6 @@ USER_DEFINED_WRAPPER(int, Irecv,
   size = size * count;
 
   DMTCP_PLUGIN_DISABLE_CKPT();
-  LOG_PRE_Irecv(&status);
-  REPLAY_PRE_Irecv(count,datatype,source,tag,comm);
 
   if (mana_state == RUNNING &&
       isBufferedPacket(source, tag, comm, &flag, &status)) {
@@ -180,6 +178,9 @@ USER_DEFINED_WRAPPER(int, Irecv,
     DMTCP_PLUGIN_ENABLE_CKPT();
     return retval;
   }
+  LOG_PRE_Irecv(&status);
+  REPLAY_PRE_Irecv(count,datatype,source,tag,comm);
+
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
   MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
