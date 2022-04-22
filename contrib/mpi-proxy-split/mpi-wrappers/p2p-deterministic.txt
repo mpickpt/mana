@@ -120,7 +120,7 @@ ssize_t writeall(int fd, void *buf, size_t count) {
   if (getenv("MANA_P2P_LOG")) {
     // source and tag will be filled in later, based on request
     // (count, datatype) will be replaced by (bytesRecvd, MPI_CHAR)
-    p2p_log(count, datatype, source, tag, comm, status, request);
+    p2p_log(count, datatype, source, tag, comm, NULL, request);
   }
 
 // Before MPI_Probe during original launch/log

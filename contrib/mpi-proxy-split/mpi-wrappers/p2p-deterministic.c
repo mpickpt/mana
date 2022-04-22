@@ -67,6 +67,7 @@ int iprobe_next_msg(struct p2p_log_msg *p2p_msg) {
 
 int get_next_msg_irecv(struct p2p_log_msg *p2p_msg) {
   static int fd = -1;
+  static found_next_msg = 0;
   int rc = 1;
   if (fd == -1) {
     char buf[100];
@@ -82,14 +83,20 @@ int get_next_msg_irecv(struct p2p_log_msg *p2p_msg) {
   // Read current Irecv entries
   do {
     rc = readall(fd, &next_msg_entry, sizeof(next_msg_entry));
-    if (rc <= 0) return 1;
+    if (rc <= 0) {
+      found_next_msg = 0;
+      return 1;
+    }
   } while (next_msg_entry.request == MPI_REQUEST_NULL);
-  // Read next Irecv entriea
-  do {
-    rc = readall(fd, &next_msg_entry, sizeof(next_msg_entry));
-    if (rc <= 0) return 1;
-  } while (next_msg_entry.request == MPI_REQUEST_NULL);
+  if (found_next_msg == 0) {
+    // Read next Irecv entriea
+    do {
+      rc = readall(fd, &next_msg_entry, sizeof(next_msg_entry));
+      if (rc <= 0) return 1;
+    } while (next_msg_entry.request == MPI_REQUEST_NULL);
+  }
   // Found the next message
+  found_next_msg = 1;
   if (p2p_msg != NULL) *p2p_msg = next_msg_entry;
   return 0;
 }
