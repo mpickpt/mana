@@ -238,14 +238,14 @@ USER_DEFINED_WRAPPER(int, Iprobe,
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  LOG_PRE_Iprobe(status);
+  // LOG_PRE_Iprobe(status);
 
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Iprobe)(source, tag, realComm, flag, status);
   RETURN_TO_UPPER_HALF();
-  LOG_POST_Iprobe(source,tag,comm,status);
-  REPLAY_POST_Iprobe(source,tag,comm,status,flag);
+  // LOG_POST_Iprobe(source,tag,comm,status);
+  // REPLAY_POST_Iprobe(source,tag,comm,status,flag);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
