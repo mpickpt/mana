@@ -74,7 +74,8 @@ void fill_in_log(struct p2p_log_msg *p2p_log) {
     req_start_offset = 0;
   }
   while (1) {
-    readall(fd2, &p2p_request, sizeof(p2p_request));
+    int rc = readall(fd2, &p2p_request, sizeof(p2p_request));
+    if (rc == 0) return;
     if (p2p_request.request == p2p_log->request) {
       p2p_log->source = p2p_request.source;
       p2p_log->tag = p2p_request.tag;
