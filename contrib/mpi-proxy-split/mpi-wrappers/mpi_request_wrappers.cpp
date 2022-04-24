@@ -35,6 +35,8 @@
 // To support MANA_P2P_LOG and MANA_P2P_REPLAY:
 #include "p2p-deterministic.h"
 
+extern int p2p_deterministic_skip_save_request;
+
 int MPI_Test_internal(MPI_Request *request, int *flag, MPI_Status *status,
                       bool isRealRequest)
 {
@@ -210,7 +212,9 @@ USER_DEFINED_WRAPPER(int, Wait, (MPI_Request*) request, (MPI_Status*) status)
       fflush(stdout);
 #endif
     }
-    if (flag) LOG_POST_Wait(request, statusPtr);
+    if (p2p_deterministic_skip_save_request == 0) {
+      if (flag) LOG_POST_Wait(request, statusPtr);
+    }
     if (flag && MPI_LOGGING()) {
       clearPendingRequestFromLog(*request);
       REMOVE_OLD_REQUEST(*request);

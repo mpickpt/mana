@@ -12,6 +12,7 @@
 #define USE_WRITEALL
 #include "p2p-deterministic.h"
 
+int p2p_deterministic_skip_save_request = 0;
 /**********************************************************************************
  * USAGE (workflow):
  *   MANA_P2P_LOG=1 mana_launch -i SECONDS ... mpi_executable
@@ -35,6 +36,7 @@
 
 static struct p2p_log_msg next_msg_entry = {0, MPI_CHAR, 0, 0, 0, MPI_COMM_NULL, MPI_REQUEST_NULL};
 static struct p2p_log_msg *next_msg = NULL;
+static int logging_start = 0;
 
 void p2p_log(int count, MPI_Datatype datatype, int source, int tag,
              MPI_Comm comm, MPI_Status *status, MPI_Request *request) {
@@ -146,6 +148,7 @@ void set_next_msg(int count, MPI_Datatype datatype,
       exit(1);
     }
   }
+  logging_start = 1;
   p2p_msg.count = count;
   p2p_msg.datatype = datatype;
   p2p_msg.source = source;
@@ -233,6 +236,7 @@ void  p2p_replay(int count, MPI_Datatype datatype, int *source, int *tag,
 void save_request_info(MPI_Request *request, MPI_Status *status) {
   struct p2p_log_request p2p_request;
   static int fd = -2;
+  if (!logging_start) return;
   if (fd == -2) {
     char buf[100];
     int rank;

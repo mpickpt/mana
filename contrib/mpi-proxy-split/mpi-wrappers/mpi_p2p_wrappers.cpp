@@ -35,6 +35,8 @@
 // To support MANA_P2P_LOG and MANA_P2P_REPLAY:
 #include "p2p-deterministic.h"
 
+extern int p2p_deterministic_skip_save_request;
+
 USER_DEFINED_WRAPPER(int, Send,
                      (const void *) buf, (int) count, (MPI_Datatype) datatype,
                      (int) dest, (int) tag, (MPI_Comm) comm)
@@ -56,7 +58,9 @@ USER_DEFINED_WRAPPER(int, Send,
   if (retval != MPI_SUCCESS) {
     return retval;
   }
+  p2p_deterministic_skip_save_request = 1;
   retval = MPI_Wait(&req, &st);
+  p2p_deterministic_skip_save_request = 0;
 #endif
   return retval;
 }
@@ -145,6 +149,7 @@ USER_DEFINED_WRAPPER(int, Recv,
   if (retval != MPI_SUCCESS) {
     return retval;
   }
+  p2p_deterministic_skip_save_request = 0;
   retval = MPI_Wait(&req, status);
 #endif
   // updateLocalRecvs();
