@@ -5,16 +5,25 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <mpi.h>
+#include <string.h>
 // To support MANA_P2P_LOG and MANA_P2P_REPLAY:
 #define USE_READALL
 #define USE_WRITEALL
 #include "p2p-deterministic.h"
 
 void fill_in_log(struct p2p_log_msg *p2p_log);
+int show_log(char *name);
 
-int main() {
+int main(int argc, char *argv[]) {
   char buf[100];
   int rank;
+  int rc;
+
+  if (argc == 2) {
+    rc = show_log(argv[1]);
+    return rc;
+  }
+
   MPI_Init(NULL, NULL);
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   snprintf(buf, sizeof(buf)-1, P2P_LOG_MSG, rank);
@@ -28,7 +37,7 @@ int main() {
   while (1) {
     struct p2p_log_msg p2p_log;
     off_t offset = lseek(fd_log, 0, SEEK_CUR);
-    int rc = readall(fd_log, &p2p_log, sizeof(p2p_log));
+    rc = readall(fd_log, &p2p_log, sizeof(p2p_log));
     if (rc == 0) {
       break;
     }
@@ -57,17 +66,85 @@ void fill_in_log(struct p2p_log_msg *p2p_log) {
     }
   }
 
-  static off_t request_start = 0;
+  static off_t req_start_offset = 0;
   struct p2p_log_request p2p_request;
   int fd2 = dup(fd_request);
+  if (req_start_offset != 0) {
+    lseek(fd2, req_start_offset, SEEK_SET);
+    req_start_offset = 0;
+  }
   while (1) {
-    readall(fd2, &p2p_request, sizeof(p2p_request));
+    int rc = readall(fd2, &p2p_request, sizeof(p2p_request));
+    if (rc == 0) return;
     if (p2p_request.request == p2p_log->request) {
       p2p_log->source = p2p_request.source;
       p2p_log->tag = p2p_request.tag;
-      p2p_log->request = MPI_REQUEST_NULL;
       break;
+    }
+    // The request sequence is out of order. This could happen when MPI_Wait
+    // for a high request number is called first followed by MPI_Wait for a
+    // lower request number.
+    if (req_start_offset == 0 && p2p_request.request > p2p_log->request) {
+      req_start_offset = lseek(fd2, 0, SEEK_CUR) - sizeof(p2p_request);
     }
   }
   close(fd2);
+}
+
+int show_msg_file(char *name)
+{
+  int fd_log = open(name, O_RDWR);
+  if (fd_log == -1) {
+    fprintf(stderr, "show_log_file open: fle %s, error: %s\n", name, strerror(errno));
+    return 1; 
+  }
+
+  while (1) {
+    struct p2p_log_msg p2p_log;
+    int rc = readall(fd_log, &p2p_log, sizeof(p2p_log));
+    if (rc == 0) {
+      break;
+    }
+
+    printf("MSG(request,source,tag,count,comm): %d,%d,%d,%d,%d\n",
+	   p2p_log.request, p2p_log.source, p2p_log.tag, p2p_log.count, p2p_log.comm);
+  }
+  return 0;
+}
+
+int show_request_file(char *name)
+{
+  int fd_log = open(name, O_RDWR);
+  if (fd_log == -1) {
+    fprintf(stderr, "show_request_file open: fle %s, error: %s\n", name, strerror(errno));
+    return 1;
+  }
+
+  while (1) {
+    struct p2p_log_request p2p_request;
+    int rc = readall(fd_log, &p2p_request, sizeof(p2p_request));
+    if (rc == 0) {
+      break;
+    }
+
+    printf("MSG(request,source,tag): %d,%d,%d\n",
+	   p2p_request.request, p2p_request.source, p2p_request.tag);
+  }
+  return 0;
+}
+ 
+int show_log(char *name)
+{
+  int rank;
+
+  if (sscanf(name, P2P_LOG_MSG, &rank) == 1) {
+    show_msg_file(name);
+  } else if (sscanf(name, P2P_LOG_REQUEST, &rank) == 1) {
+    show_request_file(name);
+  } else {
+    fprintf(stderr, "Not a p2p log fle %s, error: %s\n", name, strerror(errno));
+    return 1;
+  }
+
+  return 0;
 }

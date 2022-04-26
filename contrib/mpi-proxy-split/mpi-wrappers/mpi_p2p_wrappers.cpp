@@ -35,6 +35,8 @@
 // To support MANA_P2P_LOG and MANA_P2P_REPLAY:
 #include "p2p-deterministic.h"
 
+extern int p2p_deterministic_skip_save_request;
+
 USER_DEFINED_WRAPPER(int, Send,
                      (const void *) buf, (int) count, (MPI_Datatype) datatype,
                      (int) dest, (int) tag, (MPI_Comm) comm)
@@ -56,7 +58,9 @@ USER_DEFINED_WRAPPER(int, Send,
   if (retval != MPI_SUCCESS) {
     return retval;
   }
+  p2p_deterministic_skip_save_request = 1;
   retval = MPI_Wait(&req, &st);
+  p2p_deterministic_skip_save_request = 0;
 #endif
   return retval;
 }
@@ -145,6 +149,7 @@ USER_DEFINED_WRAPPER(int, Recv,
   if (retval != MPI_SUCCESS) {
     return retval;
   }
+  p2p_deterministic_skip_save_request = 0;
   retval = MPI_Wait(&req, status);
 #endif
   // updateLocalRecvs();
@@ -168,8 +173,7 @@ USER_DEFINED_WRAPPER(int, Irecv,
   size = size * count;
 
   DMTCP_PLUGIN_DISABLE_CKPT();
-  LOG_PRE_Irecv(&status);
-  REPLAY_PRE_Irecv(count,datatype,source,tag,comm);
+
   if (mana_state == RUNNING &&
       isBufferedPacket(source, tag, comm, &flag, &status)) {
     consumeBufferedPacket(buf, count, datatype, source, tag, comm,
@@ -179,6 +183,9 @@ USER_DEFINED_WRAPPER(int, Irecv,
     DMTCP_PLUGIN_ENABLE_CKPT();
     return retval;
   }
+  LOG_PRE_Irecv(&status);
+  REPLAY_PRE_Irecv(count,datatype,source,tag,comm);
+
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
   MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
