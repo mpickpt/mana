@@ -104,15 +104,21 @@ int get_next_msg_irecv(struct p2p_log_msg *p2p_msg) {
 }
 
 int get_next_msg_iprobe(struct p2p_log_msg *p2p_msg) {
-  static int fd = -1;
+#define UNINITIALIZED -2
+  static int fd = UNINITIALIZED;
   int rc = 1;
-  if (fd == -1) {
+  if (fd == UNINITIALIZED) {
     char buf[100];
     int rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     snprintf(buf, sizeof(buf)-1, P2P_LOG_MSG, rank);
     fd = open(buf, O_RDONLY);
     if (fd == -1) {
+      fd = UNINITIALIZED;
+      // The log file is created by set_next_msg() which
+      // is called later. It is expected that first open
+      // fails. Return 1 here to indicate that there is
+      // not any next message yet.
       return 1;
     }
   }

@@ -81,7 +81,9 @@ void fill_in_log(struct p2p_log_msg *p2p_log) {
       p2p_log->tag = p2p_request.tag;
       break;
     }
-    // The request sequence is out of order
+    // The request sequence is out of order. This could happen when MPI_Wait
+    // for a high request number is called first followed by MPI_Wait for a
+    // lower request number.
     if (req_start_offset == 0 && p2p_request.request > p2p_log->request) {
       req_start_offset = lseek(fd2, 0, SEEK_CUR) - sizeof(p2p_request);
     }

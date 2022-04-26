@@ -356,7 +356,7 @@ FileConnection::refill(bool isRestart)
             ((_fcntlFlags & O_WRONLY) || (_fcntlFlags & O_RDWR))) {
           errno = 0;
           JWARNING(false) (_path) (_st_size) (statbuf.st_size)
-          .Text("Set saved size to the current file size");
+          .Text("Setting saved size to the current file size");
 	  _st_size = statbuf.st_size;
           // JASSERT(truncate(_path.c_str(), _st_size) == 0)
           //  (_path.c_str()) (_st_size) (JASSERT_ERRNO);
