@@ -6,6 +6,12 @@ CFLAGS = @CFLAGS@
 CXXFLAGS = @CXXFLAGS@
 
 ifeq ($(findstring cori,$(PLATFORM)),cori)
+IS_CORI = 1
+endif
+ifeq ($(findstring gert,$(PLATFORM)),gert)
+IS_GERTY = 1
+endif
+ifeq ($(or $(IS_CORI),$(IS_GERTY)), 1)
   MPICC = cc
   MPICXX = CC
   MPIFORTRAN = ftn
