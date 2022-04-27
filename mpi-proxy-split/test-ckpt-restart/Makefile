@@ -1,5 +1,11 @@
 PLATFORM=${shell echo $$HOST}
 ifeq ($(findstring cori,$(PLATFORM)),cori)
+IS_CORI = 1
+endif
+ifeq ($(findstring gert,$(PLATFORM)),gert)
+IS_GERTY = 1
+endif
+ifeq ($(or $(IS_CORI),$(IS_GERTY)), 1)
   MPICC = cc
   MPICXX = CC
   CFLAGS?= -g3 -O0 -std=c99 -fPIC
