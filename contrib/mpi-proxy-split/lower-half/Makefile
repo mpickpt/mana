@@ -32,6 +32,8 @@ default: ${PROXY_BIN} ${STATIC_GETHOSTBYNAME}
 # We should remove the special case for Cori, once we know this works on Cori.
 ifeq ($(findstring cori,$(PLATFORM)),cori)
   STATIC_GETHOSTBYNAME=
+else ifeq ($(findstring gert,$(PLATFORM)),gert)
+  STATIC_GETHOSTBYNAME=
 else
   STATIC_GETHOSTBYNAME=gethostbyname-static/gethostbyname_static.o
 ${STATIC_GETHOSTBYNAME}: gethostbyname-static/gethostbyname_static.c \
