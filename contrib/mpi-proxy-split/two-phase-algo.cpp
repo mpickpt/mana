@@ -217,7 +217,7 @@ TwoPhaseAlgo::preSuspendBarrier(const void *data)
   JASSERT(data).Text("Pre-suspend barrier called with NULL data!");
   DmtcpMessage msg(DMT_PRE_SUSPEND_RESPONSE);
 
-  phase_t st = getCurrState();
+  phase_t st;
   query_t query = *(query_t*)data;
   static int procRank = -1;
 
@@ -230,8 +230,10 @@ TwoPhaseAlgo::preSuspendBarrier(const void *data)
     case INTENT:
       setCkptPending();
       if (getCurrState() == PHASE_1) {
-        // If in PHASE_1, wait for us to finish doing IN_CS
-        if (waitForNewStateAfter(PHASE_1) != IN_CS) {
+	st = waitForNewStateAfter(PHASE_1, 10 /* timeout ms*/);
+	if (st == PHASE_1) break;
+        // Wait for us to finish doing IN_CS
+        if (st != IN_CS) {
           break;
         } else {
           while (waitForNewStateAfter(IN_CS) != IN_CS);
@@ -309,16 +311,27 @@ TwoPhaseAlgo::stop(MPI_Comm comm)
 }
 
 phase_t
-TwoPhaseAlgo::waitForNewStateAfter(phase_t oldState)
+TwoPhaseAlgo::waitForNewStateAfter(phase_t oldState, int timeout_ms)
 {
   lock_t lock(_phaseMutex);
-  // The user thread will notify us if transition to any of these states
-  _phaseCv.wait(lock, [this, oldState]
+
+  if (timeout_ms) {
+    _phaseCv.wait_for(lock, std::chrono::milliseconds(timeout_ms),
+                      [this, oldState]
                       { return _currState != oldState &&
                         ( _currState == IN_TRIVIAL_BARRIER ||
                           _currState == PHASE_1 ||
                           _currState == IN_CS ||
                           _currState == IS_READY); });
+  } else {
+    // The user thread will notify us if transition to any of these states
+    _phaseCv.wait(lock, [this, oldState]
+                        { return _currState != oldState &&
+                          ( _currState == IN_TRIVIAL_BARRIER ||
+                            _currState == PHASE_1 ||
+                            _currState == IN_CS ||
+                            _currState == IS_READY); });
+  }
   return _currState;
 }
 

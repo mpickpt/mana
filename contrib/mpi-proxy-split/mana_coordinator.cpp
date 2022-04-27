@@ -298,6 +298,20 @@ unblockRanks(const ClientToStateMap& clientStates, long int size)
   query_t *queries = (query_t*) malloc(size * sizeof(query_t));
   memset(queries, NONE, size * sizeof(query_t));
 
+  // If all members are in PHASE_1, give one free pass
+  // so one member can proceed to IN_CS and unblock
+  // other ranks eventually.
+  int found = 0;
+  for (RankKVPair c : clientStates) {
+    if (c.second.st != PHASE_1) {
+      found = 1;
+      break;
+    }
+  }
+  if (found == 0) {
+    queries[clientStates.begin()->second.rank] = FREE_PASS;
+  }
+
   // if some member of a communicator is in the critical section,
   // give free passes to members in phase 1 or the trivial barrier.
   for (RankKVPair c : clientStates) {
