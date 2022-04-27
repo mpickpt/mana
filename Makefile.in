@@ -55,6 +55,15 @@ dmtcp:
 clean: 
 	- cd dmtcp && $(MAKE) clean
 
+distclean:
+	- cd dmtcp && $(MAKE) distclean
+
+install:
+	- cd dmtcp && $(MAKE) install
+
+uninstall:
+	- cd dmtcp && $(MAKE) uninstall
+
 mana_prereqs:
 	@ if test -n "$$HUGETLB_DEFAULT_PAGE_SIZE"; then \
 	  echo '** Env. var. HUGETLB_DEFAULT_PAGE_SIZE detected.'; \
