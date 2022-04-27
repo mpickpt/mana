@@ -2,6 +2,7 @@
 #define __MTCP_RESTART_PLUGIN_H__
 #include <sys/types.h>
 #include <stdint.h>
+#include "config.h"
 
 typedef void (*fnptr_t)();
 
