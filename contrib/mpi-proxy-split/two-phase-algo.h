@@ -162,7 +162,7 @@ namespace dmtcp_mpi
       void stop(MPI_Comm);
 
       // Wait until the state is changed to a new state
-      phase_t waitForNewStateAfter(phase_t oldState);
+      phase_t waitForNewStateAfter(phase_t oldState, int timeout_ms=0);
 
       // Sends the given message 'msg' (along with the given 'extraData') to
       // the coordinator
