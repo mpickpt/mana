@@ -49,6 +49,8 @@ of accuracy on restart.  This is still under development.  Please test
 your application on MANA first, before using MANA.
 
 For details of installing and using MANA, please see:
-- [the MANA README file](https://github.com/mpickpt/mana/blob/master/contrib/mpi-proxy-split/README)
+- [the MANA README file](https://github.com/mpickpt/mana/blob/master/mpi-proxy-split/README)
+or (older version):
+- [the MANA README file](https://github.com/mpickpt/mana/blob/master/contrib/mpi-proxy-split/README) and
 - [the MANA INSTALL file](https://github.com/mpickpt/mana/blob/master/contrib/mpi-proxy-split/INSTALL)
 - [the MANA 'man' page](https://github.com/mpickpt/mana/blob/master/manpages/mana.1) (or 'nroff -man mana.1')
