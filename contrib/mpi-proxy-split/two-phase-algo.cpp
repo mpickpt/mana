@@ -230,7 +230,7 @@ TwoPhaseAlgo::preSuspendBarrier(const void *data)
     case INTENT:
       setCkptPending();
       if (getCurrState() == PHASE_1) {
-	st = waitForNewStateAfter(PHASE_1, 10 /* timeout ms*/);
+	st = waitForNewStateAfter(PHASE_1, 100 /* timeout ms*/);
 	if (st == PHASE_1) break;
         // Wait for us to finish doing IN_CS
         if (st != IN_CS) {
@@ -316,6 +316,8 @@ TwoPhaseAlgo::waitForNewStateAfter(phase_t oldState, int timeout_ms)
   lock_t lock(_phaseMutex);
 
   if (timeout_ms) {
+    // Since _phaseCv is a condition var., it should be prepared for spurious wakeups.
+    // So, waking it up on a timeout is harmless.
     _phaseCv.wait_for(lock, std::chrono::milliseconds(timeout_ms),
                       [this, oldState]
                       { return _currState != oldState &&
