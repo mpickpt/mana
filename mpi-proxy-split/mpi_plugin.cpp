@@ -169,14 +169,16 @@ computeUnionOfCkptImageAddresses()
   // We discover the last address that the kernel had mapped:
   // ASSUMPTIONS:  Target app is not using mmap
   // ASSUMPTIONS:  Kernel does not go back and fill previos gap after munmap
-  libsEnd = mmap(NULL, 4096, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-  JASSERT(libsEnd != MAP_FAILED);
-  munmap(libsEnd, 4096);
+  // TODO: Add a heuristic-based approach to locate the hole between libs+mmap
+  //       and bin+heap.
+  libsStart = mmap(NULL, 4096, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+  JASSERT(libsStart != MAP_FAILED);
+  munmap(libsStart, 4096);
 
   // Preprocess memory regions as needed.
   while (procSelfMaps.getNextArea(&area)) {
     if (Util::strEndsWith(area.name, ".so")) {
-      if (libsStart == NULL) {
+      if (libsStart < area.addr) {
         libsStart = area.addr;
       }
       libsEnd = area.endAddr;
