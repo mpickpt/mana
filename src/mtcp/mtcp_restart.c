@@ -136,6 +136,7 @@ void* mmap_fixed_noreplace(void *addr, size_t len, int prot, int flags,
 
 
 #define MB                 1024 * 1024
+# define GB (uint64_t)(1024 * 1024 * 1024)
 #define RESTORE_STACK_SIZE 5 * MB
 #define RESTORE_MEM_SIZE   5 * MB
 #define RESTORE_TOTAL_SIZE (RESTORE_STACK_SIZE + RESTORE_MEM_SIZE)
@@ -465,6 +466,10 @@ int discover_union_ckpt_images(char *argv[],
     *libsEnd = max(*libsEnd, (char *)mtcpHdr.libsEnd);
     *highMemStart = min(*highMemStart, (char *)mtcpHdr.highMemStart);
   }
+  /* FIXME: We need to also add memory regions with no libXXX.so label,
+   * but we should stop adding memory regions when we reach a very large gap in memory */
+  *libsStart = *libsStart - 4 * GB;
+  *libsEnd = *libsEnd + 4 * GB;
   return rank;
 }
 
@@ -756,7 +761,6 @@ main(int argc, char *argv[], char **environ)
     total_reserved_fds = reserve_fds_upper_half(reserved_fds);
 
     // Refer to "blocked memory" in MANA Plugin Documentation for the addresses
-# define GB (uint64_t)(1024 * 1024 * 1024)
     // FIXME:  Rewrite this logic more carefully.
     char *start1, *start2, *end1, *end2;
     if (libsEnd + 1 * GB < highMemStart /* end of stack of upper half */) {
