@@ -74,6 +74,13 @@ uninstall:
 	cd mpi-proxy-split && make DESTDIR=$(DESTDIR) $(UNINSTALL_FLAGS)
 	cd $(DESTDIR)$(mandir)/man1 && rm -f ${MANPAGES} ${MANPAGES_AUTOGEN}
 
+distclean: clean
+	- cd dmtcp && $(MAKE) distclean
+	- cd mpi-proxy-split && $(MAKE) distclean
+	rm -f Makefile config.log config.status config.status-* config.cache
+	rm -rf autom4te.cache
+	rm -rf $(top_builddir)/lib $(top_builddir)/bin
+
 clean: 
 	- cd dmtcp && $(MAKE) clean
 	- cd mpi-proxy-split && $(MAKE) clean
