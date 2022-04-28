@@ -230,8 +230,10 @@ TwoPhaseAlgo::preSuspendBarrier(query_t query)
     case INTENT:
       setCkptPending();
       if (getCurrState() == PHASE_1) {
-        // If in PHASE_1, wait for us to finish doing IN_CS
-        if (waitForNewStateAfter(PHASE_1) != IN_CS) {
+	st = waitForNewStateAfter(PHASE_1, 100 /* timeout ms*/);
+	if (st == PHASE_1) break;
+        // Wait for us to finish doing IN_CS
+        if (st != IN_CS) {
           break;
         } else {
           while (waitForNewStateAfter(IN_CS) != IN_CS);
@@ -299,7 +301,6 @@ TwoPhaseAlgo::stop(MPI_Comm comm)
   // INVARIANT: Ckpt should be pending when we get here
   JASSERT(isCkptPending());
   setCurrState(PHASE_1);
-
   while (isCkptPending() && !phase1_freepass) {
     sleep(1);
   }
@@ -307,16 +308,28 @@ TwoPhaseAlgo::stop(MPI_Comm comm)
 }
 
 phase_t
-TwoPhaseAlgo::waitForNewStateAfter(phase_t oldState)
+TwoPhaseAlgo::waitForNewStateAfter(phase_t oldState, int timeout_ms)
 {
   lock_t lock(_phaseMutex);
-  // The user thread will notify us if transition to any of these states
-  _phaseCv.wait(lock, [this, oldState]
+  if (timeout_ms) {
+    // Since _phaseCv is a condition var, it should be prepared for spurious wakeups.
+    // So, waking it up on a timeout is harmless.
+    _phaseCv.wait_for(lock, std::chrono::milliseconds(timeout_ms),
+                      [this, oldState]
                       { return _currState != oldState &&
                         ( _currState == IN_TRIVIAL_BARRIER ||
                           _currState == PHASE_1 ||
                           _currState == IN_CS ||
                           _currState == IS_READY); });
+  } else {
+    // The user thread will notify us if transition to any of these states
+    _phaseCv.wait(lock, [this, oldState]
+                        { return _currState != oldState &&
+                          ( _currState == IN_TRIVIAL_BARRIER ||
+                            _currState == PHASE_1 ||
+                            _currState == IN_CS ||
+                            _currState == IS_READY); });
+  }
   return _currState;
 }
 
