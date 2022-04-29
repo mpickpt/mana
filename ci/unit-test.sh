@@ -11,12 +11,14 @@ if [[ $OS_VER == 7 ]]; then
   source scl_source enable devtoolset-8
 fi
 
+git submodule update --init
+
 ./configure
 make clean
 make -j 8 mana
 if [ \! -f "bin/lh_proxy" -o \! -f "bin/mana_launch" ];then echo ERROR: make failed;exit 1;fi
 
-cd $SCRIPT_DIR/../contrib/mpi-proxy-split/unit-test
+cd $SCRIPT_DIR/../mpi-proxy-split/unit-test
 make || exit 1
 make clean
 make check || exit 1
