@@ -178,7 +178,7 @@ computeUnionOfCkptImageAddresses()
   // Preprocess memory regions as needed.
   while (procSelfMaps.getNextArea(&area)) {
     if (Util::strEndsWith(area.name, ".so")) {
-      if (libsStart < area.addr) {
+      if (libsStart > area.addr) {
         libsStart = area.addr;
       }
       libsEnd = area.endAddr;
