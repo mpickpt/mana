@@ -145,20 +145,24 @@ USER_DEFINED_WRAPPER(int, Testany, (int) count,
                      (MPI_Request *) array_of_requests, (int *) index,
                      (int *) flag, (MPI_Status *) status)
 {
+  int local_count = count;
+  MPI_Request *local_array_of_requests = array_of_requests;
+  int *local_index = index;
+  int *local_flag = flag;
+  MPI_Status *local_status = status;
+
   int retval;
-  bool incomplete = false;
-  for (int i = 0; i < count; i++) {
-    retval = MPI_Test(&array_of_requests[i], flag, status);
+  *local_flag = 0;
+  *local_index = MPI_UNDEFINED;
+  for (int i = 0; i < local_count; i++) {
+    retval = MPI_Test(&local_array_of_requests[i], local_flag, local_status);
     if (retval != MPI_SUCCESS) {
-      *flag = 0;
       break;
     }
-    if (*flag == 0) {
-      incomplete = true;
+    if (*local_flag) {
+      *local_index = i;
+      break;
     }
-  }
-  if (incomplete) {
-    *flag = 0;
   }
   return retval;
 }
@@ -167,6 +171,8 @@ USER_DEFINED_WRAPPER(int, Waitall, (int) count,
                      (MPI_Request *) array_of_requests,
                      (MPI_Status *) array_of_statuses)
 {
+  volatile int dummy = 1;
+
   // FIXME: Revisit this wrapper - call VIRTUAL_TO_REAL_REQUEST on array
   int retval;
 #if 0
@@ -199,8 +205,6 @@ USER_DEFINED_WRAPPER(int, Waitany, (int) count,
                      (MPI_Request *) array_of_requests, (int *) index,
                      (MPI_Status *) status)
 {
-  // FIXME: handle when one or more handles are inactive. currently returns
-  // *index = i instead of MPI_UNDEFINED - likely to require a logic rewrite
   int retval;
   int flag = 0;
   bool all_null = true;
@@ -211,9 +215,10 @@ USER_DEFINED_WRAPPER(int, Waitany, (int) count,
         continue;
       }
       all_null = false;
-      DMTCP_PLUGIN_DISABLE_CKPT();
       retval = MPI_Test_internal(&array_of_requests[i], &flag, status, false);
-      DMTCP_PLUGIN_ENABLE_CKPT();
+      if (retval != MPI_SUCCESS) {
+        return retval;
+      }
       if (flag) {
         if (MPI_LOGGING()) {
           clearPendingRequestFromLog(array_of_requests[i]);
@@ -223,16 +228,12 @@ USER_DEFINED_WRAPPER(int, Waitany, (int) count,
         *index = i;
         return retval;
       }
-      if (retval != MPI_SUCCESS) {
-        return retval;
-      }
     }
     if (all_null) {
       return retval;
     }
     sleep(1);
   }
-  return retval;
 }
 
 USER_DEFINED_WRAPPER(int, Wait, (MPI_Request*) request, (MPI_Status*) status)
