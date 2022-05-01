@@ -38,7 +38,7 @@
 # include "mpi_collective_p2p.c"
 #endif
 
-// #define NO_BARRIER_BCAST
+#define NO_BARRIER_BCAST
 using namespace dmtcp_mpi;
 
 #ifndef MPI_COLLECTIVE_P2P
