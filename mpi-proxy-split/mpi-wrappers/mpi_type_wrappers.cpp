@@ -157,17 +157,6 @@ USER_DEFINED_WRAPPER(int, Type_create_struct, (int) count,
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, Type_size_x, (MPI_Datatype) type, (MPI_Count *) size)
-{
-  int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  retval = NEXT_FUNC(Type_size_x)(type, size);
-  RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
-  return retval;
-}
-
 USER_DEFINED_WRAPPER(int, Type_indexed, (int) count,
                      (const int*) array_of_blocklengths,
                      (const int*) array_of_displacements,
@@ -235,6 +224,8 @@ USER_DEFINED_WRAPPER(int, Pack, (const void*) inbuf, (int) incount,
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
+
+DEFINE_FNC(int, Type_size_x, (MPI_Datatype) type, (MPI_Count *) size);
 
 PMPI_IMPL(int, MPI_Type_size, MPI_Datatype datatype, int *size)
 PMPI_IMPL(int, MPI_Type_commit, MPI_Datatype *type)
