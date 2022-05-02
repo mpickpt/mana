@@ -186,18 +186,14 @@ USER_DEFINED_WRAPPER(int, Comm_free, (MPI_Comm *) comm)
   for (auto &tuplePair : tupleMap) {
     KeyvalTuple *tuple = &tuplePair.second;
     std::unordered_map<MPI_Comm, void*> *attributeMap = &tuple->_attributeMap;
-    auto attributeMapIter = attributeMap->begin();
-    while (attributeMapIter != attributeMap->end()) {
-      MPI_Comm currComm = attributeMapIter->first;
-      if (currComm == *comm && tuple->_deleteFn != MPI_COMM_NULL_DELETE_FN) {
+    if (attributeMap->find(*comm) != attributeMap.end()) {
+      if (tuple->_deleteFn != MPI_COMM_NULL_DELETE_FN) {
         tuple->_deleteFn(*comm,
                          tuplePair.first,
                          attributeMap->at(currComm),
                          tuple->_extraState);
-        attributeMapIter = attributeMap->erase(attributeMapIter);
-        break;
       }
-      attributeMapIter++;
+      attributeMap->erase(*comm);
     }
   }
   DMTCP_PLUGIN_DISABLE_CKPT();
