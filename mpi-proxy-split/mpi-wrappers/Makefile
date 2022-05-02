@@ -110,6 +110,12 @@ mpi_stub_wrappers.o: mpi_stub_wrappers.c
 libmpistub.so: mpi_stub_wrappers.o
 	${CC} -fPIC $< -shared -o $@
 
+libmpich_gnu_82.so.3.0.1: libmpistub.so
+	ln -sf $< $@
+
+libmpich_gnu_82.so.3: libmpich_gnu.so.3.0.1
+	ln -sf $< $@
+
 libmpich_intel.so.3.0.1: libmpistub.so
 	ln -sf $< $@
 
@@ -130,7 +136,9 @@ install: libmpistub.so mana_p2p_update_logs
 	cp -f libmpistub.so ${DMTCP_ROOT}/lib/dmtcp/
 	cd ${DMTCP_ROOT}/lib/dmtcp && \
 		ln -sf libmpistub.so libmpich_intel.so.3.0.1 && \
-		ln -sf libmpich_intel.so.3.0.1 libmpich_intel.so.3
+		ln -sf libmpich_intel.so.3.0.1 libmpich_intel.so.3 && \
+		ln -sf libmpistub.so libmpich_gnu_82.so.3.0.1 && \
+		ln -sf libmpich_gnu_82.so.3.0.1 libmpich_gnu_82.so.3
 	cd ${DMTCP_ROOT}/lib/dmtcp && \
 		ln -sf libmpistub.so libpmi.so.0.5.0 && \
 		ln -sf libpmi.so.0.5.0 libpmi.so.0
@@ -145,8 +153,10 @@ clean: tidy
 	rm -f mpi_unimplemented_wrappers.cpp
 	rm -f mpi_fortran_wrappers.cpp
 	rm -f libmpich_intel.so.3.0.1 libmpich_intel.so.3
+	rm -f libmpich_gnu_82.so.3.0.1 libmpich_gnu_82.so.3
 	rm -f libpmi.so.3.0.1 libpmi.so.0
-	cd ${DMTCP_ROOT}/lib/dmtcp && rm -f libmpich_intel.so.* libpmi.so.*
+	cd ${DMTCP_ROOT}/lib/dmtcp && rm -f libmpich_gnu_82.so.* \
+		libmpich_intel.so.* libpmi.so.*
 
 distclean: clean
 
