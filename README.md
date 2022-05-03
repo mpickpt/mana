@@ -1,40 +1,3 @@
-# [DMTCP: Distributed MultiThreaded CheckPointing](http://dmtcp.sourceforge.net/) [![Build Status](https://travis-ci.org/dmtcp/dmtcp.png?branch=master)](https://travis-ci.org/dmtcp/dmtcp)
-
-DMTCP is a tool to transparently checkpoint the state of multiple simultaneous
-applications, including multi-threaded and distributed applications. It
-operates directly on the user binary executable, without any Linux kernel
-modules or other kernel modifications.
-
-<hr>
-
-**If you are looking for MANA (support for MPI), please read:**<br>
- &nbsp;&nbsp;&nbsp;&nbsp; *[the section on MANA](README.md#mana-mpi-agnostic-network-agnostic-mpi)*, **below.**
-<hr>
-
-Among the applications supported by DMTCP are MPI (various implementations),
-OpenMP, MATLAB, Python, Perl, R, and many programming languages and shell
-scripting languages. DMTCP also supports GNU screen sessions, including
-vim/cscope and emacs. With the use of TightVNC, it can also checkpoint
-and restart X Window applications.  The OpenGL library for 3D graphics
-is supported through a special plugin.
-
-DMTCP supports the commonly used OFED API for InfiniBand, as well as its
-integration with various implementations of MPI, and resource managers
-(e.g., SLURM).
-
-To install DMTCP, see [INSTALL.md](INSTALL.md).
-
-For an overview DMTCP, see [QUICK-START.md](QUICK-START.md).
-
-For the license, see [COPYING](COPYING).
-
-For more information on DMTCP, see: [http://dmtcp.sourceforge.net](http://dmtcp.sourceforge.net).
-
-For the latest version of DMTCP (both official release and git), see:
-[http://dmtcp.sourceforge.net/downloads.html](http://dmtcp.sourceforge.net/downloads.html).
-
----
-
 ## MANA (MPI-Agnostic, Network-Agnostic MPI)
 
 MANA is an implementation of transparent checkpointing for MPI.  It is
@@ -53,6 +16,6 @@ of accuracy on restart.  This is still under development.  Please test
 your application on MANA first, before using MANA.
 
 For details of installing and using MANA, please see:
-- [the newer MANA README file](https://github.com/mpickpt/mana/blob/feature/dmtcp-master/mpi-proxy-split/README)
+- [the newer MANA README file](mpi-proxy-split/README.md)
 - which will eventually replace the older (obsolete) version at: [the older MANA README file](https://github.com/mpickpt/mana/blob/master/contrib/mpi-proxy-split/README)
-- [the MANA 'man' page](https://github.com/mpickpt/mana/blob/master/manpages/mana.1) (or 'nroff -man mana.1' on a local copy)
+- [the MANA 'man' page](manpages/mana.1) (or 'nroff -man mana.1' on a local copy)
