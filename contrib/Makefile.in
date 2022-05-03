@@ -26,7 +26,7 @@ LDFLAGS += -m32 -Wl,-m32 -Wl,-melf_i386 -Wa,--32
 endif
 
 plugins =
-plugins_distclean = ckptfile infiniband
+plugins_distclean = ckptfile infiniband mpi-proxy-split
 
 ifeq ($(INFINIBAND_SUPPORT),yes)
   plugins += infiniband  # ib2tcp

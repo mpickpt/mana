@@ -37,14 +37,12 @@ extern dmtcp::vector<mpi_message_t*> g_message_queue;
 void initialize_drain_send_recv();
 void registerLocalSendsAndRecvs();
 void drainSendRecv();
-int recvFromAllComms(int source);
 int recvMsgIntoInternalBuffer(MPI_Status status);
 bool isBufferedPacket(int source, int tag, MPI_Comm comm, int *flag,
                       MPI_Status *status);
 int consumeBufferedPacket(void *buf, int count, MPI_Datatype datatype,
                           int source, int tag, MPI_Comm comm,
                           MPI_Status *mpi_status, int size);
-void removePendingSendRequests();
 void resetDrainCounters();
 int localRankToGlobalRank(int localRank, MPI_Comm localComm);
 #endif
