@@ -179,7 +179,7 @@ of the target executable, do `b main` instead.
 
 Similarly for mana_restart, `DMTCP_MANA_PAUSE=1` drops you in
   `src/mtcp/mtcp_restart.c` shortly before `mtcp_restart.c:splitProcess()`.
-If you want to reach the target executable, use DMTCP_RESTART_PAUSE=1 instead.
+If you want to reach the target executable, use `DMTCP_RESTART_PAUSE=1` instead.
 
 When debugging in GDB, you can switch back and forth between upper half and
 lower half programs as follows (assuming you're in `$MANA_ROOT`).
@@ -221,12 +221,12 @@ Before going into details, there are a few prerequisites:
     further work, and is not a current priority. In the future, we plan to
     remove the requirement of using a statically linked MPI to build MANA.)
 
-2.  The MPICH package supplied with CentOS 7 provides mpicc, which
+2.  The MPICH package supplied with CentOS 7 provides `mpicc`, which
     accepts a `-static` flag.  But this is not sufficient for
     actual use.  To configure MANA to work with MPICH and `-static`, see:
-      MANA_ROOT_DIR/contrib/mpi-proxy-split/lower-half/README.mpich-static
+      [README.mpich-static](lower-half/README.mpich-static).
 
-3.  Note MANA_ROOT_DIR/contrib/mpi-proxy-split/Makefile_configure.in
+3.  Note `MANA_ROOT_DIR/contrib/mpi-proxy-split/Makefile_configure.in`
     for additional customization (for example, not Cori, not MPICH).
 
 4.  OPTIONAL: Probably the `configure` above suffices.  But if `mpicc -show`
@@ -234,8 +234,8 @@ Before going into details, there are a few prerequisites:
     libxml2.a.  Even if you have installed the package `libxml2`, then you
     _must_ also install `libxml2-dev` (libxml2-devel in CentOS) to get
     `libxml2.a`.
-    (If you are missing libxml2.a and lack root privilege, try copying libxml2.a
-     from some distro package, as described in README.mpich-static.)
+    (If you are missing `libxml2.a` and lack root privilege, try copying `libxml2.a`
+     from some distro package, as described in [README.mpich-static](lower-half/README.mpich-static).)
 
 ## Building outside of Cori for MPICH:
  If you have satisfied the prerequisites above, then do `make -j mana`
@@ -261,7 +261,7 @@ NOTE: On HPC clusters, it is more common to use `srun`, along with a custom
       network interface (InfiniBand, Cray GNI, etc.).  So, most likely
       Ethernet will not be used, and libc.a will not call libnss_*.so.
 
-The file MANA_ROOT/configure-mana tries to guess the Ethernet interface with:
+The file `MANA_ROOT/configure-mana` tries to guess the Ethernet interface with:
   ```bash
   ip addr | grep -B1 link/ether  # and choose one of those interfaces
   ```
@@ -270,6 +270,6 @@ or else:
   ifconfig -a (deprecated)
   ```
 
-If necessary, change the definition of MPIRUN in configure-mana for the
+If necessary, change the definition of `MPIRUN` in `configure-mana` for the
 correct Ethernet interface on your compute node.  [ But this may no
 longer be necessary. ]
