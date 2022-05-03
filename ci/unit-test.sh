@@ -14,9 +14,8 @@ fi
 git submodule update --init
 
 ./configure
-make clean
 make -j 8 mana
-if [ \! -f "bin/lh_proxy" -o \! -f "bin/mana_launch" ];then echo ERROR: make failed;exit 1;fi
+if [ \! -f "bin/dmtcp_launch" ];then echo ERROR: make failed;exit 1;fi
 
 cd $SCRIPT_DIR/../mpi-proxy-split/unit-test
 make || exit 1
