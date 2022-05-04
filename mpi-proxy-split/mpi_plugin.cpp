@@ -67,9 +67,8 @@ dmtcp_skip_memory_region_ckpting(const ProcMapsArea *area)
   if (area->addr == lh_info.startText ||
       strstr(area->name, "/dev/zero") ||
       strstr(area->name, "/dev/kgni") ||
-      // FIXME: must comment out for VASP 5/RPA jobs on 2 knl nodes,
-      // don't know why.
-      strstr(area->name, "/SYSV") ||
+      /* DMTCP SysVIPC plugin should be able to C/R this correctly */
+//      strstr(area->name, "/SYSV") ||
       strstr(area->name, "/dev/xpmem") ||
       strstr(area->name, "/dev/shm") ||
       area->addr == lh_info.startData) {
