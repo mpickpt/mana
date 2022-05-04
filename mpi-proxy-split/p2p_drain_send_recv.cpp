@@ -126,12 +126,13 @@ completePendingIrecvs()
     mpi_async_call_t *call = it->second;
     if (call->type == IRECV_REQUEST) {
       int flag = 0;
-      MPI_Test_internal(&request, &flag, MPI_STATUS_IGNORE, false);
+      MPI_Status status;
+      MPI_Test_internal(&request, &flag, &status, false);
       if (flag) {
         UPDATE_REQUEST_MAP(request, MPI_REQUEST_NULL);
         int size = 0;
         MPI_Type_size(call->datatype, &size);
-        int worldRank = localRankToGlobalRank(call->remote_node,
+        int worldRank = localRankToGlobalRank(status.MPI_SOURCE,
                                               call->comm);
         g_recvBytesByRank[worldRank] += call->count * size;
         bytesReceived += call->count * size;
