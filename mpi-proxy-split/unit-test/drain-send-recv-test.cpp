@@ -212,6 +212,7 @@ TEST_F(DrainTests, testRecvDrain)
 int
 main(int argc, char **argv, char **envp)
 {
+  initializeJalib();
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }
