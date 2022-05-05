@@ -35,8 +35,8 @@ override CXXFLAGS += -g3 -O0 -fPIC -I${DMTCP_INCLUDE} \
                      -I${DMTCP_ROOT}/src -std=c++11 \
                      -D'NEXT_FUNC(fnc)=MPI_\#\#fnc'
 
-TEST_LD_FLAGS=${DMTCP_ROOT}/src/libjalib.a \
-              ${DMTCP_ROOT}/src/libdmtcpinternal.a \
+TEST_LD_FLAGS=${DMTCP_ROOT}/src/libdmtcpinternal.a \
+              ${DMTCP_ROOT}/src/libjalib.a \
               ${DMTCP_ROOT}/src/libnohijack.a \
               -lgtest -lpthread
 
