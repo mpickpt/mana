@@ -90,13 +90,17 @@ def emit_wrapper(decl, ret_type, fnc, args, arg_vars):
   if fnc in ['MPI_Wtime', 'MPI_Wtick']:
     print("  return " + fnc + "(" + cargs + ");")
   else:
+      if "int* index" in fargs:
+        # This is a temporary fix for the Fortran-to-C interface bug -
+        # more details can be found in MPI_Testany in mpi_request_wrappers.cpp
+        print("  int *local_index = index;");
       print("  *ierr = " + fnc + "(" + cargs + ");")
       if "int* index" in fargs:
         if not (fnc in ['MPI_Waitany', 'MPI_Testany']):
           warnings.warn("'int* index' found in {fnc} - likely to cause erroneous behavior".format(fnc=fnc))
         # We need this line because Fortran arrays start from 1, and *index
         # refers to the index of the first request that completes in an array.
-        print("  *index = *index + 1;")
+        print("  *local_index = *local_index + 1;")
       print("  return *ierr;")
   print("}")
   # print(ret_type + " " + fnc.lower() + "_ (" + args + ") __attribute__ ((weak, alias (\"" + fnc + "\")));")
