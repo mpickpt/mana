@@ -56,6 +56,9 @@
 #define CLEAR_COMM_LOGS(comm) \
   dmtcp_mpi::MpiRecordReplay::instance().clearCommLogs(comm)
 
+#define LOG_REMOVE_REQUEST(request) \
+  dmtcp_mpi::MpiRecordReplay::instance().removeRequestLog(request)
+
 // Returns true if we are currently replaying the MPI calls from the saved MPI
 // calls log; false, otherwise. Normally, this would be true while restoring
 // the MPI state at restart time. All other times, this would return false.
@@ -532,6 +535,34 @@ namespace dmtcp_mpi
           remove_if(_records.begin(), _records.end(), isValidComm);
         _records.erase(it, _records.end());
         cleanComms(staleComms);
+      }
+
+      void removeRequestLog(MPI_Request request)
+      {
+        lock_t lock(_mutex);
+	std::function<bool(const MpiRecord*)> isStaleRequest =
+          [request](const MpiRecord *rec) {
+            switch (rec->getType()) {
+              case GENERATE_ENUM(Ibarrier):
+              {
+                MPI_Request req = rec->args(1);
+		return request == req;
+              }
+	      case GENERATE_ENUM(Ireduce):
+	      {
+                MPI_Request req = rec->args(7);
+		return request == req;
+              }
+	      case GENERATE_ENUM(Ibcast):
+	      {
+	        MPI_Request req = rec->args(5);
+                return request == req;
+              }
+	      default:
+	        return false;
+            }
+	  };
+        remove_if(_records.begin(), _records.end(), isStaleRequest);
       }
 
       // Returns true if we are currently replaying the MPI calls
