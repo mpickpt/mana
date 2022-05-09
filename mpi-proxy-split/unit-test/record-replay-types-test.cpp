@@ -97,6 +97,7 @@ TEST_F(TypesTests, testTypeCommit)
 int
 main(int argc, char **argv)
 {
+  initializeJalib();
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }

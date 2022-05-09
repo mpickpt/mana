@@ -176,7 +176,13 @@ TEST_F(DrainTests, testRecvDrain)
   EXPECT_EQ(MPI_Comm_dup(_comm, &newcomm), MPI_SUCCESS);
   EXPECT_EQ(MPI_Type_size(MPI_INT, &size), MPI_SUCCESS);
   for (int i = 0; i < TWO; i++) {
-    EXPECT_EQ(MPI_Irecv(&rbuf, 1, MPI_INT, 0, 0, newcomm, &reqs[i]),
+    int source = 0;
+    int tag = 0;
+    if (i == 0) {
+      source = MPI_ANY_SOURCE;
+      tag = MPI_ANY_TAG;
+    }
+    EXPECT_EQ(MPI_Irecv(&rbuf, 1, MPI_INT, source, tag, newcomm, &reqs[i]),
               MPI_SUCCESS);
     addPendingRequestToLog(IRECV_REQUEST, NULL, &rbuf, 1,
                            MPI_INT, 0, 0, newcomm, reqs[i]);
@@ -206,6 +212,7 @@ TEST_F(DrainTests, testRecvDrain)
 int
 main(int argc, char **argv, char **envp)
 {
+  initializeJalib();
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }
