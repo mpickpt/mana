@@ -562,7 +562,9 @@ namespace dmtcp_mpi
 	        return false;
             }
 	  };
-        remove_if(_records.begin(), _records.end(), isStaleRequest);
+        mpi_record_vector_iterator_t it =
+          remove_if(_records.begin(), _records.end(), isStaleRequest);
+	_records.erase(it, _records.end());
       }
 
       // Returns true if we are currently replaying the MPI calls
