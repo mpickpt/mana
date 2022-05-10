@@ -106,6 +106,7 @@ USER_DEFINED_WRAPPER(int, Test, (MPI_Request*) request,
   if (retval == MPI_SUCCESS && *flag && MPI_LOGGING()) {
     clearPendingRequestFromLog(*request);
     REMOVE_OLD_REQUEST(*request);
+    LOG_REMOVE_REQUEST(*request); // remove from record-replay log
     *request = MPI_REQUEST_NULL;
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -285,8 +286,9 @@ USER_DEFINED_WRAPPER(int, Wait, (MPI_Request*) request, (MPI_Status*) status)
 #endif
     }
     if (flag && MPI_LOGGING()) {
-      clearPendingRequestFromLog(*request);
-      REMOVE_OLD_REQUEST(*request);
+      clearPendingRequestFromLog(*request); // Remove from g_async_calls
+      REMOVE_OLD_REQUEST(*request); // Remove from virtual id
+      LOG_REMOVE_REQUEST(*request); // Remove from record-replay log
       *request = MPI_REQUEST_NULL;
     }
     DMTCP_PLUGIN_ENABLE_CKPT();
