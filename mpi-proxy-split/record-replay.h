@@ -98,6 +98,9 @@ namespace dmtcp_mpi
     TYPE_MPI_USER_FNC,
   };
 
+  // Restores the MPI requests and returns MPI_SUCCESS on success
+  extern int restoreRequests(const MpiRecord& );
+
   // Struct for saving arbitrary function arguments
   struct FncArg
   {
@@ -330,7 +333,13 @@ namespace dmtcp_mpi
         MpiRecord *rec = new MpiRecord(cb, type, (void*)fPtr);
         if (rec) {
           rec->addArgs(args...);
-          _records.push_back(rec);
+	  if (type == GENERATE_ENUM(Ibarrier) ||
+              type == GENERATE_ENUM(Ireduce) ||
+	      type == GENERATE_ENUM(Ibcast)) {
+            _recordRequests.push_back(rec);
+	  } else {
+            _records.push_back(rec);
+	  }
         }
         return rec;
       }
@@ -342,6 +351,12 @@ namespace dmtcp_mpi
         lock_t lock(_mutex);
         _replayOn = true;
         for (MpiRecord* rec : _records) {
+          rc = rec->play();
+          if (rc != MPI_SUCCESS) {
+            break;
+          }
+        }
+	for (MpiRecord* rec : _recordRequests) {
           rc = rec->play();
           if (rc != MPI_SUCCESS) {
             break;
@@ -563,8 +578,8 @@ namespace dmtcp_mpi
             }
 	  };
         mpi_record_vector_iterator_t it =
-          remove_if(_records.begin(), _records.end(), isStaleRequest);
-	_records.erase(it, _records.end());
+          remove_if(_recordRequests.begin(), _recordRequests.end(), isStaleRequest);
+	_recordRequests.erase(it, _recordRequests.end());
       }
 
       // Returns true if we are currently replaying the MPI calls
@@ -580,6 +595,7 @@ namespace dmtcp_mpi
       // Pvt. constructor
       MpiRecordReplay()
         : _records(),
+	  _recordRequests(),
           _replayOn(false),
           _mutex()
       {
@@ -587,6 +603,7 @@ namespace dmtcp_mpi
 
       // Virtual Ids Table
       dmtcp::vector<MpiRecord*> _records;
+      dmtcp::vector<MpiRecord*> _recordRequests;
       // True on restart, false otherwise
       bool _replayOn;
       // Lock on list
@@ -608,9 +625,6 @@ namespace dmtcp_mpi
 
   // Restores the MPI ops and returns MPI_SUCCESS on success
   extern int restoreOps(const MpiRecord& );
-
-  // Restores the MPI requests and returns MPI_SUCCESS on success
-  extern int restoreRequests(const MpiRecord& );
 
 }; // namespace dmtcp_mpi
 
