@@ -38,7 +38,7 @@
 # include "mpi_collective_p2p.c"
 #endif
 
-#define NO_BARRIER_BCAST
+// #define NO_BARRIER_BCAST
 using namespace dmtcp_mpi;
 
 #ifndef MPI_COLLECTIVE_P2P
@@ -90,6 +90,9 @@ USER_DEFINED_WRAPPER(int, Bcast,
     retval = NEXT_FUNC(Bcast)(buffer, count, realType, root, realComm);
     RETURN_TO_UPPER_HALF();
     DMTCP_PLUGIN_ENABLE_CKPT();
+    // Call MPI_Barrier in the critical section to wait until all rank in the
+    // communictor finished.
+    MPI_Barrier(comm);
     return retval;
   };
   return twoPhaseCommit(comm, realBarrierCb);
