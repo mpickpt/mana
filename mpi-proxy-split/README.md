@@ -39,19 +39,17 @@ See `man mana` or `nroff -man MANA_ROOT_DIR/manpages/mana.1` for the MANA man pa
 
 ## 1. Setting up MANA from its Github repository
 
-   In this tutorial, we'll install MANA in the `$HOME` directory.
+   In this tutorial, we'll install MANA in the `$HOME` directory, but really
+   it's up to your personal preference where you want to install it.
 
    ```bash
-   $ cd $HOME
    $ git clone https://github.com/mpickpt/mana.git
    $ cd mana
-   $ export MANA_ROOT=$HOME/mana
+   $ export MANA_ROOT=$PWD
 
-   # The feature/dmtcp-master branch is for the alpha version of MANA. Skip the
-   # next two lines and use the master branch if this is not the alpha version.
-
-   $ git fetch origin feature/dmtcp-master:feature/dmtcp-master
-   $ git checkout feature/dmtcp-master
+   # As of this writing, `git clone` will import the feature/dmtcp-master branch
+   # (the alpha version of MANA) as the default branch when it clones MANA.
+   # Soon, `git clone` will import the master branch as the default.
    ```
 
 ## 2. Building MANA
@@ -80,6 +78,15 @@ modified according to your needs.
    ```bash
    $ salloc -N 1 -C haswell -q interactive -t 01:00:00
    ```
+
+There are many MPI test programs to use for testing MANA in the directory
+$MANA_ROOT/mpi-proxy-split/test. MANA currently uses files of type `.mana.exe`.
+
+This restriction will be removed in the future, and MANA will handle MPI
+applications compiled in your favorite way. Currently, to create a `.mana.exe`
+file, go to the test directory and delete the `ping_pong.mana.exe` file and do
+`make ping_pong.mana.exe`. Then follow that recipe for compiling your own code
+for MANA.
 
 ### 3a. Launching an MPI application
 
@@ -148,6 +155,39 @@ To see if a coordinator (or other process) is already running, do:
 And for the statuses of the various MANA ranks/processes, do:
   ```bash
   $MANA_ROOT/bin/mana_status -l
+  ```
+
+### 3c. Restarting an MPI application
+
+To restart the application, we do the following:
+
+  ```bash
+  $ mana_coordinator
+  $ mpirun -np 1 mana_restart
+  ```
+
+By default, the mana_restart command looks for ckpt_rank_* folders in the
+current directory to restart, and will fail if such folders cannot be found.
+You can use the --restartdir flag of mana_restart to specify which directory
+to look for such folders; more information can be found in Section C of the
+MANA manpage.
+
+Depending on whether there is another instance of mana_coordinator running, we
+may need to either close all other instances or launch a coordinator with a
+port different from the default 7779.
+
+  ```bash
+  $ mana_coordinator -p 7780
+  ```
+
+If the restart is successful, then you should see something similar to the
+following printed:
+
+  ```bash
+  [17847] mtcp_restart.c:803 main:
+    [Rank: 0] Choosing ckpt image: ./ckpt_rank_0/ckpt_mpi_hello_world.mana.exe_
+      7c4af7b7e161f9fd-40000-1000f911e89fa5.dmtcp
+  Signal received; continuing sleep for 294 seconds.
   ```
 
 # Debugging internals of MANA:
@@ -225,6 +265,8 @@ Before going into details, there are a few prerequisites:
     accepts a `-static` flag.  But this is not sufficient for
     actual use.  To configure MANA to work with MPICH and `-static`, see:
       [README.mpich-static](lower-half/README.mpich-static).
+    NOTE: It is planned for MANA to be based primarily on dynamic linking in the
+    near future.
 
 3.  Note `MANA_ROOT_DIR/contrib/mpi-proxy-split/Makefile_configure.in`
     for additional customization (for example, not Cori, not MPICH).
@@ -239,7 +281,13 @@ Before going into details, there are a few prerequisites:
 
 ## Building outside of Cori for MPICH:
  If you have satisfied the prerequisites above, then do `make -j mana`
-and continue as for Cori.
+and continue as for Cori, starting with the Cori instructions:
+
+  ```bash
+  $ git submodule update --init
+  $ ./configure
+  $ make -j mana
+  ```
 
 # Testing and Running without Slurm
 
