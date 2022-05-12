@@ -113,29 +113,38 @@ USER_DEFINED_WRAPPER(int, Test, (MPI_Request*) request,
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, Testall, (int) count, (MPI_Request*) requests,
-                     (int*) flag, (MPI_Status*) statuses)
+USER_DEFINED_WRAPPER(int, Testall, (int) count,
+                     (MPI_Request *) array_of_requests, (int *) flag,
+                     (MPI_Status *) array_of_statuses)
 {
+  // NOTE: See MPI_Testany below for the rationale for these variables.
+  int local_count = count;
+  MPI_Request *local_array_of_requests = array_of_requests;
+  int *local_flag = flag;
+  MPI_Status *local_array_of_statuses = array_of_statuses;
+
   int retval;
   bool incomplete = false;
   // FIXME: Perhaps use Testall directly? But then, need to take care of
   // the services requests
   for (int i = 0; i < count; i++) {
-    if (statuses != MPI_STATUSES_IGNORE) {
-      retval = MPI_Test(&requests[i], flag, &statuses[i]);
+    if (local_array_of_statuses != MPI_STATUSES_IGNORE) {
+      retval = MPI_Test(&local_array_of_requests[i], local_flag,
+                        &local_array_of_statuses[i]);
     } else {
-      retval = MPI_Test(&requests[i], flag, MPI_STATUS_IGNORE);
+      retval = MPI_Test(&local_array_of_requests[i], local_flag,
+                        MPI_STATUS_IGNORE);
     }
     if (retval != MPI_SUCCESS) {
-      *flag = 0;
+      *local_flag = 0;
       break;
     }
-    if (*flag == 0) {
+    if (*local_flag == 0) {
       incomplete = true;
     }
   }
   if (incomplete) {
-    *flag = 0;
+    *local_flag = 0;
   }
   return retval;
 }
@@ -147,7 +156,9 @@ USER_DEFINED_WRAPPER(int, Testany, (int) count,
   // NOTE: We're seeing a weird bug with the Fortran-to-C interface when nimrod
   // is being ran with MANA, where it seems like a Fortran routine is passing
   // these arguments in registers instead of on the stack, which causes the
-  // values inside to be corrupted when a function call returns. We use a
+  // values inside to be corrupted when a function call returns. This seems to
+  // only affect functions that pass an array from Fortran to C - namely
+  // Testall, Testany, Testsome, Waitall, Waitany and Waitsome. We use a
   // temporary workaround below.
   int local_count = count;
   MPI_Request *local_array_of_requests = array_of_requests;
@@ -189,11 +200,16 @@ USER_DEFINED_WRAPPER(int, Waitall, (int) count,
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
 #else
+  // NOTE: See MPI_Testany above for the rationale for these variables.
+  int local_count = count;
+  MPI_Request *local_array_of_requests = array_of_requests;
+  MPI_Status *local_array_of_statuses = array_of_statuses;
+
   for (int i = 0; i < count; i++) {
-    if (array_of_statuses != MPI_STATUSES_IGNORE) {
-      retval = MPI_Wait(&array_of_requests[i], &array_of_statuses[i]);
+    if (local_array_of_statuses != MPI_STATUSES_IGNORE) {
+      retval = MPI_Wait(&local_array_of_requests[i], &local_array_of_statuses[i]);
     } else {
-      retval = MPI_Wait(&array_of_requests[i], MPI_STATUS_IGNORE);
+      retval = MPI_Wait(&local_array_of_requests[i], MPI_STATUS_IGNORE);
     }
     if (retval != MPI_SUCCESS) {
       break;
@@ -352,8 +368,8 @@ PMPI_IMPL(int, MPI_Waitall, int count, MPI_Request array_of_requests[],
           MPI_Status *array_of_statuses)
 PMPI_IMPL(int, MPI_Waitany, int count, MPI_Request array_of_requests[],
           int *index, MPI_Status *status)
-PMPI_IMPL(int, MPI_Testall, int count, MPI_Request *requests,
-          int *flag, MPI_Status *statuses)
+PMPI_IMPL(int, MPI_Testall, int count, MPI_Request array_of_requests[],
+          int *flag, MPI_Status *array_of_statuses)
 PMPI_IMPL(int, MPI_Testany, int count, MPI_Request array_of_requests[],
           int *index, int *flag, MPI_Status *status);
 PMPI_IMPL(int, MPI_Get_elements, const MPI_Status *status,
