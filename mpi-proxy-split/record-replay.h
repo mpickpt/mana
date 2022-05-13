@@ -334,8 +334,9 @@ namespace dmtcp_mpi
         MpiRecord *rec = new MpiRecord(cb, type, (void*)fPtr);
         if (rec) {
           rec->addArgs(args...);
+          _records.push_back(rec);
+          MPI_Request req;
 	  switch (type) {
-            MPI_Request req;
             case GENERATE_ENUM(Ibarrier):
               req = rec->args(1);
 	      _recordsMap[req] = 0;
@@ -350,7 +351,6 @@ namespace dmtcp_mpi
 	      break;
 	    default: break;
           }
-          _records.push_back(rec);
         }
         return rec;
       }
@@ -374,8 +374,10 @@ namespace dmtcp_mpi
 	    req = rec->args(5);
 	    break;
 	  }
-	  if (req != MPI_REQUEST_NULL && _recordsMap[req] == 1) {
-            continue; // Don't replay the finished request
+	  if (req != MPI_REQUEST_NULL) {
+	    auto iter = _recordsMap.find(req);
+            if (iter->second == 1)
+              continue; // Don't replay the finished request
 	  }
           rc = rec->play();
           if (rc != MPI_SUCCESS) {
@@ -575,10 +577,11 @@ namespace dmtcp_mpi
       void removeRequestLog(MPI_Request request)
       {
         lock_t lock(_mutex);
-	if (_recordsMap.find(request) == _recordsMap.end()) {
+	auto iter = _recordsMap.find(request);
+	if (iter == _recordsMap.end()) {
           return;
 	} else {
-	  _recordsMap[request] = 1; // finished
+	  iter->second = 1; // finished
 	}
       }
 
