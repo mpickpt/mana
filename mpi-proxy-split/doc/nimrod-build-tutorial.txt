@@ -12,8 +12,8 @@ instructions to gain access to the repository can be found here:
   https://nimrodteam.org/code_access.html
 
 On Cori, the NIMROD repository has already been installed. However, it's likely
-that you will not have access to it unless it's been granted prior - email
-Jacob King (jking@txcorp.com) or an mp21 co-PI for access.
+that you will not have access to it unless it's been granted prior. See the
+above URL for information on how to get access.
 
 2. Preparing to build NIMROD
 
@@ -58,7 +58,7 @@ process.
 
 ### ON CORI ###
 
-Up to date configure and build scripts are available on Cori - the directory
+Up-to-date configure and build scripts are available on Cori - the directory
 containing these scripts can be found in configscripts/NERSC. Make a copy of
 these scripts in another directory, depending on whether you require a serial
 or parallel build:
@@ -70,20 +70,22 @@ In this tutorial, we'll use the parallel build of NIMROD.
 In cori.nersc.gov-nimdevel-par-config.sh, you'll have to change two environment
 variables:
 
-  * -DCMAKE_INSTALL_PREFIX:PATH=...    # set to directory to install NIMROD in
-  * -DSUPRA_SEARCH_PATH:PATH='...' ... # set directory OUTSIDE apostrophes to
-                                       # where NIMROD source files are
+  # set this variable to wherever you want to install NIMROD
+  * -DCMAKE_INSTALL_PREFIX:PATH=dir1:dir2:...
+  # set the directories after the apostrophe to where your NIMROD source files
+  # are - for instance, replace `dir3:dir4:...`
+  * -DSUPRA_SEARCH_PATH:PATH='dir1:dir2:...' dir3:dir4:... 
 
 Then run the configure script, followed by the build script. This will install
 NIMROD in the former directory.
 
 ### ON CENTOS 7 AND CENTOS STREAM ###
 
-## FIRST BUILD ##
+## BUILDING NIMROD ##
 
-The initial build on other operating systems is done with the mknimall.sh
-script. There are a few flags of note; you may view the rest by running the
-script with the -h flag:
+Building on other operating systems is done with the mknimall.sh script. There
+are a few flags to note; you may view the rest by running the script with the -h
+flag:
 
   * -b <build_dir> ... Build in <build_dir>. By default, this is wherever nimall
                        is.
@@ -107,8 +109,10 @@ best:
 
   $ ./mknimall.sh -F -j 8 -t
 
-It's unlikely that the build will succeed on the first time. The script creates
-a new directory, builds, in <build_dir>:
+See below for comments on cases where NIMROD failed to build on the first try,
+and we had to then modify portion and re-build.
+
+The script creates a new directory, builds, in <build_dir>:
 
 .
 +-- nimall
@@ -123,11 +127,11 @@ a new directory, builds, in <build_dir>:
 |       +-- ...
 |   +-- ...
 
-The builds directory contains the source code for all the packages used in
-NIMROD's build process. If the packages need to be rebuilt (for instance, a
+The 'builds' directory contains the source code for all the packages used in
+NIMROD's build process. If the packages need to be rebuilt (for instance, if a
 debug version of MPICH is desired), they can be built separately.
 
-It also contains logs on the previous build processes. To debug the build
+It also contains logs of the previous build processes. To debug the build
 process, it's helpful to look at the latest mknimall.log, which will show the
 following:
 
@@ -146,7 +150,7 @@ following:
   No tests were run.
 
 Here, we can gather which packages failed, and where in the process. The log
-also gives more detailed information in each sub-section:
+also gives more detailed information in each subsection:
 
     Bilder examining netcdf_fortran (2022-04-06-23:47:45)
   ========================================================
@@ -191,7 +195,51 @@ Some issues that you may face are:
                                           python3 -m pip install --user tables
   * superlu_dist7 built but not found . See the -F flag above more details.
 
-## SUBSEQUENT BUILDS ##
+4. Testing NIMROD
+
+### ON CORI ###
+
+Please ask an administrator for access to the test case on Cori.
+
+To run it, navigate to the given directory. Either submit a batch script or run
+it manually.
+
+  $ salloc -N 11 -C haswell -q interactive -t 00:15:00 # customize yourself
+  $ mana_coordinator # optionally; refer to MANA documentation for installation
+  $ srun \
+      --ntasks=88 \
+      --ntasks-per-node=8 \
+      --cpus-per-task=2 \
+      --cpu-bind=cores \
+      MANA_BIN/mana_launch \   # optionally
+      /path/to/nimrod
+
+The test case provided on Cori has to be ran with the number of MPI ranks being
+a multiple of 11. This corresponds to the number of tasks.
+
+### ON CENTOS 7 AND CENTOS STREAM ###
+
+The source code of the test cases can be found in nimall/nimtests/tests. If the
+mknimall.sh was run with the -t flag, the following scripts should be found in
+the nimall/nimtests directory:
+  * reached-nimtests-all-config.sh
+  * reached-nimtests-all-build.sh
+
+As above, run the configure script followed by the build script, and refer to
+the respective .txt files for debugging.
+
+On the first run of reached-nimtests-all-build.sh or the first time calling
+`make runtests`, all tests will fail. This is because NIMROD's tests check for
+completion and correctness. The tests will not only run until they are finished,
+but also check against a previous iteration's results. To populate the
+results directory, run `make replace` after running the tests after the first
+time.
+
+To run a test individually, navigate to its directory. Each test in the
+directory has a script that will set up the necessary paths and variables, run
+nimset to generate the dump file, run nimrod, and do some clean-up.
+
+5. Appendix for developers: modifying and re-building NIMROD
 
 As best written in the DEVELOPMENT WORKFLOW section of nimall/builds:
 
@@ -229,45 +277,3 @@ As best written in the DEVELOPMENT WORKFLOW section of nimall/builds:
   When new source files are added, the corresponding CMakeLists.txt file must be
   changed in the source code directory and the new file added to the svn repo.
 
-4. Testing NIMROD
-
-### ON CORI ###
-
-Please ask Zhengji Zhao (zzhao@lbl.gov) for access to the test case on Cori.
-
-To run it, navigate to the given directory. Either submit a batch script or run
-it manually.
-
-  $ salloc -N 11 -C haswell -q interactive -t 00:15:00 # customize yourself
-  $ mana_coordinator # optionally; refer to MANA documentation for installation
-  $ srun \
-      --ntasks=88 \
-      --ntasks-per-node=8 \
-      --cpus-per-task=2 \
-      --cpu-bind=cores \
-      MANA_BIN/mana_launch \   # optionally
-      /path/to/nimrod
-
-The test case provided on Cori has to be ran with a multiple of 11 number of
-ranks - this corresponds to the number of tasks.
-
-### ON CENTOS 7 AND CENTOS STREAM ###
-
-The source code of the test cases can be found in nimall/nimtests/tests. If the
-mknimall.sh was ran with the -t flag, the following scripts should be found in
-the nimall/nimtests directory:
-  * reached-nimtests-all-config.sh
-  * reached-nimtests-all-build.sh
-
-Like above, run the configure script followed by the build script, and refer to
-the respective .txt files to debug.
-
-On the first run of reached-nimtests-all-build.sh or make runtests, all tests
-will fail. This is because NIMROD's tests check for completion and correctness -
-the tests will not only run until they are finished, but also check against a
-previous iteration's results. To populate the results directory, run `make
-replace` after running the tests after the first time.
-
-To run a test individually, navigate to its directory. Each test in the
-directory has a script that will set up the necessary paths and variables, run
-nimset to generate the dump file, run nimrod, and do some clean-up.
