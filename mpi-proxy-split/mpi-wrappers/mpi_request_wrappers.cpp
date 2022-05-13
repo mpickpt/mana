@@ -173,7 +173,6 @@ USER_DEFINED_WRAPPER(int, Testany, (int) count,
     if (local_array_of_requests[i] == MPI_REQUEST_NULL) {
       continue;
     }
-    *local_flag = 0;
     retval = MPI_Test(&local_array_of_requests[i], local_flag, local_status);
     if (retval != MPI_SUCCESS) {
       break;
