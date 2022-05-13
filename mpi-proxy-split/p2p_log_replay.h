@@ -87,10 +87,6 @@ extern int g_world_size; // Total number of ranks in the current computation
 // world size match the globally stored values in the plugin
 extern void getLocalRankInfo();
 
-// Sets the name of the checkpoint directory of the current process to
-// "ckpt_rank_<RANK>", where RANK is the MPI rank of the process.
-extern void updateCkptDirByRank();
-
 // Restores the state of MPI P2P communication by replaying any pending
 // MPI_Isend and MPI_Irecv requests post restart
 extern void replayMpiP2pOnRestart();

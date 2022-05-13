@@ -19,9 +19,6 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include <fcntl.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <mpi.h>
 #include <pthread.h>
 #include <map>
@@ -59,37 +56,6 @@ getLocalRankInfo()
     JASSERT(MPI_Comm_size(MPI_COMM_WORLD, &g_world_size) == MPI_SUCCESS &&
         g_world_size != -1);
   }
-}
-
-void
-updateCkptDirByRank()
-{
-  const char *ckptDir = dmtcp_get_ckpt_dir();
-  dmtcp::string baseDir;
-
-  if (strstr(ckptDir, "ckpt_rank_") != NULL) {
-    baseDir = jalib::Filesystem::DirName(ckptDir);
-  } else {
-    baseDir = ckptDir;
-  }
-  JTRACE("Updating checkpoint directory")(ckptDir)(baseDir);
-  dmtcp::ostringstream o;
-  o << baseDir << "/ckpt_rank_" << g_world_rank;
-  dmtcp_set_ckpt_dir(o.str().c_str());
-
-  if (!g_list || g_numMmaps == 0) return;
-  o << "/lhregions.dat";
-  dmtcp::string fname = o.str();
-  int fd = open(fname.c_str(), O_CREAT | O_WRONLY, 0600);
-#if 0
-  // g_range (lh_memory_range) was written for debugging here.
-  Util::writeAll(fd, g_range, sizeof(*g_range));
-#endif
-  Util::writeAll(fd, &g_numMmaps, sizeof(g_numMmaps));
-  for (int i = 0; i < g_numMmaps; i++) {
-    Util::writeAll(fd, &g_list[i], sizeof(g_list[i]));
-  }
-  close(fd);
 }
 
 void
