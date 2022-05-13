@@ -1,0 +1,279 @@
+This document outlines the necessary steps to take to install and compile
+NIMROD on Cori, CentOS 7 and CentOS Stream, as well as testing or running it
+natively or with MANA.
+
+A. INSTALLING AND COMPILING NIMROD
+
+1. Installing the NIMROD repository
+
+The NIMROD repository is only available to active collaborators. The
+instructions to gain access to the repository can be found here:
+
+  https://nimrodteam.org/code_access.html
+
+On Cori, the NIMROD repository has already been installed. However, it's likely
+that you will not have access to it unless it's been granted prior. See the
+above URL for information on how to get access.
+
+2. Preparing to build NIMROD
+
+On CentOS 7 and CentOS Stream, Bilder requires some packages prior to building.
+More information can be found here:
+
+  https://ice.txcorp.com:3000/projects/bilder/wiki/Preparing_a_Linux_machine_for_Bilder
+
+The following sections are of particular note:
+  * Java
+  * GCC
+  * Python 3
+  * Additional packages
+
+3. Building NIMROD
+
+NIMROD has the following repository structure:
+
+.
++-- nimall
+|   +-- bilder
+|   +-- bilderconf
+|   +-- configscripts
+|       +-- NERSC
+|   +-- fciowrappers
+|   +-- nimdevel
+|   +-- nimtests
+|   +-- superlu_dist7
+|   +-- xdraw
+|   +-- BUILD
+|   +-- H5VISIT
+|   +-- MAIL
+|   +-- NERSC
+|   +-- SVN
+|   +-- TESTING
+|   +-- externalrepos.sh
+|   +-- mknimall.sh
+
+The nimall directory contains NIMROD's source code (in lowercase), documentation
+for building or testing (capitalized), and scripts that help the installation
+process.
+
+### ON CORI ###
+
+Up-to-date configure and build scripts are available on Cori - the directory
+containing these scripts can be found in configscripts/NERSC. Make a copy of
+these scripts in another directory, depending on whether you require a serial
+or parallel build:
+  * cori.nersc.gov-nimdevel-{ser,par}-build.sh
+  * cori.nersc.gov-nimdevel-{ser,par}-config.sh
+
+In this tutorial, we'll use the parallel build of NIMROD.
+
+In cori.nersc.gov-nimdevel-par-config.sh, you'll have to change two environment
+variables:
+
+  # set this variable to wherever you want to install NIMROD
+  * -DCMAKE_INSTALL_PREFIX:PATH=dir1:dir2:...
+  # set the directories after the apostrophe to where your NIMROD source files
+  # are - for instance, replace `dir3:dir4:...`
+  * -DSUPRA_SEARCH_PATH:PATH='dir1:dir2:...' dir3:dir4:... 
+
+Then run the configure script, followed by the build script. This will install
+NIMROD in the former directory.
+
+### ON CENTOS 7 AND CENTOS STREAM ###
+
+## BUILDING NIMROD ##
+
+Building on other operating systems is done with the mknimall.sh script. There
+are a few flags to note; you may view the rest by running the script with the -h
+flag:
+
+  * -b <build_dir> ... Build in <build_dir>. By default, this is wherever nimall
+                       is.
+  * -F ............... Force installation of packages that have local
+                         modifications. On CentOS 7, there seems to be an issue
+                         whereby the build process modifies the SuperLU_DIST
+                         source as part of the build process, and the script
+                         doesn't install the package. Consequently, the
+                         parallel version of NIMROD can't find it to link, and
+                         is built without it, causing subsequent run-time
+                         problems.
+  * -f ............... Install all packages.
+  * -i <install_dir> . Set comma delimited list of installation directories for
+                         code in subdirs. By default, this is $HOME/software.
+  * -j <n> ........... Maximum number of build processes summed over all builds.
+                         NIMROD will take about 40 minutes to build if n=1.
+  * -t ............... Run tests after building.
+
+Run the mknimall.sh with the necessary flags. I've found the following to work
+best:
+
+  $ ./mknimall.sh -F -j 8 -t
+
+See below for comments on cases where NIMROD failed to build on the first try,
+and we had to then modify portion and re-build.
+
+The script creates a new directory, builds, in <build_dir>:
+
+.
++-- nimall
+|   +-- builds
+|       +-- ...
+|       +-- cmake-3.20.3
+|       +-- ...
+|       +-- mpich-3.4.2
+|       +-- ...
+|       +-- mknimall.log
+|       +-- mknimall-summary.txt
+|       +-- ...
+|   +-- ...
+
+The 'builds' directory contains the source code for all the packages used in
+NIMROD's build process. If the packages need to be rebuilt (for instance, if a
+debug version of MPICH is desired), they can be built separately.
+
+It also contains logs of the previous build processes. To debug the build
+process, it's helpful to look at the latest mknimall.log, which will show the
+following:
+
+  SUMMARY
+
+  illios executed ./mknimall.sh -t -j 8 on reached at Fri Apr 22 11:26:44 PDT 2022.
+
+  SUCCESS - Installations: ...
+
+  Configure successes: ...
+  Configure failures: ... 
+  Build successes: ...
+  Build failures: ... 
+  Installation successes: ... 
+  Installation failures: ...
+  No tests were run.
+
+Here, we can gather which packages failed, and where in the process. The log
+also gives more detailed information in each subsection:
+
+    Bilder examining netcdf_fortran (2022-04-06-23:47:45)
+  ========================================================
+  buildNetcdf_fortran already known.
+  [buildChain] Dependencies are NETCDF_FORTRAN_DEPS = netcdf hdf5 cmake.
+  [buildChain] Builds are NETCDF_FORTRAN_BUILDS = sersh par.
+
+  [buildChain] EXECUTING buildNetcdf_fortran
+  ...
+  Package netcdf_fortran-4.2-par failed to configure at 2022-04-06-23:47:51.
+
+  [buildChain] EXECUTING testNetcdf_fortran
+  ...
+
+  [buildChain] EXECUTING installNetcdf_fortran
+  ...
+
+  [buildChain] EXECUTING findNetcdf_fortran
+  ...
+
+Bilder checks the installation of each package in three steps and reports its
+status at the end of each step. In the example above, netcdf_fortran failed to
+configure. nimall/BUILD summarizes the debugging steps succinctly:
+
+  For a successfully installed package there are three shell scripts created in
+  the build directory (see below) corresponding to each step. These scripts are
+  named *-config.sh, *-build.sh and *-install.sh where the wildcard value is
+  machine and package dependent. There are also three output files corresponding
+  to each step, *-config.txt, *-build.txt and *-install.txt. When a package
+  fails on a step, the first thing to check is the error located in the output
+  file corresponding to the failed step.
+
+Some issues that you may face are:
+  * conflicting gfortran packages ..... devtoolset-8-gcc-gfortran should be
+                                        necessary.
+  * conflicting BLAS packages ......... blas-static and openblas-static should
+                                        be necessary. Note that the former
+                                        doesn't exist on CentOS Stream.
+  * PyTables not installed ............ Install PyTables for Python 3:
+                                          python3 -m pip install --user packaging
+                                          python3 -m pip install --user numpy
+                                          python3 -m pip install --user tables
+  * superlu_dist7 built but not found . See the -F flag above more details.
+
+4. Testing NIMROD
+
+### ON CORI ###
+
+Please ask an administrator for access to the test case on Cori.
+
+To run it, navigate to the given directory. Either submit a batch script or run
+it manually.
+
+  $ salloc -N 11 -C haswell -q interactive -t 00:15:00 # customize yourself
+  $ mana_coordinator # optionally; refer to MANA documentation for installation
+  $ srun \
+      --ntasks=88 \
+      --ntasks-per-node=8 \
+      --cpus-per-task=2 \
+      --cpu-bind=cores \
+      MANA_BIN/mana_launch \   # optionally
+      /path/to/nimrod
+
+The test case provided on Cori has to be ran with the number of MPI ranks being
+a multiple of 11. This corresponds to the number of tasks.
+
+### ON CENTOS 7 AND CENTOS STREAM ###
+
+The source code of the test cases can be found in nimall/nimtests/tests. If the
+mknimall.sh was run with the -t flag, the following scripts should be found in
+the nimall/nimtests directory:
+  * reached-nimtests-all-config.sh
+  * reached-nimtests-all-build.sh
+
+As above, run the configure script followed by the build script, and refer to
+the respective .txt files for debugging.
+
+On the first run of reached-nimtests-all-build.sh or the first time calling
+`make runtests`, all tests will fail. This is because NIMROD's tests check for
+completion and correctness. The tests will not only run until they are finished,
+but also check against a previous iteration's results. To populate the
+results directory, run `make replace` after running the tests after the first
+time.
+
+To run a test individually, navigate to its directory. Each test in the
+directory has a script that will set up the necessary paths and variables, run
+nimset to generate the dump file, run nimrod, and do some clean-up.
+
+5. Appendix for developers: modifying and re-building NIMROD
+
+As best written in the DEVELOPMENT WORKFLOW section of nimall/builds:
+
+  Rebuilding with bilder is not required when a change is made to the NIMROD
+  source files. In fact, rebuilding with bilder is also not recommended for
+  development.  If an svn repo is not clean (e.g. nimall/nimdevel has local
+  modifications) bilder will not install the code unless passed the -F flag. If
+  the -F flag is passed the modified code will be installed with the -rXXXXM tag
+  where XXXX is the svn repo revision number.  The softlinks in the $NIMSOFT
+  (install) directory will be updated to point to this installation and thus the
+  binary placed in the PATH variable when nimall.sh is sourced will be updated.
+  
+  The recommended workflow for development is work directly in the <build
+  directory>/nimdevel/<ser/par> directories with debug builds (see below).
+  Execute
+  
+    $ make
+  
+  to rebuild and incorporate your changes. Use
+  
+    $ make -j4
+  
+  to build in parallel with 4 processors. These commands will produce a modified
+  binaries in the <build directory>/nimdevel/<ser/par>/bin directory. One can
+  install these binaries with
+  
+    $ make install
+  
+  however this is not recommended as it will corrupt the installation directory
+  naming system. NIMROD uses a cmake build system and available build targets
+  are shown with
+  
+    $ make help
+  
+  When new source files are added, the corresponding CMakeLists.txt file must be
+  changed in the source code directory and the new file added to the svn repo.
+
