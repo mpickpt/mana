@@ -37,9 +37,13 @@ LIBOBJS = mpi_plugin.o p2p_drain_send_recv.o p2p_log_replay.o \
 
 LIBPROXY = libproxy.a
 
+# Modify if your MANA_ROOT is located elsewhere.
+ifndef MANA_ROOT
+  MANA_ROOT=..
+endif
 # Modify if your DMTCP_ROOT is located elsewhere.
 ifndef DMTCP_ROOT
-  DMTCP_ROOT=../dmtcp
+  DMTCP_ROOT=${MANA_ROOT}/dmtcp
 endif
 DMTCP_INCLUDE=${DMTCP_ROOT}/include
 JALIB_INCLUDE=${DMTCP_ROOT}/jalib
@@ -93,28 +97,28 @@ check: libmana.so ${LOWER_HALF_SRCDIR}/lh_proxy ./autotest.py
 check-unit: libmana.so
 	@make -C unit-test/ check
 
-${DMTCP_ROOT}/lib/dmtcp/libmana.so: libmana.so
+${MANA_ROOT}/lib/dmtcp/libmana.so: libmana.so
 	cp -f $< $@
-${DMTCP_ROOT}/lib/dmtcp/libmpistub.so:
+${MANA_ROOT}/lib/dmtcp/libmpistub.so:
 	make -C ${WRAPPERS_SRCDIR} install
-${DMTCP_ROOT}/bin/lh_proxy:
+${MANA_ROOT}/bin/lh_proxy:
 	make -C ${LOWER_HALF_SRCDIR} install
-${DMTCP_ROOT}/bin/gethostbyname_proxy:
+${MANA_ROOT}/bin/gethostbyname_proxy:
 	make -C ${LOWER_HALF_SRCDIR}/gethostbyname-static install
-${DMTCP_ROOT}/bin/mana_p2p_update_logs: ${WRAPPERS_SRCDIR}/mana_p2p_update_logs.c
+${MANA_ROOT}/bin/mana_p2p_update_logs: ${WRAPPERS_SRCDIR}/mana_p2p_update_logs.c
 	make -C ${WRAPPERS_SRCDIR} install
 
 # ${WRAPPERS_SRCDIR}/libmpiwrappers.a ia a prerequisite for libmana.so,
-#   which is a prerequisite for ${DMTCP_ROOT}/lib/dmtcp/libmana.so
+#   which is a prerequisite for ${MANA_ROOT}/lib/dmtcp/libmana.so
 # Always do 'make default' or 'make install' -- not 'make libmana.so'
 # MANA_COORD_OBJS needed for 'make mana' at top level.
 install: ${MANA_COORD_OBJS}
 	make -C ${WRAPPERS_SRCDIR} libmpiwrappers.a
-	make ${DMTCP_ROOT}/lib/dmtcp/libmana.so
-	make ${DMTCP_ROOT}/lib/dmtcp/libmpistub.so
-	make ${DMTCP_ROOT}/bin/lh_proxy
-	make ${DMTCP_ROOT}/bin/gethostbyname_proxy
-	make ${DMTCP_ROOT}/bin/mana_p2p_update_logs
+	make ${MANA_ROOT}/lib/dmtcp/libmana.so
+	make ${MANA_ROOT}/lib/dmtcp/libmpistub.so
+	make ${MANA_ROOT}/bin/lh_proxy
+	make ${MANA_ROOT}/bin/gethostbyname_proxy
+	make ${MANA_ROOT}/bin/mana_p2p_update_logs
 
 tidy:
 	rm -f *~ .*.swp dmtcp_restart_script*.sh ckpt_*.dmtcp
@@ -123,7 +127,7 @@ tidy:
 clean: tidy
 	rm -f ${LIBOBJS} ${MANA_COORD_OBJS}
 	rm -f libmana.so
-	rm -f ${DMTCP_ROOT}/lib/dmtcp/libmana.so
+	rm -f ${MANA_ROOT}/lib/dmtcp/libmana.so
 	@cd ${LOWER_HALF_SRCDIR} && make clean
 	@cd ${WRAPPERS_SRCDIR} && make clean
 

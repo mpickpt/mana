@@ -26,5 +26,5 @@ dist: clean
 
 install:
 	make gethostbyname_proxy
-	cp gethostbyname_proxy -f ../../../../bin
+	cp -f gethostbyname_proxy ../../../bin/
 
