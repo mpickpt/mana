@@ -336,6 +336,8 @@ namespace dmtcp_mpi
           rec->addArgs(args...);
           _records.push_back(rec);
           MPI_Request req;
+	  // All collective calls are translated in MANA to the async calls Ibarrier/Ireduce/Ibcast.
+	  // If MANA uses other async calls, we need other cases.
 	  switch (type) {
             case GENERATE_ENUM(Ibarrier):
               req = rec->args(1);
