@@ -268,6 +268,7 @@ In this tutorial, we'll install MANA in the home directory.
   $ cd $HOME
   $ git clone https://github.com/mpickpt/mana.git
   $ cd mana
+  $ git submodule update --init
   $ ./configure-mana
   $ make -j mana
 
