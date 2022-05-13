@@ -68,8 +68,13 @@ See `man mana` or `nroff -man MANA_ROOT_DIR/manpages/mana.1` for the MANA man pa
    For convenience, add the MANA bin directory to your PATH.
  
    ```bash
+   $ export PATH=$PATH:$MANA_ROOT/bin
+   ```
+   
+   Optionally, you can make this path persistent by doing:
+
+   ```bash
    $ echo 'export PATH=$PATH:$MANA_ROOT/bin' >> ~/.bashrc
-   $ source ~/.bashrc
    ```
  
    On Cori, we need to allocate resources to run a job. The command above can be
