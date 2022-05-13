@@ -8,9 +8,13 @@ LIBPROXY = libproxy
 LIBPROXY_OBJS = libproxy.o procmapsutils.o sbrk.o mmap64.o munmap.o \
 		shmat.o shmget.o
 
+# Modify if your MANA_ROOT is located elsewhere.
+ifndef MANA_ROOT
+  MANA_ROOT=../..
+endif
 # Modify if your DMTCP_ROOT is located elsewhere.
 ifndef DMTCP_ROOT
-  DMTCP_ROOT=../../dmtcp
+  DMTCP_ROOT=${MANA_ROOT}/dmtcp
 endif
 
 ifndef PLUGIN_ROOT
@@ -38,7 +42,7 @@ ${STATIC_GETHOSTBYNAME}: gethostbyname-static/gethostbyname_static.c \
                          gethostbyname-static/gethostbyname_proxy.c
 	cd gethostbyname-static && make gethostbyname_static.o
 	cd gethostbyname-static && make gethostbyname_proxy
-	cp gethostbyname-static/gethostbyname_proxy -f ${DMTCP_ROOT}/bin/
+	cp -f gethostbyname-static/gethostbyname_proxy ${MANA_ROOT}/bin/
 endif
 
 .c.o:
@@ -72,7 +76,7 @@ ${LIBPROXY}.a: ${LIBPROXY_OBJS}
 	ar cr $@ $^
 
 install: ${PROXY_BIN} ${STATIC_GETHOSTBYNAME}
-	cp -f $^ ${DMTCP_ROOT}/bin/
+	cp -f $^ ${MANA_ROOT}/bin/
 
 tidy:
 	rm -f *~ .*.swp dmtcp_restart_script*.sh ckpt_*.dmtcp

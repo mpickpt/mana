@@ -20,9 +20,14 @@ LIBWRAPPER_OBJS = mpi_p2p_wrappers.o mpi_collective_wrappers.o \
                   mpi_win_wrappers.o mpi_file_wrappers.o mpi_error_wrappers.o \
                   p2p-deterministic.o
 
+
+# Modify if your MANA_ROOT is located elsewhere.
+ifndef MANA_ROOT
+  MANA_ROOT=../..
+endif
 # Modify if your DMTCP_ROOT is located elsewhere.
 ifndef DMTCP_ROOT
-  DMTCP_ROOT=../../dmtcp
+  DMTCP_ROOT=${MANA_ROOT}/dmtcp
 endif
 DMTCP_INCLUDE=${DMTCP_ROOT}/include
 JALIB_INCLUDE=${DMTCP_ROOT}/jalib
@@ -78,14 +83,13 @@ mpi_collective_wrappers.o: mpi_collective_wrappers.cpp ../virtual-ids.h \
 	else \
 	  DEFINE_mpi_collective_p2p=""; \
 	fi && \
-	${MPICXX} ${CXXFLAGS} -Wall -DDEBUG \
-	  $$DEFINE_mpi_collective_p2p -fPIC -I../../../include \
-	  -I../../../jalib -I.. -I../../../src -I../lower-half -std=c++11 -c $<
+	${MPICXX} ${CXXFLAGS} -Wall -DDEBUG -fPIC $$DEFINE_mpi_collective_p2p \
+          -I.. -I../lower-half -std=c++11 -c $<
 
 # Some of these functions are also collective; e.g., MPI_Win_allocate_shared
 mpi_win_wrappers.o: mpi_win_wrappers.cpp ../virtual-ids.h
-	${MPICXX} ${CXXFLAGS} -Wall -DDEBUG -fPIC -I../../../include \
-	-I../../../jalib -I.. -I../../../src -I../lower-half -std=c++11 -c $<
+	${MPICXX} ${CXXFLAGS} -Wall -DDEBUG -fPIC \
+          -I.. -I../lower-half -std=c++11 -c $<
 
 # We need to write to mpi_stub_wrappers.c.tmp.$$ first, in case of 'make -j'.
 # The parallel make would generate mpi_stub_wrappers.c 3 times, and overwrite.
@@ -133,21 +137,21 @@ tidy:
 	rm -rf ckpt_rank_*
 
 install: libmpistub.so mana_p2p_update_logs
-	cp -f libmpistub.so ${DMTCP_ROOT}/lib/dmtcp/
-	cd ${DMTCP_ROOT}/lib/dmtcp && \
+	cp -f libmpistub.so ${MANA_ROOT}/lib/dmtcp/
+	cd ${MANA_ROOT}/lib/dmtcp && \
 		ln -sf libmpistub.so libmpich_intel.so.3.0.1 && \
 		ln -sf libmpich_intel.so.3.0.1 libmpich_intel.so.3 && \
 		ln -sf libmpistub.so libmpich_gnu_82.so.3.0.1 && \
 		ln -sf libmpich_gnu_82.so.3.0.1 libmpich_gnu_82.so.3
-	cd ${DMTCP_ROOT}/lib/dmtcp && \
+	cd ${MANA_ROOT}/lib/dmtcp && \
 		ln -sf libmpistub.so libpmi.so.0.5.0 && \
 		ln -sf libpmi.so.0.5.0 libpmi.so.0
-	cp -f mana_p2p_update_logs ${DMTCP_ROOT}/bin/
+	cp -f mana_p2p_update_logs ${MANA_ROOT}/bin/
 
 clean: tidy
 	rm -f ${LIBWRAPPER_OBJS}
 	rm -f ${LIBNAME}.a libmpistub.so
-	rm -f ${DMTCP_ROOT}/lib/dmtcp/libmpistub.so
+	rm -f ${MANA_ROOT}/lib/dmtcp/libmpistub.so
 	rm -f mpi_stub_wrappers.c
 	rm -f p2p-deterministic.h
 	rm -f mpi_unimplemented_wrappers.cpp
@@ -155,7 +159,7 @@ clean: tidy
 	rm -f libmpich_intel.so.3.0.1 libmpich_intel.so.3
 	rm -f libmpich_gnu_82.so.3.0.1 libmpich_gnu_82.so.3
 	rm -f libpmi.so.3.0.1 libpmi.so.0
-	cd ${DMTCP_ROOT}/lib/dmtcp && rm -f libmpich_gnu_82.so.* \
+	cd ${MANA_ROOT}/lib/dmtcp && rm -f libmpich_gnu_82.so.* \
 		libmpich_intel.so.* libpmi.so.*
 
 distclean: clean
