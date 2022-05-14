@@ -28,6 +28,7 @@
 #include <functional>
 #include <mutex>
 #include <typeinfo>
+#include <unordered_map>
 
 #include "jassert.h"
 #include "jconvert.h"
@@ -97,6 +98,9 @@ namespace dmtcp_mpi
     TYPE_VOID_CONST_PTR,
     TYPE_MPI_USER_FNC,
   };
+
+  // Restores the MPI requests and returns MPI_SUCCESS on success
+  extern int restoreRequests(const MpiRecord& );
 
   // Struct for saving arbitrary function arguments
   struct FncArg
@@ -331,6 +335,24 @@ namespace dmtcp_mpi
         if (rec) {
           rec->addArgs(args...);
           _records.push_back(rec);
+          MPI_Request req;
+	  // All collective calls are translated in MANA to the async calls Ibarrier/Ireduce/Ibcast.
+	  // If MANA uses other async calls, we need other cases.
+	  switch (type) {
+            case GENERATE_ENUM(Ibarrier):
+              req = rec->args(1);
+	      _recordsMap[req] = 0;
+	      break;
+	    case GENERATE_ENUM(Ireduce):
+              req = rec->args(7);
+	      _recordsMap[req] = 0;
+	      break;
+	    case GENERATE_ENUM(Ibcast):
+	      req = rec->args(5);
+	      _recordsMap[req] = 0;
+	      break;
+	    default: break;
+          }
         }
         return rec;
       }
@@ -342,6 +364,23 @@ namespace dmtcp_mpi
         lock_t lock(_mutex);
         _replayOn = true;
         for (MpiRecord* rec : _records) {
+          MPI_Request req = MPI_REQUEST_NULL;
+          switch (rec->getType()) {
+          case GENERATE_ENUM(Ibarrier):
+            req = rec->args(1);
+	    break;
+	  case GENERATE_ENUM(Ireduce):
+            req = rec->args(7);
+            break;
+	  case GENERATE_ENUM(Ibcast):
+	    req = rec->args(5);
+	    break;
+	  }
+	  if (req != MPI_REQUEST_NULL) {
+	    auto iter = _recordsMap.find(req);
+            if (iter->second == 1)
+              continue; // Don't replay the finished request
+	  }
           rc = rec->play();
           if (rc != MPI_SUCCESS) {
             break;
@@ -540,31 +579,12 @@ namespace dmtcp_mpi
       void removeRequestLog(MPI_Request request)
       {
         lock_t lock(_mutex);
-	std::function<bool(const MpiRecord*)> isStaleRequest =
-          [request](const MpiRecord *rec) {
-            switch (rec->getType()) {
-              case GENERATE_ENUM(Ibarrier):
-              {
-                MPI_Request req = rec->args(1);
-		return request == req;
-              }
-	      case GENERATE_ENUM(Ireduce):
-	      {
-                MPI_Request req = rec->args(7);
-		return request == req;
-              }
-	      case GENERATE_ENUM(Ibcast):
-	      {
-	        MPI_Request req = rec->args(5);
-                return request == req;
-              }
-	      default:
-	        return false;
-            }
-	  };
-        mpi_record_vector_iterator_t it =
-          remove_if(_records.begin(), _records.end(), isStaleRequest);
-	_records.erase(it, _records.end());
+	auto iter = _recordsMap.find(request);
+	if (iter == _recordsMap.end()) {
+          return;
+	} else {
+	  iter->second = 1; // finished
+	}
       }
 
       // Returns true if we are currently replaying the MPI calls
@@ -587,6 +607,7 @@ namespace dmtcp_mpi
 
       // Virtual Ids Table
       dmtcp::vector<MpiRecord*> _records;
+      std::unordered_map<MPI_Request, int> _recordsMap;
       // True on restart, false otherwise
       bool _replayOn;
       // Lock on list
@@ -608,9 +629,6 @@ namespace dmtcp_mpi
 
   // Restores the MPI ops and returns MPI_SUCCESS on success
   extern int restoreOps(const MpiRecord& );
-
-  // Restores the MPI requests and returns MPI_SUCCESS on success
-  extern int restoreRequests(const MpiRecord& );
 
 }; // namespace dmtcp_mpi
 
