@@ -29,13 +29,34 @@
 #include "protectedfds.h"
 
 #include "record-replay.h"
-#include "p2p_log_replay.h"
+#include "async_comm.h"
 #include "p2p_drain_send_recv.h"
 #include "mpi_plugin.h"
 #include "mpi_nextfunc.h"
 #include "virtual-ids.h"
 // To support MANA_P2P_LOG and MANA_P2P_REPLAY:
 #include "p2p-deterministic.h"
+
+void clean_request(MPI_Request *request) {
+  // Remove the record grom g_async_calls
+  std::unordered_map<MPI_Request, record_t*>::iterator it;
+  it = g_async_calls.find(*request);
+  // Free deep copy params
+  if (it != g_async_calls.end()) {
+    record_t *call = it->second;
+    switch(call->fnc) {
+      case GENERATE_ENUM(Isend):
+        JALLOC_HELPER_FREE(*(void**)call->params[0]);
+        break;
+    }
+    free_record(call);
+    g_async_calls.erase(*request);
+  }
+
+  REMOVE_OLD_REQUEST(*request); // Remove from virtual id
+  LOG_REMOVE_REQUEST(*request); // Remove from record-replay log
+  *request = MPI_REQUEST_NULL;
+}
 
 int MPI_Test_internal(MPI_Request *request, int *flag, MPI_Status *status,
                       bool isRealRequest)
@@ -87,13 +108,13 @@ USER_DEFINED_WRAPPER(int, Test, (MPI_Request*) request,
   // clearPendingRequestFromLog()
   if (*flag && *request != MPI_REQUEST_NULL
       && g_async_calls.find(*request) != g_async_calls.end()
-      && g_async_calls[*request]->type == IRECV_REQUEST) {
+      && g_async_calls[*request]->fnc == GENERATE_ENUM(Irecv)) {
     int count = 0;
     int size = 0;
     MPI_Get_count(statusPtr, MPI_BYTE, &count);
     MPI_Type_size(MPI_BYTE, &size);
     JASSERT(size == 1)(size);
-    MPI_Comm comm = g_async_calls[*request]->comm;
+    MPI_Comm comm = *(MPI_Comm*) g_async_calls[*request]->params[5];
     int worldRank = localRankToGlobalRank(statusPtr->MPI_SOURCE, comm);
     g_recvBytesByRank[worldRank] += count * size;
     // For debugging
@@ -104,10 +125,7 @@ USER_DEFINED_WRAPPER(int, Test, (MPI_Request*) request,
   }
   LOG_POST_Test(request, statusPtr);
   if (retval == MPI_SUCCESS && *flag && MPI_LOGGING()) {
-    clearPendingRequestFromLog(*request);
-    REMOVE_OLD_REQUEST(*request);
-    LOG_REMOVE_REQUEST(*request); // remove from record-replay log
-    *request = MPI_REQUEST_NULL;
+    clean_request(request);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -246,9 +264,7 @@ USER_DEFINED_WRAPPER(int, Waitany, (int) count,
       }
       if (flag) {
         if (MPI_LOGGING()) {
-          clearPendingRequestFromLog(local_array_of_requests[i]);
-          REMOVE_OLD_REQUEST(local_array_of_requests[i]);
-          local_array_of_requests[i] = MPI_REQUEST_NULL;
+          clean_request(&local_array_of_requests[i]);
         }
         *local_index = i;
         return retval;
@@ -286,13 +302,13 @@ USER_DEFINED_WRAPPER(int, Wait, (MPI_Request*) request, (MPI_Status*) status)
     // clearPendingRequestFromLog()
     if (flag && *request != MPI_REQUEST_NULL
         && g_async_calls.find(*request) != g_async_calls.end()
-        && g_async_calls[*request]->type == IRECV_REQUEST) {
+        && g_async_calls[*request]->fnc == GENERATE_ENUM(Irecv)) {
       int count = 0;
       int size = 0;
       MPI_Get_count(statusPtr, MPI_BYTE, &count);
       MPI_Type_size(MPI_BYTE, &size);
       JASSERT(size == 1)(size);
-      MPI_Comm comm = g_async_calls[*request]->comm;
+      MPI_Comm comm = *(MPI_Comm*) g_async_calls[*request]->params[5];
       int worldRank = localRankToGlobalRank(statusPtr->MPI_SOURCE, comm);
       g_recvBytesByRank[worldRank] += count * size;
     // For debugging
@@ -302,15 +318,13 @@ USER_DEFINED_WRAPPER(int, Wait, (MPI_Request*) request, (MPI_Status*) status)
 #endif
     }
     if (flag && MPI_LOGGING()) {
-      clearPendingRequestFromLog(*request); // Remove from g_async_calls
-      REMOVE_OLD_REQUEST(*request); // Remove from virtual id
-      LOG_REMOVE_REQUEST(*request); // Remove from record-replay log
-      *request = MPI_REQUEST_NULL;
+      clean_request(request);
     }
     DMTCP_PLUGIN_ENABLE_CKPT();
   }
   return retval;
 }
+
 
 USER_DEFINED_WRAPPER(int, Probe, (int) source, (int) tag,
                      (MPI_Comm) comm, (MPI_Status *) status)

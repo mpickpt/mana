@@ -25,7 +25,18 @@
 #include <unordered_set>
 #include "dmtcp.h"
 #include "dmtcpalloc.h"
-#include "p2p_log_replay.h"
+
+// Struct to store and return the MPI message (data) during draining and
+// resuming, also used by p2p_drain_send_recv.h
+typedef struct __mpi_message
+{
+  void *buf;
+  int count;
+  MPI_Datatype datatype;
+  int size;
+  MPI_Comm comm;
+  MPI_Status status;
+} mpi_message_t;
 
 extern int *g_sendBytesByRank; // Number of bytes sent to other ranks
 extern int *g_rsendBytesByRank; // Number of bytes sent to other ranks by MPI_Rsend

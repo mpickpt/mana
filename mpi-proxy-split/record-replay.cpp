@@ -26,7 +26,6 @@
 
 #include "record-replay.h"
 #include "virtual-ids.h"
-#include "p2p_log_replay.h"
 
 using namespace dmtcp_mpi;
 

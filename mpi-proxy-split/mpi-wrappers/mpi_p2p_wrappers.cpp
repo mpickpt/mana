@@ -25,7 +25,7 @@
 #include "jassert.h"
 
 #include "mpi_plugin.h"
-#include "p2p_log_replay.h"
+#include "async_comm.h"
 #include "p2p_drain_send_recv.h"
 #include "jfilesystem.h"
 #include "protectedfds.h"
@@ -87,11 +87,11 @@ USER_DEFINED_WRAPPER(int, Isend,
     // Virtualize request
     MPI_Request virtRequest = ADD_NEW_REQUEST(*request);
     *request = virtRequest;
-    addPendingRequestToLog(ISEND_REQUEST, buf, NULL, count,
-                           datatype, dest, tag, comm, *request);
-#ifdef USE_REQUEST_LOG
-    logRequestInfo(*request, ISEND_REQUEST);
-#endif
+    // Add the async call to g_async_calls map
+    record_t *record = record_fnc(GENERATE_ENUM(Isend),
+                                  copy_param(buf, count * size), count,
+                                  datatype, dest, tag, comm);
+    g_async_calls[*request] = record;
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -188,11 +188,10 @@ USER_DEFINED_WRAPPER(int, Irecv,
   if (retval == MPI_SUCCESS) {
     MPI_Request virtRequest = ADD_NEW_REQUEST(*request);
     *request = virtRequest;
-    addPendingRequestToLog(IRECV_REQUEST, NULL, buf, count,
-                           datatype, source, tag, comm, *request);
-#ifdef USE_REQUEST_LOG
-    logRequestInfo(*request, IRECV_REQUEST);
-#endif
+    // Add the async call to g_async_calls map
+    record_t *record = record_fnc(GENERATE_ENUM(Irecv), buf, count, datatype,
+                                  source, tag, comm);
+    g_async_calls[*request] = record;
   }
   LOG_POST_Irecv(source,tag,comm,&status,request);
   DMTCP_PLUGIN_ENABLE_CKPT();

@@ -19,92 +19,69 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#ifndef _P2P_COMM_H
-#define _P2P_COMM_H
+#ifndef _ASYNC_COMM_H
+#define _ASYNC_COMM_H
 
 #include <mpi.h>
+#include <unordered_map>
 #include "dmtcp.h"
 #include "dmtcpalloc.h"
 
-#define REAL_REQUEST_LOG_LEVEL 7
-#define STACK_TRACK_LEVEL 7
-
-#ifdef DEBUG
-// #define USE_REQUEST_LOG
-#endif
-
-typedef enum __mpi_req
-{
-  UNKNOW_REQUEST,
-  ISEND_REQUEST,
-  IRECV_REQUEST,
-  IBCAST_REQUEST,
-  IREDUCE_REQUSET,
-  IBARRIER_REQUEST,
-} mpi_req_t;
-
 // Struct to store the metadata of an async MPI send/recv call
-typedef struct __mpi_async_call
+typedef struct __record
 {
-  // control data
-  mpi_req_t type;  // See enum __mpi_req
-  // request parameters
-  const void *sendbuf;
-  void *recvbuf;
-  int count;        // Count of data items
-  MPI_Datatype datatype; // Data type
-  MPI_Comm comm;    // MPI communicator
-  int remote_node;  // Can be dest or source depending on the call type
-  int tag;          // MPI message tag
-} mpi_async_call_t;
+  MPI_Fncs fnc;  // function that created this request 
+  void *params[10];
+  int num_params;
+} record_t;
 
-// Struct to store and return the MPI message (data) during draining and
-// resuming, also used by p2p_drain_send_recv.h
-typedef struct __mpi_message
-{
-  void *buf;
-  int count;
-  MPI_Datatype datatype;
-  int size;
-  MPI_Comm comm;
-  MPI_Status status;
-} mpi_message_t;
-
-// Struct to store request type and backtrace information for debugging
-typedef struct __request_info
-{
-  mpi_req_t type;
-  MPI_Request real_request[REAL_REQUEST_LOG_LEVEL];
-  int update_counter;
-  void *backtrace[STACK_TRACK_LEVEL];
-} request_info_t;
-
-
+extern std::unordered_map<MPI_Request, record_t*> g_async_calls;
 extern int g_world_rank; // Global rank of the current process
 extern int g_world_size; // Total number of ranks in the current computation
 
 // Fetches the MPI rank and world size; also, verifies that MPI rank and
 // world size match the globally stored values in the plugin
-extern void getLocalRankInfo();
+void getLocalRankInfo();
 
 // Restores the state of MPI P2P communication by replaying any pending
 // MPI_Isend and MPI_Irecv requests post restart
-extern void replayMpiP2pOnRestart();
+void replayMpiAsyncCommOnRestart();
 
-// Saves the async send/recv call of the given type and params to a global map
-// indexed by the MPI_Request 'req'
-extern void addPendingRequestToLog(mpi_req_t , const void* , void* , int ,
-                                   MPI_Datatype , int , int ,
-                                   MPI_Comm, MPI_Request);
+#if 0
+// Saves the async call and params to a global map indexed by the MPI_Request 'req'
+template<typename.. Targs>
+extern void addPendingRequestToLog(MPI_Fncs fnc, MPI_Request req, 
+                                   Targs... args);
 
 // remove finished send/recv call from the global map
 extern void clearPendingRequestFromLog(MPI_Request req);
+#endif
 
-// Log the creation or update of a virtual request
-extern void logRequestInfo(MPI_Request request, mpi_req_t req_type);
+void *copy_param(const void *param, size_t size);
 
-// Lookup a request's info in the request_log
-extern request_info_t* lookupRequestInfo(MPI_Request request);
+// Handle one simple argument
+template<typename T>
+void addArgs(record_t *record, int idx, const T arg)
+{
+  record->params[idx] = copy_param((void*)&arg, sizeof(arg));
+  record->num_params = idx + 1;
+}
 
-extern dmtcp::map<MPI_Request, mpi_async_call_t*> g_async_calls;
-#endif // ifndef _P2P_LOG_REPLAY_H
+// Handle list of arguments
+template<typename T, typename... Targs>
+void addArgs(record_t *record, int idx, const T car, const Targs... cdr)
+{
+  addArgs(record, idx, car);
+  addArgs(record, idx + 1, cdr...);
+}
+
+template<typename... Targs>
+record_t *record_fnc(MPI_Fncs fnc, Targs... args) {
+  record_t *record = (record_t*) JALLOC_HELPER_MALLOC(sizeof(record_t));
+  record->fnc = fnc;
+  addArgs(record, 0, args...);
+  return record;
+}
+
+void free_record(record_t *record);
+#endif // ifndef _ASYNC_COMM_H

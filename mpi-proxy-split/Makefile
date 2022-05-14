@@ -29,7 +29,7 @@ WRAPPERS_SRCDIR=mpi-wrappers
 
 # As you add new files to your plugin library, add the object file names here.
 
-LIBOBJS = mpi_plugin.o p2p_drain_send_recv.o p2p_log_replay.o \
+LIBOBJS = mpi_plugin.o p2p_drain_send_recv.o async_comm.o \
           record-replay.o two-phase-algo.o \
           split_process.o ${LOWER_HALF_SRCDIR}/procmapsutils.o
 

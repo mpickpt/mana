@@ -26,10 +26,10 @@
 #include <vector>
 #include "jassert.h"
 #include "p2p_drain_send_recv.h"
-#include "p2p_log_replay.h"
 #include "split_process.h"
 #include "mpi_nextfunc.h"
 #include "virtual-ids.h"
+#include "async_comm.h"
 
 extern int MPI_Alltoall_internal(const void *sendbuf, int sendcount,
                                  MPI_Datatype sendtype, void *recvbuf,
@@ -120,24 +120,15 @@ int
 completePendingIrecvs()
 {
   int bytesReceived = 0;
-  dmtcp::map<MPI_Request, mpi_async_call_t*>::iterator it;
+  std::unordered_map<MPI_Request, record_t*>::iterator it;
   for (it = g_async_calls.begin(); it != g_async_calls.end();) {
     MPI_Request request = it->first;
-    mpi_async_call_t *call = it->second;
-    if (call->type == IRECV_REQUEST) {
+    record_t *call = it->second;
+    if (call->fnc == GENERATE_ENUM(Irecv)) {
       int flag = 0;
       MPI_Status status;
-      MPI_Test_internal(&request, &flag, &status, false);
-      if (flag) {
-        UPDATE_REQUEST_MAP(request, MPI_REQUEST_NULL);
-        int size = 0;
-        MPI_Type_size(call->datatype, &size);
-        int worldRank = localRankToGlobalRank(status.MPI_SOURCE,
-                                              call->comm);
-        g_recvBytesByRank[worldRank] += call->count * size;
-        bytesReceived += call->count * size;
-        it = g_async_calls.erase(it);
-      } else {
+      MPI_Test(&request, &flag, &status);
+      if (!flag) {
         /*  We update the iterator even if the MPI_Test fails.
          * Otherwise, the message we are waiting for will be sent
          * after the checkpoint. This can result in an infinite loop.
@@ -194,12 +185,12 @@ recvFromAllComms()
 void
 removePendingSendRequests()
 {
-  dmtcp::map<MPI_Request, mpi_async_call_t*>::iterator it;
+  std::unordered_map<MPI_Request, record_t*>::iterator it;
   for (it = g_async_calls.begin(); it != g_async_calls.end();) {
     MPI_Request request = it->first;
-    mpi_async_call_t *call = it->second;
+    record_t *call = it->second;
     int flag = 0;
-    if (call->type == ISEND_REQUEST) {
+    if (call->fnc == GENERATE_ENUM(Isend)) {
       UPDATE_REQUEST_MAP(request, MPI_REQUEST_NULL);
       // FIXME: We should free `call' to avoid memory leak
       it = g_async_calls.erase(it);

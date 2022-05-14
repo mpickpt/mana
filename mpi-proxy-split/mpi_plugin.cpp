@@ -29,7 +29,7 @@
 #include "mpi_plugin.h"
 #include "lower_half_api.h"
 #include "split_process.h"
-#include "p2p_log_replay.h"
+#include "async_comm.h"
 #include "p2p_drain_send_recv.h"
 #include "record-replay.h"
 #include "two-phase-algo.h"
@@ -362,7 +362,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       dmtcp_global_barrier("MPI:restoreMpiLogState");
       restoreMpiLogState(); // record-replay.cpp
       dmtcp_global_barrier("MPI:record-replay.cpp-void");
-      replayMpiP2pOnRestart(); // p2p_log_replay.cpp
+      replayMpiAsyncCommOnRestart(); // p2p_log_replay.cpp
       dmtcp_local_barrier("MPI:p2p_log_replay.cpp-void");
       restore2pcGlobals(); // two-phase-algo.cpp
       mana_state = RUNNING;
