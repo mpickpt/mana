@@ -110,7 +110,7 @@ MANA supports most features of DMTCP, including:
   (IMPORTANT: If you checkpoint, continue running for a few minutes after that,
   for final updating of the log files.)
 
-**`MANA_P2P_REPLAY`\"**
+**`MANA_P2P_REPLAY`**
 
 : For debugging: If a checkpoint was created with `MANA_P2P_LOG`, then
   execute `mana_p2p_update_logs` and set this variable before
