@@ -5,7 +5,6 @@ title: MANA
 description: MPI-Agnostic Network-Agnostic Checkpointing
 ---
 
-
 # NAME
 
 **mana** -- MANA family of commands for checkpointing MPI jobs
