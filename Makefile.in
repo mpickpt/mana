@@ -8,8 +8,6 @@ CXXFLAGS = @CXXFLAGS@
 CPP=@CPP@
 CPPFLAGS = @CPPFLAGS@
 LDFLAGS = @LDFLAGS@
-M32=@M32@
-HAS_JAVA=@HAS_JAVA@
 PACKAGE=@PACKAGE_TARNAME@
 PACKAGE_TARNAME=@PACKAGE_TARNAME@-@PACKAGE_VERSION@
 VERSION=@PACKAGE_VERSION@
@@ -67,16 +65,16 @@ install: all create-dirs
 	cd dmtcp && make DESTDIR=$(DESTDIR) $(INSTALL_FLAGS)
 	cd mpi-proxy-split && make DESTDIR=$(DESTDIR) $(INSTALL_FLAGS)
 	cd manpages && make DESTDIR=$(DESTDIR) $(INSTALL_FLAGS)
-	${INSTALL_DATA} $(top_srcdir)/manpages/*.1.gz $(DESTDIR)$(mandir)/man1
 
 uninstall:
 	cd dmtcp && make DESTDIR=$(DESTDIR) $(UNINSTALL_FLAGS)
 	cd mpi-proxy-split && make DESTDIR=$(DESTDIR) $(UNINSTALL_FLAGS)
-	cd $(DESTDIR)$(mandir)/man1 && rm -f ${MANPAGES} ${MANPAGES_AUTOGEN}
+	cd manpages && make DESTDIR=$(DESTDIR) $(UNINSTALL_FLAGS)
 
 distclean: clean
 	- cd dmtcp && $(MAKE) distclean
 	- cd mpi-proxy-split && $(MAKE) distclean
+	- cd manpages && $(MAKE) distclean
 	rm -f Makefile config.log config.status config.status-* config.cache
 	rm -rf autom4te.cache
 	rm -rf $(top_builddir)/lib $(top_builddir)/bin
@@ -117,10 +115,6 @@ display-build-env: display-config display-release
 	@- echo 'CXXFLAGS: ${CXXFLAGS}'
 	@- echo 'CPPFLAGS: ${CPPFLAGS}'
 	@- echo 'LDFLAGS: ${LDFLAGS}'
-	@- if test "$(HAS_JAVA)" = "yes" ; then \
-	     java -showversion 2>&1 | head -3 ; \
-	   fi
-	@ ls -ld /var/*/nscd/* 2> /dev/null || true
 	@ echo ""
 
 display-release:
