@@ -5,6 +5,7 @@
   - [3. Testing MANA](#3-testing-mana)
     - [3a. Launching an MPI application](#3a-launching-an-mpi-application)
     - [3b. Checkpointing an MPI application](#3b-checkpointing-an-mpi-application)
+    - [3c. Restarting an MPI application](#3c-restarting-an-mpi-application)
 - [Debugging internals of MANA:](#debugging-internals-of-mana)
 - [Building and testing on ordinary CentOS/Ubuntu (not the Cori supercomputer):](#building-and-testing-on-ordinary-centosubuntu-not-the-cori-supercomputer)
   - [Building outside of Cori for MPICH:](#building-outside-of-cori-for-mpich)
@@ -21,10 +22,7 @@ Stream.
 The main pointers for background information on MANA are:
 
 * MANA at github:
-  https://github.com/mpickpt/mana/tree/feature/dmtcp-master
-
-  (This is the feature/dmtcp-master branch of https://github.com/mpickpt/mana;
-   soon, this should be merged into the 'master' branch.)
+  https://github.com/mpickpt/mana
 
 * MANA documentation:
   https://docs.google.com/document/d/1pT25gvMNeT1Vz4SU6Gp4Hx9MGLfkK8ZK-sSOwtu5R50/edit
@@ -46,10 +44,6 @@ See `man mana` or `nroff -man MANA_ROOT_DIR/manpages/mana.1` for the MANA man pa
    $ git clone https://github.com/mpickpt/mana.git
    $ cd mana
    $ export MANA_ROOT=$PWD
-
-   # As of this writing, `git clone` will import the feature/dmtcp-master branch
-   # (the alpha version of MANA) as the default branch when it clones MANA.
-   # Soon, `git clone` will import the master branch as the default.
    ```
 
 ## 2. Building MANA
