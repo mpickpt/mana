@@ -31,7 +31,7 @@ char *argv[];
     MPI_Status status;
     MPI_Request request = MPI_REQUEST_NULL; 
 
-    MPI_Init(&argc,&argv);
+    MPI_Init(NULL,NULL);
     MPI_Comm_size(MPI_COMM_WORLD,&numprocs);
     MPI_Comm_rank(MPI_COMM_WORLD,&myid);
     root = 0;
