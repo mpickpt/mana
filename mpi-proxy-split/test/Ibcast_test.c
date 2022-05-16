@@ -155,6 +155,8 @@ void test_case_2(void) {
     // Checkpoint likely happens here - sender (root) advances to
     // the next Ibcast while receivers is waiting.
     if (myid != root) {
+        printf("[Rank = %d] sleep 100 seconds\n", myid);
+        fflush(stdout);
         sleep(100);
     }
     MPI_Ibcast(buffer,count,MPI_INT,root,MPI_COMM_WORLD, &request);
@@ -175,6 +177,11 @@ void test_case_2(void) {
     }
     printf("\n");
     fflush(stdout);
+    if (myid == root) {
+        printf("[Rank = %d] sleep 100 seconds\n", myid);
+        fflush(stdout);
+        sleep(100);
+    }
 
     MPI_Finalize();
 }
