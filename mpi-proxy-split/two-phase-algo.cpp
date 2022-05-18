@@ -28,6 +28,7 @@
 #include "virtual-ids.h"
 #include "siginfo.h"
 
+extern int p2p_deterministic_skip_save_request;
 using namespace dmtcp_mpi;
 
 struct twoPhaseHistory {
@@ -152,7 +153,9 @@ TwoPhaseAlgo::commit_begin(MPI_Comm comm)
     nanosleep(&test_interval, NULL);
   }
 #else
+  p2p_deterministic_skip_save_request = 1;
   MPI_Wait(&_request, MPI_STATUS_IGNORE);
+  p2p_deterministic_skip_save_request = 0;
 #endif
 
   if (isCkptPending()) {
