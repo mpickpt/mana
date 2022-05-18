@@ -210,8 +210,12 @@ USER_DEFINED_WRAPPER(int, Waitall, (int) count,
   MPI_Request *local_array_of_requests = array_of_requests;
   MPI_Status *local_array_of_statuses = array_of_statuses;
 
+  get_fortran_constants();
   for (int i = 0; i < count; i++) {
-    if (local_array_of_statuses != MPI_STATUSES_IGNORE) {
+    /* FIXME: Is there a chance it gets a same address in C which we shouldn't ignore?
+     * Ideally, we should only checks FORTRAN_MPI_STATUSES_IGNORE in fortran wrapper? */
+    if (local_array_of_statuses != MPI_STATUSES_IGNORE
+       && local_array_of_statuses != FORTRAN_MPI_STATUSES_IGNORE) {
       retval = MPI_Wait(&local_array_of_requests[i], &local_array_of_statuses[i]);
     } else {
       retval = MPI_Wait(&local_array_of_requests[i], MPI_STATUS_IGNORE);

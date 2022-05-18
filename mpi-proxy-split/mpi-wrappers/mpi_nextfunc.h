@@ -101,4 +101,5 @@
 // Fortran MPI named constants
 EXTERNC void get_fortran_constants();
 extern void *FORTRAN_MPI_IN_PLACE;
+extern void *FORTRAN_MPI_STATUSES_IGNORE;
 #endif // #ifndef _MPI_NEXTFUNC_H
