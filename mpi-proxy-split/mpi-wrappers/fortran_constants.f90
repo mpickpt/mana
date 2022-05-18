@@ -14,6 +14,11 @@
             implicit none
             integer,intent(in) :: t
           end subroutine get_fortran_constants_helper
+          subroutine get_fortran_mpi_statuses_ignore(t)
+            implicit none
+            integer :: t(*)
+          end subroutine get_fortran_mpi_statuses_ignore
         end interface
         call get_fortran_constants_helper(MPI_IN_PLACE)
+        call get_fortran_mpi_statuses_ignore(MPI_STATUSES_IGNORE)
       end subroutine get_fortran_constants
