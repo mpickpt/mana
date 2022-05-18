@@ -108,13 +108,14 @@ ${DMTCP_ROOT}/bin/mana_p2p_update_logs: ${WRAPPERS_SRCDIR}/mana_p2p_update_logs.
 #   which is a prerequisite for ${DMTCP_ROOT}/lib/dmtcp/libmana.so
 # Always do 'make default' or 'make install' -- not 'make libmana.so'
 # MANA_COORD_OBJS needed for 'make mana' at top level.
-install: ${MANA_COORD_OBJS}
+install: ${MANA_COORD_OBJS} ./mana-version.h
 	make -C ${WRAPPERS_SRCDIR} libmpiwrappers.a
 	make ${DMTCP_ROOT}/lib/dmtcp/libmana.so
 	make ${DMTCP_ROOT}/lib/dmtcp/libmpistub.so
 	make ${DMTCP_ROOT}/bin/lh_proxy
 	make ${DMTCP_ROOT}/bin/gethostbyname_proxy
 	make ${DMTCP_ROOT}/bin/mana_p2p_update_logs
+	cp -f ./mana-version.h ${DMTCP_ROOT}/include
 
 tidy:
 	rm -f *~ .*.swp dmtcp_restart_script*.sh ckpt_*.dmtcp
@@ -124,6 +125,7 @@ clean: tidy
 	rm -f ${LIBOBJS} ${MANA_COORD_OBJS}
 	rm -f libmana.so
 	rm -f ${DMTCP_ROOT}/lib/dmtcp/libmana.so
+	rm -f ./mana-version.h
 	@cd ${LOWER_HALF_SRCDIR} && make clean
 	@cd ${WRAPPERS_SRCDIR} && make clean
 
