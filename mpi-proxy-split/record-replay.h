@@ -379,7 +379,7 @@ namespace dmtcp_mpi
 	        int size;
 	        MPI_Type_size(datatype, &size);
 	        void *newbuf = malloc(count * size);
-	        memcpy(sendbuf, newbuf, count * size);
+	        memcpy(newbuf, sendbuf, count * size);
 	        rec->setBuf(newbuf);
 	      }
 	      break;
@@ -398,7 +398,7 @@ namespace dmtcp_mpi
 		int size;
 		MPI_Type_size(type, &size);
 		void *newbuf = malloc(count * size);
-		memcpy(buf, newbuf, count * size);
+		memcpy(newbuf, buf, count * size);
 		rec->setBuf(newbuf);
               }
 	      break;
