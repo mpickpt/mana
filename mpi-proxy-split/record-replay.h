@@ -675,19 +675,19 @@ namespace dmtcp_mpi
 
 
   // Restores the MPI communicators and returns MPI_SUCCESS on success
-  extern int restoreComms(const MpiRecord& );
+  extern int restoreComms(MpiRecord& );
 
   // Restores the MPI groups and returns MPI_SUCCESS on success
-  extern int restoreGroups(const MpiRecord& );
+  extern int restoreGroups(MpiRecord& );
 
   // Restores the MPI types and returns MPI_SUCCESS on success
-  extern int restoreTypes(const MpiRecord& );
+  extern int restoreTypes(MpiRecord& );
 
   // Restores the MPI cartesian communicators and returns MPI_SUCCESS on success
-  extern int restoreCarts(const MpiRecord& );
+  extern int restoreCarts(MpiRecord& );
 
   // Restores the MPI ops and returns MPI_SUCCESS on success
-  extern int restoreOps(const MpiRecord& );
+  extern int restoreOps(MpiRecord& );
 
 }; // namespace dmtcp_mpi
 
