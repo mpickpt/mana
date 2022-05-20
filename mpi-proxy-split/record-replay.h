@@ -423,7 +423,6 @@ namespace dmtcp_mpi
         lock_t lock(_mutex);
         _replayOn = true;
         for (MpiRecord* rec : _records) {
-	  bool complete = false;
           MPI_Request req = MPI_REQUEST_NULL;
           switch (rec->getType()) {
           case GENERATE_ENUM(Ibarrier):
