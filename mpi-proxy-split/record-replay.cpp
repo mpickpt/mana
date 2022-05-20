@@ -743,6 +743,7 @@ static int restoreIreduce(MpiRecord& rec) {
     int rank;
     MPI_Comm_rank(comm, &rank);
     if (rank == root) { // receiver
+      sendbuf = MPI_IN_PLACE;
       // Use a temporary buffer to consume the received message
       if ((recvbuf = rec.getBuf()) == NULL) {
         int size;
