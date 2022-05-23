@@ -70,6 +70,8 @@ dmtcp_skip_memory_region_ckpting(const ProcMapsArea *area)
       /* DMTCP SysVIPC plugin should be able to C/R this correctly */
 //      strstr(area->name, "/SYSV") ||
       strstr(area->name, "/dev/xpmem") ||
+      strstr(area->name, "xpmem") ||
+      strstr(area->name, "hugetlbfs") ||
       strstr(area->name, "/dev/shm") ||
       area->addr == lh_info.startData) {
     JTRACE("Ignoring region")(area->name)((void*)area->addr);
