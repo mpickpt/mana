@@ -77,7 +77,7 @@ check-%: ${TESTS_DUMMY}
 	echo ""; \
 	echo ""; \
 	echo '***' Testing $*.mana.exe '***'; \
-	${DMTCP_BIN}/dmtcp_coordinator --mpi -q -q --exit-on-last --daemon & \
+	${DMTCP_BIN}/dmtcp_coordinator -q -q --exit-on-last --daemon & \
 	pid_last=$$! ; \
 	(sleep 10 && pkill -9 mana.exe && pkill -9 srun) & \
 	srun -n 2 ${DMTCP_BIN}/dmtcp_launch --host `hostname` --no-gzip --join \
@@ -91,7 +91,7 @@ check-%: ${TESTS_DUMMY}
 	echo '***' Restarting $*.mana.exe '***'; \
 	echo $$pid_last; \
 	wait $$pid_last; \
-	${DMTCP_BIN}/dmtcp_coordinator --mpi -q -q --exit-on-last --daemon; \
+	${DMTCP_BIN}/dmtcp_coordinator -q -q --exit-on-last --daemon; \
 	(sleep 10 && pkill -9 srun) & \
 	srun -n 2 ${DMTCP_BIN}/dmtcp_restart --host `hostname` --join --mpi \
 	     ckpt_rank_*/ckpt_*.dmtcp; \
@@ -109,7 +109,7 @@ check: ${TESTS_DUMMY}
 	  echo ""; \
 	  echo ""; \
 	  echo '***' Testing "$$mpi_test" '***'; \
-	  ${DMTCP_BIN}/dmtcp_coordinator --mpi -q -q --exit-on-last --daemon; \
+	  ${DMTCP_BIN}/dmtcp_coordinator -q -q --exit-on-last --daemon; \
 	  (sleep 10 && pkill -9 mana.exe && pkill -9 srun) & \
 	  srun -n 2 ${DMTCP_BIN}/dmtcp_launch --no-gzip --join \
                   --disable-dl-plugin --with-plugin \
@@ -120,7 +120,7 @@ check: ${TESTS_DUMMY}
 	  pkill -9 srun; \
 	  echo ""; \
 	  echo '***' Restarting "$$mpi_test" '***'; \
-	  ${DMTCP_BIN}/dmtcp_coordinator --mpi -q -q --exit-on-last --daemon; \
+	  ${DMTCP_BIN}/dmtcp_coordinator -q -q --exit-on-last --daemon; \
 	  (sleep 10 && pkill -9 srun) & \
 	  srun -n 2 ${DMTCP_BIN}/dmtcp_restart --join --mpi \
 	       ckpt_rank_*/ckpt_*.dmtcp; \

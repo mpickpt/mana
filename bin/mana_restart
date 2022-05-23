@@ -88,7 +88,7 @@ if [ "$coordinator_found" == 0 ]; then
   echo "  No coordinator detected.   Try:"
   echo "    $dir/mana_coordinator"
   echo "  Or:"
-  echo "    $dir/dmtcp_coordinator --mpi --exit-on-last -q --daemon"
+  echo "    $dir/dmtcp_coordinator --exit-on-last -q --daemon"
   exit 3
 fi
 
