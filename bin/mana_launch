@@ -111,7 +111,7 @@ if [ "$verbose" == 0 ]; then
   options="-q -q $options"
 fi
 
-plugindir="`dirname $0`/.."
+libdir="`dirname $0`/../lib/dmtcp"
 
 if [ "$SITE" = "nersc" ]; then
   if [ -z "$SLURM_NTASKS" ]; then
@@ -149,11 +149,12 @@ fi
 #         need to restore pre-ckpt data on a new MPICH in the lower half? 
 #         (We could create xpmam plugin for DMTCP, but it shouldn't be needed.)
 
-env MPICH_SMP_SINGLE_COPY_OFF=1 \
-  $dir/dmtcp_launch --mpi --coord-host $submissionHost \
+env LD_LIBRARY_PATH="$libdir:$LD_LIBRARY_PATH" \
+    MPICH_SMP_SINGLE_COPY_OFF=1 \
+    $dir/dmtcp_launch --coord-host $submissionHost \
           --coord-port $submissionPort --no-gzip \
           --join-coordinator --disable-dl-plugin \
-          --with-plugin $plugindir/lib/dmtcp/libmana.so $options
+          --with-plugin $libdir/libmana.so $options
 
 # srun -n1 -c1 --cpu-bind=cores bin/dmtcp_launch  -i10 -h `hostname` --no-gzip --join --disable-dl-plugin --with-plugin $PWD/lib/dmtcp/libmana.so contrib/mpi-proxy-split/test/mpi_hello_world.mana.exe
 
