@@ -50,10 +50,10 @@ isUsingCollectiveToP2p() {
 #endif
 }
 
-// #define NO_BARRIER_BCAST
 using namespace dmtcp_mpi;
 
 #ifndef MPI_COLLECTIVE_P2P
+#define NO_BARRIER_BCAST
 #ifdef NO_BARRIER_BCAST
 USER_DEFINED_WRAPPER(int, Bcast,
                      (void *) buffer, (int) count, (MPI_Datatype) datatype,
