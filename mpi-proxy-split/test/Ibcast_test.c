@@ -186,9 +186,7 @@ void test_case_2(void) {
     MPI_Finalize();
 }
 
-int main(argc,argv)
-int argc;
-char *argv[];
+int main(int argc, char *argv[])
 {
     int opt;
 
