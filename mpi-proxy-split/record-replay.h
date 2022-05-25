@@ -346,6 +346,28 @@ namespace dmtcp_mpi
         return _records;
       }
 
+      // Record/replay addresses two subtle issues in replaying Ireduce/Ibcast.
+      // [1] Checkpoint replays the Ibcast saved in the object log. The 
+      // receiver is receiving the current MPI Ibcast call. The sender advances
+      // to the next MPI Ibcast call. Since only the buffer address is saved in
+      // the log, the sender's buffer value is different in the MPI next call.
+      // That causes the receiver gets wrong buffer.
+      // [2] The completed requests is not replayed in the replay. The Ibcast
+      // sender request is completed while the receiver is still not finished.
+      // In replay, the receiver's request is replay and waits for the broadcast
+      // message. However, sender's request is completed so it won't be replayed
+      // and won't send message. That causes the receiver waiting forever.
+      // The record-replay workflows is below.
+      // [1] All requests saved in the record-replay are replayed.
+      // [2] Saves Ibcast buffer value in addition to its address.
+      // [3] For the completed sender's request, the saved buffer value is copied
+      // to temporary buffer before it is replay. 
+      // [4] For the completed receiver's request, a temporary buffer is created
+      // to consume the broadcast message. Since the request is completed, we
+      // don't want to impact the original buffer.
+      // [5] For the requests that is not completed yet, the original buffer address
+      // is used in replay for both the sender and the receiver.
+      //
       // Records an MPI call with its arguments in the MPI calls log. Returns
       // a pointer to the inserted MPI record object (containing the details
       // of the call).
@@ -371,7 +393,7 @@ namespace dmtcp_mpi
 	      MPI_Comm_rank(comm, &rank);
 	      int root = rec->args(5);
 	      // Save the sender's buffer value
-	      // We don't need save the receiver's buffer value
+	      // We don't need to save the receiver's buffer value
 	      if (rank != root) {
 	        void *sendbuf = rec->args(0);
 	        int count = rec->args(2);
