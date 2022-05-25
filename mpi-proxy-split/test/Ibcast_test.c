@@ -78,8 +78,8 @@ void test_case_0(void) {
     MPI_Finalize();
 }
 
-// Case 1 - the sender likely advances to the next Ibcast while
-// the receivers are the current or previous Ibcast at the
+// Case 1 - In a regression bug, the sender could advance to the next Ibcast
+// while the receivers are the current or previous Ibcast at the
 // checkpoint time.
 void test_case_1(void) {
     int i,iter,myid;
@@ -130,8 +130,8 @@ void test_case_1(void) {
     MPI_Finalize();
 }
 
-// Case 2 - Sender completes the last call while receivers are still at
-// the current or previous calls while checkpointing
+// Case 2 - In a regression bug, the sender could complete the last call while
+// receivers are still at the current or previous calls while checkpointing.
 void test_case_2(void) {
     int i,count,myid,root;
     int buffer[4];
