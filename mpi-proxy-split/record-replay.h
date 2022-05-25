@@ -347,7 +347,7 @@ namespace dmtcp_mpi
       }
 
       // Record/replay addresses two subtle issues in replaying Ireduce/Ibcast.
-      // [1] Checkpoint replays the Ibcast saved in the object log. The 
+      // [1] Checkpoint replays the Ibcast saved in the object log. The
       // receiver is receiving the current MPI Ibcast call. The sender advances
       // to the next MPI Ibcast call. Since only the buffer address is saved in
       // the log, the sender's buffer value is different in the MPI next call.
@@ -361,7 +361,7 @@ namespace dmtcp_mpi
       // [1] All requests saved in the record-replay are replayed.
       // [2] Saves Ibcast buffer value in addition to its address.
       // [3] For the completed sender's request, the saved buffer value is copied
-      // to temporary buffer before it is replay. 
+      // to temporary buffer before it is replay.
       // [4] For the completed receiver's request, a temporary buffer is created
       // to consume the broadcast message. Since the request is completed, we
       // don't want to impact the original buffer.
