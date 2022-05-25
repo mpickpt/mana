@@ -87,7 +87,7 @@ namespace dmtcp_mpi
 
   using mutex_t = std::mutex;
   using lock_t  = std::unique_lock<mutex_t>;
-  using fcb_t   = std::function<int(const MpiRecord&)>;
+  using fcb_t   = std::function<int(MpiRecord&)>;
   using mpi_record_vector_iterator_t = dmtcp::vector<MpiRecord*>::iterator;
 
   enum TYPE {
@@ -100,7 +100,7 @@ namespace dmtcp_mpi
   };
 
   // Restores the MPI requests and returns MPI_SUCCESS on success
-  extern int restoreRequests(const MpiRecord& );
+  extern int restoreRequests(MpiRecord&);
 
   // Struct for saving arbitrary function arguments
   struct FncArg
@@ -231,13 +231,14 @@ namespace dmtcp_mpi
       static void  operator delete(void* p) { JALLOC_HELPER_DELETE(p); }
 #endif
       MpiRecord(fcb_t cb, MPI_Fncs type, void *fnc)
-        : _cb(cb), _type(type), _fnc(fnc)
+        : _cb(cb), _type(type), _fnc(fnc), _buffer(NULL), _complete(false)
       {
       }
 
       ~MpiRecord()
       {
         _args.clear();
+	free(_buffer);
       }
 
       // Base case to stop the recursion
@@ -275,7 +276,7 @@ namespace dmtcp_mpi
       // Execute the restore callback for this record
       int play() const
       {
-        return _cb(*this);
+        return _cb(const_cast<MpiRecord &>(*this));
       }
 
       // Returns a reference to the 'n'-th function argument object
@@ -290,6 +291,26 @@ namespace dmtcp_mpi
         return _type;
       }
 
+      void setBuf(void *buf)
+      {
+        _buffer = buf;
+      }
+
+      void *getBuf()
+      {
+        return _buffer;
+      }
+
+      void setComplete(bool complete)
+      {
+        _complete = complete;
+      }
+
+      bool getComplete()
+      {
+        return _complete;
+      }	
+
       // Returns a pointer to the wrapper function corresponding to this MPI
       // record object
       template<typename T>
@@ -303,6 +324,8 @@ namespace dmtcp_mpi
       MPI_Fncs _type; // enum MPI_Fncs type of this MPI call
       void *_fnc; // Pointer to the wrapper function of this MPI call
       dmtcp::vector<FncArg> _args; // List of argument objects for this MPI call
+      void *_buffer; // opaque data saved in the buffer
+      bool _complete;
   };
 
   // Singleton class representing the entire log of MPI calls, useful for
@@ -323,6 +346,28 @@ namespace dmtcp_mpi
         return _records;
       }
 
+      // Record/replay addresses two subtle issues in replaying Ireduce/Ibcast.
+      // [1] Checkpoint replays the Ibcast saved in the object log. The
+      // receiver is receiving the current MPI Ibcast call. The sender advances
+      // to the next MPI Ibcast call. Since only the buffer address is saved in
+      // the log, the sender's buffer value is different in the MPI next call.
+      // That causes the receiver gets wrong buffer.
+      // [2] The completed requests is not replayed in the replay. The Ibcast
+      // sender request is completed while the receiver is still not finished.
+      // In replay, the receiver's request is replay and waits for the broadcast
+      // message. However, sender's request is completed so it won't be replayed
+      // and won't send message. That causes the receiver waiting forever.
+      // The record-replay workflows is below.
+      // [1] All requests saved in the record-replay are replayed.
+      // [2] Saves Ibcast buffer value in addition to its address.
+      // [3] For the completed sender's request, the saved buffer value is copied
+      // to temporary buffer before it is replay.
+      // [4] For the completed receiver's request, a temporary buffer is created
+      // to consume the broadcast message. Since the request is completed, we
+      // don't want to impact the original buffer.
+      // [5] For the requests that is not completed yet, the original buffer address
+      // is used in replay for both the sender and the receiver.
+      //
       // Records an MPI call with its arguments in the MPI calls log. Returns
       // a pointer to the inserted MPI record object (containing the details
       // of the call).
@@ -330,29 +375,65 @@ namespace dmtcp_mpi
       MpiRecord* record(fcb_t cb, MPI_Fncs type,
                         const T fPtr, const Targs... args)
       {
-        lock_t lock(_mutex);
         MpiRecord *rec = new MpiRecord(cb, type, (void*)fPtr);
         if (rec) {
           rec->addArgs(args...);
-          _records.push_back(rec);
-          MPI_Request req;
+          MPI_Request req = MPI_REQUEST_NULL;
 	  // All collective calls are translated in MANA to the async calls Ibarrier/Ireduce/Ibcast.
 	  // If MANA uses other async calls, we need other cases.
 	  switch (type) {
             case GENERATE_ENUM(Ibarrier):
               req = rec->args(1);
-	      _recordsMap[req] = 0;
 	      break;
 	    case GENERATE_ENUM(Ireduce):
+	    {
               req = rec->args(7);
-	      _recordsMap[req] = 0;
+	      MPI_Comm comm = rec->args(6);
+	      int rank;
+	      MPI_Comm_rank(comm, &rank);
+	      int root = rec->args(5);
+	      // Save the sender's buffer value
+	      // We don't need to save the receiver's buffer value
+	      if (rank != root) {
+	        void *sendbuf = rec->args(0);
+	        int count = rec->args(2);
+	        MPI_Datatype datatype = rec->args(3);
+	        int size;
+	        MPI_Type_size(datatype, &size);
+	        void *newbuf = malloc(count * size);
+	        memcpy(newbuf, sendbuf, count * size);
+	        rec->setBuf(newbuf);
+	      }
 	      break;
+	    }
 	    case GENERATE_ENUM(Ibcast):
+	    {
 	      req = rec->args(5);
-	      _recordsMap[req] = 0;
+	      MPI_Comm comm = rec->args(4);
+	      int rank;
+	      MPI_Comm_rank(comm, &rank);
+	      int root = rec->args(3);
+	      if (rank == root) {
+		void *buf = rec->args(0);
+		int count = rec->args(1);
+		MPI_Datatype type = rec->args(2);
+		int size;
+		MPI_Type_size(type, &size);
+		void *newbuf = malloc(count * size);
+		memcpy(newbuf, buf, count * size);
+		rec->setBuf(newbuf);
+              }
 	      break;
+	    }
 	    default: break;
           }
+	  {
+            lock_t lock(_mutex);
+	    if (req != MPI_REQUEST_NULL) {
+	      _recordsMap[req] = 0;
+	    }
+            _records.push_back(rec);
+	  }
         }
         return rec;
       }
@@ -379,7 +460,7 @@ namespace dmtcp_mpi
 	  if (req != MPI_REQUEST_NULL) {
 	    auto iter = _recordsMap.find(req);
             if (iter->second == 1)
-              continue; // Don't replay the finished request
+              rec->setComplete(true);
 	  }
           rc = rec->play();
           if (rc != MPI_SUCCESS) {
@@ -616,19 +697,19 @@ namespace dmtcp_mpi
 
 
   // Restores the MPI communicators and returns MPI_SUCCESS on success
-  extern int restoreComms(const MpiRecord& );
+  extern int restoreComms(MpiRecord& );
 
   // Restores the MPI groups and returns MPI_SUCCESS on success
-  extern int restoreGroups(const MpiRecord& );
+  extern int restoreGroups(MpiRecord& );
 
   // Restores the MPI types and returns MPI_SUCCESS on success
-  extern int restoreTypes(const MpiRecord& );
+  extern int restoreTypes(MpiRecord& );
 
   // Restores the MPI cartesian communicators and returns MPI_SUCCESS on success
-  extern int restoreCarts(const MpiRecord& );
+  extern int restoreCarts(MpiRecord& );
 
   // Restores the MPI ops and returns MPI_SUCCESS on success
-  extern int restoreOps(const MpiRecord& );
+  extern int restoreOps(MpiRecord& );
 
 }; // namespace dmtcp_mpi
 

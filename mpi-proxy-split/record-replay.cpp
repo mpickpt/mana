@@ -30,40 +30,40 @@
 
 using namespace dmtcp_mpi;
 
-static int restoreCommSplit(const MpiRecord& rec);
-static int restoreCommSplitType(const MpiRecord& rec);
-static int restoreCommDup(const MpiRecord& rec);
-static int restoreCommCreate(const MpiRecord& rec);
-static int restoreCommCreateGroup(const MpiRecord& rec);
-static int restoreCommErrHandler(const MpiRecord& rec);
-static int restoreCommFree(const MpiRecord& rec);
-static int restoreAttrPut(const MpiRecord& rec);
-static int restoreAttrDelete(const MpiRecord& rec);
-static int restoreCommCreateKeyval(const MpiRecord& rec);
-static int restoreCommFreeKeyval(const MpiRecord& rec);
+static int restoreCommSplit(MpiRecord& rec);
+static int restoreCommSplitType(MpiRecord& rec);
+static int restoreCommDup(MpiRecord& rec);
+static int restoreCommCreate(MpiRecord& rec);
+static int restoreCommCreateGroup(MpiRecord& rec);
+static int restoreCommErrHandler(MpiRecord& rec);
+static int restoreCommFree(MpiRecord& rec);
+static int restoreAttrPut(MpiRecord& rec);
+static int restoreAttrDelete(MpiRecord& rec);
+static int restoreCommCreateKeyval(MpiRecord& rec);
+static int restoreCommFreeKeyval(MpiRecord& rec);
 
-static int restoreCommGroup(const MpiRecord& rec);
-static int restoreGroupFree(const MpiRecord& rec);
-static int restoreGroupIncl(const MpiRecord& rec);
+static int restoreCommGroup(MpiRecord& rec);
+static int restoreGroupFree(MpiRecord& rec);
+static int restoreGroupIncl(MpiRecord& rec);
 
-static int restoreTypeContiguous(const MpiRecord& rec);
-static int restoreTypeCommit(const MpiRecord& rec);
-static int restoreTypeVector(const MpiRecord& rec);
-static int restoreTypeIndexed(const MpiRecord& rec);
-static int restoreTypeFree(const MpiRecord& rec);
-static int restoreTypeCreateStruct(const MpiRecord& rec);
+static int restoreTypeContiguous(MpiRecord& rec);
+static int restoreTypeCommit(MpiRecord& rec);
+static int restoreTypeVector(MpiRecord& rec);
+static int restoreTypeIndexed(MpiRecord& rec);
+static int restoreTypeFree(MpiRecord& rec);
+static int restoreTypeCreateStruct(MpiRecord& rec);
 
-static int restoreCartCreate(const MpiRecord& rec);
-static int restoreCartMap(const MpiRecord& rec);
-static int restoreCartShift(const MpiRecord& rec);
-static int restoreCartSub(const MpiRecord& rec);
+static int restoreCartCreate(MpiRecord& rec);
+static int restoreCartMap(MpiRecord& rec);
+static int restoreCartShift(MpiRecord& rec);
+static int restoreCartSub(MpiRecord& rec);
 
-static int restoreOpCreate(const MpiRecord& rec);
-static int restoreOpFree(const MpiRecord& rec);
+static int restoreOpCreate(MpiRecord& rec);
+static int restoreOpFree(MpiRecord& rec);
 
-static int restoreIbcast(const MpiRecord& rec);
-static int restoreIreduce(const MpiRecord& rec);
-static int restoreIbarrier(const MpiRecord& rec);
+static int restoreIbcast(MpiRecord& rec);
+static int restoreIreduce(MpiRecord& rec);
+static int restoreIbarrier(MpiRecord& rec);
 
 void
 restoreMpiLogState()
@@ -73,7 +73,7 @@ restoreMpiLogState()
 }
 
 int
-dmtcp_mpi::restoreComms(const MpiRecord &rec)
+dmtcp_mpi::restoreComms(MpiRecord &rec)
 {
   int rc = -1;
   JTRACE("Restoring MPI communicators");
@@ -130,7 +130,7 @@ dmtcp_mpi::restoreComms(const MpiRecord &rec)
 }
 
 int
-dmtcp_mpi::restoreGroups(const MpiRecord &rec)
+dmtcp_mpi::restoreGroups(MpiRecord &rec)
 {
   int rc = -1;
   JTRACE("Restoring MPI groups");
@@ -155,7 +155,7 @@ dmtcp_mpi::restoreGroups(const MpiRecord &rec)
 }
 
 int
-dmtcp_mpi::restoreTypes(const MpiRecord &rec)
+dmtcp_mpi::restoreTypes(MpiRecord &rec)
 {
   int rc = -1;
   JTRACE("Restoring MPI derived types");
@@ -192,7 +192,7 @@ dmtcp_mpi::restoreTypes(const MpiRecord &rec)
 }
 
 int
-dmtcp_mpi::restoreCarts(const MpiRecord &rec)
+dmtcp_mpi::restoreCarts(MpiRecord &rec)
 {
   int rc = -1;
   JTRACE("Restoring MPI cartesian");
@@ -221,7 +221,7 @@ dmtcp_mpi::restoreCarts(const MpiRecord &rec)
 }
 
 int
-dmtcp_mpi::restoreOps(const MpiRecord &rec)
+dmtcp_mpi::restoreOps(MpiRecord &rec)
 {
   int rc = -1;
   JTRACE("Restoring MPI Ops");
@@ -242,7 +242,7 @@ dmtcp_mpi::restoreOps(const MpiRecord &rec)
 }
 
 int
-dmtcp_mpi::restoreRequests(const MpiRecord &rec)
+dmtcp_mpi::restoreRequests(MpiRecord &rec)
 {
   int rc = -1;
   JTRACE("Restoring MPI Requests");
@@ -267,7 +267,7 @@ dmtcp_mpi::restoreRequests(const MpiRecord &rec)
 }
 
 static int
-restoreCommSplit(const MpiRecord& rec)
+restoreCommSplit(MpiRecord& rec)
 {
   int retval;
   MPI_Comm comm = rec.args(0);
@@ -283,7 +283,7 @@ restoreCommSplit(const MpiRecord& rec)
 }
 
 static int
-restoreCommSplitType(const MpiRecord& rec)
+restoreCommSplitType(MpiRecord& rec)
 {
   int retval;
   MPI_Comm comm = rec.args(0);
@@ -300,7 +300,7 @@ restoreCommSplitType(const MpiRecord& rec)
 }
 
 static int
-restoreCommDup(const MpiRecord& rec)
+restoreCommDup(MpiRecord& rec)
 {
   int retval;
   MPI_Comm comm = rec.args(0);
@@ -314,7 +314,7 @@ restoreCommDup(const MpiRecord& rec)
 }
 
 static int
-restoreCommCreate(const MpiRecord& rec)
+restoreCommCreate(MpiRecord& rec)
 {
   int retval;
   MPI_Comm comm = rec.args(0);
@@ -329,7 +329,7 @@ restoreCommCreate(const MpiRecord& rec)
 }
 
 static int
-restoreCommCreateGroup(const MpiRecord& rec)
+restoreCommCreateGroup(MpiRecord& rec)
 {
   int retval;
   MPI_Comm comm = rec.args(0);
@@ -345,7 +345,7 @@ restoreCommCreateGroup(const MpiRecord& rec)
 }
 
 static int
-restoreCommErrHandler(const MpiRecord& rec)
+restoreCommErrHandler(MpiRecord& rec)
 {
   int retval;
   MPI_Comm comm = rec.args(0);
@@ -356,7 +356,7 @@ restoreCommErrHandler(const MpiRecord& rec)
 }
 
 static int
-restoreCommFree(const MpiRecord& rec)
+restoreCommFree(MpiRecord& rec)
 {
   int retval;
   MPI_Comm comm = rec.args(0);
@@ -374,7 +374,7 @@ restoreCommFree(const MpiRecord& rec)
 }
 
 static int
-restoreAttrPut(const MpiRecord& rec)
+restoreAttrPut(MpiRecord& rec)
 {
   int retval;
   MPI_Comm comm = rec.args(0);
@@ -387,7 +387,7 @@ restoreAttrPut(const MpiRecord& rec)
 }
 
 static int
-restoreAttrDelete(const MpiRecord& rec)
+restoreAttrDelete(MpiRecord& rec)
 {
   int retval;
   MPI_Comm comm = rec.args(0);
@@ -398,7 +398,7 @@ restoreAttrDelete(const MpiRecord& rec)
 }
 
 static int
-restoreCommCreateKeyval(const MpiRecord& rec)
+restoreCommCreateKeyval(MpiRecord& rec)
 {
   int retval;
   void *cfn_tmp = rec.args(0);
@@ -416,7 +416,7 @@ restoreCommCreateKeyval(const MpiRecord& rec)
 }
 
 static int
-restoreCommFreeKeyval(const MpiRecord& rec)
+restoreCommFreeKeyval(MpiRecord& rec)
 {
   int retval;
   int key = rec.args(0);
@@ -428,7 +428,7 @@ restoreCommFreeKeyval(const MpiRecord& rec)
 }
 
 static int
-restoreCommGroup(const MpiRecord& rec)
+restoreCommGroup(MpiRecord& rec)
 {
   int retval;
   MPI_Comm comm = rec.args(0);
@@ -443,7 +443,7 @@ restoreCommGroup(const MpiRecord& rec)
 }
 
 static int
-restoreGroupFree(const MpiRecord& rec)
+restoreGroupFree(MpiRecord& rec)
 {
   int retval;
   MPI_Group group = rec.args(0);
@@ -462,7 +462,7 @@ restoreGroupFree(const MpiRecord& rec)
 
 
 static int
-restoreGroupIncl(const MpiRecord& rec)
+restoreGroupIncl(MpiRecord& rec)
 {
   int retval;
   MPI_Group group = rec.args(0);
@@ -479,7 +479,7 @@ restoreGroupIncl(const MpiRecord& rec)
 }
 
 static int
-restoreTypeContiguous(const MpiRecord& rec)
+restoreTypeContiguous(MpiRecord& rec)
 {
   int retval;
   int count = rec.args(0);
@@ -494,7 +494,7 @@ restoreTypeContiguous(const MpiRecord& rec)
 }
 
 static int
-restoreTypeCommit(const MpiRecord& rec)
+restoreTypeCommit(MpiRecord& rec)
 {
   int retval;
   MPI_Datatype type = rec.args(0);
@@ -504,7 +504,7 @@ restoreTypeCommit(const MpiRecord& rec)
 }
 
 static int
-restoreTypeVector(const MpiRecord& rec)
+restoreTypeVector(MpiRecord& rec)
 {
   int retval;
   int count = rec.args(0);
@@ -537,7 +537,7 @@ void MpiRecordReplay::printRecords(bool print)
 }
 
  static int
-restoreTypeIndexed(const MpiRecord& rec)
+restoreTypeIndexed(MpiRecord& rec)
 {
   int retval;
   int count = rec.args(0);
@@ -557,7 +557,7 @@ restoreTypeIndexed(const MpiRecord& rec)
 }
 
 static int
-restoreTypeFree(const MpiRecord& rec)
+restoreTypeFree(MpiRecord& rec)
 {
   int retval;
   MPI_Datatype type = rec.args(0);
@@ -575,7 +575,7 @@ restoreTypeFree(const MpiRecord& rec)
 }
 
 static int
-restoreTypeCreateStruct(const MpiRecord& rec)
+restoreTypeCreateStruct(MpiRecord& rec)
 {
   int retval;
   int count = rec.args(0);
@@ -595,7 +595,7 @@ restoreTypeCreateStruct(const MpiRecord& rec)
 }
 
 static int
-restoreCartCreate(const MpiRecord& rec)
+restoreCartCreate(MpiRecord& rec)
 {
   int retval;
   MPI_Comm comm = rec.args(0);
@@ -614,7 +614,7 @@ restoreCartCreate(const MpiRecord& rec)
 }
 
 static int
-restoreCartMap(const MpiRecord& rec)
+restoreCartMap(MpiRecord& rec)
 {
   int retval;
   MPI_Comm comm = rec.args(0);
@@ -632,7 +632,7 @@ restoreCartMap(const MpiRecord& rec)
 }
 
 static int
-restoreCartShift(const MpiRecord& rec)
+restoreCartShift(MpiRecord& rec)
 {
   int retval;
   MPI_Comm comm = rec.args(0);
@@ -653,7 +653,7 @@ restoreCartShift(const MpiRecord& rec)
 }
 
 static int
-restoreCartSub(const MpiRecord& rec)
+restoreCartSub(MpiRecord& rec)
 {
   int retval;
   MPI_Comm comm = rec.args(0);
@@ -670,7 +670,7 @@ restoreCartSub(const MpiRecord& rec)
 }
 
 static int
-restoreOpCreate(const MpiRecord& rec)
+restoreOpCreate(MpiRecord& rec)
 {
   int retval = -1;
   MPI_User_function *user_fn = rec.args(0);
@@ -685,7 +685,7 @@ restoreOpCreate(const MpiRecord& rec)
 }
 
 static int
-restoreOpFree(const MpiRecord& rec)
+restoreOpFree(MpiRecord& rec)
 {
   int retval = -1;
   MPI_Op op = rec.args(0);
@@ -702,13 +702,21 @@ restoreOpFree(const MpiRecord& rec)
   return retval;
 }
 
-static int restoreIbcast(const MpiRecord& rec) {
+static int restoreIbcast(MpiRecord& rec) {
   int retval = -1;
   void *buf = rec.args(0);
   int count = rec.args(1);
   MPI_Datatype datatype = rec.args(2);
   int root = rec.args(3);
   MPI_Comm comm = rec.args(4);
+  if (rec.getComplete()) {
+    if ((buf = rec.getBuf()) == NULL) {
+      int size;
+      MPI_Type_size(datatype, &size);
+      buf = malloc(count * size);
+      rec.setBuf(buf);
+    }
+  }
   MPI_Request newRealRequest = MPI_REQUEST_NULL;
   retval = FNC_CALL(Ibcast, rec)(buf, count, datatype, root, comm,
                                  &newRealRequest);
@@ -722,7 +730,7 @@ static int restoreIbcast(const MpiRecord& rec) {
   return retval;
 }
 
-static int restoreIreduce(const MpiRecord& rec) {
+static int restoreIreduce(MpiRecord& rec) {
   int retval = -1;
   void *sendbuf = rec.args(0);
   void *recvbuf = rec.args(1);
@@ -731,6 +739,23 @@ static int restoreIreduce(const MpiRecord& rec) {
   MPI_Op op = rec.args(4);
   int root = rec.args(5);
   MPI_Comm comm = rec.args(6);
+  if (rec.getComplete() == true) {
+    int rank;
+    MPI_Comm_rank(comm, &rank);
+    if (rank == root) { // receiver
+      sendbuf = MPI_IN_PLACE;
+      // Use a temporary buffer to consume the received message
+      if ((recvbuf = rec.getBuf()) == NULL) {
+        int size;
+        MPI_Type_size(datatype, &size);
+        recvbuf = malloc(count * size);
+        rec.setBuf(recvbuf);
+      }
+    } else { // sender
+      // Sender's buffer contains the data of the recorded message's sendbuf
+      sendbuf = rec.getBuf();
+    }
+  }
   MPI_Request newRealRequest = MPI_REQUEST_NULL;
   retval = FNC_CALL(Ireduce, rec)(sendbuf, recvbuf, count,
                                   datatype, op, root, comm, &newRealRequest);
@@ -744,7 +769,7 @@ static int restoreIreduce(const MpiRecord& rec) {
   return retval;
 }
 
-static int restoreIbarrier(const MpiRecord& rec) {
+static int restoreIbarrier(MpiRecord& rec) {
   int retval = -1;
   MPI_Comm comm = rec.args(0);
   MPI_Request newRealRequest = MPI_REQUEST_NULL;
