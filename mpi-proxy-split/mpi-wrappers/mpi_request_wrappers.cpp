@@ -71,7 +71,8 @@ USER_DEFINED_WRAPPER(int, Test, (MPI_Request*) request,
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Status statusBuffer;
   MPI_Status *statusPtr = status;
-  if (statusPtr == MPI_STATUS_IGNORE) {
+  if (statusPtr == MPI_STATUS_IGNORE ||
+      statusPtr == FORTRAN_MPI_STATUS_IGNORE) {
     statusPtr = &statusBuffer;
   }
   MPI_Request realRequest;
@@ -130,7 +131,10 @@ USER_DEFINED_WRAPPER(int, Testall, (int) count,
   // FIXME: Perhaps use Testall directly? But then, need to take care of
   // the services requests
   for (int i = 0; i < count; i++) {
-    if (local_array_of_statuses != MPI_STATUSES_IGNORE) {
+    // FIXME: Ideally, we should only check FORTRAN_MPI_STATUS_IGNORE
+    //        in the Fortran wrapper.
+    if (local_array_of_statuses != MPI_STATUSES_IGNORE &&
+        local_array_of_statuses != FORTRAN_MPI_STATUSES_IGNORE) {
       retval = MPI_Test(&local_array_of_requests[i], local_flag,
                         &local_array_of_statuses[i]);
     } else {
@@ -155,8 +159,10 @@ USER_DEFINED_WRAPPER(int, Testany, (int) count,
                      (MPI_Request *) array_of_requests, (int *) index,
                      (int *) flag, (MPI_Status *) status)
 {
-  // NOTE: We're seeing a weird bug with the Fortran-to-C interface when nimrod
-  // is being ran with MANA, where it seems like a Fortran routine is passing
+  // FIXME:  Revise this note if definition if FORTRAM_MPI_STATUS_IGNORE
+  //         fixes the problem.
+  // NOTE: We're seeing a weird bug with the Fortran-to-C interface when Nimrod
+  // is being run with MANA, where it seems like a Fortran routine is passing
   // these arguments in registers instead of on the stack, which causes the
   // values inside to be corrupted when a function call returns. This seems to
   // only affect functions that pass an array from Fortran to C - namely
@@ -212,11 +218,14 @@ USER_DEFINED_WRAPPER(int, Waitall, (int) count,
 
   get_fortran_constants();
   for (int i = 0; i < count; i++) {
-    /* FIXME: Is there a chance it gets a same address in C which we shouldn't ignore?
-     * Ideally, we should only checks FORTRAN_MPI_STATUSES_IGNORE in fortran wrapper? */
-    if (local_array_of_statuses != MPI_STATUSES_IGNORE
-       && local_array_of_statuses != FORTRAN_MPI_STATUSES_IGNORE) {
-      retval = MPI_Wait(&local_array_of_requests[i], &local_array_of_statuses[i]);
+    /* FIXME: Is there a chance it gets a valid C address, which we shouldn't
+     * ignore?  Ideally, we should only check FORTRAN_MPI_STATUSES_IGNORE
+     * in the Fortran wrapper.
+     */
+    if (local_array_of_statuses != MPI_STATUSES_IGNORE &&
+        local_array_of_statuses != FORTRAN_MPI_STATUSES_IGNORE) {
+      retval = MPI_Wait(&local_array_of_requests[i],
+                        &local_array_of_statuses[i]);
     } else {
       retval = MPI_Wait(&local_array_of_requests[i], MPI_STATUS_IGNORE);
     }
@@ -280,7 +289,10 @@ USER_DEFINED_WRAPPER(int, Wait, (MPI_Request*) request, (MPI_Status*) status)
   int flag = 0;
   MPI_Status statusBuffer;
   MPI_Status *statusPtr = status;
-  if (statusPtr == MPI_STATUS_IGNORE) {
+  // FIXME: Ideally, we should only check FORTRAN_MPI_STATUS_IGNORE
+  //        in the Fortran wrapper.
+  if (statusPtr == MPI_STATUS_IGNORE ||
+      statusPtr == FORTRAN_MPI_STATUS_IGNORE) {
     statusPtr = &statusBuffer;
   }
   // FIXME: We translate the virtual request in every iteration.
