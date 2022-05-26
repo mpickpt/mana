@@ -204,6 +204,8 @@ USER_DEFINED_WRAPPER(int, Allreduce,
     MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
     MPI_Op realOp = VIRTUAL_TO_REAL_OP(op);
     JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+    // FIXME: Ideally, we should only check FORTRAN_MPI_IN_PLACE
+    //        in the Fortran wrapper.
     if (sendbuf == FORTRAN_MPI_IN_PLACE) {
       retval = NEXT_FUNC(Allreduce)(MPI_IN_PLACE, recvbuf, count,
                                     realType, realOp, realComm);
