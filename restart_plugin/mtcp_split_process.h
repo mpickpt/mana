@@ -14,6 +14,7 @@
 #define ROUND_DOWN(addr) ((unsigned long)addr & ~(getpagesize()-1))
 
 extern LowerHalfInfo_t lh_info;
+extern LhCoreRegions_t lh_regions_list[MAX_LH_REGIONS];
 
 // Helper macro to be used whenever making a jump from the upper half to
 // the lower half.
@@ -437,6 +438,7 @@ typedef void* (*proxyDlsym_t)(enum MPI_Fncs fnc);
 typedef void* (*updateEnviron_t)(char **envp);
 typedef void (*resetMmappedList_t)();
 typedef MmapInfo_t* (*getMmappedList_t)(int *num);
+typedef LhCoreRegions_t* (*getLhRegionsList_t)(int *num);
 
 int splitProcess(RestoreInfo *rinfo);
 int getMappedArea(Area *area, char *name);

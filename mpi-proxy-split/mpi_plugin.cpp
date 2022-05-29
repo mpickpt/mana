@@ -64,18 +64,24 @@ regionContains(const void *haystackStart,
 EXTERNC int
 dmtcp_skip_memory_region_ckpting(const ProcMapsArea *area)
 {
-  if (area->addr == lh_info.startText ||
-      strstr(area->name, "/dev/zero") ||
+  if (strstr(area->name, "/dev/zero") ||
       strstr(area->name, "/dev/kgni") ||
       /* DMTCP SysVIPC plugin should be able to C/R this correctly */
 //      strstr(area->name, "/SYSV") ||
       strstr(area->name, "/dev/xpmem") ||
       strstr(area->name, "xpmem") ||
       strstr(area->name, "hugetlbfs") ||
-      strstr(area->name, "/dev/shm") ||
-      area->addr == lh_info.startData) {
+      strstr(area->name, "/dev/shm")) {
     JTRACE("Ignoring region")(area->name)((void*)area->addr);
     return 1;
+  }
+  if (!lh_regions_list) return 0;
+  for (int i = 0; i < lh_info.numCoreRegions; i++) {
+    void *lhStartAddr = lh_regions_list[i].start_addr;
+    if (area->addr == lhStartAddr) {
+      JTRACE ("Ignoring LH core region") ((void*)area->addr);
+      return 1;
+    }
   }
   if (!g_list) return 0;
   for (int i = 0; i < g_numMmaps; i++) {

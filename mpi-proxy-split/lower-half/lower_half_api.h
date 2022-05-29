@@ -32,6 +32,9 @@
 #define PAGE_SIZE              0x1000
 #define HUGE_PAGE              0x200000
 
+/* Maximum core regions lh_regions_list can store */
+#define MAX_LH_REGIONS 100
+
 #ifdef MAIN_AUXVEC_ARG
 /* main gets passed a pointer to the auxiliary.  */
 # define MAIN_AUXVEC_DECL , void *
@@ -65,13 +68,19 @@ typedef struct __MmapInfo
   int guard;    // 1 if the region has additional guard pages around it; 0 otherwise
 } MmapInfo_t;
 
+typedef struct __LhCoreRegions
+{
+  void * start_addr; // Start address of a LH memory segment
+  void * end_addr; // End address
+  int prot; // Protection flag
+} LhCoreRegions_t;
+
 // The transient lh_proxy process introspects its memory layout and passes this
 // information back to the main application process using this struct.
 typedef struct _LowerHalfInfo
 {
   void *startText; // Start address of text segment (R-X) of lower half
   void *endText;   // End address of text segmeent (R-X) of lower half
-  void *startData; // Start address of data segment (RW-) of lower half
   void *endOfHeap; // Pointer to the end of heap segment of lower half
   void *libc_start_main; // Pointer to libc's __libc_start_main function in statically-linked lower half
   void *main;      // Pointer to the main() function in statically-linked lower half
@@ -87,6 +96,8 @@ typedef struct _LowerHalfInfo
   void *updateEnvironFptr; // Pointer to updateEnviron() function in the lower half
   void *getMmappedListFptr; // Pointer to getMmapedList() function in the lower half
   void *resetMmappedListFptr; // Pointer to resetMmapedList() function in the lower half
+  int numCoreRegions; // total number of core regions in the lower half
+  void *getLhRegionsListFptr; // Pointer to getLhRegionsList() function in the lower half
   MemRange_t memRange; // MemRange_t object in the lower half
 } LowerHalfInfo_t;
 
@@ -118,8 +129,9 @@ typedef int (*libcFptr_t) (int (*main) (int, char **, char ** MAIN_AUXVEC_DECL),
 
 typedef void* (*proxyDlsym_t)(enum MPI_Fncs fnc);
 typedef void* (*updateEnviron_t)(char **environ);
-typedef MmapInfo_t* (*getMmappedList_t)(int *num);
 typedef void (*resetMmappedList_t)();
+typedef MmapInfo_t* (*getMmappedList_t)(int *num);
+typedef LhCoreRegions_t* (*getLhRegionsList_t)(int *num);
 
 // Global variables with lower-half information
 
@@ -130,6 +142,7 @@ extern LowerHalfInfo_t lh_info;
 // the transient lh_proxy process in DMTCP_EVENT_INIT.
 // initializeLowerHalf() will initialize this to: (proxyDlsym_t)lh_info.lh_dlsym
 extern proxyDlsym_t pdlsym;
+extern LhCoreRegions_t lh_regions_list[MAX_LH_REGIONS];
 
 // API
 
@@ -153,5 +166,6 @@ extern MmapInfo_t* getMmappedList(int *num);
 // Clears the global, pre-allocated array of 'MmapInfo_t' objects
 extern void resetMmappedList();
 
+extern LhCoreRegions_t* getLhRegionsList(int *num);
 
 #endif // ifndef _LOWER_HALF_API_H

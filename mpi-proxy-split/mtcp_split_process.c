@@ -30,6 +30,7 @@ LowerHalfInfo_t lh_info;
 //         pdlsym can be a fixed address that is unused by the upper half.
 //         In this case, we don't need to pass pdlsym to the upper half.
 static proxyDlsym_t pdlsym; // initialized to (proxyDlsym_t)lh_info.lh_dlsym
+LhCoreRegions_t lh_regions_list[MAX_LH_REGIONS];
 
 static unsigned long origPhnum;
 static unsigned long origPhdr;
@@ -122,35 +123,30 @@ static int
 read_lh_proxy_bits(pid_t childpid, char *argv0)
 {
   int ret = -1;
-  const int IOV_SZ = 2;
+  const int IOV_SZ = lh_info.numCoreRegions;
   struct iovec remote_iov[IOV_SZ];
-  // text segment
-  remote_iov[0].iov_base = lh_info.startText;
-  remote_iov[0].iov_len = (unsigned long)lh_info.endText -
-                          (unsigned long)lh_info.startText;
-  ret = mmap_iov(&remote_iov[0], PROT_READ|PROT_EXEC|PROT_WRITE, argv0);
-  // data segment
-  remote_iov[1].iov_base = lh_info.startData;
-  remote_iov[1].iov_len = (unsigned long)lh_info.endOfHeap -
-                          (unsigned long)lh_info.startData;
-  ret = mmap_iov(&remote_iov[1], PROT_READ|PROT_WRITE, argv0);
-  // NOTE:  In our case local_iov will be same as remote_iov.
-  // NOTE:  This requires same privilege as ptrace_attach (valid for child)
   int i = 0;
   for (i = 0; i < IOV_SZ; i++) {
-    DPRINTF("Reading segment from lh proxy: %p, %lu Bytes\n",
+  // get the metadata and map the segment
+    remote_iov[i].iov_base = lh_regions_list[i].start_addr;
+    remote_iov[i].iov_len = (unsigned long)lh_regions_list[i].end_addr -
+                            (unsigned long)lh_regions_list[i].start_addr;
+    ret = mmap_iov(&remote_iov[i], lh_regions_list[i].prot | PROT_WRITE, argv0);
+    MTCP_ASSERT(ret != -1);
+  // NOTE:  In our case local_iov will be same as remote_iov.
+  // NOTE:  This requires same privilege as ptrace_attach (valid for child)
+    DPRINTF("Reading segment from lh proxy: %p, %u Bytes\n",
             remote_iov[i].iov_base, remote_iov[i].iov_len);
     ret = mtcp_sys_process_vm_readv(childpid, remote_iov + i /* local_iov */,
                                     1, remote_iov + i, 1, 0);
     MTCP_ASSERT(ret != -1);
     // If the next assert fails, then we had a partial read.
     MTCP_ASSERT(ret == remote_iov[i].iov_len);
+    // Can remove PROT_WRITE now that we've populated the segment.
+    ret = mtcp_sys_mprotect(remote_iov[i].iov_base, remote_iov[i].iov_len,
+                  lh_regions_list[i].prot);
+    MTCP_ASSERT(ret != -1);
   }
-
-  // Can remove PROT_WRITE now that we've oppulated the text segment.
-  ret = mtcp_sys_mprotect((void *)ROUND_DOWN(remote_iov[0].iov_base),
-                          ROUND_UP(remote_iov[0].iov_len),
-                          PROT_READ | PROT_EXEC);
   return ret;
 }
 
@@ -220,8 +216,15 @@ startProxy(char *argv0, char **envp)
       mtcp_sys_close(pipefd_in[1]); // close writing end of pipe
       // Read full lh_info struct from stdout of lh_proxy, including orig memRange.
       mtcp_sys_close(pipefd_out[1]); // close write end of pipe
-      if (mtcp_sys_read(pipefd_out[0], &lh_info, sizeof lh_info) < sizeof lh_info) {
+      if (mtcp_read_all(pipefd_out[0], &lh_info, sizeof lh_info) < sizeof lh_info) {
         MTCP_PRINTF("Read fewer bytes than expected");
+        break;
+      }
+      int num_lh_core_regions = lh_info.numCoreRegions;
+      MTCP_ASSERT(num_lh_core_regions <= MAX_LH_REGIONS);
+      size_t total_bytes = num_core_regions*sizeof(LhCoreRegions_t);
+      if (mtcp_read_all(pipefd_out[0], &lh_regions_list, total_bytes) < total_bytes) {
+        MTCP_PRINTF("Read fewer bytes than expected for LH core regions");
         break;
       }
       mtcp_sys_close(pipefd_out[0]);
