@@ -449,13 +449,15 @@ namespace dmtcp_mpi
           switch (rec->getType()) {
           case GENERATE_ENUM(Ibarrier):
             req = rec->args(1);
-	    break;
-	  case GENERATE_ENUM(Ireduce):
-            req = rec->args(7);
             break;
-	  case GENERATE_ENUM(Ibcast):
-	    req = rec->args(5);
-	    break;
+          case GENERATE_ENUM(Ireduce):
+                  req = rec->args(7);
+                  break;
+          case GENERATE_ENUM(Ibcast):
+            req = rec->args(5);
+            break;
+          default:
+            break;
 	  }
 	  if (req != MPI_REQUEST_NULL) {
 	    auto iter = _recordsMap.find(req);

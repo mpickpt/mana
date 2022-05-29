@@ -44,6 +44,8 @@
 LowerHalfInfo_t lh_info = {0};
 // This is the allocated buffer for lh_info.memRange
 MemRange_t lh_memRange = {0};
+LhCoreRegions_t lh_core_regions[MAX_LH_REGIONS] = {0};
+int totalRegions = 0;
 
 static ucontext_t g_appContext;
 
@@ -55,27 +57,35 @@ static void* MPI_Fnc_Ptrs[] = {
 
 // Local functions
 
+LhCoreRegions_t*
+getLhRegionsList(int *num)
+{
+  if (!num || *num > MAX_LH_REGIONS) return NULL;
+  *num = totalRegions;
+  return lh_core_regions;
+}
+
 static void
-getDataFromMaps(const Area *text, Area *data, Area *heap)
+getDataFromMaps(const Area *text, Area *heap)
 {
   Area area;
   int mapsfd = open("/proc/self/maps", O_RDONLY);
-  // text_area
-  while (readMapsLine(mapsfd, &area)) {
-    // First area after the text segment is the data segment
-    if (area.addr >= text->endAddr) {
-      *data = area;
-      break;
-    }
-  }
-  // NOTE: Assume that data and heap are contiguous.
   void *heap_sbrk = sbrk(0);
+  int idx = 0;
+  // For a static LH, mark all the regions till heap as core regions.
+  // TODO: for a dynamic lower-half, core regions list will include libraries
+  //       and libraries are usually mapped beyond the heap.
   while (readMapsLine(mapsfd, &area)) {
+    lh_core_regions[idx].start_addr = area.addr;
+    lh_core_regions[idx].end_addr = area.endAddr;
+    lh_core_regions[idx].prot = area.prot;
+    idx++;
     if (strstr(area.name, "[heap]") && area.endAddr >= (VA)heap_sbrk) {
       *heap = area;
       break;
     }
   }
+  totalRegions = idx;
   close(mapsfd);
 }
 
@@ -222,7 +232,7 @@ void first_constructor()
     end   = ROUND_UP(end);
     txt.addr = (VA)start;
     txt.endAddr = (VA)end;
-    getDataFromMaps(&txt, &data, &heap);
+    getDataFromMaps(&txt, &heap);
 
     // TODO: Verify that this gives us the right value every time
     // Perhaps use proc maps in the future?
@@ -231,7 +241,6 @@ void first_constructor()
 
     lh_info.startText = (void*)start;
     lh_info.endText = (void*)end;
-    lh_info.startData = (void*)data.addr;
     lh_info.endOfHeap = (void*)heap.endAddr;
     lh_info.libc_start_main = &__libc_start_main;
     lh_info.main = &main;
@@ -248,11 +257,15 @@ void first_constructor()
     lh_info.getMmappedListFptr = (void*)&getMmappedList;
     lh_info.resetMmappedListFptr = (void*)&resetMmappedList;
     lh_info.memRange = lh_memRange;
-    DLOG(INFO, "startText: %p, endText: %p, startData: %p, endOfHeap; %p\n",
-        lh_info.startText, lh_info.endText, lh_info.startData, lh_info.endOfHeap);
+    lh_info.numCoreRegions = totalRegions;
+    lh_info.getLhRegionsListFptr = (void*)&getLhRegionsList;
+    DLOG(INFO, "startText: %p, endText: %p, endOfHeap; %p\n",
+        lh_info.startText, lh_info.endText, lh_info.endOfHeap);
 
-    // Write lh_info to stadout, for mtcp_split_process.c to read.
+    // Write lh_info to stdout, for mtcp_split_process.c to read.
     write(1, &lh_info, sizeof lh_info);
+    // Write LH core regions list to stdout, for the parent process to read.
+    write(1, &lh_core_regions, (sizeof(LhCoreRegions_t)*totalRegions));
     // It's okay to have an infinite loop here.  Our parent has promised to
     // kill us after it copies our bits.  So, this child doesn't need to exit.
     while(1);

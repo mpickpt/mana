@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include "config.h"
 
+#define MAX_LH_REGIONS 500
+
 typedef void (*fnptr_t)();
 
 // FIXME: Much of this is duplicated in ../lower-half/lower_half_api.h
@@ -22,13 +24,19 @@ typedef struct __MmapInfo
   int guard;
 } MmapInfo_t;
 
+typedef struct __LhCoreRegions
+{
+  void *start_addr; // Start address of a LH memory segment
+  void *end_addr; // End address
+  int prot; // Protection flag
+} LhCoreRegions_t;
+
 // The transient proxy process introspects its memory layout and passes this
 // information back to the main application process using this struct.
 typedef struct LowerHalfInfo
 {
   void *startText;
   void *endText;
-  void *startData;
   void *endOfHeap;
   void *libc_start_main;
   void *main;
@@ -44,6 +52,8 @@ typedef struct LowerHalfInfo
   void *updateEnvironFptr;
   void *getMmappedListFptr;
   void *resetMmappedListFptr;
+  int numCoreRegions;
+  void *getLhRegionsListFptr;
   MemRange_t memRange;
 } LowerHalfInfo_t;
 

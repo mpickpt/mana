@@ -7,6 +7,7 @@
 
 // FIXME: Make it dynamic
 #define getpagesize()  4096
+#define MAX_LH_REGIONS 500
 
 #define ROUND_UP(addr) ((addr + getpagesize() - 1) & ~(getpagesize()-1))
 #define ROUND_DOWN(addr) ((unsigned long)addr & ~(getpagesize()-1))
@@ -29,13 +30,19 @@ typedef struct __MmapInfo
   int guard;
 } MmapInfo_t;
 
+typedef struct __LhCoreRegions
+{
+  void *start_addr; // Start address of a LH memory segment
+  void *end_addr; // End address
+  int prot; // Protection flag
+} LhCoreRegions_t;
+
 // The transient proxy process introspects its memory layout and passes this
 // information back to the main application process using this struct.
 typedef struct LowerHalfInfo
 {
   void *startText;
   void *endText;
-  void *startData;
   void *endOfHeap;
   void *libc_start_main;
   void *main;
@@ -51,10 +58,13 @@ typedef struct LowerHalfInfo
   void *updateEnvironFptr;
   void *getMmappedListFptr;
   void *resetMmappedListFptr;
+  int numCoreRegions;
+  void *getLhRegionsListFptr;
   MemRange_t memRange;
 } LowerHalfInfo_t;
 
 extern LowerHalfInfo_t lh_info;
+extern LhCoreRegions_t lh_regions_list[MAX_LH_REGIONS];
 
 // Helper macro to be used whenever making a jump from the upper half to
 // the lower half.
@@ -478,6 +488,7 @@ typedef void* (*proxyDlsym_t)(enum MPI_Fncs fnc);
 typedef void* (*updateEnviron_t)(char **envp);
 typedef void (*resetMmappedList_t)();
 typedef MmapInfo_t* (*getMmappedList_t)(int *num);
+typedef LhCoreRegions_t* (*getLhRegionsList_t)(int *num);
 
 extern int splitProcess(char *argv0, char **envp);
 int getMappedArea(Area *area, char *name);

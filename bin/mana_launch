@@ -131,6 +131,17 @@ elif [ -z "$MPI_LOCALNRANKS" ]; then
   echo ""
 fi
 
+# Set a dummy SLURM_JOB_ID when MANA is not launched under Slurm. It is to
+# prevent DMTCP from misidentifyin shared FDs created by mpirun as pre-existing
+# FDs during launch. Please see the detailed comment in the `scanForPreExisting`
+# function in socketconnlist.cpp.
+#
+# FIXME: This is a temporary workaround and will be removed after the issue is
+#        fixed in DMTCP.
+if [ -z "$SLURM_JOB_ID" ]; then
+  export SLURM_JOB_ID=1
+fi
+
 # FIXME: Should we detect if the MANA job was not linked with libmpistub.so
 #        and point the user toward dmtcp_launch/dmtcp_restart?
 #        Since mana_launch includes the MANA plugin, it's not for non-MPI jobs.

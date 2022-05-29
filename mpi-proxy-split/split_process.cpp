@@ -53,6 +53,7 @@ static unsigned long origPhnum;
 static unsigned long origPhdr;
 LowerHalfInfo_t lh_info;
 proxyDlsym_t pdlsym; // initialized to (proxyDlsym_t)lh_info.lh_dlsym
+LhCoreRegions_t lh_regions_list[MAX_LH_REGIONS] = {0};
 
 static unsigned long getStackPtr();
 static void patchAuxv(ElfW(auxv_t) *, unsigned long , unsigned long , int );
@@ -222,41 +223,35 @@ static int
 read_lh_proxy_bits(pid_t childpid)
 {
   int ret = -1;
-  const int IOV_SZ = 2;
-  const int RWX_PERMS = PROT_READ | PROT_EXEC | PROT_WRITE;
-  const int RW_PERMS = PROT_READ | PROT_WRITE;
+  const int IOV_SZ = lh_info.numCoreRegions;
   struct iovec remote_iov[IOV_SZ];
-
-  // text segment
-  remote_iov[0].iov_base = lh_info.startText;
-  remote_iov[0].iov_len = (unsigned long)lh_info.endText -
-                          (unsigned long)lh_info.startText;
-  ret = mmap_iov(&remote_iov[0], RWX_PERMS);
-  JWARNING(ret == 0)(lh_info.startText)(remote_iov[0].iov_len)
-          .Text("Error mapping text segment for lh_proxy");
-  // data segment
-  remote_iov[1].iov_base = lh_info.startData;
-  remote_iov[1].iov_len = (unsigned long)lh_info.endOfHeap -
-                          (unsigned long)lh_info.startData;
-  ret = mmap_iov(&remote_iov[1], RW_PERMS);
-  JASSERT(ret == 0)(lh_info.startData)(remote_iov[1].iov_len)
-          .Text("Error mapping data segment for lh_proxy");
-
-  // NOTE:  For the process_vm_readv call, the local_iov will be same as
-  //        remote_iov, since we are just duplicating child processes memory.
-  // NOTE:  This requires same privilege as ptrace_attach (valid for child).
-  //        Anecdotally, in containers, we've seen a case where this errors out
-  //        with ESRCH (no such proc.); it may need CAP_SYS_PTRACE privilege??
   for (int i = 0; i < IOV_SZ; i++) {
+  // get the metadata and map the memory segment
+    remote_iov[i].iov_base = lh_regions_list[i].start_addr;
+    remote_iov[i].iov_len = (unsigned long)lh_regions_list[i].end_addr -
+                            (unsigned long)lh_regions_list[i].start_addr;
+    ret = mmap_iov(&remote_iov[i], lh_regions_list[i].prot | PROT_WRITE);
+    JWARNING(ret == 0)(remote_iov[i].iov_base)(remote_iov[i].iov_len)
+          .Text("Error mapping lh_proxy memory segment");
+
+    // NOTE: For the process_vm_readv call, the local_iov will be same as
+    //       remote_iov, since we are just duplicating child processes memory.
+    // NOTE: This requires same privilege as ptrace_attach (valid for child).
+    //       Anecdotally, in containers, we've seen a case where this errors out
+    //       with ESRCH (no such proc.); it may need CAP_SYS_PTRACE privilege??
+    //       See, for example: https://github.com/getsentry/sentry-native/issues/578
+    //            for interaction with Docker.
+    //       man ptrace:
+    //          PTRACE_MODE_ATTACH_REALCREDS satisfied by PTRACE_MODE_REALCREDS
+    //       man ptrace: PTRACE_MODE_REALCREDS was the default before Linux 4.5.
     JTRACE("Reading segment from lh_proxy")
           (remote_iov[i].iov_base)(remote_iov[i].iov_len);
     ret = process_vm_readv(childpid, remote_iov + i, 1, remote_iov + i, 1, 0);
     JASSERT(ret != -1)(JASSERT_ERRNO).Text("Error reading data from lh_proxy");
+    // Can remove PROT_WRITE now that we've populated the segment.
+    ret = mprotect(remote_iov[i].iov_base, remote_iov[i].iov_len,
+                  lh_regions_list[i].prot);
   }
-
-  // Can remove PROT_WRITE now that we've populated the text segment.
-  ret = mprotect((void *)ROUND_DOWN(remote_iov[0].iov_base),
-                 ROUND_UP(remote_iov[0].iov_len), PROT_READ | PROT_EXEC);
   return ret;
 }
 
@@ -332,11 +327,19 @@ startProxy()
       close(pipefd_in[1]); // close writing end of pipe
       // Read from stdout of lh_proxy full lh_info struct, including orig memRange.
       close(pipefd_out[1]); // close write end of pipe
-      // FIXME: should be a readall. Check for return error code.
-      if (read(pipefd_out[0], &lh_info, sizeof lh_info) < sizeof lh_info) {
-        JWARNING(false)(JASSERT_ERRNO) .Text("Read fewer bytes than expected");
-        break;
-      }
+
+      JWARNING(dmtcp::Util::readAll(pipefd_out[0], &lh_info, sizeof lh_info)
+                < (ssize_t)sizeof lh_info) (JASSERT_ERRNO)
+                .Text("Read fewer bytes than expected");
+
+      int num_lh_core_regions = lh_info.numCoreRegions;
+      JASSERT(num_lh_core_regions <= MAX_LH_REGIONS) (num_lh_core_regions)
+        .Text("Invalid number of LH core regions");
+
+      size_t total_bytes = num_lh_core_regions*sizeof(LhCoreRegions_t);
+      JWARNING(dmtcp::Util::readAll(pipefd_out[0], &lh_regions_list, total_bytes)
+                < (ssize_t)total_bytes)(JASSERT_ERRNO)
+                .Text("Read fewer bytes than expected for LH core regions");
       close(pipefd_out[0]);
       addPathFor_gethostbyname_proxy(); // used by statically linked lower half
     } 
@@ -380,9 +383,15 @@ findLHMemRange(MemRange_t *lh_mem_range)
       next_addr_start -= ONEGB;
     }
 
-    if (prev_addr_end + 2 * ONEGB <= next_addr_start) {
-      lh_mem_range->start = (VA)prev_addr_end;
-      lh_mem_range->end = (VA)prev_addr_end + 2 * ONEGB;
+    // Normally, the first 2GB of space will be available between the
+    // upper half's data section and its libraries. We should leave space for
+    // the upper half's heap and the lower half's core regions which are yet to
+    // be loaded. So, it is better to reserve 2GB space for the lower half mmaps
+    // near the next address instead of the previous address with a one-page
+    // distance to avoid memory overlap.
+    if ((prev_addr_end + 2 * ONEGB + PAGE_SIZE) <= next_addr_start) {
+      lh_mem_range->start = (VA)next_addr_start - (2 * ONEGB + PAGE_SIZE) ;
+      lh_mem_range->end = (VA)next_addr_start - PAGE_SIZE;
       is_set = true;
       break; 
     }
@@ -421,6 +430,8 @@ setLhMemRange()
 }
 
 // Initializes the libraries (libc, libmpi, etc.) of the lower half
+// FIXME: with optimization, lower half initialization segfaults on CentOS
+NO_OPTIMIZE
 static int
 initializeLowerHalf()
 {

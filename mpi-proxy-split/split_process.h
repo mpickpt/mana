@@ -67,6 +67,12 @@ class SwitchContext
 // Rounds the given address up to the nearest region size, given as an input.
 #define ROUNDADDRUP(addr, size) ((addr + size - 1) & ~(size - 1))
 
+#ifdef __clang__
+# define NO_OPTIMIZE __attribute__((optnone))
+#else /* ifdef __clang__ */
+# define NO_OPTIMIZE __attribute__((optimize(0)))
+#endif /* ifdef __clang__ */
+
 // This function splits the process by initializing the lower half with the
 // lh_proxy code. It returns 0 on success.
 extern int splitProcess();

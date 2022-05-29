@@ -375,7 +375,7 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
     //         mtcp_restart is statically linked, and doesn't need it.
     Area heap_area;
     MTCP_ASSERT(getMappedArea(&heap_area, "[heap]") == 1);
-    start1 = MAX(heap_area.endAddr, rinfo->pluginInfo.memRange.end);
+    start1 = MAX(heap_area.endAddr, (VA)rinfo->pluginInfo.memRange.end);
     Area stack_area;
     MTCP_ASSERT(getMappedArea(&stack_area, "[stack]") == 1);
     end1 = MIN(stack_area.endAddr - 4 * GB, rinfo->minHighMemStart - 4 * GB);
@@ -407,6 +407,8 @@ int
 mtcp_plugin_skip_memory_region_munmap(Area *area, RestoreInfo *rinfo)
 {
   LowerHalfInfo_t *lh_info = &rinfo->pluginInfo;
+  LhCoreRegions_t *lh_regions_list = NULL;
+  int total_lh_regions = lh_info->numCoreRegions;
 
   MmapInfo_t *g_list = NULL;
   int g_numMmaps = 0;
@@ -417,16 +419,27 @@ mtcp_plugin_skip_memory_region_munmap(Area *area, RestoreInfo *rinfo)
   if (fnc) {
     g_list = fnc(&g_numMmaps);
   }
-  if (area->addr == lh_info->startText ||
-      mtcp_strstr(area->name, "/dev/shm/mpich") ||
+  if (mtcp_strstr(area->name, "/dev/shm/mpich") ||
       mtcp_strstr(area->name, "/dev/zero") ||
       mtcp_strstr(area->name, "/dev/kgni") ||
       mtcp_strstr(area->name, "/dev/xpmem") ||
       mtcp_strstr(area->name, "/dev/shm") ||
-      mtcp_strstr(area->name, "/SYS") ||
-      area->addr == lh_info->startData) {
+      mtcp_strstr(area->name, "/SYS")) {
     return 1;
   }
+
+  getLhRegionsList_t core_fnc = (getLhRegionsList_t)lh_info->getLhRegionsListFptr;
+  if (core_fnc) {
+    lh_regions_list = core_fnc(&total_lh_regions);
+  }
+  if (!lh_regions_list) return 0;
+  for (int i = 0; i < total_lh_regions; i++) {
+    void *lhStartAddr = lh_regions_list[i].start_addr;
+    if (area->addr == lhStartAddr) {
+      return 1;
+    }
+  }
+
   // FIXME: use assert(g_list) instread.
   if (!g_list) return 0;
 
