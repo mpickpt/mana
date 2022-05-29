@@ -199,7 +199,7 @@ computeUnionOfCkptImageAddresses()
   }
 
   // Adjust libsStart to make 4GB space.
-  libsStart -= 4 * ONEGB;
+  libsStart = (void *)((uint64_t)libsStart - 4 * ONEGB);
 
   string kvdb = "MANA_CKPT_UNION";
   dmtcp_kvdb64(DMTCP_KVDB_MIN, kvdb.c_str(), 0, (int64_t) libsStart);

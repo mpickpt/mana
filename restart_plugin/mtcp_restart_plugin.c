@@ -375,7 +375,7 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
     //         mtcp_restart is statically linked, and doesn't need it.
     Area heap_area;
     MTCP_ASSERT(getMappedArea(&heap_area, "[heap]") == 1);
-    start1 = MAX(heap_area.endAddr, rinfo->pluginInfo.memRange.end);
+    start1 = MAX(heap_area.endAddr, (VA)rinfo->pluginInfo.memRange.end);
     Area stack_area;
     MTCP_ASSERT(getMappedArea(&stack_area, "[stack]") == 1);
     end1 = MIN(stack_area.endAddr - 4 * GB, rinfo->minHighMemStart - 4 * GB);

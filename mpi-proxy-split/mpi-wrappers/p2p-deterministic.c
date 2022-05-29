@@ -69,7 +69,7 @@ int iprobe_next_msg(struct p2p_log_msg *p2p_msg) {
 
 int get_next_msg_irecv(struct p2p_log_msg *p2p_msg) {
   static int fd = -1;
-  static found_next_msg = 0;
+  static int found_next_msg = 0;
   int rc = 1;
   if (fd == -1) {
     char buf[100];
