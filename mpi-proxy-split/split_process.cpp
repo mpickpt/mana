@@ -425,6 +425,8 @@ setLhMemRange()
 }
 
 // Initializes the libraries (libc, libmpi, etc.) of the lower half
+// FIXME: without optimization, lower half initialization segfaults on CentOS
+NO_OPTIMIZE
 static int
 initializeLowerHalf()
 {
