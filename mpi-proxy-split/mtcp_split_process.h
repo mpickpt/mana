@@ -7,7 +7,7 @@
 
 // FIXME: Make it dynamic
 #define getpagesize()  4096
-#define MAX_LH_REGIONS 100
+#define MAX_LH_REGIONS 500
 
 #define ROUND_UP(addr) ((addr + getpagesize() - 1) & ~(getpagesize()-1))
 #define ROUND_DOWN(addr) ((unsigned long)addr & ~(getpagesize()-1))
@@ -32,8 +32,8 @@ typedef struct __MmapInfo
 
 typedef struct __LhCoreRegions
 {
-  void * start_addr; // Start address of a LH memory segment
-  void * end_addr; // End address
+  void *start_addr; // Start address of a LH memory segment
+  void *end_addr; // End address
   int prot; // Protection flag
 } LhCoreRegions_t;
 

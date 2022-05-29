@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include "config.h"
 
-#define MAX_LH_REGIONS 100
+#define MAX_LH_REGIONS 500
 
 typedef void (*fnptr_t)();
 
@@ -26,8 +26,8 @@ typedef struct __MmapInfo
 
 typedef struct __LhCoreRegions
 {
-  void * start_addr; // Start address of a LH memory segment
-  void * end_addr; // End address
+  void *start_addr; // Start address of a LH memory segment
+  void *end_addr; // End address
   int prot; // Protection flag
 } LhCoreRegions_t;
 

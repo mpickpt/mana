@@ -133,7 +133,7 @@ fi
 
 # Set a dummy SLURM_JOB_ID when MANA is not launched under Slurm. It is to
 # prevent DMTCP from misidentifyin shared FDs created by mpirun as pre-existing
-# FDs during launch. Please see the detailed comment in `scanForPreExisting`
+# FDs during launch. Please see the detailed comment in the `scanForPreExisting`
 # function in socketconnlist.cpp.
 #
 # FIXME: This is a temporary workaround and will be removed after the issue is

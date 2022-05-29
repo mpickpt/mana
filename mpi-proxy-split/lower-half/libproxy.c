@@ -72,8 +72,9 @@ getDataFromMaps(const Area *text, Area *heap)
   int mapsfd = open("/proc/self/maps", O_RDONLY);
   void *heap_sbrk = sbrk(0);
   int idx = 0;
-  // For a static LH, mark all the regions till heap as core regions
+  // For a static LH, mark all the regions till heap as core regions.
   // TODO: for a dynamic lower-half, core regions list will include libraries
+  //       and libraries are usually mapped beyond the heap.
   while (readMapsLine(mapsfd, &area)) {
     lh_core_regions[idx].start_addr = area.addr;
     lh_core_regions[idx].end_addr = area.endAddr;

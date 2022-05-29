@@ -33,7 +33,7 @@
 #define HUGE_PAGE              0x200000
 
 /* Maximum core regions lh_regions_list can store */
-#define MAX_LH_REGIONS 100
+#define MAX_LH_REGIONS 500
 
 #ifdef MAIN_AUXVEC_ARG
 /* main gets passed a pointer to the auxiliary.  */

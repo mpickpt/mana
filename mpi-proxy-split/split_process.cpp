@@ -239,6 +239,11 @@ read_lh_proxy_bits(pid_t childpid)
     // NOTE: This requires same privilege as ptrace_attach (valid for child).
     //       Anecdotally, in containers, we've seen a case where this errors out
     //       with ESRCH (no such proc.); it may need CAP_SYS_PTRACE privilege??
+    //       See, for example: https://github.com/getsentry/sentry-native/issues/578
+    //            for interaction with Docker.
+    //       man ptrace:
+    //          PTRACE_MODE_ATTACH_REALCREDS satisfied by PTRACE_MODE_REALCREDS
+    //       man ptrace: PTRACE_MODE_REALCREDS was the default before Linux 4.5.
     JTRACE("Reading segment from lh_proxy")
           (remote_iov[i].iov_base)(remote_iov[i].iov_len);
     ret = process_vm_readv(childpid, remote_iov + i, 1, remote_iov + i, 1, 0);
@@ -425,7 +430,7 @@ setLhMemRange()
 }
 
 // Initializes the libraries (libc, libmpi, etc.) of the lower half
-// FIXME: without optimization, lower half initialization segfaults on CentOS
+// FIXME: with optimization, lower half initialization segfaults on CentOS
 NO_OPTIMIZE
 static int
 initializeLowerHalf()

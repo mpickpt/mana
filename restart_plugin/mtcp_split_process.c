@@ -147,7 +147,7 @@ read_lh_proxy_bits(RestoreInfo *rinfo, pid_t childpid, char *argv0)
     MTCP_ASSERT(ret == remote_iov[i].iov_len);
     // Can remove PROT_WRITE now that we've populated the segment.
     ret = mtcp_sys_mprotect(remote_iov[i].iov_base, remote_iov[i].iov_len,
-                  lh_regions_list[i].prot);
+                            lh_regions_list[i].prot);
     MTCP_ASSERT(ret != -1);
   }
   return ret;
@@ -217,17 +217,21 @@ startProxy(RestoreInfo *rinfo)
       MemRange_t mem_range = setLhMemRange(rinfo);
       mtcp_sys_write(pipefd_in[1], &mem_range, sizeof(mem_range));
       mtcp_sys_close(pipefd_in[1]); // close writing end of pipe
-      // Read full lh_info struct from stdout of lh_proxy, including orig memRange.
+      // Read full lh_info struct from stdout of lh_proxy, including orig
+      // memRange.
       mtcp_sys_close(pipefd_out[1]); // close write end of pipe
-      if (mtcp_read_all(pipefd_out[0], &rinfo->pluginInfo, sizeof rinfo->pluginInfo) < sizeof rinfo->pluginInfo) {
-        MTCP_PRINTF("Read fewer bytes than expected");
+      if (mtcp_read_all(pipefd_out[0], &rinfo->pluginInfo,
+                        sizeof rinfo->pluginInfo) < sizeof rinfo->pluginInfo) {
+        MTCP_PRINTF("*** WARNING: Read fewer bytes than expected. ***\n");
         break;
       }
       int num_lh_core_regions = rinfo->pluginInfo.numCoreRegions;
       MTCP_ASSERT (num_lh_core_regions <= MAX_LH_REGIONS);
       size_t total_bytes = num_lh_core_regions*sizeof(LhCoreRegions_t);
-      if (mtcp_read_all(pipefd_out[0], &lh_regions_list, total_bytes) < total_bytes) {
-        MTCP_PRINTF("Read fewer bytes than expected for LH core region list");
+      if (mtcp_read_all(pipefd_out[0], &lh_regions_list, total_bytes)
+          < total_bytes) {
+        MTCP_PRINTF("*** WARNING: Read fewer bytes than expected for LH core \
+                    region list. ***\n");
         break;
       }
       mtcp_sys_close(pipefd_out[0]);
