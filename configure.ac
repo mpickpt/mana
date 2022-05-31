@@ -25,6 +25,7 @@ AC_PROG_CC
 AC_PROG_CPP
 
 ac_configure_args="$ac_configure_args --with-mana-helper-dir=../restart_plugin"
+ac_configure_args="$ac_configure_args --disable-dlsym-wrapper"
 AC_CONFIG_SUBDIRS([dmtcp])
 
 AC_CONFIG_FILES([Makefile \
