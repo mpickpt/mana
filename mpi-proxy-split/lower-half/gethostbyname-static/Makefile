@@ -19,6 +19,7 @@ gethostbyname_proxy: gethostbyname_proxy.c
 
 clean:
 	rm -f a.out *.o gethostbyname_proxy
+	rm -f ${MANA_ROOT}/bin/gethostbyname_proxy
 
 dist: clean
 	dir=`basename $$PWD` && cd .. && tar zcvf ./$$dir.tar.gz ./$$dir
