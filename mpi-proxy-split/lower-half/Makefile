@@ -86,6 +86,7 @@ tidy:
 
 clean: tidy
 	rm -f ${PROXY_BIN} ${LIBPROXY}.a ${PROXY_OBJS} ${LIBPROXY_OBJS}
+	rm -f ${MANA_ROOT}/bin/${PROXY_BIN}
 	if test -d gethostbyname-static; then \
 	  cd gethostbyname-static && make clean; \
 	fi
