@@ -36,6 +36,7 @@
 #include <fcntl.h>
 #include <errno.h>
 
+#include "../../ds.h"
 #include "libproxy.h"
 #include "mpi_copybits.h"
 #include "procmapsutils.h"
@@ -190,12 +191,52 @@ updateEnviron(const char **newenviron)
 int
 getRank()
 {
-  int ret = MPI_Init(NULL, NULL);
+  int flag, ret = -1;
+  MPI_Initialized(&flag);
+
+  if (!flag)
+    ret = MPI_Init(NULL, NULL);
+  else
+    ret = 0;
+
   int world_rank = -1;
-  if (ret != -1) {
+  if (ret != -1)
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
-  }
+
   return world_rank;
+}
+
+MPI_Comm comm_cart_prime;
+
+int
+getCoordinates(CartesianProperties *cp, int *coords)
+{
+  int flag, ret = -1, comm_old_rank = -1, comm_cart_rank = -1;
+
+  MPI_Initialized(&flag);
+  if (!flag)
+    ret = MPI_Init(NULL, NULL);
+  else
+    ret = 0;
+
+  if (ret != -1) {
+    MPI_Cart_create(MPI_COMM_WORLD, cp->ndims, cp->dimensions, cp->periods,
+                  cp->reorder, &comm_cart_prime);
+
+    MPI_Comm_rank(comm_cart_prime, &comm_cart_rank);
+
+    MPI_Cart_coords(comm_cart_prime, comm_cart_rank, cp->ndims, coords);
+
+    MPI_Comm_rank(MPI_COMM_WORLD, &comm_old_rank);
+  }
+
+  return comm_old_rank;
+}
+
+void
+getCartesianCommunicator(MPI_Comm **comm_cart)
+{
+  *comm_cart = &comm_cart_prime;
 }
 
 void*
@@ -252,6 +293,8 @@ void first_constructor()
     lh_info.g_appContext = (void*)&g_appContext;
     lh_info.lh_dlsym = (void*)&mydlsym;
     lh_info.getRankFptr = (void*)&getRank;
+    lh_info.getCoordinatesFptr = (void*)&getCoordinates;
+    lh_info.getCartesianCommunicatorFptr = (void *)&getCartesianCommunicator;
     lh_info.parentStackStart = (void*)pstackstart;
     lh_info.updateEnvironFptr = (void*)&updateEnviron;
     lh_info.getMmappedListFptr = (void*)&getMmappedList;
