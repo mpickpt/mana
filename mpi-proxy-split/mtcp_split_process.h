@@ -54,6 +54,8 @@ typedef struct LowerHalfInfo
   void *g_appContext;
   void *lh_dlsym;
   void *getRankFptr;
+  void *getCoordinatesFptr;
+  void *getCartesianCommunicatorFptr;
   void *parentStackStart;
   void *updateEnvironFptr;
   void *getMmappedListFptr;
