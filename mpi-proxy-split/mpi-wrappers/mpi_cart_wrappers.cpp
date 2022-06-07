@@ -30,9 +30,16 @@
 #include "mpi_nextfunc.h"
 #include "record-replay.h"
 #include "virtual-ids.h"
+#include "two-phase-algo.h"
 #include "p2p_drain_send_recv.h"
 
+#include "../../ds.h"
+
 using namespace dmtcp_mpi;
+
+CartesianTopology g_cartesianTopology = {
+  .old_comm_size = -1, .new_comm_size = -1, .old_rank = -1, .new_rank = -1
+};
 
 USER_DEFINED_WRAPPER(int, Cart_coords, (MPI_Comm) comm, (int) rank,
                      (int) maxdims, (int*) coords)
@@ -47,29 +54,54 @@ USER_DEFINED_WRAPPER(int, Cart_coords, (MPI_Comm) comm, (int) rank,
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, Cart_create, (MPI_Comm) old_comm, (int) ndims,
-                     (const int*) dims, (const int*) periods, (int) reorder,
-                     (MPI_Comm *) comm_cart)
+USER_DEFINED_WRAPPER(int,
+                     Cart_create,
+                     (MPI_Comm)old_comm,
+                     (int)ndims,
+                     (const int *)dims,
+                     (const int *)periods,
+                     (int)reorder,
+                     (MPI_Comm *)comm_cart)
 {
-  int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(old_comm);
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  retval = NEXT_FUNC(Cart_create)(realComm, ndims, dims,
-                                  periods, reorder, comm_cart);
-  RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
-    MPI_Comm virtComm = ADD_NEW_COMM(*comm_cart);
-    VirtualGlobalCommId::instance().createGlobalId(virtComm);
-    *comm_cart = virtComm;
-    active_comms.insert(virtComm);
-    FncArg ds = CREATE_LOG_BUF(dims, ndims * sizeof(int));
-    FncArg ps = CREATE_LOG_BUF(periods, ndims * sizeof(int));
-    LOG_CALL(restoreCarts, Cart_create, old_comm, ndims,
-             ds, ps, reorder, virtComm);
-  }
-  DMTCP_PLUGIN_ENABLE_CKPT();
-  return retval;
+  std::function<int()> realBarrierCb = [=]() {
+    int retval;
+    DMTCP_PLUGIN_DISABLE_CKPT();
+    MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(old_comm);
+    JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+    retval = NEXT_FUNC(Cart_create)(realComm, ndims, dims, periods, reorder,
+                                    comm_cart);
+    RETURN_TO_UPPER_HALF();
+
+    g_cartesianTopology.number_of_dimensions = ndims;
+    g_cartesianTopology.reorder = reorder;
+    g_cartesianTopology.dimensions = (int *)dims;
+    g_cartesianTopology.periods = (int *)periods;
+
+    g_cartesianTopology.coordinates =
+      (int *)malloc(g_cartesianTopology.number_of_dimensions * sizeof(int));
+    MPI_Comm_size(old_comm, &g_cartesianTopology.old_comm_size);
+    MPI_Comm_size(*comm_cart, &g_cartesianTopology.new_comm_size);
+    MPI_Comm_rank(old_comm, &g_cartesianTopology.old_rank);
+    MPI_Comm_rank(*comm_cart, &g_cartesianTopology.new_rank);
+    MPI_Cart_coords(*comm_cart, g_cartesianTopology.new_rank,
+                    g_cartesianTopology.number_of_dimensions,
+                    g_cartesianTopology.coordinates);
+
+    if (retval == MPI_SUCCESS && MPI_LOGGING()) {
+      MPI_Comm virtComm = ADD_NEW_COMM(*comm_cart);
+      VirtualGlobalCommId::instance().createGlobalId(virtComm);
+      *comm_cart = virtComm;
+      active_comms.insert(virtComm);
+
+      FncArg ds = CREATE_LOG_BUF(dims, ndims * sizeof(int));
+      FncArg ps = CREATE_LOG_BUF(periods, ndims * sizeof(int));
+      LOG_CALL(restoreCarts, Cart_create, old_comm, ndims, ds, ps, reorder,
+               virtComm);
+    }
+    DMTCP_PLUGIN_ENABLE_CKPT();
+    return retval;
+  };
+  return twoPhaseCommit(old_comm, realBarrierCb);
 }
 
 USER_DEFINED_WRAPPER(int, Cart_get, (MPI_Comm) comm, (int) maxdims,
@@ -171,6 +203,17 @@ USER_DEFINED_WRAPPER(int, Cartdim_get, (MPI_Comm) comm, (int *) ndims)
   return retval;
 }
 
+USER_DEFINED_WRAPPER(int, Dims_create, (int)nnodes, (int)ndims, (int *)dims)
+{
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  retval = NEXT_FUNC(Dims_create)(nnodes, ndims, dims);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return retval;
+}
+
 
 PMPI_IMPL(int, MPI_Cart_coords, MPI_Comm comm, int rank,
           int maxdims, int coords[])
@@ -187,3 +230,4 @@ PMPI_IMPL(int, MPI_Cart_shift, MPI_Comm comm, int direction,
 PMPI_IMPL(int, MPI_Cart_sub, MPI_Comm comm,
           const int remain_dims[], MPI_Comm *new_comm)
 PMPI_IMPL(int, MPI_Cartdim_get, MPI_Comm comm, int *ndims)
+PMPI_IMPL(int, MPI_Dims_create, int nnodes, int ndims, int *dims)

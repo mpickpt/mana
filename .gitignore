@@ -57,3 +57,5 @@ dmtcp_restart_script*
 GPATH
 GRTAGS
 GTAGS
+.idea/
+build/

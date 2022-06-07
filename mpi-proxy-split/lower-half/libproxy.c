@@ -36,6 +36,7 @@
 #include <fcntl.h>
 #include <errno.h>
 
+#include "../../ds.h"
 #include "libproxy.h"
 #include "mpi_copybits.h"
 #include "procmapsutils.h"
@@ -190,12 +191,47 @@ updateEnviron(const char **newenviron)
 int
 getRank()
 {
-  int ret = MPI_Init(NULL, NULL);
+  int flag, ret = -1;
+  MPI_Initialized(&flag);
+
+  if (!flag)
+    ret = MPI_Init(NULL, NULL);
+  else
+    ret = 0;
+
   int world_rank = -1;
-  if (ret != -1) {
+  if (ret != -1)
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
-  }
+
   return world_rank;
+}
+
+int
+getCoordinates(CartesianTopology *cartesianTopology, int *coords)
+{
+  MPI_Comm comm_cart;
+  int flag, ret = -1, rank = -1;
+
+  MPI_Initialized(&flag);
+  if (!flag)
+    ret = MPI_Init(NULL, NULL);
+  else
+    ret = 0;
+
+  if (ret != -1) {
+    MPI_Cart_create(MPI_COMM_WORLD, cartesianTopology->number_of_dimensions,
+                    cartesianTopology->dimensions, cartesianTopology->periods,
+                    cartesianTopology->reorder, &comm_cart);
+
+    MPI_Comm_rank(comm_cart, &rank);
+
+    MPI_Cart_coords(comm_cart, rank, cartesianTopology->number_of_dimensions,
+                    coords);
+
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  }
+
+  return rank;
 }
 
 void*
@@ -252,6 +288,7 @@ void first_constructor()
     lh_info.g_appContext = (void*)&g_appContext;
     lh_info.lh_dlsym = (void*)&mydlsym;
     lh_info.getRankFptr = (void*)&getRank;
+    lh_info.getCoordinatesFptr = (void*)&getCoordinates;
     lh_info.parentStackStart = (void*)pstackstart;
     lh_info.updateEnvironFptr = (void*)&updateEnviron;
     lh_info.getMmappedListFptr = (void*)&getMmappedList;
