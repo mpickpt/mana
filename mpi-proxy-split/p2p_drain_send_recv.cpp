@@ -97,8 +97,9 @@ recvMsgIntoInternalBuffer(MPI_Status status, MPI_Comm comm)
   MPI_Type_size(MPI_BYTE, &size);
   JASSERT(size == 1);
   void *buf = JALLOC_HELPER_MALLOC(count);
-  MPI_Recv(buf, count, MPI_BYTE, status.MPI_SOURCE, status.MPI_TAG,
+  int retval = MPI_Recv(buf, count, MPI_BYTE, status.MPI_SOURCE, status.MPI_TAG,
            comm, MPI_STATUS_IGNORE);
+  JASSERT(retval == MPI_SUCCESS);
 
   mpi_message_t *message = (mpi_message_t *)JALLOC_HELPER_MALLOC(sizeof(mpi_message_t));
   message->buf        = buf;
@@ -115,48 +116,51 @@ recvMsgIntoInternalBuffer(MPI_Status status, MPI_Comm comm)
 }
 
 // Go through each MPI_Irecv in the g_async_calls map and try to complete
-// the MPI_Irecv before checkpointing.
+// the MPI_Irecv and MPI_Isend before checkpointing.
 int
-completePendingIrecvs()
+completePendingP2pRequests()
 {
   int bytesReceived = 0;
   dmtcp::map<MPI_Request, mpi_async_call_t*>::iterator it;
   for (it = g_async_calls.begin(); it != g_async_calls.end();) {
     MPI_Request request = it->first;
     mpi_async_call_t *call = it->second;
-    if (call->type == IRECV_REQUEST) {
-      int flag = 0;
-      MPI_Status status;
-      MPI_Test_internal(&request, &flag, &status, false);
-      if (flag) {
-        UPDATE_REQUEST_MAP(request, MPI_REQUEST_NULL);
+    int flag = 0;
+    MPI_Status status;
+    // This is needed if an MPI_Isend was called earlier.  Without this,
+    // large messages within the same node will fail under MPICH and some
+    // other MPIs.  A previous call to MPI_Irecv caused only the metadata to be
+    // exchanged.  So, MPI_Iprobe succeeds and MPI_Irecv will later fail, unless
+    // we force the sending of data via MPI_Test.
+    MPI_Test_internal(&request, &flag, &status, false);
+    if (flag) {
+      if (call->type == IRECV_REQUEST) {
         int size = 0;
         MPI_Type_size(call->datatype, &size);
         int worldRank = localRankToGlobalRank(status.MPI_SOURCE,
                                               call->comm);
         g_recvBytesByRank[worldRank] += call->count * size;
         bytesReceived += call->count * size;
-        it = g_async_calls.erase(it);
-      } else {
-        /*  We update the iterator even if the MPI_Test fails.
-         * Otherwise, the message we are waiting for will be sent
-         * after the checkpoint. This can result in an infinite loop.
-         *
-         * NOTE: This function will be called only if the global arrays
-         * do not match. This can happen if a second sender has sent
-         * a message to us, and we will receive the message only
-         * after the checkpoint. The following diagram is an example:
-         *
-         * RANK 0           RANK 1              RANK 2        TIME
-         *                                    Send to Rank 1   |
-         *                Recv from Rank 0                     |
-         * =====CKPT=======CKPT======CKPT======CKPT========    |
-         *                Recv from Rank 2                     |
-         * Send to Rank 1                                      V
-         */
-        it++;
       }
+      UPDATE_REQUEST_MAP(request, MPI_REQUEST_NULL);
+      it = g_async_calls.erase(it);
     } else {
+      /*  We update the iterator even if the MPI_Test fails.
+       * Otherwise, the message we are waiting for will be sent
+       * after the checkpoint. This can result in an infinite loop.
+       *
+       * NOTE: This function will be called only if the global arrays
+       * do not match. This can happen if a second sender has sent
+       * a message to us, and we will receive the message only
+       * after the checkpoint. The following diagram is an example:
+       *
+       * RANK 0           RANK 1              RANK 2        TIME
+       *                                    Send to Rank 1   |
+       *                Recv from Rank 0                     |
+       * =====CKPT=======CKPT======CKPT======CKPT========    |
+       *                Recv from Rank 2                     |
+       * Send to Rank 1                                      V
+       */
       it++;
     }
   }
@@ -181,8 +185,8 @@ recvFromAllComms()
     int flag = 1;
     while (flag) {
       MPI_Status status;
-      MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, *comm, &flag, &status);
-
+      int retval = MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, *comm, &flag, &status);
+      JASSERT(retval == MPI_SUCCESS);
       if (flag) {
         bytesReceived += recvMsgIntoInternalBuffer(status, *comm);
       }
@@ -213,9 +217,22 @@ bool
 allDrained()
 {
   int i;
+  // Return false if number of bytes that should be sent to this rank
+  // and number of bytes that has been received do not match.
   for (i = 0; i < g_world_size; i++) {
     if (g_bytesSentToUsByRank[i] > g_recvBytesByRank[i]) {
       return false;
+    }
+  }
+  // Returns false if no MPI_Isend request is found.
+  dmtcp::map<MPI_Request, mpi_async_call_t*>::iterator it;
+  for (it = g_async_calls.begin(); it != g_async_calls.end();) {
+    MPI_Request request = it->first;
+    mpi_async_call_t *call = it->second;
+    if (call->type == ISEND_REQUEST) {
+      return false;
+    } else {
+      it++;
     }
   }
   return true;
@@ -228,8 +245,8 @@ drainSendRecv()
   while (!allDrained()) {
     sleep(1);
     int numReceived = 0;
-    // If pending MPI_Irecvs, use MPI_Test in case msg was sent.
-    numReceived += completePendingIrecvs();
+    // If pending MPI_Irecv or MPI_Isend, use MPI_Test to try to complete it.
+    numReceived += completePendingP2pRequests();
     // If MPI_Irecv not posted but msg was sent, use MPI_Iprobe to drain msg 
     numReceived += recvFromAllComms();
 #if 1
