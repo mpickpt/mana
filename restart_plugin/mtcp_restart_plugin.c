@@ -7,6 +7,8 @@
 #include "mtcp_sys.h"
 #include "mtcp_util.h"
 #include "mtcp_split_process.h"
+#include "../ds.h"
+#include "../dmtcp/src/mtcp/mtcp_sys.h"
 
 # define GB (uint64_t)(1024 * 1024 * 1024)
 #define ROUNDADDRUP(addr, size) ((addr + size - 1) & ~(size - 1))
@@ -71,7 +73,7 @@ int reserve_fds_upper_half(int *reserved_fds) {
   int total_reserved_fds = 0;
   int tmp_fd = 0;
     while (tmp_fd < 500) {
-      MTCP_ASSERT((tmp_fd = mtcp_sys_open2("/dev/null",O_RDONLY)) != -1);  
+      MTCP_ASSERT((tmp_fd = mtcp_sys_open2("/dev/null",O_RDONLY)) != -1);
       reserved_fds[total_reserved_fds]=tmp_fd;
       total_reserved_fds++;
     }
@@ -80,7 +82,7 @@ int reserve_fds_upper_half(int *reserved_fds) {
 
 void unreserve_fds_upper_half(int *reserved_fds, int total_reserved_fds) {
     while (--total_reserved_fds >= 0) {
-      MTCP_ASSERT((mtcp_sys_close(reserved_fds[total_reserved_fds])) != -1);  
+      MTCP_ASSERT((mtcp_sys_close(reserved_fds[total_reserved_fds])) != -1);
     }
 }
 
@@ -110,21 +112,21 @@ int itoa2(int value, char* result, int base) {
 	return len;
 }
 
-int atoi2(char* str) 
-{ 
-	// Initialize result 
-	int res = 0; 
+int atoi2(char* str)
+{
+	// Initialize result
+	int res = 0;
 
-	// Iterate through all characters 
-	// of input string and update result 
+	// Iterate through all characters
+	// of input string and update result
 	int i;
-	for (i = 0; str[i] 
-			!= '\0'; 
-			++i) 
-		res = res * 10 + str[i] - '0'; 
+	for (i = 0; str[i]
+			!= '\0';
+			++i)
+		res = res * 10 + str[i] - '0';
 
-	// return result. 
-	return res; 
+	// return result.
+	return res;
 }
 
 int my_memcmp(const void *buffer1, const void *buffer2, size_t len) {
@@ -206,7 +208,7 @@ int getCkptImageByDir(RestoreInfo *rinfo, char *buffer, size_t buflen, int rank)
         struct linux_dirent *entry = (struct linux_dirent *) (ldirents + bpos);
         int slen = mtcp_strlen(entry->d_name);
         // int slen = entry->d_reclen - 2 - offsetof(struct linux_dirent, d_name);
-        if(slen > 6 
+        if(slen > 6
             && my_memcmp(entry->d_name, "ckpt", 4) == 0
             && my_memcmp(entry->d_name + slen - 6, ".dmtcp", 6) == 0) {
           found = 1;
@@ -235,7 +237,7 @@ int getCkptImageByDir(RestoreInfo *rinfo, char *buffer, size_t buflen, int rank)
                   buffer, mtcp_sys_errno);
       return -1;
   }
-  
+
   return len;
 }
 
@@ -322,6 +324,95 @@ mysetauxval(char **evp, unsigned long int type, unsigned long int val)
   return -1;
 }
 
+int
+load_cartesian_topology_information(char *filename, CartesianTopology *ct)
+{
+  int i;
+
+  int fd = mtcp_sys_open2(filename, O_RDONLY);
+  if (fd == -1)
+    return -1;
+
+  mtcp_sys_read(fd, &ct->old_comm_size, sizeof(int));
+  mtcp_sys_read(fd, &ct->new_comm_size, sizeof(int));
+  mtcp_sys_read(fd, &ct->old_rank, sizeof(int));
+  mtcp_sys_read(fd, &ct->new_rank, sizeof(int));
+  mtcp_sys_read(fd, &ct->reorder, sizeof(int));
+  mtcp_sys_read(fd, &ct->number_of_dimensions, sizeof(int));
+
+  for (i = 0; i < ct->number_of_dimensions; i++)
+    mtcp_sys_read(fd, &ct->coordinates[i], sizeof(int));
+
+  for (i = 0; i < ct->number_of_dimensions; i++)
+    mtcp_sys_read(fd, &ct->dimensions[i], sizeof(int));
+
+  for (i = 0; i < ct->number_of_dimensions; i++)
+    mtcp_sys_read(fd, &ct->periods[i], sizeof(int));
+
+  mtcp_sys_close(fd);
+
+  return 0;
+}
+
+void
+print(CartesianTopology *ct)
+{
+  int i;
+
+  MTCP_PRINTF("\n\nCartesian Topology Details\n\n");
+
+  MTCP_PRINTF("\nOld Comm Size: %d", ct->old_comm_size);
+  MTCP_PRINTF("\nNew Comm Size: %d", ct->new_comm_size);
+  MTCP_PRINTF("\nOld Rank: %d", ct->old_rank);
+  MTCP_PRINTF("\nNew Rank: %d", ct->new_rank);
+  MTCP_PRINTF("\nReorder: %d", ct->reorder);
+  MTCP_PRINTF("\nNumber of Dimensions: %d", ct->number_of_dimensions);
+
+  MTCP_PRINTF("\nCoordinates: ");
+  for (i = 0; i < ct->number_of_dimensions; i++)
+    MTCP_PRINTF("%d, ", ct->coordinates[i]);
+
+  MTCP_PRINTF("\nDimensions: ");
+  for (i = 0; i < ct->number_of_dimensions; i++)
+    MTCP_PRINTF("%d, ", ct->dimensions[i]);
+
+  MTCP_PRINTF("\nPeriods: ");
+  for (i = 0; i < ct->number_of_dimensions; i++)
+    MTCP_PRINTF("%d, ", ct->periods[i]);
+
+  MTCP_PRINTF("\n\n");
+}
+
+int
+get_rank_corresponding_to_coordinates(int world_size,
+                                      int number_of_dimensions,
+                                      int *coords)
+{
+  int i, j,k, flag;
+  char tmp[10],filename[40];
+  CartesianTopology cartesianTopology;
+
+  for (int i = 0; i < world_size; i++) {
+    mtcp_strcpy(filename, "./ckpt_rank_");
+    itoa2(i, tmp, 10);
+    mtcp_strncat(filename, tmp, 9);
+    mtcp_strncat(filename, "/cartesian.info", 20);
+
+    if (load_cartesian_topology_information(filename, &cartesianTopology) ==
+        0) {
+      flag = 0;
+      for (j = 0; j < number_of_dimensions; j++)
+        if (cartesianTopology.coordinates[j] == coords[j])
+          flag++;
+
+      if (flag == number_of_dimensions)
+        return cartesianTopology.old_rank;
+    }
+  }
+
+  return -1;
+}
+
 void
 mtcp_plugin_hook(RestoreInfo *rinfo)
 {
@@ -383,24 +474,83 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
     end2 = start2;
   }
 
-  typedef int (*getRankFptr_t)(void);
-  int rank = -1;
   reserveUpperHalfMemoryRegionsForCkptImgs(start1, end1, start2, end2);
-  JUMP_TO_LOWER_HALF(rinfo->pluginInfo.fsaddr);
-  
-  // MPI_Init is called here. GNI memory areas will be loaded by MPI_Init.
-  rank = ((getRankFptr_t)rinfo->pluginInfo.getRankFptr)();
-  RETURN_TO_UPPER_HALF();
-  releaseUpperHalfMemoryRegionsForCkptImgs(start1, end1, start2, end2);
-  unreserve_fds_upper_half(reserved_fds,total_reserved_fds);
 
-  if(getCkptImageByDir(rinfo, rinfo->ckptImage, 512, rank) == -1) {
-      mtcp_strncpy(rinfo->ckptImage,  getCkptImageByRank(rank, rinfo->argv), PATH_MAX);
+  // **************************************************************************
+
+  int ckpt_image_rank_to_be_restored = -1;
+  int rc = -1, world_rank = -1;
+  char *filename = "./ckpt_rank_0/cartesian.info";
+
+  if (mtcp_sys_access(filename, F_OK) == 0) {
+    int coords[100], coordinates[100], dimensions[100], periods[100];
+
+    CartesianTopology cartesianTopology;
+    cartesianTopology.coordinates = coordinates;
+    cartesianTopology.dimensions = dimensions;
+    cartesianTopology.periods = periods;
+
+    MTCP_ASSERT(
+      load_cartesian_topology_information(filename, &cartesianTopology) == 0);
+
+#if 0
+    print(&cartesianTopology);
+#endif
+
+    typedef int (*getCoordinatesFptr_t)(CartesianTopology *, int *);
+
+    JUMP_TO_LOWER_HALF(rinfo->pluginInfo.fsaddr);
+    // MPI_Init is called here. GNI memory areas will be loaded by MPI_Init.
+    // Also, MPI_Cart_create will be called to restore cartesian topology.
+    // Based on the coordinates, checkpoint image will be restored instead of
+    // world rank.
+    world_rank = ((getCoordinatesFptr_t)rinfo->pluginInfo.getCoordinatesFptr)(
+      &cartesianTopology, coords);
+    RETURN_TO_UPPER_HALF();
+
+#if 1
+    MTCP_PRINTF("\nOld World Rank: %d \n: ", cartesianTopology.old_rank);
+    MTCP_PRINTF("\nNew World Rank: %d \n: ", world_rank);
+
+    int i;
+    MTCP_PRINTF("\nMy Coordinates: ");
+    for (i = 0; i < cartesianTopology.number_of_dimensions; i++)
+      MTCP_PRINTF("%d, ", coords[i]);
+#endif
+
+    ckpt_image_rank_to_be_restored = get_rank_corresponding_to_coordinates(
+      cartesianTopology.old_comm_size, cartesianTopology.number_of_dimensions,
+      coords);
+  } else {
+    typedef int (*getRankFptr_t)(void);
+
+    JUMP_TO_LOWER_HALF(rinfo->pluginInfo.fsaddr);
+    // MPI_Init is called here. GNI memory areas will be loaded by MPI_Init.
+    world_rank = ((getRankFptr_t)rinfo->pluginInfo.getRankFptr)();
+    RETURN_TO_UPPER_HALF();
+
+    ckpt_image_rank_to_be_restored = world_rank;
   }
 
-  MTCP_PRINTF("[Rank: %d] Choosing ckpt image: %s\n", rank, rinfo->ckptImage);
-  //ckptImage = getCkptImageByRank(rank, argv);
-  //MTCP_PRINTF("[Rank: %d] Choosing ckpt image: %s\n", rank, ckptImage);
+  // **************************************************************************
+
+  releaseUpperHalfMemoryRegionsForCkptImgs(start1, end1, start2, end2);
+  unreserve_fds_upper_half(reserved_fds, total_reserved_fds);
+
+  MTCP_ASSERT(ckpt_image_rank_to_be_restored != -1);
+
+  if (getCkptImageByDir(rinfo, rinfo->ckptImage, 512,
+                        ckpt_image_rank_to_be_restored) == -1) {
+    mtcp_strncpy(
+      rinfo->ckptImage,
+      getCkptImageByRank(ckpt_image_rank_to_be_restored, rinfo->argv),
+      PATH_MAX);
+  }
+
+  MTCP_PRINTF("[Rank: %d] Choosing ckpt image: %s\n",
+              ckpt_image_rank_to_be_restored, rinfo->ckptImage);
+  // ckptImage = getCkptImageByRank(rank, argv);
+  // MTCP_PRINTF("[Rank: %d] Choosing ckpt image: %s\n", rank, ckptImage);
 }
 
 int
