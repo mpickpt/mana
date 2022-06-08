@@ -263,6 +263,19 @@ USER_DEFINED_WRAPPER(int, Waitany, (int) count,
         return retval;
       }
       if (flag) {
+        MPI_Request *request = &local_array_of_requests[i];
+        if (*request != MPI_REQUEST_NULL
+          && g_async_calls.find(*request) != g_async_calls.end()
+          && g_async_calls[*request]->type == IRECV_REQUEST) {
+            int count = 0;
+            int size = 0;
+            MPI_Get_count(local_status, MPI_BYTE, &count);
+            MPI_Type_size(MPI_BYTE, &size);
+            JASSERT(size == 1)(size);
+            MPI_Comm comm = g_async_calls[*request]->comm;
+            int worldRank = localRankToGlobalRank(local_status->MPI_SOURCE, comm);
+            g_recvBytesByRank[worldRank] += count * size;
+        }
         if (MPI_LOGGING()) {
           clearPendingRequestFromLog(local_array_of_requests[i]);
           REMOVE_OLD_REQUEST(local_array_of_requests[i]);
