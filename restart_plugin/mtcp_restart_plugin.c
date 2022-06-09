@@ -388,11 +388,16 @@ get_rank_corresponding_to_coordinates(int world_size,
                                       int number_of_dimensions,
                                       int *coords)
 {
-  int i, j,k, flag;
-  char tmp[10],filename[40];
-  CartesianTopology cartesianTopology;
+  int i, j, flag;
+  char tmp[10], filename[40];
+  int coordinates[100], dimensions[100], periods[100];
 
-  for (int i = 0; i < world_size; i++) {
+  CartesianTopology cartesianTopology;
+  cartesianTopology.coordinates = coordinates;
+  cartesianTopology.dimensions = dimensions;
+  cartesianTopology.periods = periods;
+
+  for (i = 0; i < world_size; i++) {
     mtcp_strcpy(filename, "./ckpt_rank_");
     itoa2(i, tmp, 10);
     mtcp_strncat(filename, tmp, 9);
