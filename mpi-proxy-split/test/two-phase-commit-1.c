@@ -1,12 +1,42 @@
+/*
+  Test for the two phase commit algorithm
+
+  Must run with >2 ranks
+  Run with -i [iterations] for specific number of iterations, defaults to 30
+*/
+
 #include "mpi.h"
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <time.h>
+#include <getopt.h>
+#include <string.h>
 
-int iterations = 100;
+#define SLEEP_PER_ITERATION 1
 
 int main( int argc, char *argv[] )
 {
+  //Parse runtime argument
+  int opt, max_iterations;
+  max_iterations = 30;
+  while ((opt = getopt(argc, argv, "i:")) != -1) {
+    switch(opt)
+    {
+      case 'i':
+        if(optarg != NULL){
+          char* optarg_end;
+          max_iterations = strtol(optarg, &optarg_end, 10);
+          if(max_iterations != 0 && optarg_end - optarg == strlen(optarg))
+            break;
+        }
+      default:
+        fprintf(stderr, "Unrecognized argument received \n\
+          -i [iterations]: Set test iterations (default 30)\n");
+        return 1;
+    }
+  }
+
   int provided, flag, claimed;
   int comm1_counter = 0;
   int comm2_counter = 0;
@@ -20,6 +50,9 @@ int main( int argc, char *argv[] )
   int rank, nprocs;
   MPI_Comm_size(MPI_COMM_WORLD,&nprocs);
   MPI_Comm_rank(MPI_COMM_WORLD,&rank);
+  if(rank == 0){
+    printf("Running test for %d iterations\n", max_iterations);
+  }
   printf("Hello, world.  I am %d of %d\n", rank, nprocs);fflush(stdout);
   if (nprocs < 3) {
     printf("This test needs at least 3 ranks.\n");
@@ -44,8 +77,8 @@ int main( int argc, char *argv[] )
   MPI_Comm comm2; // Set to MPI_COMM_NULL by default.
   MPI_Comm_create(MPI_COMM_WORLD, group1, &comm1);
   MPI_Comm_create(MPI_COMM_WORLD, group2, &comm2);
-  printf("rank: %d, group1: %x, comm1: %x\n", rank, group1, comm1); 
-  printf("rank: %d, group2: %x, comm2: %x\n", rank, group2, comm2); 
+  printf("rank: %d, group1: %x, comm1: %x\n", rank, group1, comm1);
+  printf("rank: %d, group2: %x, comm2: %x\n", rank, group2, comm2);
 
   //===============================================================
   // Coll. 1:    === |
@@ -61,7 +94,7 @@ int main( int argc, char *argv[] )
   // else in your communicator is in the critical section.
   // If you're blocked in Phase 2, you always get the free pass
 
-  for (i = 0; i < iterations; i++) {
+  for(int iterations = 0; iterations < max_iterations; iterations++){
     if (comm1 != MPI_COMM_NULL) {
       comm1_counter++;
       printf("Rank %d entering comm1, iteration %d\n", rank, comm1_counter);
@@ -69,7 +102,6 @@ int main( int argc, char *argv[] )
       MPI_Barrier(comm1);
       printf("Rank %d leaving comm1, iteration %d\n", rank, comm1_counter);
       fflush(stdout);
-      sleep(1);
     }
     if (comm2 != MPI_COMM_NULL) {
       comm2_counter++;
@@ -78,8 +110,8 @@ int main( int argc, char *argv[] )
       MPI_Barrier(comm2);
       printf("Rank %d leaving comm2, iteration %d\n", rank, comm2_counter);
       fflush(stdout);
-      sleep(1);
     }
+    sleep(SLEEP_PER_ITERATION);
   }
 
   MPI_Finalize();

@@ -4,6 +4,7 @@
 #include <mpi.h>
 #include <stdio.h>
 #include <assert.h>
+#include <getopt.h>
 
 int main(int argc, char *argv[])
 {

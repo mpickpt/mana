@@ -1,47 +1,90 @@
 /*
+  Test for the MPI_Waitany method
+
+  Must run with NUM_RANKS (4) processes
+  Run with -i [iterations] for specific number of iterations, defaults to 5
+
   Source: http://mpi.deino.net/mpi_functions/MPI_Waitany.html
 */
+
 #include <mpi.h>
 #include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 #include <assert.h>
+#include <time.h>
+#include <getopt.h>
+#include <stdlib.h>
+
+#define BUFFER_SIZE 100
+#define SLEEP_PER_ITERATION 5
+#define NUM_RANKS 4
 
 int main(int argc, char *argv[])
 {
+  //Parse runtime argument
+  int opt, max_iterations;
+  max_iterations = 5;
+  while ((opt = getopt(argc, argv, "i:")) != -1) {
+    switch(opt)
+    {
+      case 'i':
+        if(optarg != NULL){
+          char* optarg_end;
+          max_iterations = strtol(optarg, &optarg_end, 10);
+          if(max_iterations != 0 && optarg_end - optarg == strlen(optarg))
+            break;
+        }
+      default:
+        fprintf(stderr, "Unrecognized argument received \n\
+          -i [iterations]: Set test iterations (default 5)\n");
+        return 1;
+    }
+  }
+
     int rank, size;
     int i, index;
-    int buffer[400];
-    MPI_Request request[4];
+    int buffer[NUM_RANKS * BUFFER_SIZE];
+    MPI_Request request[NUM_RANKS];
     MPI_Status status;
 
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
-    if (size != 4)
+    if (size != NUM_RANKS)
     {
-        printf("Please run with 4 processes.\n");fflush(stdout);
+        printf("Please run with %d processes.\n", NUM_RANKS);fflush(stdout);
         MPI_Finalize();
         return 1;
     }
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-    if (rank == 0)
-    {
-        for (i=0; i<size * 100; i++)
-            buffer[i] = i/100;
-        for (i=0; i<size-1; i++)
-        {
-            MPI_Isend(&buffer[i*100], 100, MPI_INT, i+1, 123, MPI_COMM_WORLD,
-                      &request[i]);
-        }
-        MPI_Waitany(size-1, request, &index, &status);
-        sleep(10);
+    if(rank == 0){
+        printf("Running test for %d iterations\n", max_iterations);
     }
-    else
-    {
-        sleep(10);
-        MPI_Recv(buffer, 100, MPI_INT, 0, 123, MPI_COMM_WORLD, &status);
-        printf("%d: buffer[0] = %d\n", rank, buffer[0]);fflush(stdout);
-        assert(buffer[0] == rank - 1);
+
+    for(int iterations = 0; iterations < max_iterations; iterations++){
+
+        if (rank == 0)
+        {
+            for (i=0; i<size * BUFFER_SIZE; i++)
+                buffer[i] = i/BUFFER_SIZE + iterations;
+            for (i=0; i<size-1; i++)
+            {
+                MPI_Isend(&buffer[i*BUFFER_SIZE], BUFFER_SIZE, MPI_INT, i+1,
+                    123+iterations, MPI_COMM_WORLD,&request[i]);
+            }
+            MPI_Waitany(size-1, request, &index, &status);
+            sleep(SLEEP_PER_ITERATION);
+        }
+        else
+        {
+            sleep(SLEEP_PER_ITERATION);
+            MPI_Recv(buffer, BUFFER_SIZE, MPI_INT, 0,
+                123+iterations, MPI_COMM_WORLD, &status);
+            printf("%d: buffer[0] = %d\n", rank, buffer[0]);fflush(stdout);
+            assert(buffer[0] == rank - 1 + iterations);
+        }
+        memset(buffer, 0, BUFFER_SIZE * sizeof(int));
     }
 
     MPI_Finalize();

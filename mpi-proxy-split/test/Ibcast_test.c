@@ -1,7 +1,9 @@
 /*
-  Example code for Bcast (not used here):
-   https://mpitutorial.com/tutorials/mpi-broadcast-and-collective-communication/
-   https://github.com/mpitutorial/mpitutorial/blob/gh-pages/tutorials/mpi-broadcast-and-collective-communication/code/my_bcast.c
+  Test for the MPI_Ibcast method
+
+  Run with >2 ranks for non-trivial results
+  Run with -i [iterations] for specific number of iterations, defaults to 5
+  Run with -1 or -2 to test specific cases (see below)
 */
 
 #include <stdio.h>
@@ -10,11 +12,13 @@
 #include <mpi.h>
 #include <math.h>
 #include <assert.h>
+#include <time.h>
+#include <string.h>
 #include <getopt.h>
-/************************************************************
-This is a simple Ibcast program in MPI
-OPTIONS:   iterations, MPI_TEST, MPI_WAIT, Move the 'sleep(1)'
-************************************************************/
+
+int max_iterations;
+#define SLEEP_PER_ITERATION 5
+#define NUM_RANKS 4
 
 #define MPI_TEST
 #ifndef MPI_TEST
@@ -26,14 +30,14 @@ void usage(int argc, char *argv[])
   printf("Usage: %s [-12]\n"
          "Options:\n"
 	 "  -1:	senders advances to the next call while receivers are at previous\n"
-	 "  -2: senders finishes the last call while receivers are at previous calls\n",
+	 "  -2: senders finish the last call while receivers are at previous calls\n",
 	 argv[0]);
   return;
 }
 
 void test_case_0(void) {
     int i,iter,myid;
-    int root,count,iterations;
+    int root,count;
     int buffer[4];
     int expected_output[4];
     MPI_Status status;
@@ -41,13 +45,18 @@ void test_case_0(void) {
 
     MPI_Init(NULL,NULL);
     MPI_Comm_rank(MPI_COMM_WORLD,&myid);
+
+    if(myid == 0){
+      printf("Running test for %d iterations\n", max_iterations);
+    }
+
     root = 0;
-    count = 4;
-    iterations = 100;
+
     // Case 0 - all ranks likely reaches the current
     // iteration broadcast at the checkpoint
-    for (iter = 0; iter < iterations; iter++) {
-        for (i=0; i<count; i++) {
+    for(int iterations = 0; iterations < max_iterations; iterations++){
+
+        for (i=0; i<NUM_RANKS; i++) {
             expected_output[i] = i + iter;
             if (myid == root) {
               buffer[i] = expected_output[i];
@@ -55,9 +64,10 @@ void test_case_0(void) {
               buffer[i] = 0; // MPI_Ibcast should populate this.
             }
         }
-        MPI_Ibcast(buffer,count,MPI_INT,root,MPI_COMM_WORLD, &request);
+        MPI_Ibcast(buffer,NUM_RANKS,MPI_INT,root,MPI_COMM_WORLD, &request);
         printf("[Rank = %d]", myid);
-        sleep(1); // The checkpoint is likely to occur here.
+        sleep(SLEEP_PER_ITERATION);
+
 #ifdef MPI_TEST
         while (1) {
             int flag = 0;
@@ -68,12 +78,14 @@ void test_case_0(void) {
 #ifdef MPI_WAIT
         MPI_Wait(&request, &status);
 #endif
-        for (i=0;i<count;i++) {
+
+        for (i=0;i<NUM_RANKS;i++) {
             printf(" %d %d", buffer[i], expected_output[i]);
             assert(buffer[i] == expected_output[i]);
         }
         printf("\n");
         fflush(stdout);
+        ;
     }
     MPI_Finalize();
 }
@@ -83,7 +95,7 @@ void test_case_0(void) {
 // checkpoint time.
 void test_case_1(void) {
     int i,iter,myid;
-    int root,count,iterations;
+    int root,iterations;
     int buffer[4];
     int expected_output[4];
     MPI_Status status;
@@ -91,11 +103,15 @@ void test_case_1(void) {
 
     MPI_Init(NULL,NULL);
     MPI_Comm_rank(MPI_COMM_WORLD,&myid);
+
+    if(myid == 0){
+      printf("Running test for %d iterations\n", max_iterations);
+    }
+
     root = 0;
-    count = 4;
-    iterations = 100;
-    for (iter = 0; iter < iterations; iter++) {
-        for (i=0; i<count; i++) {
+    for(int iterations = 0; iterations < max_iterations; iterations++){
+
+        for (i=0; i<NUM_RANKS; i++) {
           expected_output[i] = i + iter;
           if (myid == root) {
             buffer[i] = expected_output[i];
@@ -103,13 +119,15 @@ void test_case_1(void) {
             buffer[i] = 0; // MPI_Ibcast should populate this.
           }
         }
-	// Sender (root) advances to the next Ibcast while receivers
-	// wait a second.
-	if (myid != root) {
-	  sleep(1);
-	}
-        MPI_Ibcast(buffer,count,MPI_INT,root,MPI_COMM_WORLD, &request);
+        // Sender (root) advances to the next Ibcast while receivers
+        // wait a second.
+        if (myid != root) {
+          sleep(SLEEP_PER_ITERATION);
+        }
+
+        MPI_Ibcast(buffer,NUM_RANKS,MPI_INT,root,MPI_COMM_WORLD, &request);
         printf("[Rank = %d]", myid);
+
 #ifdef MPI_TEST
         while (1) {
           int flag = 0;
@@ -120,12 +138,15 @@ void test_case_1(void) {
 #ifdef MPI_WAIT
         MPI_Wait(&request, &status);
 #endif
-        for (i=0;i<count;i++) {
+
+        for (i=0;i<NUM_RANKS;i++) {
           printf(" %d %d", buffer[i], expected_output[i]);
           assert(buffer[i] == expected_output[i]);
         }
         printf("\n");
         fflush(stdout);
+
+        ;
     }
     MPI_Finalize();
 }
@@ -133,7 +154,7 @@ void test_case_1(void) {
 // Case 2 - In a regression bug, the sender could complete the last call while
 // receivers are still at the current or previous calls while checkpointing.
 void test_case_2(void) {
-    int i,count,myid,root;
+    int i,myid,root, iterations;
     int buffer[4];
     int expected_output[4];
     MPI_Status status;
@@ -141,26 +162,33 @@ void test_case_2(void) {
 
     MPI_Init(NULL,NULL);
     MPI_Comm_rank(MPI_COMM_WORLD,&myid);
-    root = 0;
-    count = 4;
-    for (i=0; i<count; i++) {
-        expected_output[i] = i;
-        if (myid == root) {
-          buffer[i] = expected_output[i];
-        } else {
-          buffer[i] = 0; // MPI_Ibcast should populate this.
-        }
+
+    if(myid == 0){
+      printf("Running test for %d iterations\n", max_iterations);
     }
 
-    // Checkpoint likely happens here - sender (root) advances to
-    // the next Ibcast while receivers is waiting.
-    if (myid != root) {
-        printf("[Rank = %d] sleep 100 seconds\n", myid);
-        fflush(stdout);
-        sleep(100);
-    }
-    MPI_Ibcast(buffer,count,MPI_INT,root,MPI_COMM_WORLD, &request);
-    printf("[Rank = %d]", myid);
+    root = 0;
+
+    for(int iterations = 0; iterations < max_iterations; iterations++){
+
+      for (i=0; i<NUM_RANKS; i++) {
+          expected_output[i] = i;
+          if (myid == root) {
+            buffer[i] = expected_output[i];
+          } else {
+            buffer[i] = 0; // MPI_Ibcast should populate this.
+          }
+      }
+
+      // Checkpoint likely happens here - sender (root) advances to
+      // the next Ibcast while receivers is waiting.
+      if (myid != root) {
+          printf("[Rank = %d] sleep %d seconds\n", myid, SLEEP_PER_ITERATION);
+          fflush(stdout);
+          sleep(SLEEP_PER_ITERATION);
+      }
+      MPI_Ibcast(buffer,NUM_RANKS,MPI_INT,root,MPI_COMM_WORLD, &request);
+      printf("[Rank = %d]", myid);
 #ifdef MPI_TEST
     while (1) {
         int flag = 0;
@@ -171,27 +199,37 @@ void test_case_2(void) {
 #ifdef MPI_WAIT
     MPI_Wait(&request, &status);
 #endif
-    for (i=0;i<count;i++) {
-        printf(" %d %d", buffer[i], expected_output[i]);
-        assert(buffer[i] == expected_output[i]);
+      for (i=0;i<NUM_RANKS;i++) {
+          printf(" %d %d", buffer[i], expected_output[i]);
+          assert(buffer[i] == expected_output[i]);
+      }
+      printf("\n");
+      fflush(stdout);
+      if (myid == root) {
+          printf("[Rank = %d] sleep %d seconds\n", myid, SLEEP_PER_ITERATION);
+          fflush(stdout);
+          sleep(SLEEP_PER_ITERATION);
+      }
+      ;
     }
-    printf("\n");
-    fflush(stdout);
-    if (myid == root) {
-        printf("[Rank = %d] sleep 100 seconds\n", myid);
-        fflush(stdout);
-        sleep(100);
-    }
-
     MPI_Finalize();
 }
 
 int main(int argc, char *argv[])
 {
+    //Parse runtime argument
     int opt;
+    max_iterations = 5;
 
-    while ((opt = getopt(argc, argv, "12")) != -1) {
+    while ((opt = getopt(argc, argv, "12i:")) != -1) {
         switch(opt) {
+          case 'i':
+          if(optarg != NULL){
+            char* optarg_end;
+            max_iterations = strtol(optarg, &optarg_end, 10);
+            if(max_iterations != 0 && optarg_end - optarg == strlen(optarg))
+              break;
+          }
 	case '1':
           test_case_1();
           break;
