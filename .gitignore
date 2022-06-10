@@ -57,3 +57,9 @@ dmtcp_restart_script*
 GPATH
 GRTAGS
 GTAGS
+
+.idea/
+build/
+
+mpi-proxy-split/mpi-wrappers/p2p-deterministic.h
+mpi-proxy-split/mpi-wrappers/mana_p2p_update_logs
