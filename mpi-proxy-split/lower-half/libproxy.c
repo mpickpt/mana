@@ -206,10 +206,11 @@ getRank()
   return world_rank;
 }
 
+MPI_Comm restored_comm_cart;
+
 int
 getCoordinates(CartesianTopology *cartesianTopology, int *coords)
 {
-  MPI_Comm comm_cart;
   int flag, ret = -1, rank = -1;
 
   MPI_Initialized(&flag);
@@ -221,17 +222,23 @@ getCoordinates(CartesianTopology *cartesianTopology, int *coords)
   if (ret != -1) {
     MPI_Cart_create(MPI_COMM_WORLD, cartesianTopology->number_of_dimensions,
                     cartesianTopology->dimensions, cartesianTopology->periods,
-                    cartesianTopology->reorder, &comm_cart);
+                    cartesianTopology->reorder, &restored_comm_cart);
 
-    MPI_Comm_rank(comm_cart, &rank);
+    MPI_Comm_rank(restored_comm_cart, &rank);
 
-    MPI_Cart_coords(comm_cart, rank, cartesianTopology->number_of_dimensions,
-                    coords);
+    MPI_Cart_coords(restored_comm_cart, rank,
+                    cartesianTopology->number_of_dimensions, coords);
 
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   }
 
   return rank;
+}
+
+void
+getCartesianCommunicator(MPI_Comm **comm_cart)
+{
+  *comm_cart = &restored_comm_cart;
 }
 
 void*
@@ -289,6 +296,7 @@ void first_constructor()
     lh_info.lh_dlsym = (void*)&mydlsym;
     lh_info.getRankFptr = (void*)&getRank;
     lh_info.getCoordinatesFptr = (void*)&getCoordinates;
+    lh_info.getCartesianCommunicatorFptr = (void *)&getCartesianCommunicator;
     lh_info.parentStackStart = (void*)pstackstart;
     lh_info.updateEnvironFptr = (void*)&updateEnviron;
     lh_info.getMmappedListFptr = (void*)&getMmappedList;
