@@ -23,12 +23,13 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include <signal.h>
-#include <sys/personality.h>
-#include <sys/mman.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+
+#include <signal.h>
+#include <sys/personality.h>
+#include <sys/mman.h>
 
 #include "mpi_plugin.h"
 #include "lower_half_api.h"
@@ -375,7 +376,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       computeUnionOfCkptImageAddresses();
 
       dmtcp_global_barrier("MPI:save-cartesian-topology-info");
-      const char* file = get_cartesian_topology_info_file_name();
+      const char *file = get_cartesian_topology_info_file_name();
       save_cartesian_topology_info(file);
 
     case DMTCP_EVENT_RESUME:
@@ -394,6 +395,9 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       dmtcp_local_barrier("MPI:Reset-Drain-Send-Recv-Counters");
       resetDrainCounters(); // p2p_drain_send_recv.cpp
       mana_state = RESTART_REPLAY;
+      dmtcp_global_barrier("MPI:setCartesianCommunicator");
+      setCartesianCommunicator(
+        lh_info.getCartesianCommunicatorFptr); // record-replay.cpp
       dmtcp_global_barrier("MPI:restoreMpiLogState");
       restoreMpiLogState(); // record-replay.cpp
       dmtcp_global_barrier("MPI:record-replay.cpp-void");
