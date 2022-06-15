@@ -10,6 +10,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <mpi.h>
+#include <assert.h>
+#include <unistd.h>
+#include <time.h>
+#include <string.h>
+
+#define RUNTIME 30
+#define SLEEP_PER_ITERATION 5
 
 /**
  * @brief Illustrates how to check multiple non-blocking routines for the
@@ -53,105 +60,211 @@ int main(int argc, char* argv[])
     // Get my rank
     int my_rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
+    int buffer[2] = {12345, 67890};
 
-    if(my_rank == 0)
-    {
-        // The "master" MPI process sends the messages.
-        int buffer[2] = {12345, 67890};
-        int count = 2;
-        MPI_Request requests[2];
-        int recipient_rank_of_request[2];
-
-        // Send first message to process 1
-        printf("[Process %d] Sends %d to process 1.\n", my_rank, buffer[0]);
-        fflush(stdout);
-        MPI_Isend(&buffer[0], 1, MPI_INT, 1, 0, MPI_COMM_WORLD, &requests[0]);
-        recipient_rank_of_request[0] = 1;
-
-        // Send second message to process 2
-        printf("[Process %d] Sends %d to process 2.\n", my_rank, buffer[1]);
-        fflush(stdout);
-        MPI_Isend(&buffer[1], 1, MPI_INT, 2, 0, MPI_COMM_WORLD, &requests[1]);
-        recipient_rank_of_request[1] = 2;
-
-        int index;
-        int ready;
-
-        // Check if one of the requests finished
-        MPI_Testany(count, requests, &index, &ready, MPI_STATUS_IGNORE);
-        if(ready) {
-            printf("MPI_Isend to process %d completed.\n", index + 1);
-            fflush(stdout);
-        } else {
-            printf("None of the MPI_Isend completed for now.\n");
-            fflush(stdout);
-        }
-
-        // Tell receivers they can now issue the first MPI_Recv.
-        MPI_Barrier(MPI_COMM_WORLD);
-
-        // Receivers tell us the MPI_Recv is complete.
-        MPI_Barrier(MPI_COMM_WORLD);
-
-        // Check if one of the requests finished
-        MPI_Testany(count, requests, &index, &ready, MPI_STATUS_IGNORE);
-        if(ready) {
-            printf("MPI_Isend to process %d completed.\n", recipient_rank_of_request[index]);
-            fflush(stdout);
-        } else {
-            printf("None of the MPI_Isend completed for now.\n");
-            fflush(stdout);
-        }
-
-        // Tell receivers they can now issue the second MPI_Recv.
-        MPI_Barrier(MPI_COMM_WORLD);
-
-        // Receivers tell us the second MPI_Recv is complete.
-        MPI_Barrier(MPI_COMM_WORLD);
-
-        // Check if one of the requests finished
-        MPI_Testany(count, requests, &index, &ready, MPI_STATUS_IGNORE);
-        if(ready) {
-            printf("MPI_Isend to process %d completed.\n", recipient_rank_of_request[index]);
-            fflush(stdout);
-        } else {
-            printf("None of the MPI_Isend completed for now.\n");
-            fflush(stdout);
-        }
-    }
-    else
-    {
-        // The "slave" MPI processes receive the messages.
-
-        // Wait until the first MPI_Testany is issued.
-        MPI_Barrier(MPI_COMM_WORLD);
-
-        if(my_rank == 1)
+    clock_t start_time = clock();
+    int iterations = 0;
+    for (clock_t t = clock(); t-start_time < (RUNTIME-(iterations * SLEEP_PER_ITERATION)) * CLOCKS_PER_SEC; t = clock()) {
+        buffer[0]+=iterations;
+        buffer[1]++;
+        if(my_rank == 0)
         {
-            int received;
-            MPI_Recv(&received, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            printf("[Process %d] Received value %d.\n", my_rank, received);
+            // The "master" MPI process sends the messages.
+            int count = 2;
+            MPI_Request requests[2];
+            int recipient_rank_of_request[2];
+
+            // Send first message to process 1
+            printf("[Process %d] Sends %d to process 1.\n", my_rank, buffer[0]);
             fflush(stdout);
+            MPI_Isend(&buffer[0], 1, MPI_INT, 1, 0, MPI_COMM_WORLD, &requests[0]);
+            recipient_rank_of_request[0] = 1;
+
+            // Send second message to process 2
+            printf("[Process %d] Sends %d to process 2.\n", my_rank, buffer[1]);
+            fflush(stdout);
+            MPI_Isend(&buffer[1], 1, MPI_INT, 2, 0, MPI_COMM_WORLD, &requests[1]);
+            recipient_rank_of_request[1] = 2;
+
+            int index;
+            int ready;
+
+            // Check if one of the requests finished
+            MPI_Testany(count, requests, &index, &ready, MPI_STATUS_IGNORE);
+            if(ready) {
+                printf("MPI_Isend to process %d completed.\n", index + 1);
+                fflush(stdout);
+            } else {
+                printf("None of the MPI_Isend completed for now.\n");
+                fflush(stdout);
+            }
+
+            // Tell receivers they can now issue the first MPI_Recv.
+            MPI_Barrier(MPI_COMM_WORLD);
+
+            // Receivers tell us the MPI_Recv is complete.
+            MPI_Barrier(MPI_COMM_WORLD);
+
+            // Check if one of the requests finished
+            MPI_Testany(count, requests, &index, &ready, MPI_STATUS_IGNORE);
+            if(ready) {
+                printf("MPI_Isend to process %d completed.\n", recipient_rank_of_request[index]);
+                fflush(stdout);
+            } else {
+                printf("None of the MPI_Isend completed for now.\n");
+                fflush(stdout);
+            }
+
+            // Tell receivers they can now issue the second MPI_Recv.
+            MPI_Barrier(MPI_COMM_WORLD);
+
+            // Receivers tell us the second MPI_Recv is complete.
+            MPI_Barrier(MPI_COMM_WORLD);
+
+            // Check if one of the requests finished
+            MPI_Testany(count, requests, &index, &ready, MPI_STATUS_IGNORE);
+            if(ready) {
+                printf("MPI_Isend to process %d completed.\n", recipient_rank_of_request[index]);
+                fflush(stdout);
+            } else {
+                printf("None of the MPI_Isend completed for now.\n");
+                fflush(stdout);
+            }
         }
-
-        // Tell that the first MPI_Recv is issued.
-        MPI_Barrier(MPI_COMM_WORLD);
-
-        // Wait until the second MPI_Testany is issued.
-        MPI_Barrier(MPI_COMM_WORLD);
-
-        if(my_rank == 2)
+        else
         {
-            int received;
-            MPI_Recv(&received, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            printf("[Process %d] Received value %d.\n", my_rank, received);
+            // The "slave" MPI processes receive the messages.
+
+            // Wait until the first MPI_Testany is issued.
+            MPI_Barrier(MPI_COMM_WORLD);
+
+            if(my_rank == 1)
+            {
+                int received;
+                MPI_Recv(&received, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                printf("[Process %d] Received value %d.\n", my_rank, received);
+                fflush(stdout);
+                assert(received == buffer[0]);
+            }
+
+            // Tell that the first MPI_Recv is issued.
+            MPI_Barrier(MPI_COMM_WORLD);
+
+            // Wait until the second MPI_Testany is issued.
+            MPI_Barrier(MPI_COMM_WORLD);
+
+            if(my_rank == 2)
+            {
+                int received;
+                MPI_Recv(&received, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                printf("[Process %d] Received value %d.\n", my_rank, received);
+                fflush(stdout);
+                assert(received == buffer[1]);
+            }
+
+            // Wait for the second MPI_Recv to be issued.
+            MPI_Barrier(MPI_COMM_WORLD);
+        }   
+        if(my_rank == 0)
+        {
+            // The "master" MPI process sends the messages.
+            int count = 2;
+            MPI_Request requests[2];
+            int recipient_rank_of_request[2];
+
+            // Send first message to process 1
+            printf("[Process %d] Sends %d to process 1.\n", my_rank, buffer[0]);
             fflush(stdout);
+            MPI_Isend(&buffer[0], 1, MPI_INT, 1, 0, MPI_COMM_WORLD, &requests[0]);
+            recipient_rank_of_request[0] = 1;
+
+            // Send second message to process 2
+            printf("[Process %d] Sends %d to process 2.\n", my_rank, buffer[1]);
+            fflush(stdout);
+            MPI_Isend(&buffer[1], 1, MPI_INT, 2, 0, MPI_COMM_WORLD, &requests[1]);
+            recipient_rank_of_request[1] = 2;
+
+            int index;
+            int ready;
+
+            // Check if one of the requests finished
+            MPI_Testany(count, requests, &index, &ready, MPI_STATUS_IGNORE);
+            if(ready) {
+                printf("MPI_Isend to process %d completed.\n", index + 1);
+                fflush(stdout);
+            } else {
+                printf("None of the MPI_Isend completed for now.\n");
+                fflush(stdout);
+            }
+
+            // Tell receivers they can now issue the first MPI_Recv.
+            MPI_Barrier(MPI_COMM_WORLD);
+
+            // Receivers tell us the MPI_Recv is complete.
+            MPI_Barrier(MPI_COMM_WORLD);
+
+            // Check if one of the requests finished
+            MPI_Testany(count, requests, &index, &ready, MPI_STATUS_IGNORE);
+            if(ready) {
+                printf("MPI_Isend to process %d completed.\n", recipient_rank_of_request[index]);
+                fflush(stdout);
+            } else {
+                printf("None of the MPI_Isend completed for now.\n");
+                fflush(stdout);
+            }
+
+            // Tell receivers they can now issue the second MPI_Recv.
+            MPI_Barrier(MPI_COMM_WORLD);
+
+            // Receivers tell us the second MPI_Recv is complete.
+            MPI_Barrier(MPI_COMM_WORLD);
+
+            // Check if one of the requests finished
+            MPI_Testany(count, requests, &index, &ready, MPI_STATUS_IGNORE);
+            if(ready) {
+                printf("MPI_Isend to process %d completed.\n", recipient_rank_of_request[index]);
+                fflush(stdout);
+            } else {
+                printf("None of the MPI_Isend completed for now.\n");
+                fflush(stdout);
+            }
         }
+        else
+        {
+            // The "slave" MPI processes receive the messages.
+            // Wait until the first MPI_Testany is issued.
+            MPI_Barrier(MPI_COMM_WORLD);
 
-        // Wait for the second MPI_Recv to be issued.
-        MPI_Barrier(MPI_COMM_WORLD);
+            if(my_rank == 1)
+            {
+                int received;
+                MPI_Recv(&received, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                printf("[Process %d] Received value %d.\n", my_rank, received);
+                fflush(stdout);
+                assert(received == buffer[0]);
+            }
+
+            // Tell that the first MPI_Recv is issued.
+            MPI_Barrier(MPI_COMM_WORLD);
+
+            // Wait until the second MPI_Testany is issued.
+            MPI_Barrier(MPI_COMM_WORLD);
+
+            if(my_rank == 2)
+            {
+                int received;
+                MPI_Recv(&received, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                printf("[Process %d] Received value %d.\n", my_rank, received);
+                fflush(stdout);
+                assert(received == buffer[1]);
+            }
+
+            // Wait for the second MPI_Recv to be issued.
+            MPI_Barrier(MPI_COMM_WORLD);
+        }   
+        iterations++;
+        sleep(SLEEP_PER_ITERATION);
     }
-
     MPI_Finalize();
 
     return EXIT_SUCCESS;

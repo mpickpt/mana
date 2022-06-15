@@ -2,8 +2,10 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <time.h>
 
-int iterations = 100;
+#define RUNTIME 30
+#define SLEEP_PER_ITERATION 1
 
 int main( int argc, char *argv[] )
 {
@@ -76,7 +78,9 @@ int main( int argc, char *argv[] )
   //                (and so we know that all ranks have completed PHASE 1, and
   //                we just need to wait until they all complete PHASE 2
 
-  for (i = 0; i < iterations; i++) {
+  clock_t start_time = clock();
+  int iterations = 0;
+  for (clock_t t = clock(); t-start_time < (RUNTIME-(iterations * SLEEP_PER_ITERATION)) * CLOCKS_PER_SEC; t = clock()) {
     if (comm1 != MPI_COMM_NULL) {
       for (j = 0; j < 3; j++) {
         comm1_counter++;
@@ -85,7 +89,6 @@ int main( int argc, char *argv[] )
         MPI_Barrier(comm1);
         printf("Rank %d leaving comm1, iteration %d\n", rank, comm1_counter);
         fflush(stdout);
-        sleep(1);
       }
     }
     if (comm2 != MPI_COMM_NULL) {
@@ -95,8 +98,9 @@ int main( int argc, char *argv[] )
       MPI_Barrier(comm2);
       printf("Rank %d leaving comm2, iteration %d\n", rank, comm2_counter);
       fflush(stdout);
-      sleep(1);
     }
+    iterations++;      
+    sleep(SLEEP_PER_ITERATION);
   }
 
   MPI_Finalize();

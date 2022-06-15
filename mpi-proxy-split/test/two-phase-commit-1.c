@@ -2,8 +2,10 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <time.h>
 
-int iterations = 100;
+#define RUNTIME 30
+#define SLEEP_PER_ITERATION 1
 
 int main( int argc, char *argv[] )
 {
@@ -61,7 +63,9 @@ int main( int argc, char *argv[] )
   // else in your communicator is in the critical section.
   // If you're blocked in Phase 2, you always get the free pass
 
-  for (i = 0; i < iterations; i++) {
+  clock_t start_time = clock();
+  int iterations = 0;
+  for (clock_t t = clock(); t-start_time < (RUNTIME-(iterations * SLEEP_PER_ITERATION)) * CLOCKS_PER_SEC; t = clock()) {
     if (comm1 != MPI_COMM_NULL) {
       comm1_counter++;
       printf("Rank %d entering comm1, iteration %d\n", rank, comm1_counter);
@@ -69,7 +73,6 @@ int main( int argc, char *argv[] )
       MPI_Barrier(comm1);
       printf("Rank %d leaving comm1, iteration %d\n", rank, comm1_counter);
       fflush(stdout);
-      sleep(1);
     }
     if (comm2 != MPI_COMM_NULL) {
       comm2_counter++;
@@ -78,8 +81,9 @@ int main( int argc, char *argv[] )
       MPI_Barrier(comm2);
       printf("Rank %d leaving comm2, iteration %d\n", rank, comm2_counter);
       fflush(stdout);
-      sleep(1);
     }
+    iterations++;
+    sleep(SLEEP_PER_ITERATION);
   }
 
   MPI_Finalize();

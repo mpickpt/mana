@@ -4,7 +4,14 @@
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
+#include <unistd.h>
 #include <assert.h>
+
+#define BUFFER_SIZE 100
+#define RUNTIME 30
+#define SLEEP_PER_ITERATION 5
+
 /*
    This program tests MPI_Alltoallv by having processor i send different
    amounts of data to each processor.
@@ -17,6 +24,7 @@ int main( int argc, char **argv )
   int rank, size;
   int *sendcounts, *recvcounts, *rdispls, *sdispls;
   int i, j, *p, err;
+  int iterations; clock_t start_time;
 
   MPI_Init( &argc, &argv );
   err = 0;
@@ -32,7 +40,7 @@ int main( int argc, char **argv )
   }
   /* Load up the buffers */
   for (i=0; i<size*size; i++) {
-    sbuf[i] = i + 100*rank;
+    sbuf[i] = i + BUFFER_SIZE*rank;
     rbuf[i] = -i;
   }
   /* Create and load the arguments to alltoallv */
@@ -44,32 +52,42 @@ int main( int argc, char **argv )
     fprintf( stderr, "Could not allocate arg items!\n" );fflush(stderr);
     MPI_Abort( comm, 1 );
   }
-  for (i=0; i<size; i++) {
-    sendcounts[i] = i;
-    recvcounts[i] = rank;
-    rdispls[i] = i * rank;
-    sdispls[i] = (i * (i+1))/2;
-  }
-  MPI_Alltoallv( sbuf, sendcounts, sdispls, MPI_INT,
-      rbuf, recvcounts, rdispls, MPI_INT, comm );
-  /* Check rbuf */
-  for (i=0; i<size; i++) {
-    p = rbuf + rdispls[i];
-    for (j=0; j<rank; j++) {
-      if (p[j] != i * 100 + (rank*(rank+1))/2 + j) {
-        fprintf( stderr, "[%d] got %d expected %d for %dth\n",
-            rank, p[j],(i*(i+1))/2 + j, j );
-        fflush(stderr);
-        err++;
-        assert(p[j] == i * 100 + (rank*(rank+1))/2 + j);
-      }
-      else {
-        fprintf( stdout, "[%d]=> got %d expected %d for %dth\n",
-            rank, p[j], i * 100 + (rank*(rank+1))/2 + j , j);
-        fflush(stdout);
+
+  start_time = clock();
+  iterations = 0;
+  
+  for (clock_t t = clock(); t-start_time < (RUNTIME-(iterations * SLEEP_PER_ITERATION)) * CLOCKS_PER_SEC; t = clock()) {
+    for (i=0; i<size; i++) {
+      sendcounts[i] = i;
+      recvcounts[i] = rank;
+      rdispls[i] = i * rank;
+      sdispls[i] = (i * (i+1))/2;
+    }
+    MPI_Alltoallv( sbuf, sendcounts, sdispls, MPI_INT,
+        rbuf, recvcounts, rdispls, MPI_INT, comm );
+    /* Check rbuf */
+    for (i=0; i<size; i++) {
+      p = rbuf + rdispls[i];
+      for (j=0; j<rank; j++) {
+        if (p[j] != i * BUFFER_SIZE + (rank*(rank+1))/2 + j) {
+          fprintf( stderr, "[%d] got %d expected %d for %dth\n",
+              rank, p[j],(i*(i+1))/2 + j, j );
+          fflush(stderr);
+          err++;
+          assert(p[j] == i * BUFFER_SIZE + (rank*(rank+1))/2 + j);
+        }
+        else {
+          fprintf( stdout, "[%d]=> got %d expected %d for %dth\n",
+              rank, p[j], i * BUFFER_SIZE + (rank*(rank+1))/2 + j , j);
+          fflush(stdout);
+        }
       }
     }
+
+    iterations++;
+    sleep(SLEEP_PER_ITERATION);
   }
+
   free( sdispls );
   free( rdispls );
   free( recvcounts );

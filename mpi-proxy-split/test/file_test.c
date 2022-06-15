@@ -5,11 +5,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <time.h>
+
+#define RUNTIME 30
+#define SLEEP_PER_ITERATION 5
 
 int main (int argc, char *argv[])
 {
   int access_mode;
   MPI_Comm comm;
+  int iterations; clock_t start_time;
 
   MPI_Init( &argc, &argv );
   comm = MPI_COMM_WORLD;
@@ -21,12 +26,20 @@ int main (int argc, char *argv[])
        	      | MPI_MODE_UNIQUE_OPEN
               | MPI_MODE_DELETE_ON_CLOSE;
 
-  MPI_File_open(comm, "file.tmp", access_mode, MPI_INFO_NULL, &handle); 
-  printf("File opened successfully.\n");
-  fflush(stdout);
+  start_time = clock();
+  iterations = 0;
+  
+  for (clock_t t = clock(); t-start_time < (RUNTIME-(iterations * SLEEP_PER_ITERATION)) * CLOCKS_PER_SEC; t = clock()) {
+    MPI_File_open(comm, "file.tmp", access_mode, MPI_INFO_NULL, &handle); 
+    printf("File opened successfully.\n");
+    fflush(stdout);
 
-  MPI_File_close(&handle);
-  printf("File closed successfully.\n");
+    MPI_File_close(&handle);
+    printf("File closed successfully.\n");
+
+    iterations++;
+    sleep(SLEEP_PER_ITERATION);
+  }
 
   MPI_Finalize();
 

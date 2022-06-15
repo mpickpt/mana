@@ -10,16 +10,12 @@
 #include <mpi.h>
 #include <math.h>
 #include <assert.h>
+#include <time.h>
 #include <getopt.h>
-/************************************************************
-This is a simple Ibcast program in MPI
-OPTIONS:   iterations, MPI_TEST, MPI_WAIT, Move the 'sleep(1)'
-************************************************************/
 
-#define MPI_TEST
-#ifndef MPI_TEST
-# define MPI_WAIT
-#endif
+#define RUNTIME 30
+#define SLEEP_PER_ITERATION 5
+#define NUM_RANKS 4
 
 void usage(int argc, char *argv[])
 {
@@ -33,21 +29,23 @@ void usage(int argc, char *argv[])
 
 void test_case_0(void) {
     int i,iter,myid;
-    int root,count,iterations;
+    int root,count;
     int buffer[4];
     int expected_output[4];
     MPI_Status status;
     MPI_Request request = MPI_REQUEST_NULL;
+    int iterations; clock_t start_time;
 
     MPI_Init(NULL,NULL);
     MPI_Comm_rank(MPI_COMM_WORLD,&myid);
     root = 0;
-    count = 4;
-    iterations = 100;
+
+    start_time = clock();
+    iterations = 0;
     // Case 0 - all ranks likely reaches the current
     // iteration broadcast at the checkpoint
-    for (iter = 0; iter < iterations; iter++) {
-        for (i=0; i<count; i++) {
+    for (clock_t t = clock(); t-start_time < (RUNTIME-(iterations * SLEEP_PER_ITERATION)) * CLOCKS_PER_SEC; t = clock()) {
+        for (i=0; i<NUM_RANKS; i++) {
             expected_output[i] = i + iter;
             if (myid == root) {
               buffer[i] = expected_output[i];
@@ -55,25 +53,26 @@ void test_case_0(void) {
               buffer[i] = 0; // MPI_Ibcast should populate this.
             }
         }
-        MPI_Ibcast(buffer,count,MPI_INT,root,MPI_COMM_WORLD, &request);
+        MPI_Ibcast(buffer,NUM_RANKS,MPI_INT,root,MPI_COMM_WORLD, &request);
         printf("[Rank = %d]", myid);
-        sleep(1); // The checkpoint is likely to occur here.
-#ifdef MPI_TEST
-        while (1) {
-            int flag = 0;
-            MPI_Test(&request, &flag, &status);
-            if (flag) { break; }
+        sleep(SLEEP_PER_ITERATION);
+
+        if(iterations % 2 == 0){
+          int flag = 0;
+          MPI_Test(&request, &flag, &status);
+          while (!flag) MPI_Test(&request, &flag, &status);
         }
-#endif
-#ifdef MPI_WAIT
-        MPI_Wait(&request, &status);
-#endif
-        for (i=0;i<count;i++) {
+        else{
+          MPI_Wait(&request, &status);
+        }
+
+        for (i=0;i<NUM_RANKS;i++) {
             printf(" %d %d", buffer[i], expected_output[i]);
             assert(buffer[i] == expected_output[i]);
         }
         printf("\n");
         fflush(stdout);
+        iterations++;
     }
     MPI_Finalize();
 }
@@ -83,19 +82,20 @@ void test_case_0(void) {
 // checkpoint time.
 void test_case_1(void) {
     int i,iter,myid;
-    int root,count,iterations;
+    int root,iterations;
     int buffer[4];
     int expected_output[4];
     MPI_Status status;
     MPI_Request request = MPI_REQUEST_NULL;
+    clock_t start_time;
 
     MPI_Init(NULL,NULL);
     MPI_Comm_rank(MPI_COMM_WORLD,&myid);
     root = 0;
-    count = 4;
-    iterations = 100;
-    for (iter = 0; iter < iterations; iter++) {
-        for (i=0; i<count; i++) {
+    start_time = clock();
+    iterations = 0;
+    for (clock_t t = clock(); t-start_time < (RUNTIME-(iterations * SLEEP_PER_ITERATION)) * CLOCKS_PER_SEC; t = clock()) {
+        for (i=0; i<NUM_RANKS; i++) {
           expected_output[i] = i + iter;
           if (myid == root) {
             buffer[i] = expected_output[i];
@@ -103,29 +103,32 @@ void test_case_1(void) {
             buffer[i] = 0; // MPI_Ibcast should populate this.
           }
         }
-	// Sender (root) advances to the next Ibcast while receivers
-	// wait a second.
-	if (myid != root) {
-	  sleep(1);
-	}
-        MPI_Ibcast(buffer,count,MPI_INT,root,MPI_COMM_WORLD, &request);
+        // Sender (root) advances to the next Ibcast while receivers
+        // wait a second.
+        if (myid != root) {
+          sleep(SLEEP_PER_ITERATION);
+        }
+
+        MPI_Ibcast(buffer,NUM_RANKS,MPI_INT,root,MPI_COMM_WORLD, &request);
         printf("[Rank = %d]", myid);
-#ifdef MPI_TEST
-        while (1) {
+
+        if(iterations % 2 == 0){
           int flag = 0;
           MPI_Test(&request, &flag, &status);
-          if (flag) { break; }
+          while (!flag) MPI_Test(&request, &flag, &status);
         }
-#endif
-#ifdef MPI_WAIT
-        MPI_Wait(&request, &status);
-#endif
-        for (i=0;i<count;i++) {
+        else{
+          MPI_Wait(&request, &status);
+        }
+
+        for (i=0;i<NUM_RANKS;i++) {
           printf(" %d %d", buffer[i], expected_output[i]);
           assert(buffer[i] == expected_output[i]);
         }
         printf("\n");
         fflush(stdout);
+        
+        iterations++;
     }
     MPI_Finalize();
 }
@@ -133,56 +136,58 @@ void test_case_1(void) {
 // Case 2 - In a regression bug, the sender could complete the last call while
 // receivers are still at the current or previous calls while checkpointing.
 void test_case_2(void) {
-    int i,count,myid,root;
+    int i,myid,root, iterations;
     int buffer[4];
     int expected_output[4];
     MPI_Status status;
     MPI_Request request = MPI_REQUEST_NULL;
+    clock_t start_time;
 
     MPI_Init(NULL,NULL);
     MPI_Comm_rank(MPI_COMM_WORLD,&myid);
     root = 0;
-    count = 4;
-    for (i=0; i<count; i++) {
-        expected_output[i] = i;
-        if (myid == root) {
-          buffer[i] = expected_output[i];
-        } else {
-          buffer[i] = 0; // MPI_Ibcast should populate this.
-        }
-    }
+    start_time = clock();
+    iterations = 0;
+    for (clock_t t = clock(); t-start_time < (RUNTIME-(iterations * SLEEP_PER_ITERATION)) * CLOCKS_PER_SEC; t = clock()) {
+      for (i=0; i<NUM_RANKS; i++) {
+          expected_output[i] = i;
+          if (myid == root) {
+            buffer[i] = expected_output[i];
+          } else {
+            buffer[i] = 0; // MPI_Ibcast should populate this.
+          }
+      }
 
-    // Checkpoint likely happens here - sender (root) advances to
-    // the next Ibcast while receivers is waiting.
-    if (myid != root) {
-        printf("[Rank = %d] sleep 100 seconds\n", myid);
-        fflush(stdout);
-        sleep(100);
-    }
-    MPI_Ibcast(buffer,count,MPI_INT,root,MPI_COMM_WORLD, &request);
-    printf("[Rank = %d]", myid);
-#ifdef MPI_TEST
-    while (1) {
+      // Checkpoint likely happens here - sender (root) advances to
+      // the next Ibcast while receivers is waiting.
+      if (myid != root) {
+          printf("[Rank = %d] sleep %d seconds\n", myid, SLEEP_PER_ITERATION);
+          fflush(stdout);
+          sleep(SLEEP_PER_ITERATION);
+      }
+      MPI_Ibcast(buffer,NUM_RANKS,MPI_INT,root,MPI_COMM_WORLD, &request);
+      printf("[Rank = %d]", myid);
+      if(iterations % 2 == 0){
         int flag = 0;
         MPI_Test(&request, &flag, &status);
-        if (flag) { break; }
+        while (!flag) MPI_Test(&request, &flag, &status);
+      }
+      else{
+        MPI_Wait(&request, &status);
+      }
+      for (i=0;i<NUM_RANKS;i++) {
+          printf(" %d %d", buffer[i], expected_output[i]);
+          assert(buffer[i] == expected_output[i]);
+      }
+      printf("\n");
+      fflush(stdout);
+      if (myid == root) {
+          printf("[Rank = %d] sleep %d seconds\n", myid, SLEEP_PER_ITERATION);
+          fflush(stdout);
+          sleep(SLEEP_PER_ITERATION);
+      }
+      iterations++;
     }
-#endif
-#ifdef MPI_WAIT
-    MPI_Wait(&request, &status);
-#endif
-    for (i=0;i<count;i++) {
-        printf(" %d %d", buffer[i], expected_output[i]);
-        assert(buffer[i] == expected_output[i]);
-    }
-    printf("\n");
-    fflush(stdout);
-    if (myid == root) {
-        printf("[Rank = %d] sleep 100 seconds\n", myid);
-        fflush(stdout);
-        sleep(100);
-    }
-
     MPI_Finalize();
 }
 

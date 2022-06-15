@@ -3,6 +3,11 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <unistd.h>
+#include <time.h>
+
+#define BUFFER_SIZE 100
+#define RUNTIME 30
+#define SLEEP_PER_ITERATION 5
 
 int main(int argc, char** argv) {
   // Initialize the MPI environment
@@ -12,6 +17,8 @@ int main(int argc, char** argv) {
   MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
   int world_size;
   MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+
+  int iterations; clock_t start_time;
 
   // We are assuming at least 2 processes for this task
   if (world_size < 2) {
@@ -23,14 +30,16 @@ int main(int argc, char** argv) {
   int number = 11223344;
   int i;
 
-  for (i = 0; i < 100; i++) {
-    
+  start_time = clock();
+  iterations = 0;
+  
+  for (clock_t t = clock(); t-start_time < (RUNTIME-(iterations * SLEEP_PER_ITERATION)) * CLOCKS_PER_SEC; t = clock()) {
     for (rank = 0; rank < world_size; rank++)
     {
       if (rank == myrank)
         continue;
       MPI_Send(&number, 1, MPI_INT, rank, 0, MPI_COMM_WORLD);
-      assert(number == 11223344);
+      assert(number == 11223344+iterations);
       printf("%d sent %d to %d\n", myrank, number, rank);
       fflush(stdout);
     }
@@ -44,7 +53,7 @@ int main(int argc, char** argv) {
     }
     printf("%d sleeping\n", myrank);
     fflush(stdout);
-    sleep(1);
+    sleep(SLEEP_PER_ITERATION);
     for (rank = 0; rank < world_size; rank++)
     {
       if (rank == myrank)
@@ -64,6 +73,8 @@ int main(int argc, char** argv) {
         }
       }
     }
+    iterations++;
+    number++;
   }
 
   MPI_Finalize();

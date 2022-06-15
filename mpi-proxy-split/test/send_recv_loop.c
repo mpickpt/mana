@@ -15,11 +15,12 @@
 #include <limits.h>
 #include <time.h>
 
+#define RUNTIME 30
+#define SLEEP_PER_ITERATION 5
+#define MESSAGES_PER_ITERATION 10
+
 int main(int argc, char** argv) {
-  int iteration = 10;
-  if (argc > 1) {
-    iteration = atoi(argv[1]);
-  }
+  int iterations; clock_t start_time;
 
   // Initialize the MPI environment
   MPI_Init(NULL, NULL);
@@ -35,43 +36,50 @@ int main(int argc, char** argv) {
     MPI_Abort(MPI_COMM_WORLD, 1);
   }
 
-  // rank 0 wait a while then send messages to rank 1
-  if (world_rank == 0) {
-    int number = 0;
-    for (int i = 0; i < iteration; i++) {
-      sleep(10);
-      MPI_Send(&number, 1, MPI_INT, 1, 0, MPI_COMM_WORLD);
-      number++;
-      MPI_Barrier(MPI_COMM_WORLD);
-      printf("Rank 0 have successfully sent %d messages to rank 1\n", i + 1);
-      fflush(stdout);
-    }
-  } else if (world_rank == 1) {
-    // rank 1 receive message from 0 first and then 2
-    int number = 0;
-    for (int i = 0; i < iteration; i++) {
-      int recv_number = -1;
-      MPI_Recv(&recv_number, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-      assert(number == recv_number);
-      MPI_Recv(&recv_number, 1, MPI_INT, 2, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-      assert(number == recv_number);
-      number++;
-      MPI_Barrier(MPI_COMM_WORLD);
-      printf("Rank 1 have successfully received %d messages\n", (i + 1) * 2);
-      fflush(stdout);
-    }
-  } else {
-    // rank 2 send messages to rank 1 right away
-    int number = 0;
-    for (int i = 0; i < iteration; i++) {
-      MPI_Send(&number, 1, MPI_INT, 1, 0, MPI_COMM_WORLD);
-      number++;
-      MPI_Barrier(MPI_COMM_WORLD);
-      printf("Rank 2 have successfully sent %d messages to rank 1\n", i + 1);
-      fflush(stdout);
-    }
+  start_time = clock();
+  iterations = 0;
 
-  }
+  for (clock_t t = clock(); t-start_time < (RUNTIME-(iterations * SLEEP_PER_ITERATION)) * CLOCKS_PER_SEC; t = clock()) {
+    // rank 0 wait a while then send messages to rank 1
+    int number = 0;
+    if (world_rank == 0) {
+      sleep(SLEEP_PER_ITERATION);
+      iterations++;
+      for (int i = 0; i < MESSAGES_PER_ITERATION; i++) {
+        MPI_Send(&number, 1, MPI_INT, 1, 0, MPI_COMM_WORLD);
+        number++;
+        MPI_Barrier(MPI_COMM_WORLD);
+        printf("Rank 0 have successfully sent %d messages to rank 1\n", i + 1);
+        fflush(stdout);
+      }
+    } else if (world_rank == 1) {
+      // rank 1 receive message from 0 first and then 2
+      int number = 0;
+      for (int i = 0; i < MESSAGES_PER_ITERATION; i++) {
+        int recv_number = -1;
+        MPI_Recv(&recv_number, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        assert(number == recv_number);
+        MPI_Recv(&recv_number, 1, MPI_INT, 2, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        assert(number == recv_number);
+        number++;
+        MPI_Barrier(MPI_COMM_WORLD);
+        printf("Rank 1 have successfully received %d messages\n", (i + 1) * 2);
+        fflush(stdout);
+      }
+    } else {
+      // rank 2 send messages to rank 1 right away
+      int number = 0;
+      for (int i = 0; i < MESSAGES_PER_ITERATION; i++) {
+        MPI_Send(&number, 1, MPI_INT, 1, 0, MPI_COMM_WORLD);
+        number++;
+        MPI_Barrier(MPI_COMM_WORLD);
+        printf("Rank 2 have successfully sent %d messages to rank 1\n", i + 1);
+        fflush(stdout);
+      }
+    }
+    iterations++;
+    sleep(SLEEP_PER_ITERATION);
+  } 
   MPI_Finalize();
   return 0;
 }
