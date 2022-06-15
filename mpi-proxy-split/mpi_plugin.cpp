@@ -264,8 +264,8 @@ get_cartesian_topology_info_file_name()
 void
 save_cartesian_topology_info(const char *filename)
 {
-  if (g_cartesianTopology.old_comm_size == g_cartesianTopology.new_comm_size ==
-      g_cartesianTopology.old_rank == g_cartesianTopology.new_rank == -1)
+  if ((g_cartesianTopology.old_comm_size + g_cartesianTopology.new_comm_size +
+       g_cartesianTopology.old_rank + g_cartesianTopology.new_rank) < 0)
     return;
 
   int i;
