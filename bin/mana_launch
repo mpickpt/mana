@@ -107,6 +107,15 @@ if [ "$coordinator_found" == 0 ]; then
   exit 5
 fi
 
+# At higher ranks, restarting NIMROD causes a heap overflow (for a more detailed
+# write up, refer to Section 4 of mpi-proxy-split/doc/nimrod-build-tutorial.txt).
+# A temporary workaround is to swap the memory addresses of NIMROD and lh_proxy,
+# which requires a specially built version of lh_proxy.
+app_name="`echo $options | head -n1 | xargs basename`"
+if [ "$app_name" == "nimrod" ]; then
+  export USE_LH_PROXY_DEFADDR=1
+fi
+
 if [ "$verbose" == 0 ]; then
   options="-q -q $options"
 fi
