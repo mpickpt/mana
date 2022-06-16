@@ -37,7 +37,7 @@ FILES=mpi_hello_world \
       Irecv_test Alloc_mem \
       f_ibarrier \
       wave_mpi day1_mpi quad_mpi poisson_nonblock_mpi \
-      send_recv_loop
+      send_recv_loop large_async_p2p
 
 OBJS=$(addsuffix .o, ${FILES})
 
