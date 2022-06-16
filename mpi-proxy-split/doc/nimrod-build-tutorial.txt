@@ -79,6 +79,13 @@ variables:
 Then run the configure script, followed by the build script. This will install
 NIMROD in the former directory.
 
+NOTE: If testing NIMROD with MANA with many ranks is desired, there are some
+additional steps required that can be found below, under the first subsection
+of 'Testing NIMROD'. It may be also handy to save the output of the build
+script.
+
+  $ ./cori.nersc.gov-nimdevel-par-build.sh | tee nimrod-build.log
+
 ### ON CENTOS 7 AND CENTOS STREAM ###
 
 ## BUILDING NIMROD ##
@@ -216,6 +223,48 @@ it manually.
 
 The test case provided on Cori has to be ran with the number of MPI ranks being
 a multiple of 11. This corresponds to the number of tasks.
+
+NOTE: Currently, when restarting above a certain number of ranks, NIMROD's
+execution may halt after a while (and we know that this issue will always be
+seen above 704 ranks, although this is not a definite lower bound). This is due
+to a heap overflow; the memory map below provides a clearer picture of the
+issue (dev and inode columns are omitted):
+
+00400000-031b0000 r-xp 00000000  /global/cfs/cdirs/cr/illios/nimall/bin/nimrod
+033b0000-033da000 r-xp 02db0000  /global/cfs/cdirs/cr/illios/nimall/bin/nimrod
+033da000-0340d000 rwxp 02dda000  /global/cfs/cdirs/cr/illios/nimall/bin/nimrod
+0340d000-0395c000 rwxp 00000000  [heap] 
+0e000000-0e47c000 r-xp 00000000  /global/u1/i/illios/mana/bin/lh_proxy
+0e67b000-0e68a000 rwxp 00000000  /global/u1/i/illios/mana/bin/lh_proxy
+0e68a000-0e6fd000 rwxp 00000000  /global/u1/i/illios/mana/bin/lh_proxy
+
+If the heap grows too much, it risks overflowing into the text section of the
+lower half, causing a segmentation fault. An attempted solution was to increase
+the memory address of the lower half, but it could only be increased to a maximum
+of 0x80000000, in which the heap still overflows. A devised workaround is to
+swap the memory region for the lower half and NIMROD, such that the heap can
+grow freely.
+
+To implement this, we have to change how NIMROD and MANA are built.
+
+A future MANA version will remove this special requirement - June, '22.
+
+NIMROD:
+When linking NIMROD, it's necessary to add a flag specifying where it should be
+loaded (by default, this is 0x400000). The command can be found in the output of
+the build script, prepended by "[ 90%] Linking Fortran executable ../bin/nimrod".
+
+Add a `-Wl,-Ttext-segment=E000000` flag to the build command, then run ONLY the
+command.
+
+MANA:
+Conversely, we should no longer specify where the lower half is loaded (so it
+will now be loaded to 0x400000 - where the upper half was). This can be done by
+making changes to `mpi-proxy-split/lower-half/Makefile`.
+
+Search for where the `PROXY_LD_FLAGS` variable is defined, and remove the
+`-Wl,-Ttext-segment -Wl,0xE000000` flag from it. Then run `make clean`, followed
+by `make mana`.
 
 ### ON CENTOS 7 AND CENTOS STREAM ###
 
