@@ -246,11 +246,11 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       mana_state = RUNNING;
       break;
     }
-    case DMTCP_EVENT_EXIT:
+    case DMTCP_EVENT_EXIT: {
       JTRACE("*** DMTCP_EVENT_EXIT");
       break;
-
-    case DMTCP_EVENT_PRESUSPEND:
+    }
+    case DMTCP_EVENT_PRESUSPEND: {
       mana_state = CKPT_COLLECTIVE;
       // drainMpiCollectives() will send worker state and get coord response.
       // Unfortunately, dmtcp_global_barrier()/DMT_BARRIER can't send worker
@@ -271,7 +271,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
           string barrierId = "MANA-PRESUSPEND-" + jalib::XToString(round);
           string csId = "MANA-PRESUSPEND-CS-" + jalib::XToString(round);
           string commId = "MANA-PRESUSPEND-COMM-" + jalib::XToString(round);
-          int64_t commKey = (int64_t) data_to_coord.comm;
+          int64_t commKey = (int64_t)data_to_coord.comm;
 
           if (data_to_coord.st == IN_CS) {
             dmtcp_kvdb64(DMTCP_KVDB_INCRBY, csId.c_str(), 0, 1);
@@ -300,8 +300,8 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
         }
       }
       break;
-
-    case DMTCP_EVENT_PRECHECKPOINT:
+    }
+    case DMTCP_EVENT_PRECHECKPOINT: {
       logIbarrierIfInTrivBarrier(); // two-phase-algo.cpp
       dmtcp_local_barrier("MPI:GetLocalLhMmapList");
       getLhMmapList(); // two-phase-algo.cpp
@@ -315,15 +315,15 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       dmtcp_global_barrier("MPI:Drain-Send-Recv");
       drainSendRecv(); // p2p_drain_send_recv.cpp
       computeUnionOfCkptImageAddresses();
-
-    case DMTCP_EVENT_RESUME:
+    }
+    case DMTCP_EVENT_RESUME: {
       clearPendingCkpt(); // two-phase-algo.cpp
       dmtcp_local_barrier("MPI:Reset-Drain-Send-Recv-Counters");
       resetDrainCounters(); // p2p_drain_send_recv.cpp
       mana_state = RUNNING;
       break;
-
-    case DMTCP_EVENT_RESTART:
+    }
+    case DMTCP_EVENT_RESTART: {
       save2pcGlobals(); // two-phase-algo.cpp
       dmtcp_local_barrier("MPI:updateEnviron");
       updateLhEnviron(); // mpi-plugin.cpp
@@ -340,9 +340,10 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       restore2pcGlobals(); // two-phase-algo.cpp
       mana_state = RUNNING;
       break;
-
-    default:
+    }
+    default: {
       break;
+    }
   }
 }
 
