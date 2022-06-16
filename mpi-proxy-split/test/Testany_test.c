@@ -1,11 +1,11 @@
 /*
-  source: https://www.rookiehpc.com/mpi/docs/mpi_testany.php
-*/
+  Test for the MPI_Testany method
 
-/**
- * @author RookieHPC
- * @brief Original source code at https://www.rookiehpc.com/mpi/docs/mpi_testany.php
- **/
+  Must run with 3 ranks
+  Run with -i [iterations] for specific number of iterations, defaults to 6
+
+  Source: https://www.rookiehpc.com/mpi/docs/mpi_testany.php
+*/
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,8 +14,8 @@
 #include <unistd.h>
 #include <time.h>
 #include <string.h>
+#include <getopt.h>
 
-#define RUNTIME 30
 #define SLEEP_PER_ITERATION 5
 
 /**
@@ -45,6 +45,25 @@
  **/
 int main(int argc, char* argv[])
 {
+    //Parse runtime argument
+    int opt, max_iterations;
+    max_iterations = 6;
+    while ((opt = getopt(argc, argv, "i:")) != -1) {
+        switch(opt)
+        {
+        case 'i':
+            if(optarg != NULL){
+            char* optarg_end;
+            max_iterations = strtol(optarg, &optarg_end, 10);
+            if(max_iterations != 0 && optarg_end - optarg == strlen(optarg))
+                break;
+            }
+        default:
+            fprintf(stderr, "Unrecognized argument received \n\
+            -i [iterations]: Set test iterations (default 6)\n");
+            return 1;
+        }
+    }
     MPI_Init(&argc, &argv);
 
     // Get the number of processes and check only 3 processes are used
@@ -60,11 +79,12 @@ int main(int argc, char* argv[])
     // Get my rank
     int my_rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
+    if(my_rank == 0){
+        printf("Running test for %d iterations\n", max_iterations);
+    }
     int buffer[2] = {12345, 67890};
 
-    clock_t start_time = clock();
-    int iterations = 0;
-    for (clock_t t = clock(); t-start_time < (RUNTIME-(iterations * SLEEP_PER_ITERATION)) * CLOCKS_PER_SEC; t = clock()) {
+    for(int iterations = 0; iterations < max_iterations; iterations++){
         buffer[0]+=iterations;
         buffer[1]++;
         if(my_rank == 0)
@@ -164,7 +184,7 @@ int main(int argc, char* argv[])
 
             // Wait for the second MPI_Recv to be issued.
             MPI_Barrier(MPI_COMM_WORLD);
-        }   
+        }
         if(my_rank == 0)
         {
             // The "master" MPI process sends the messages.
@@ -261,8 +281,7 @@ int main(int argc, char* argv[])
 
             // Wait for the second MPI_Recv to be issued.
             MPI_Barrier(MPI_COMM_WORLD);
-        }   
-        iterations++;
+        }
         sleep(SLEEP_PER_ITERATION);
     }
     MPI_Finalize();

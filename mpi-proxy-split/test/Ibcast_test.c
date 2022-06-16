@@ -1,7 +1,9 @@
 /*
-  Example code for Bcast (not used here):
-   https://mpitutorial.com/tutorials/mpi-broadcast-and-collective-communication/
-   https://github.com/mpitutorial/mpitutorial/blob/gh-pages/tutorials/mpi-broadcast-and-collective-communication/code/my_bcast.c
+  Test for the MPI_Ibcast method
+
+  Run with >2 ranks for non-trivial results
+  Run with -i [iterations] for specific number of iterations, defaults to 5
+  Run with -1 or -2 to test specific cases (see below)
 */
 
 #include <stdio.h>
@@ -11,18 +13,24 @@
 #include <math.h>
 #include <assert.h>
 #include <time.h>
+#include <string.h>
 #include <getopt.h>
 
-#define RUNTIME 30
+int max_iterations;
 #define SLEEP_PER_ITERATION 5
 #define NUM_RANKS 4
+
+#define MPI_TEST
+#ifndef MPI_TEST
+# define MPI_WAIT
+#endif
 
 void usage(int argc, char *argv[])
 {
   printf("Usage: %s [-12]\n"
          "Options:\n"
 	 "  -1:	senders advances to the next call while receivers are at previous\n"
-	 "  -2: senders finishes the last call while receivers are at previous calls\n",
+	 "  -2: senders finish the last call while receivers are at previous calls\n",
 	 argv[0]);
   return;
 }
@@ -34,17 +42,20 @@ void test_case_0(void) {
     int expected_output[4];
     MPI_Status status;
     MPI_Request request = MPI_REQUEST_NULL;
-    int iterations; clock_t start_time;
 
     MPI_Init(NULL,NULL);
     MPI_Comm_rank(MPI_COMM_WORLD,&myid);
+
+    if(myid == 0){
+      printf("Running test for %d iterations\n", max_iterations);
+    }
+
     root = 0;
 
-    start_time = clock();
-    iterations = 0;
     // Case 0 - all ranks likely reaches the current
     // iteration broadcast at the checkpoint
-    for (clock_t t = clock(); t-start_time < (RUNTIME-(iterations * SLEEP_PER_ITERATION)) * CLOCKS_PER_SEC; t = clock()) {
+    for(int iterations = 0; iterations < max_iterations; iterations++){
+
         for (i=0; i<NUM_RANKS; i++) {
             expected_output[i] = i + iter;
             if (myid == root) {
@@ -57,14 +68,16 @@ void test_case_0(void) {
         printf("[Rank = %d]", myid);
         sleep(SLEEP_PER_ITERATION);
 
-        if(iterations % 2 == 0){
-          int flag = 0;
-          MPI_Test(&request, &flag, &status);
-          while (!flag) MPI_Test(&request, &flag, &status);
+#ifdef MPI_TEST
+        while (1) {
+            int flag = 0;
+            MPI_Test(&request, &flag, &status);
+            if (flag) { break; }
         }
-        else{
-          MPI_Wait(&request, &status);
-        }
+#endif
+#ifdef MPI_WAIT
+        MPI_Wait(&request, &status);
+#endif
 
         for (i=0;i<NUM_RANKS;i++) {
             printf(" %d %d", buffer[i], expected_output[i]);
@@ -72,7 +85,7 @@ void test_case_0(void) {
         }
         printf("\n");
         fflush(stdout);
-        iterations++;
+        ;
     }
     MPI_Finalize();
 }
@@ -87,14 +100,17 @@ void test_case_1(void) {
     int expected_output[4];
     MPI_Status status;
     MPI_Request request = MPI_REQUEST_NULL;
-    clock_t start_time;
 
     MPI_Init(NULL,NULL);
     MPI_Comm_rank(MPI_COMM_WORLD,&myid);
+
+    if(myid == 0){
+      printf("Running test for %d iterations\n", max_iterations);
+    }
+
     root = 0;
-    start_time = clock();
-    iterations = 0;
-    for (clock_t t = clock(); t-start_time < (RUNTIME-(iterations * SLEEP_PER_ITERATION)) * CLOCKS_PER_SEC; t = clock()) {
+    for(int iterations = 0; iterations < max_iterations; iterations++){
+
         for (i=0; i<NUM_RANKS; i++) {
           expected_output[i] = i + iter;
           if (myid == root) {
@@ -112,14 +128,16 @@ void test_case_1(void) {
         MPI_Ibcast(buffer,NUM_RANKS,MPI_INT,root,MPI_COMM_WORLD, &request);
         printf("[Rank = %d]", myid);
 
-        if(iterations % 2 == 0){
+#ifdef MPI_TEST
+        while (1) {
           int flag = 0;
           MPI_Test(&request, &flag, &status);
-          while (!flag) MPI_Test(&request, &flag, &status);
+          if (flag) { break; }
         }
-        else{
-          MPI_Wait(&request, &status);
-        }
+#endif
+#ifdef MPI_WAIT
+        MPI_Wait(&request, &status);
+#endif
 
         for (i=0;i<NUM_RANKS;i++) {
           printf(" %d %d", buffer[i], expected_output[i]);
@@ -127,8 +145,8 @@ void test_case_1(void) {
         }
         printf("\n");
         fflush(stdout);
-        
-        iterations++;
+
+        ;
     }
     MPI_Finalize();
 }
@@ -141,14 +159,18 @@ void test_case_2(void) {
     int expected_output[4];
     MPI_Status status;
     MPI_Request request = MPI_REQUEST_NULL;
-    clock_t start_time;
 
     MPI_Init(NULL,NULL);
     MPI_Comm_rank(MPI_COMM_WORLD,&myid);
+
+    if(myid == 0){
+      printf("Running test for %d iterations\n", max_iterations);
+    }
+
     root = 0;
-    start_time = clock();
-    iterations = 0;
-    for (clock_t t = clock(); t-start_time < (RUNTIME-(iterations * SLEEP_PER_ITERATION)) * CLOCKS_PER_SEC; t = clock()) {
+
+    for(int iterations = 0; iterations < max_iterations; iterations++){
+
       for (i=0; i<NUM_RANKS; i++) {
           expected_output[i] = i;
           if (myid == root) {
@@ -167,14 +189,16 @@ void test_case_2(void) {
       }
       MPI_Ibcast(buffer,NUM_RANKS,MPI_INT,root,MPI_COMM_WORLD, &request);
       printf("[Rank = %d]", myid);
-      if(iterations % 2 == 0){
+#ifdef MPI_TEST
+    while (1) {
         int flag = 0;
         MPI_Test(&request, &flag, &status);
-        while (!flag) MPI_Test(&request, &flag, &status);
-      }
-      else{
-        MPI_Wait(&request, &status);
-      }
+        if (flag) { break; }
+    }
+#endif
+#ifdef MPI_WAIT
+    MPI_Wait(&request, &status);
+#endif
       for (i=0;i<NUM_RANKS;i++) {
           printf(" %d %d", buffer[i], expected_output[i]);
           assert(buffer[i] == expected_output[i]);
@@ -186,14 +210,32 @@ void test_case_2(void) {
           fflush(stdout);
           sleep(SLEEP_PER_ITERATION);
       }
-      iterations++;
+      ;
     }
     MPI_Finalize();
 }
 
 int main(int argc, char *argv[])
 {
+    //Parse runtime argument
     int opt;
+    max_iterations = 5;
+    while ((opt = getopt(argc, argv, "i:")) != -1) {
+      switch(opt)
+      {
+        case 'i':
+          if(optarg != NULL){
+            char* optarg_end;
+            max_iterations = strtol(optarg, &optarg_end, 10);
+            if(max_iterations != 0 && optarg_end - optarg == strlen(optarg))
+              break;
+          }
+        default:
+          fprintf(stderr, "Unrecognized argument received \n\
+            -i [iterations]: Set test iterations (default 5)\n");
+          return 1;
+      }
+    }
 
     while ((opt = getopt(argc, argv, "12")) != -1) {
         switch(opt) {

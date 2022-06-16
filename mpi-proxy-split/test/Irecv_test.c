@@ -1,15 +1,43 @@
+/*
+  Test for the MPI_Irecv method
+
+  Must run with >1 ranks
+  Run with -i [iterations] for specific number of iterations, defaults to 5
+*/
+
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
 #include <unistd.h>
 #include <time.h>
+#include <getopt.h>
+#include <string.h>
 
 #define BUFFER_SIZE 100
-#define RUNTIME 30
 #define SLEEP_PER_ITERATION 5
 
 int main(int argc, char** argv) {
+  //Parse runtime argument
+  int opt, max_iterations;
+  max_iterations = 5;
+  while ((opt = getopt(argc, argv, "i:")) != -1) {
+    switch(opt)
+    {
+      case 'i':
+        if(optarg != NULL){
+          char* optarg_end;
+          max_iterations = strtol(optarg, &optarg_end, 10);
+          if(max_iterations != 0 && optarg_end - optarg == strlen(optarg))
+            break;
+        }
+      default:
+        fprintf(stderr, "Unrecognized argument received \n\
+          -i [iterations]: Set test iterations (default 5)\n");
+        return 1;
+    }
+  }
+
   // Initialize the MPI environment
   MPI_Init(NULL, NULL);
   // Find out rank, size
@@ -18,7 +46,9 @@ int main(int argc, char** argv) {
   int world_size;
   MPI_Comm_size(MPI_COMM_WORLD, &world_size);
 
-  int iterations; clock_t start_time;
+  if(myrank == 0){
+    printf("Running test for %d iterations\n", max_iterations);
+  }
 
   // We are assuming at least 2 processes for this task
   if (world_size < 2) {
@@ -30,10 +60,7 @@ int main(int argc, char** argv) {
   int number = 11223344;
   int i;
 
-  start_time = clock();
-  iterations = 0;
-  
-  for (clock_t t = clock(); t-start_time < (RUNTIME-(iterations * SLEEP_PER_ITERATION)) * CLOCKS_PER_SEC; t = clock()) {
+  for(int iterations = 0; iterations < max_iterations; iterations++){
     for (rank = 0; rank < world_size; rank++)
     {
       if (rank == myrank)
@@ -43,7 +70,7 @@ int main(int argc, char** argv) {
       printf("%d sent %d to %d\n", myrank, number, rank);
       fflush(stdout);
     }
-  
+
     MPI_Request reqs[world_size];
     for (rank = 0; rank < world_size; rank++)
     {
@@ -73,7 +100,6 @@ int main(int argc, char** argv) {
         }
       }
     }
-    iterations++;
     number++;
   }
 

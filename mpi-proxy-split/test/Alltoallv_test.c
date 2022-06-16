@@ -1,16 +1,20 @@
 /*
+  Test for the MPI_Allgather method
+
+  Run with >2 ranks for non-trivial results
+  Run with -i [iterations] for specific number of iterations, defaults to 10000
+
   Source: http://mpi.deino.net/mpi_functions/MPI_Alltoallv.html
 */
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <time.h>
 #include <unistd.h>
 #include <assert.h>
+#include <getopt.h>
+#include <string.h>
 
 #define BUFFER_SIZE 100
-#define RUNTIME 30
-#define SLEEP_PER_ITERATION 5
 
 /*
    This program tests MPI_Alltoallv by having processor i send different
@@ -19,12 +23,31 @@
  */
 int main( int argc, char **argv )
 {
+  //Parse runtime argument
+  int opt, max_iterations;
+  max_iterations = 10000;
+  while ((opt = getopt(argc, argv, "i:")) != -1) {
+    switch(opt)
+    {
+      case 'i':
+        if(optarg != NULL){
+          char* optarg_end;
+          max_iterations = strtol(optarg, &optarg_end, 10);
+          if(max_iterations != 0 && optarg_end - optarg == strlen(optarg))
+            break;
+        }
+      default:
+        fprintf(stderr, "Unrecognized argument received \n\
+          -i [iterations]: Set test iterations (default 10000)\n");
+        return 1;
+    }
+  }
+
   MPI_Comm comm;
   int *sbuf, *rbuf;
   int rank, size;
   int *sendcounts, *recvcounts, *rdispls, *sdispls;
   int i, j, *p, err;
-  int iterations; clock_t start_time;
 
   MPI_Init( &argc, &argv );
   err = 0;
@@ -32,6 +55,11 @@ int main( int argc, char **argv )
   /* Create the buffer */
   MPI_Comm_size( comm, &size );
   MPI_Comm_rank( comm, &rank );
+
+  if(rank == 0){
+    printf("Running test for %d iterations\n", max_iterations);
+  }
+
   sbuf = (int *)malloc( size * size * sizeof(int) );
   rbuf = (int *)malloc( size * size * sizeof(int) );
   if (!sbuf || !rbuf) {
@@ -53,10 +81,8 @@ int main( int argc, char **argv )
     MPI_Abort( comm, 1 );
   }
 
-  start_time = clock();
-  iterations = 0;
-  
-  for (clock_t t = clock(); t-start_time < (RUNTIME-(iterations * SLEEP_PER_ITERATION)) * CLOCKS_PER_SEC; t = clock()) {
+  for (int iterations = 0; iterations < max_iterations; iterations++) {
+
     for (i=0; i<size; i++) {
       sendcounts[i] = i;
       recvcounts[i] = rank;
@@ -83,9 +109,6 @@ int main( int argc, char **argv )
         }
       }
     }
-
-    iterations++;
-    sleep(SLEEP_PER_ITERATION);
   }
 
   free( sdispls );

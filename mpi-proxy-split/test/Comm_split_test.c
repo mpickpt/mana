@@ -1,11 +1,11 @@
-// Author: Wesley Bland
-// Copyright 2015 www.mpitutorial.com
-// This code is provided freely with the tutorials on mpitutorial.com. Feel
-// free to modify it for your own use. Any distribution of the code must
-// either provide a link to www.mpitutorial.com or keep this header intact.
-//
-// Example using MPI_Comm_split to divide a communicator into subcommunicators
-//
+/*
+  Test for the MPI_Comm_split method
+
+  Must run with an even multiple of NUM_RANKS (default 4) ranks
+  Run with -i [iterations] for specific number of iterations, defaults to 60
+
+  Source: www.mpitutorial.com
+*/
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -13,22 +13,47 @@
 #include <assert.h>
 #include <unistd.h>
 #include <time.h>
+#include <string.h>
+#include <getopt.h>
 
-#define RUNTIME 30
-#define SLEEP_PER_ITERATION 5
 #define NUM_RANKS 4
+#define SLEEP_PER_ITERATION 0.5
 
 int main(int argc, char **argv) {
+  //Parse runtime argument
+    int opt, max_iterations;
+    max_iterations = 60;
+    while ((opt = getopt(argc, argv, "i:")) != -1) {
+        switch(opt)
+        {
+        case 'i':
+            if(optarg != NULL){
+            char* optarg_end;
+            max_iterations = strtol(optarg, &optarg_end, 10);
+            if(max_iterations != 0 && optarg_end - optarg == strlen(optarg))
+                break;
+            }
+        default:
+            fprintf(stderr, "Unrecognized argument received \n\
+            -i [iterations]: Set test iterations (default 60)\n");
+            return 1;
+        }
+    }
+
   MPI_Init(NULL, NULL);
 
   // Get the rank and size in the original communicator
   int world_rank, world_size;
-  int iterations; clock_t start_time;
   MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
   MPI_Comm_size(MPI_COMM_WORLD, &world_size);
 
+  if(world_rank == 0){
+    printf("Running test for %d iterations\n", max_iterations);
+  }
+
   if (world_size % NUM_RANKS != 0) {
-    fprintf(stderr, "World size should be multiple of %d  for %s\n", NUM_RANKS, argv[0]);
+    fprintf(stderr, "World size should be multiple \
+      of %d for %s\n", NUM_RANKS, argv[0]);
     MPI_Abort(MPI_COMM_WORLD, 1);
   }
   int color = world_rank / NUM_RANKS; // Determine color based on row
@@ -36,10 +61,7 @@ int main(int argc, char **argv) {
   // Split the communicator based on the color
   // and use the original rank for ordering
   MPI_Comm row_comm;
-  start_time = clock();
-  iterations = 0;
-
-  for (clock_t t = clock(); t-start_time < (RUNTIME-(iterations * SLEEP_PER_ITERATION)) * CLOCKS_PER_SEC; t = clock()) {
+  for (int iterations = 0; iterations < max_iterations; iterations++) {
     MPI_Comm_split(MPI_COMM_WORLD, color, world_rank, &row_comm);
 
     int row_rank, row_size;
@@ -51,7 +73,6 @@ int main(int argc, char **argv) {
           world_rank, world_size, row_rank, row_size);
     fflush(stdout);
 
-    iterations++;
     sleep(SLEEP_PER_ITERATION);
   }
 

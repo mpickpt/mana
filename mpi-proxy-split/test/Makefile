@@ -2,7 +2,7 @@ PLATFORM=${shell echo $$HOST}
 include ../Makefile_config
 
 ###############################################################
-# NOTE:  More Fortran/C examples (under LGPL license) at:  
+# NOTE:  More Fortran/C examples (under LGPL license) at:
 #        https://people.math.sc.edu/Burkardt/f_src/mpi/mpi.html
 ###############################################################
 
@@ -143,7 +143,6 @@ check-integrated_dmtcp_text: tidy integrated_dmtcp_test
 
 %.o: %.c
 	 $(MPICC) -g3 -O0 -c -o $@ $< $(MPI_CFLAGS)
-
 %.exe: %.f90
 	$(MPIFORTRAN) -g3 -O0 -o $@ $< -fPIC
 

@@ -1,28 +1,57 @@
+/*
+  Test for the MPI_Comm_get_attr method
+
+  Run with -i [iterations] for specific number of iterations, defaults to 30
+
+  Source: http://mpi.deino.net/mpi_functions/MPI_Comm_dup.html
+*/
+
 #include "mpi.h"
 #include <stdio.h>
 #include <assert.h>
-#include <time.h>
 #include <unistd.h>
+#include <getopt.h>
+#include <string.h>
+#include <stdlib.h>
 
-#define RUNTIME 30
-#define SLEEP_PER_ITERATION 5
+#define SLEEP_PER_ITERATION 1
 
 int main( int argc, char **argv)
 {
+    //Parse runtime argument
+    int opt, max_iterations;
+    max_iterations = 30;
+    while ((opt = getopt(argc, argv, "i:")) != -1) {
+        switch(opt)
+        {
+        case 'i':
+            if(optarg != NULL){
+            char* optarg_end;
+            max_iterations = strtol(optarg, &optarg_end, 10);
+            if(max_iterations != 0 && optarg_end - optarg == strlen(optarg))
+                break;
+            }
+        default:
+            fprintf(stderr, "Unrecognized argument received \n\
+            -i [iterations]: Set test iterations (default 30)\n");
+            return 1;
+        }
+    }
+
     void *v;
     int flag;
     int vval;
     int rank, size;
-    int iterations; clock_t start_time;
 
     MPI_Init( &argc, &argv );
     MPI_Comm_size( MPI_COMM_WORLD, &size );
     MPI_Comm_rank( MPI_COMM_WORLD, &rank );
 
-    start_time = clock();
-    iterations = 0;
-    
-    for (clock_t t = clock(); t-start_time < (RUNTIME-(iterations * SLEEP_PER_ITERATION)) * CLOCKS_PER_SEC; t = clock()) {
+    if(rank == 0){
+        printf("Running test for %d iterations\n", max_iterations);
+    }
+
+    for (int iterations = 0; iterations < max_iterations; iterations++) {
         MPI_Comm_get_attr( MPI_COMM_WORLD, MPI_TAG_UB, &v, &flag );
         assert(flag);
         vval = *(int*)v;
@@ -38,7 +67,8 @@ int main( int argc, char **argv)
         MPI_Comm_get_attr( MPI_COMM_WORLD, MPI_IO, &v, &flag );
         assert(flag);
         vval = *(int*)v;
-        assert(!((vval < 0 || vval >= size) && vval != MPI_ANY_SOURCE && vval != MPI_PROC_NULL));
+        assert(!((vval < 0 || vval >= size) &&
+            vval != MPI_ANY_SOURCE && vval != MPI_PROC_NULL));
         printf("Got MPI_IO\n"); fflush(stdout);
 
         MPI_Comm_get_attr( MPI_COMM_WORLD, MPI_WTIME_IS_GLOBAL, &v, &flag );
@@ -61,7 +91,6 @@ int main( int argc, char **argv)
         assert(!flag || vval >= MPI_ERR_LASTCODE);
         printf("Got MPI_LASTUSEDCODE\n"); fflush(stdout);
 
-        iterations++;
         sleep(SLEEP_PER_ITERATION);
     }
     MPI_Finalize( );
