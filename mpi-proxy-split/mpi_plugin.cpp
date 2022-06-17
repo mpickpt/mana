@@ -345,7 +345,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
           int64_t counter;
           if (dmtcp_kvdb64_get(csId.c_str(), 0, &counter) == -1) {
             // No rank published IN_CS state.
-            coord_response == SAFE_TO_CHECKPOINT;
+            coord_response = SAFE_TO_CHECKPOINT;
             break;
           }
 
