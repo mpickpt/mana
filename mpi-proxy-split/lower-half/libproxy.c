@@ -209,7 +209,7 @@ getRank()
 MPI_Comm restored_comm_cart;
 
 int
-getCoordinates(CartesianTopology *cartesianTopology, int *coords)
+getCoordinates(CartesianProperties *cp, int *coords)
 {
   int flag, ret = -1, rank = -1;
 
@@ -220,14 +220,12 @@ getCoordinates(CartesianTopology *cartesianTopology, int *coords)
     ret = 0;
 
   if (ret != -1) {
-    MPI_Cart_create(MPI_COMM_WORLD, cartesianTopology->number_of_dimensions,
-                    cartesianTopology->dimensions, cartesianTopology->periods,
-                    cartesianTopology->reorder, &restored_comm_cart);
+    MPI_Cart_create(MPI_COMM_WORLD, cp->number_of_dimensions, cp->dimensions,
+                  cp->periods, cp->reorder, &restored_comm_cart);
 
     MPI_Comm_rank(restored_comm_cart, &rank);
 
-    MPI_Cart_coords(restored_comm_cart, rank,
-                    cartesianTopology->number_of_dimensions, coords);
+    MPI_Cart_coords(restored_comm_cart, rank, cp->number_of_dimensions, coords);
 
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   }

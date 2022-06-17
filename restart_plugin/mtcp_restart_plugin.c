@@ -325,7 +325,7 @@ mysetauxval(char **evp, unsigned long int type, unsigned long int val)
 }
 
 int
-load_cartesian_topology_information(char *filename, CartesianTopology *ct)
+load_cartesian_properties(char *filename, CartesianProperties *cp)
 {
   int i;
 
@@ -333,21 +333,21 @@ load_cartesian_topology_information(char *filename, CartesianTopology *ct)
   if (fd == -1)
     return -1;
 
-  mtcp_sys_read(fd, &ct->old_comm_size, sizeof(int));
-  mtcp_sys_read(fd, &ct->new_comm_size, sizeof(int));
-  mtcp_sys_read(fd, &ct->old_rank, sizeof(int));
-  mtcp_sys_read(fd, &ct->new_rank, sizeof(int));
-  mtcp_sys_read(fd, &ct->reorder, sizeof(int));
-  mtcp_sys_read(fd, &ct->number_of_dimensions, sizeof(int));
+  mtcp_sys_read(fd, &cp->old_comm_size, sizeof(int));
+  mtcp_sys_read(fd, &cp->new_comm_size, sizeof(int));
+  mtcp_sys_read(fd, &cp->old_rank, sizeof(int));
+  mtcp_sys_read(fd, &cp->new_rank, sizeof(int));
+  mtcp_sys_read(fd, &cp->reorder, sizeof(int));
+  mtcp_sys_read(fd, &cp->number_of_dimensions, sizeof(int));
 
-  for (i = 0; i < ct->number_of_dimensions; i++)
-    mtcp_sys_read(fd, &ct->coordinates[i], sizeof(int));
+  for (i = 0; i < cp->number_of_dimensions; i++)
+    mtcp_sys_read(fd, &cp->coordinates[i], sizeof(int));
 
-  for (i = 0; i < ct->number_of_dimensions; i++)
-    mtcp_sys_read(fd, &ct->dimensions[i], sizeof(int));
+  for (i = 0; i < cp->number_of_dimensions; i++)
+    mtcp_sys_read(fd, &cp->dimensions[i], sizeof(int));
 
-  for (i = 0; i < ct->number_of_dimensions; i++)
-    mtcp_sys_read(fd, &ct->periods[i], sizeof(int));
+  for (i = 0; i < cp->number_of_dimensions; i++)
+    mtcp_sys_read(fd, &cp->periods[i], sizeof(int));
 
   mtcp_sys_close(fd);
 
@@ -355,30 +355,30 @@ load_cartesian_topology_information(char *filename, CartesianTopology *ct)
 }
 
 void
-print(CartesianTopology *ct)
+print(CartesianProperties *cp)
 {
   int i;
 
   MTCP_PRINTF("\n\nCartesian Topology Details\n\n");
 
-  MTCP_PRINTF("\nOld Comm Size: %d", ct->old_comm_size);
-  MTCP_PRINTF("\nNew Comm Size: %d", ct->new_comm_size);
-  MTCP_PRINTF("\nOld Rank: %d", ct->old_rank);
-  MTCP_PRINTF("\nNew Rank: %d", ct->new_rank);
-  MTCP_PRINTF("\nReorder: %d", ct->reorder);
-  MTCP_PRINTF("\nNumber of Dimensions: %d", ct->number_of_dimensions);
+  MTCP_PRINTF("\nOld Comm Size: %d", cp->old_comm_size);
+  MTCP_PRINTF("\nNew Comm Size: %d", cp->new_comm_size);
+  MTCP_PRINTF("\nOld Rank: %d", cp->old_rank);
+  MTCP_PRINTF("\nNew Rank: %d", cp->new_rank);
+  MTCP_PRINTF("\nReorder: %d", cp->reorder);
+  MTCP_PRINTF("\nNumber of Dimensions: %d", cp->number_of_dimensions);
 
   MTCP_PRINTF("\nCoordinates: ");
-  for (i = 0; i < ct->number_of_dimensions; i++)
-    MTCP_PRINTF("%d, ", ct->coordinates[i]);
+  for (i = 0; i < cp->number_of_dimensions; i++)
+    MTCP_PRINTF("%d, ", cp->coordinates[i]);
 
   MTCP_PRINTF("\nDimensions: ");
-  for (i = 0; i < ct->number_of_dimensions; i++)
-    MTCP_PRINTF("%d, ", ct->dimensions[i]);
+  for (i = 0; i < cp->number_of_dimensions; i++)
+    MTCP_PRINTF("%d, ", cp->dimensions[i]);
 
   MTCP_PRINTF("\nPeriods: ");
-  for (i = 0; i < ct->number_of_dimensions; i++)
-    MTCP_PRINTF("%d, ", ct->periods[i]);
+  for (i = 0; i < cp->number_of_dimensions; i++)
+    MTCP_PRINTF("%d, ", cp->periods[i]);
 
   MTCP_PRINTF("\n\n");
 }
@@ -392,10 +392,10 @@ get_rank_corresponding_to_coordinates(int world_size,
   char tmp[10], filename[40];
   int coordinates[100], dimensions[100], periods[100];
 
-  CartesianTopology cartesianTopology;
-  cartesianTopology.coordinates = coordinates;
-  cartesianTopology.dimensions = dimensions;
-  cartesianTopology.periods = periods;
+  CartesianProperties cp;
+  cp.coordinates = coordinates;
+  cp.dimensions = dimensions;
+  cp.periods = periods;
 
   for (i = 0; i < world_size; i++) {
     mtcp_strcpy(filename, "./ckpt_rank_");
@@ -403,15 +403,14 @@ get_rank_corresponding_to_coordinates(int world_size,
     mtcp_strncat(filename, tmp, 9);
     mtcp_strncat(filename, "/cartesian.info", 20);
 
-    if (load_cartesian_topology_information(filename, &cartesianTopology) ==
-        0) {
+    if (load_cartesian_properties(filename, &cp) == 0) {
       flag = 0;
       for (j = 0; j < number_of_dimensions; j++)
-        if (cartesianTopology.coordinates[j] == coords[j])
+        if (cp.coordinates[j] == coords[j])
           flag++;
 
       if (flag == number_of_dimensions)
-        return cartesianTopology.old_rank;
+        return cp.old_rank;
     }
   }
 
@@ -490,42 +489,41 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
   if (mtcp_sys_access(filename, F_OK) == 0) {
     int coords[100], coordinates[100], dimensions[100], periods[100];
 
-    CartesianTopology cartesianTopology;
-    cartesianTopology.coordinates = coordinates;
-    cartesianTopology.dimensions = dimensions;
-    cartesianTopology.periods = periods;
+    CartesianProperties cp;
+    cp.coordinates = coordinates;
+    cp.dimensions = dimensions;
+    cp.periods = periods;
 
-    MTCP_ASSERT(
-      load_cartesian_topology_information(filename, &cartesianTopology) == 0);
+    MTCP_ASSERT(load_cartesian_properties(filename, &cp) == 0);
 
 #if 0
-    print(&cartesianTopology);
+    print(&CartesianProperties);
 #endif
 
-    typedef int (*getCoordinatesFptr_t)(CartesianTopology *, int *);
+    typedef int (*getCoordinatesFptr_t)(CartesianProperties *, int *);
 
     JUMP_TO_LOWER_HALF(rinfo->pluginInfo.fsaddr);
     // MPI_Init is called here. GNI memory areas will be loaded by MPI_Init.
     // Also, MPI_Cart_create will be called to restore cartesian topology.
     // Based on the coordinates, checkpoint image will be restored instead of
     // world rank.
-    world_rank = ((getCoordinatesFptr_t)rinfo->pluginInfo.getCoordinatesFptr)(
-      &cartesianTopology, coords);
+    world_rank =
+      ((getCoordinatesFptr_t)rinfo->pluginInfo.getCoordinatesFptr)(&cp, coords);
     RETURN_TO_UPPER_HALF();
 
 #if 1
-    MTCP_PRINTF("\nOld World Rank: %d \n: ", cartesianTopology.old_rank);
+    MTCP_PRINTF("\nOld World Rank: %d \n: ", cp.old_rank);
     MTCP_PRINTF("\nNew World Rank: %d \n: ", world_rank);
 
     int i;
     MTCP_PRINTF("\nMy Coordinates: ");
-    for (i = 0; i < cartesianTopology.number_of_dimensions; i++)
+    for (i = 0; i < cp.number_of_dimensions; i++)
       MTCP_PRINTF("%d, ", coords[i]);
 #endif
 
     ckpt_image_rank_to_be_restored = get_rank_corresponding_to_coordinates(
-      cartesianTopology.old_comm_size, cartesianTopology.number_of_dimensions,
-      coords);
+      cp.old_comm_size, cp.number_of_dimensions, coords);
+
   } else {
     typedef int (*getRankFptr_t)(void);
 
