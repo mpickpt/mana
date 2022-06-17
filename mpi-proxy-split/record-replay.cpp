@@ -594,7 +594,7 @@ restoreTypeCreateStruct(MpiRecord& rec)
   return retval;
 }
 
-MPI_Comm *restored_comm_cart;
+MPI_Comm *comm_cart_prime;
 
 void
 setCartesianCommunicator(void *getCartesianCommunicatorFptr)
@@ -602,7 +602,7 @@ setCartesianCommunicator(void *getCartesianCommunicatorFptr)
   typedef void (*getCartesianCommunicatorFptr_t)(MPI_Comm **);
 
   ((getCartesianCommunicatorFptr_t)getCartesianCommunicatorFptr)(
-    &restored_comm_cart);
+    &comm_cart_prime);
 }
 
 static int
@@ -626,7 +626,7 @@ restoreCartCreate(MpiRecord &rec)
   */
 
   MPI_Comm virtComm = rec.args(5);
-  UPDATE_COMM_MAP(virtComm, *restored_comm_cart);
+  UPDATE_COMM_MAP(virtComm, *comm_cart_prime);
 
   return MPI_SUCCESS;
 }
