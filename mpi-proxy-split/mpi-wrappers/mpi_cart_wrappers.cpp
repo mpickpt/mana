@@ -74,11 +74,12 @@ USER_DEFINED_WRAPPER(int,
 
     g_cartesian_properties.number_of_dimensions = ndims;
     g_cartesian_properties.reorder = reorder;
-    g_cartesian_properties.dimensions = (int *)dims;
-    g_cartesian_properties.periods = (int *)periods;
+    
+    for (int i = 0; i < ndims; i++) {
+      g_cartesian_properties.dimensions[i] = dims[i];
+      g_cartesian_properties.periods[i] = periods[i];
+    }
 
-    g_cartesian_properties.coordinates =
-      (int *)malloc(g_cartesian_properties.number_of_dimensions * sizeof(int));
     MPI_Comm_size(old_comm, &g_cartesian_properties.old_comm_size);
     MPI_Comm_size(*comm_cart, &g_cartesian_properties.new_comm_size);
     MPI_Comm_rank(old_comm, &g_cartesian_properties.old_rank);

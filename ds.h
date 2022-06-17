@@ -5,10 +5,10 @@ typedef struct CartesianProperties {
   int old_comm_size;
   int new_comm_size;
   int old_rank, new_rank;
-  int *coordinates;
+  int coordinates[MAX_CART_PROP_SIZE];
   int number_of_dimensions;
-  int *dimensions;
-  int *periods;
+  int dimensions[MAX_CART_PROP_SIZE];
+  int periods[MAX_CART_PROP_SIZE];
   int reorder;
 } CartesianProperties;
 

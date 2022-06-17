@@ -390,12 +390,8 @@ get_rank_corresponding_to_coordinates(int world_size,
 {
   int i, j, flag;
   char tmp[10], filename[40];
-  int coordinates[100], dimensions[100], periods[100];
 
   CartesianProperties cp;
-  cp.coordinates = coordinates;
-  cp.dimensions = dimensions;
-  cp.periods = periods;
 
   for (i = 0; i < world_size; i++) {
     mtcp_strcpy(filename, "./ckpt_rank_");
@@ -487,13 +483,9 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
   char *filename = "./ckpt_rank_0/cartesian.info";
 
   if (mtcp_sys_access(filename, F_OK) == 0) {
-    int coords[100], coordinates[100], dimensions[100], periods[100];
+    int coords[MAX_CART_PROP_SIZE];
 
     CartesianProperties cp;
-    cp.coordinates = coordinates;
-    cp.dimensions = dimensions;
-    cp.periods = periods;
-
     MTCP_ASSERT(load_cartesian_properties(filename, &cp) == 0);
 
 #if 0
