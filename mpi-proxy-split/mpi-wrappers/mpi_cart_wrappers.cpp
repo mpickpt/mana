@@ -37,7 +37,7 @@
 
 using namespace dmtcp_mpi;
 
-CartesianTopology g_cartesianTopology = {
+CartesianProperties g_cartesian_properties = {
   .old_comm_size = -1, .new_comm_size = -1, .old_rank = -1, .new_rank = -1
 };
 
@@ -72,20 +72,20 @@ USER_DEFINED_WRAPPER(int,
                                     comm_cart);
     RETURN_TO_UPPER_HALF();
 
-    g_cartesianTopology.number_of_dimensions = ndims;
-    g_cartesianTopology.reorder = reorder;
-    g_cartesianTopology.dimensions = (int *)dims;
-    g_cartesianTopology.periods = (int *)periods;
+    g_cartesian_properties.number_of_dimensions = ndims;
+    g_cartesian_properties.reorder = reorder;
+    g_cartesian_properties.dimensions = (int *)dims;
+    g_cartesian_properties.periods = (int *)periods;
 
-    g_cartesianTopology.coordinates =
-      (int *)malloc(g_cartesianTopology.number_of_dimensions * sizeof(int));
-    MPI_Comm_size(old_comm, &g_cartesianTopology.old_comm_size);
-    MPI_Comm_size(*comm_cart, &g_cartesianTopology.new_comm_size);
-    MPI_Comm_rank(old_comm, &g_cartesianTopology.old_rank);
-    MPI_Comm_rank(*comm_cart, &g_cartesianTopology.new_rank);
-    MPI_Cart_coords(*comm_cart, g_cartesianTopology.new_rank,
-                    g_cartesianTopology.number_of_dimensions,
-                    g_cartesianTopology.coordinates);
+    g_cartesian_properties.coordinates =
+      (int *)malloc(g_cartesian_properties.number_of_dimensions * sizeof(int));
+    MPI_Comm_size(old_comm, &g_cartesian_properties.old_comm_size);
+    MPI_Comm_size(*comm_cart, &g_cartesian_properties.new_comm_size);
+    MPI_Comm_rank(old_comm, &g_cartesian_properties.old_rank);
+    MPI_Comm_rank(*comm_cart, &g_cartesian_properties.new_rank);
+    MPI_Cart_coords(*comm_cart, g_cartesian_properties.new_rank,
+                    g_cartesian_properties.number_of_dimensions,
+                    g_cartesian_properties.coordinates);
 
     if (retval == MPI_SUCCESS && MPI_LOGGING()) {
       MPI_Comm virtComm = ADD_NEW_COMM(*comm_cart);
