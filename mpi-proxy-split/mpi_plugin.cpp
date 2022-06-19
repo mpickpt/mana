@@ -70,7 +70,7 @@ dmtcp_skip_memory_region_ckpting(const ProcMapsArea *area)
 //      strstr(area->name, "/SYSV") ||
       strstr(area->name, "/dev/xpmem") ||
       strstr(area->name, "xpmem") ||
-      strstr(area->name, "hugetlbfs") ||
+      // strstr(area->name, "hugetlbfs") ||
       strstr(area->name, "/dev/shm")) {
     JTRACE("Ignoring region")(area->name)((void*)area->addr);
     return 1;

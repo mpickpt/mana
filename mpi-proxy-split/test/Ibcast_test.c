@@ -57,7 +57,7 @@ void test_case_0(void) {
     for(int iterations = 0; iterations < max_iterations; iterations++){
 
         for (i=0; i<NUM_RANKS; i++) {
-            expected_output[i] = i + iter;
+            expected_output[i] = i + iterations;
             if (myid == root) {
               buffer[i] = expected_output[i];
             } else {
@@ -94,7 +94,7 @@ void test_case_0(void) {
 // while the receivers are the current or previous Ibcast at the
 // checkpoint time.
 void test_case_1(void) {
-    int i,iter,myid;
+    int i,myid;
     int root,iterations;
     int buffer[4];
     int expected_output[4];
@@ -112,7 +112,7 @@ void test_case_1(void) {
     for(int iterations = 0; iterations < max_iterations; iterations++){
 
         for (i=0; i<NUM_RANKS; i++) {
-          expected_output[i] = i + iter;
+          expected_output[i] = i + iterations;
           if (myid == root) {
             buffer[i] = expected_output[i];
           } else {
@@ -145,8 +145,6 @@ void test_case_1(void) {
         }
         printf("\n");
         fflush(stdout);
-
-        ;
     }
     MPI_Finalize();
 }
@@ -172,7 +170,7 @@ void test_case_2(void) {
     for(int iterations = 0; iterations < max_iterations; iterations++){
 
       for (i=0; i<NUM_RANKS; i++) {
-          expected_output[i] = i;
+          expected_output[i] = i + iterations;
           if (myid == root) {
             buffer[i] = expected_output[i];
           } else {
@@ -220,31 +218,39 @@ int main(int argc, char *argv[])
     //Parse runtime argument
     int opt;
     max_iterations = 5;
+    int test = 0;
 
     while ((opt = getopt(argc, argv, "12i:")) != -1) {
-        switch(opt) {
-          case 'i':
+      switch(opt) {
+        case 'i':
           if(optarg != NULL){
             char* optarg_end;
             max_iterations = strtol(optarg, &optarg_end, 10);
             if(max_iterations != 0 && optarg_end - optarg == strlen(optarg))
               break;
           }
-	case '1':
-          test_case_1();
+        case '1':
+          test = 1;
           break;
         case '2':
-          test_case_2();
-	  break;
+          test = 2;
+          break;
         case '?':
-	default:
+        default:
           usage(argc, argv);
           return 1;
-	}
+      }
     }
     // Default: test case 0. No argument.
-    if (opt == -1 && argc == 1) {
-      test_case_0();
+    switch(test){
+      case 1:
+        test_case_1();
+        break;
+      case 2:
+        test_case_2();
+        break;
+      default:
+        test_case_0();
     }
 
     return 0;
