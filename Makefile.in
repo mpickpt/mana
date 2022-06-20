@@ -80,7 +80,11 @@ distclean: clean
 	rm -rf $(top_builddir)/lib
 	- cd $(top_builddir)/bin && find . \! -name '*mana*' -delete
 
-clean: 
+tidy:
+	rm -rf ckpt_rank*
+	rm -f ckpt_*.dmtcp dmtcp_restart_script*
+
+clean: tidy
 	- cd dmtcp && $(MAKE) clean
 	- cd mpi-proxy-split && $(MAKE) clean
 
