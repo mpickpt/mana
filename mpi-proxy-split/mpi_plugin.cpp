@@ -265,9 +265,10 @@ get_cartesian_properties_file_name()
 void
 save_cartesian_properties(const char *filename)
 {
-  if ((g_cartesian_properties.old_comm_size +
-       g_cartesian_properties.new_comm_size + g_cartesian_properties.old_rank +
-       g_cartesian_properties.new_rank) < 0)
+  if (g_cartesian_properties.comm_old_size == -1 ||
+      g_cartesian_properties.comm_cart_size == -1 ||
+      g_cartesian_properties.comm_old_rank == -1 ||
+      g_cartesian_properties.comm_cart_rank == -1)
     return;
 
   int i;
@@ -276,20 +277,20 @@ save_cartesian_properties(const char *filename)
   if (fd == -1)
     return;
 
-  write(fd, &g_cartesian_properties.old_comm_size, sizeof(int));
-  write(fd, &g_cartesian_properties.new_comm_size, sizeof(int));
-  write(fd, &g_cartesian_properties.old_rank, sizeof(int));
-  write(fd, &g_cartesian_properties.new_rank, sizeof(int));
+  write(fd, &g_cartesian_properties.comm_old_size, sizeof(int));
+  write(fd, &g_cartesian_properties.comm_cart_size, sizeof(int));
+  write(fd, &g_cartesian_properties.comm_old_rank, sizeof(int));
+  write(fd, &g_cartesian_properties.comm_cart_rank, sizeof(int));
   write(fd, &g_cartesian_properties.reorder, sizeof(int));
-  write(fd, &g_cartesian_properties.number_of_dimensions, sizeof(int));
+  write(fd, &g_cartesian_properties.ndims, sizeof(int));
 
-  for (i = 0; i < g_cartesian_properties.number_of_dimensions; i++)
+  for (i = 0; i < g_cartesian_properties.ndims; i++)
     write(fd, &g_cartesian_properties.coordinates[i], sizeof(int));
 
-  for (i = 0; i < g_cartesian_properties.number_of_dimensions; i++)
+  for (i = 0; i < g_cartesian_properties.ndims; i++)
     write(fd, &g_cartesian_properties.dimensions[i], sizeof(int));
 
-  for (i = 0; i < g_cartesian_properties.number_of_dimensions; i++)
+  for (i = 0; i < g_cartesian_properties.ndims; i++)
     write(fd, &g_cartesian_properties.periods[i], sizeof(int));
 
   close(fd);

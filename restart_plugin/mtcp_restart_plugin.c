@@ -333,20 +333,20 @@ load_cartesian_properties(char *filename, CartesianProperties *cp)
   if (fd == -1)
     return -1;
 
-  mtcp_sys_read(fd, &cp->old_comm_size, sizeof(int));
-  mtcp_sys_read(fd, &cp->new_comm_size, sizeof(int));
-  mtcp_sys_read(fd, &cp->old_rank, sizeof(int));
-  mtcp_sys_read(fd, &cp->new_rank, sizeof(int));
+  mtcp_sys_read(fd, &cp->comm_old_size, sizeof(int));
+  mtcp_sys_read(fd, &cp->comm_cart_size, sizeof(int));
+  mtcp_sys_read(fd, &cp->comm_old_rank, sizeof(int));
+  mtcp_sys_read(fd, &cp->comm_cart_rank, sizeof(int));
   mtcp_sys_read(fd, &cp->reorder, sizeof(int));
-  mtcp_sys_read(fd, &cp->number_of_dimensions, sizeof(int));
+  mtcp_sys_read(fd, &cp->ndims, sizeof(int));
 
-  for (i = 0; i < cp->number_of_dimensions; i++)
+  for (i = 0; i < cp->ndims; i++)
     mtcp_sys_read(fd, &cp->coordinates[i], sizeof(int));
 
-  for (i = 0; i < cp->number_of_dimensions; i++)
+  for (i = 0; i < cp->ndims; i++)
     mtcp_sys_read(fd, &cp->dimensions[i], sizeof(int));
 
-  for (i = 0; i < cp->number_of_dimensions; i++)
+  for (i = 0; i < cp->ndims; i++)
     mtcp_sys_read(fd, &cp->periods[i], sizeof(int));
 
   mtcp_sys_close(fd);
@@ -361,52 +361,50 @@ print(CartesianProperties *cp)
 
   MTCP_PRINTF("\n\nCartesian Topology Details\n\n");
 
-  MTCP_PRINTF("\nOld Comm Size: %d", cp->old_comm_size);
-  MTCP_PRINTF("\nNew Comm Size: %d", cp->new_comm_size);
-  MTCP_PRINTF("\nOld Rank: %d", cp->old_rank);
-  MTCP_PRINTF("\nNew Rank: %d", cp->new_rank);
+  MTCP_PRINTF("\nComm Old Size: %d", cp->comm_old_size);
+  MTCP_PRINTF("\nComm Cart Size: %d", cp->comm_cart_size);
+  MTCP_PRINTF("\nComm Old Rank: %d", cp->comm_old_rank);
+  MTCP_PRINTF("\nComm Cart Rank: %d", cp->comm_cart_rank);
   MTCP_PRINTF("\nReorder: %d", cp->reorder);
-  MTCP_PRINTF("\nNumber of Dimensions: %d", cp->number_of_dimensions);
+  MTCP_PRINTF("\nNumber of Dimensions: %d", cp->ndims);
 
   MTCP_PRINTF("\nCoordinates: ");
-  for (i = 0; i < cp->number_of_dimensions; i++)
+  for (i = 0; i < cp->ndims; i++)
     MTCP_PRINTF("%d, ", cp->coordinates[i]);
 
   MTCP_PRINTF("\nDimensions: ");
-  for (i = 0; i < cp->number_of_dimensions; i++)
+  for (i = 0; i < cp->ndims; i++)
     MTCP_PRINTF("%d, ", cp->dimensions[i]);
 
   MTCP_PRINTF("\nPeriods: ");
-  for (i = 0; i < cp->number_of_dimensions; i++)
+  for (i = 0; i < cp->ndims; i++)
     MTCP_PRINTF("%d, ", cp->periods[i]);
 
   MTCP_PRINTF("\n\n");
 }
 
 int
-get_rank_corresponding_to_coordinates(int world_size,
-                                      int number_of_dimensions,
-                                      int *coords)
+get_rank_corresponding_to_coordinates(int comm_old_size, int ndims, int *coords)
 {
-  int i, j, flag;
-  char tmp[10], filename[40];
+  int flag;
+  char buffer[10], filename[40];
 
   CartesianProperties cp;
 
-  for (i = 0; i < world_size; i++) {
+  for (int i = 0; i < comm_old_size; i++) {
     mtcp_strcpy(filename, "./ckpt_rank_");
-    itoa2(i, tmp, 10);
-    mtcp_strncat(filename, tmp, 9);
+    itoa2(i, buffer, 10);
+    mtcp_strncat(filename, buffer, 9);
     mtcp_strncat(filename, "/cartesian.info", 20);
 
     if (load_cartesian_properties(filename, &cp) == 0) {
       flag = 0;
-      for (j = 0; j < number_of_dimensions; j++)
+      for (int j = 0; j < ndims; j++)
         if (cp.coordinates[j] == coords[j])
           flag++;
 
-      if (flag == number_of_dimensions)
-        return cp.old_rank;
+      if (flag == ndims)
+        return cp.comm_old_rank;
     }
   }
 
@@ -504,17 +502,16 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
     RETURN_TO_UPPER_HALF();
 
 #if 1
-    MTCP_PRINTF("\nOld World Rank: %d \n: ", cp.old_rank);
-    MTCP_PRINTF("\nNew World Rank: %d \n: ", world_rank);
+    MTCP_PRINTF("\nWorld Rank: %d \n: ", world_rank);
 
     int i;
     MTCP_PRINTF("\nMy Coordinates: ");
-    for (i = 0; i < cp.number_of_dimensions; i++)
+    for (i = 0; i < cp.ndims; i++)
       MTCP_PRINTF("%d, ", coords[i]);
 #endif
 
-    ckpt_image_rank_to_be_restored = get_rank_corresponding_to_coordinates(
-      cp.old_comm_size, cp.number_of_dimensions, coords);
+    ckpt_image_rank_to_be_restored =
+    get_rank_corresponding_to_coordinates(cp.comm_old_size, cp.ndims, coords);
 
   } else {
     typedef int (*getRankFptr_t)(void);
