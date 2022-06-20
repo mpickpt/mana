@@ -145,8 +145,6 @@ void test_case_1(void) {
         }
         printf("\n");
         fflush(stdout);
-
-        ;
     }
     MPI_Finalize();
 }
@@ -218,9 +216,9 @@ void test_case_2(void) {
 int main(int argc, char *argv[])
 {
     //Parse runtime argument
-    int test_found = 0;
     int opt;
     max_iterations = 5;
+    int test = 0;
 
     while ((opt = getopt(argc, argv, "12i:")) != -1) {
       switch(opt) {
@@ -232,12 +230,10 @@ int main(int argc, char *argv[])
               break;
           }
         case '1':
-          test_case_1();
-          test_found = 1;
+          test = 1;
           break;
         case '2':
-          test_found = 1;
-          test_case_2();
+          test = 2;
           break;
         case '?':
         default:
@@ -246,8 +242,15 @@ int main(int argc, char *argv[])
       }
     }
     // Default: test case 0. No argument.
-    if (!test_found) {
-      test_case_0();
+    switch(test){
+      case 1:
+        test_case_1();
+        break;
+      case 2:
+        test_case_2();
+        break;
+      default:
+        test_case_0();
     }
 
     return 0;
