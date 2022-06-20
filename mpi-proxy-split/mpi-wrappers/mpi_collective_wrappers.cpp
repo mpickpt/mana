@@ -100,11 +100,11 @@ USER_DEFINED_WRAPPER(int, Bcast,
     MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
     JUMP_TO_LOWER_HALF(lh_info.fsaddr);
     retval = NEXT_FUNC(Bcast)(buffer, count, realType, root, realComm);
+    // Call lower-half Barrier in the critical section to wait until all rank in the
+    // communictor finished.
+    NEXT_FUNC(Barrier)(realComm);
     RETURN_TO_UPPER_HALF();
     DMTCP_PLUGIN_ENABLE_CKPT();
-    // Call MPI_Barrier in the critical section to wait until all rank in the
-    // communictor finished.
-    MPI_Barrier(comm);
     return retval;
   };
   return twoPhaseCommit(comm, realBarrierCb);

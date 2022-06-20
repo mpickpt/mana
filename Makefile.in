@@ -77,9 +77,14 @@ distclean: clean
 	- cd manpages && $(MAKE) distclean
 	rm -f Makefile config.log config.status config.status-* config.cache
 	rm -rf autom4te.cache
-	rm -rf $(top_builddir)/lib $(top_builddir)/bin
+	rm -rf $(top_builddir)/lib
+	- cd $(top_builddir)/bin && find . \! -name '*mana*' -delete
 
-clean: 
+tidy:
+	rm -rf ckpt_rank*
+	rm -f ckpt_*.dmtcp dmtcp_restart_script*
+
+clean: tidy
 	- cd dmtcp && $(MAKE) clean
 	- cd mpi-proxy-split && $(MAKE) clean
 
