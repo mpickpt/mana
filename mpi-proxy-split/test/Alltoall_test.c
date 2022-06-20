@@ -1,6 +1,12 @@
 /*
+  Test for the MPI_Alltoall method
+
+  Run with >2 ranks for non-trivial results
+  Run with -i [iterations] for specific number of iterations, defaults to 10000
+
   Source: http://mpi.deino.net/mpi_functions/MPI_Alltoall.html
 */
+
 #include <mpi.h>
 #include <stdlib.h>
 #include <stdio.h>
