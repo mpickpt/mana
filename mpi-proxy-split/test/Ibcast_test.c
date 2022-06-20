@@ -94,7 +94,7 @@ void test_case_0(void) {
 // while the receivers are the current or previous Ibcast at the
 // checkpoint time.
 void test_case_1(void) {
-    int i,iter,myid;
+    int i,myid;
     int root,iterations;
     int buffer[4];
     int expected_output[4];
@@ -112,7 +112,7 @@ void test_case_1(void) {
     for(int iterations = 0; iterations < max_iterations; iterations++){
 
         for (i=0; i<NUM_RANKS; i++) {
-          expected_output[i] = i + iter;
+          expected_output[i] = i + iterations;
           if (myid == root) {
             buffer[i] = expected_output[i];
           } else {
@@ -172,7 +172,7 @@ void test_case_2(void) {
     for(int iterations = 0; iterations < max_iterations; iterations++){
 
       for (i=0; i<NUM_RANKS; i++) {
-          expected_output[i] = i;
+          expected_output[i] = i + iterations;
           if (myid == root) {
             buffer[i] = expected_output[i];
           } else {
