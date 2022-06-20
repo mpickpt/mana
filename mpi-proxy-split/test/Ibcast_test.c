@@ -57,7 +57,7 @@ void test_case_0(void) {
     for(int iterations = 0; iterations < max_iterations; iterations++){
 
         for (i=0; i<NUM_RANKS; i++) {
-            expected_output[i] = i + iter;
+            expected_output[i] = i + iterations;
             if (myid == root) {
               buffer[i] = expected_output[i];
             } else {
