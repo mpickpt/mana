@@ -218,32 +218,35 @@ void test_case_2(void) {
 int main(int argc, char *argv[])
 {
     //Parse runtime argument
+    int test_found = 0;
     int opt;
     max_iterations = 5;
 
     while ((opt = getopt(argc, argv, "12i:")) != -1) {
-        switch(opt) {
-          case 'i':
+      switch(opt) {
+        case 'i':
           if(optarg != NULL){
             char* optarg_end;
             max_iterations = strtol(optarg, &optarg_end, 10);
             if(max_iterations != 0 && optarg_end - optarg == strlen(optarg))
               break;
           }
-	case '1':
+        case '1':
           test_case_1();
+          test_found = 1;
           break;
         case '2':
+          test_found = 1;
           test_case_2();
-	  break;
+          break;
         case '?':
-	default:
+        default:
           usage(argc, argv);
           return 1;
-	}
+      }
     }
     // Default: test case 0. No argument.
-    if (opt == -1 && argc == 1) {
+    if (!test_found) {
       test_case_0();
     }
 
