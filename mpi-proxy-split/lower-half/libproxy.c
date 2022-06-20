@@ -211,7 +211,7 @@ MPI_Comm comm_cart_prime;
 int
 getCoordinates(CartesianProperties *cp, int *coords)
 {
-  int flag, ret = -1, rank = -1;
+  int flag, ret = -1, comm_old_rank = -1, comm_cart_rank = -1;
 
   MPI_Initialized(&flag);
   if (!flag)
@@ -220,17 +220,17 @@ getCoordinates(CartesianProperties *cp, int *coords)
     ret = 0;
 
   if (ret != -1) {
-    MPI_Cart_create(MPI_COMM_WORLD, cp->number_of_dimensions, cp->dimensions,
-                  cp->periods, cp->reorder, &comm_cart_prime);
+    MPI_Cart_create(MPI_COMM_WORLD, cp->ndims, cp->dimensions, cp->periods,
+                  cp->reorder, &comm_cart_prime);
 
-    MPI_Comm_rank(comm_cart_prime, &rank);
+    MPI_Comm_rank(comm_cart_prime, &comm_cart_rank);
 
-    MPI_Cart_coords(comm_cart_prime, rank, cp->number_of_dimensions, coords);
+    MPI_Cart_coords(comm_cart_prime, comm_cart_rank, cp->ndims, coords);
 
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_rank(MPI_COMM_WORLD, &comm_old_rank);
   }
 
-  return rank;
+  return comm_old_rank;
 }
 
 void

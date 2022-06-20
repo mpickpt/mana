@@ -24,6 +24,7 @@
 #include "jassert.h"
 #include "jconvert.h"
 
+#include "../ds.h"
 #include "record-replay.h"
 #include "virtual-ids.h"
 #include "p2p_log_replay.h"
@@ -594,7 +595,64 @@ restoreTypeCreateStruct(MpiRecord& rec)
   return retval;
 }
 
+/*
+int
+load_cartesian_properties(char *filename, CartesianProperties *cp)
+{
+  int i;
+
+  int fd = open(filename, O_RDONLY);
+  if (fd == -1)
+    return -1;
+
+  read(fd, &cp->comm_old_size, sizeof(int));
+  read(fd, &cp->comm_cart_size, sizeof(int));
+  read(fd, &cp->comm_old_rank, sizeof(int));
+  read(fd, &cp->comm_cart_rank, sizeof(int));
+  read(fd, &cp->reorder, sizeof(int));
+  read(fd, &cp->ndims, sizeof(int));
+
+  for (i = 0; i < cp->ndims; i++)
+    read(fd, &cp->coordinates[i], sizeof(int));
+
+  for (i = 0; i < cp->ndims; i++)
+    read(fd, &cp->dimensions[i], sizeof(int));
+
+  for (i = 0; i < cp->ndims; i++)
+    read(fd, &cp->periods[i], sizeof(int));
+
+  close(fd);
+
+  return 0;
+}
+
+int
+load_checkpoint_cartesian_mapping(CartesianInfo checkpoint_mapping[],
+                                  int comm_old_size,
+                                  int ndims)
+{
+  char buffer[10], filename[40];
+/*
+  for (int i = 0; i < comm_old_size; i++) {
+    sprintf(filename, "./ckpt_rank_%d/cartesian.info", i);
+
+    CartesianProperties cp;
+    if (load_cartesian_properties(filename, &cp) == 0) {
+      checkpoint_mapping[i].comm_old_rank = cp.comm_old_rank;
+      checkpoint_mapping[i].comm_cart_rank = cp.comm_cart_rank;
+      for (int j = 0; j < ndims; j++)
+        checkpoint_mapping[i].coordinates[j] = cp.coordinates[j];
+    }
+  }
+
+  return -1;
+}
+*/
+
+MPI_Comm comm_cart;
 MPI_Comm *comm_cart_prime;
+MPI_Comm comm_old;
+MPI_Comm comm_old_prime;
 
 void
 setCartesianCommunicator(void *getCartesianCommunicatorFptr)
@@ -605,26 +663,21 @@ setCartesianCommunicator(void *getCartesianCommunicatorFptr)
     &comm_cart_prime);
 }
 
+//
+// MPI_Cart_create(MPI_Comm comm_old, int ndims, const int dims[],
+//                 const int periods[], int reorder, MPI_Comm * comm_cart)
+
 static int
 restoreCartCreate(MpiRecord &rec)
 {
-  /*
-  int retval;
-  MPI_Comm comm = rec.args(0);
-  int ndims = rec.args(1);
-  int *dims = rec.args(2);
-  int *periods = rec.args(3);
-  int reorder = rec.args(4);
-  MPI_Comm newcomm = MPI_COMM_NULL;
-  retval = FNC_CALL(Cart_create, rec)(comm, ndims, dims,
-                                      periods, reorder, &newcomm);
-  if (retval == MPI_SUCCESS) {
-    MPI_Comm virtComm = rec.args(5);
-    UPDATE_COMM_MAP(virtComm, newcomm);
-  }
-  return retval;
-  */
+/*
+  CartesianProperties cp;
+  CartesianInfo checkpoint_mapping[MAX_PROCESSES];
+  CartesianInfo restart_mapping[MAX_PROCESSES];
 
+  load_checkpoint_cartesian_mapping(checkpoint_mapping, cp.comm_old_size,
+                                    cp.ndims);
+*/
   MPI_Comm virtComm = rec.args(5);
   UPDATE_COMM_MAP(virtComm, *comm_cart_prime);
 

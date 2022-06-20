@@ -37,9 +37,10 @@
 
 using namespace dmtcp_mpi;
 
-CartesianProperties g_cartesian_properties = {
-  .old_comm_size = -1, .new_comm_size = -1, .old_rank = -1, .new_rank = -1
-};
+CartesianProperties g_cartesian_properties = { .comm_old_size = -1,
+                                               .comm_cart_size = -1,
+                                               .comm_old_rank = -1,
+                                               .comm_cart_rank = -1 };
 
 USER_DEFINED_WRAPPER(int, Cart_coords, (MPI_Comm) comm, (int) rank,
                      (int) maxdims, (int*) coords)
@@ -72,7 +73,7 @@ USER_DEFINED_WRAPPER(int,
                                     comm_cart);
     RETURN_TO_UPPER_HALF();
 
-    g_cartesian_properties.number_of_dimensions = ndims;
+    g_cartesian_properties.ndims = ndims;
     g_cartesian_properties.reorder = reorder;
     
     for (int i = 0; i < ndims; i++) {
@@ -80,12 +81,12 @@ USER_DEFINED_WRAPPER(int,
       g_cartesian_properties.periods[i] = periods[i];
     }
 
-    MPI_Comm_size(old_comm, &g_cartesian_properties.old_comm_size);
-    MPI_Comm_size(*comm_cart, &g_cartesian_properties.new_comm_size);
-    MPI_Comm_rank(old_comm, &g_cartesian_properties.old_rank);
-    MPI_Comm_rank(*comm_cart, &g_cartesian_properties.new_rank);
-    MPI_Cart_coords(*comm_cart, g_cartesian_properties.new_rank,
-                    g_cartesian_properties.number_of_dimensions,
+    MPI_Comm_size(old_comm, &g_cartesian_properties.comm_old_size);
+    MPI_Comm_size(*comm_cart, &g_cartesian_properties.comm_cart_size);
+    MPI_Comm_rank(old_comm, &g_cartesian_properties.comm_old_rank);
+    MPI_Comm_rank(*comm_cart, &g_cartesian_properties.comm_cart_rank);
+    MPI_Cart_coords(*comm_cart, g_cartesian_properties.comm_cart_rank,
+                    g_cartesian_properties.ndims,
                     g_cartesian_properties.coordinates);
 
     if (retval == MPI_SUCCESS && MPI_LOGGING()) {
