@@ -1,5 +1,5 @@
 /*
-  Test for the MPI_Allgather method
+  Test for the MPI_Alltoallv method
 
   Run with >2 ranks for non-trivial results
   Run with -i [iterations] for specific number of iterations, defaults to 10000

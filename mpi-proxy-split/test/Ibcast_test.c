@@ -220,25 +220,16 @@ int main(int argc, char *argv[])
     //Parse runtime argument
     int opt;
     max_iterations = 5;
-    while ((opt = getopt(argc, argv, "i:")) != -1) {
-      switch(opt)
-      {
-        case 'i':
+
+    while ((opt = getopt(argc, argv, "12i:")) != -1) {
+        switch(opt) {
+          case 'i':
           if(optarg != NULL){
             char* optarg_end;
             max_iterations = strtol(optarg, &optarg_end, 10);
             if(max_iterations != 0 && optarg_end - optarg == strlen(optarg))
               break;
           }
-        default:
-          fprintf(stderr, "Unrecognized argument received \n\
-            -i [iterations]: Set test iterations (default 5)\n");
-          return 1;
-      }
-    }
-
-    while ((opt = getopt(argc, argv, "12")) != -1) {
-        switch(opt) {
 	case '1':
           test_case_1();
           break;
