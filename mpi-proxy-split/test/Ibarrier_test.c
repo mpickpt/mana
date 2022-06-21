@@ -74,7 +74,6 @@ char *argv[];
         MPI_Wait(&request, &status);
 #endif
 
-        ;
         sleep(SLEEP_PER_ITERATION);
     }
     MPI_Finalize();
