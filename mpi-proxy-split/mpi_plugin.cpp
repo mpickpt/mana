@@ -247,18 +247,16 @@ const char *
 get_cartesian_properties_file_name()
 {
   const char *ckptDir = dmtcp_get_ckpt_dir();
-  dmtcp::ostringstream o;
-  o << ckptDir << "/ckpt_rank_" << g_world_rank;
 
   struct stat st;
   // Create directory if not already exist
-  if (stat(o.str().c_str(), &st) == -1)
-    mkdir(o.str().c_str(), 0700);
+  if (stat(ckptDir, &st) == -1)
+    mkdir(ckptDir, 0700);
 
-  o << "/cartesian.info";
-  dmtcp::string filename = o.str();
+  dmtcp::ostringstream o;
+  o << ckptDir << "/cartesian.info";
 
-  return strdup(filename.c_str());
+  return strdup(o.str().c_str());
 }
 
 
