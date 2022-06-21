@@ -401,6 +401,7 @@ do {                                                                           \
   MACRO(Win_unlock_all), \
   MACRO(Win_wait), \
   MACRO(Wtick), \
-  MACRO(Wtime),
+  MACRO(Wtime), \
+  MACRO(Aint_diff),
 
 #endif // define _LIBPROXY_H

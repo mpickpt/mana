@@ -206,12 +206,12 @@ getRank()
   return world_rank;
 }
 
-MPI_Comm restored_comm_cart;
+MPI_Comm comm_cart_prime;
 
 int
-getCoordinates(CartesianTopology *cartesianTopology, int *coords)
+getCoordinates(CartesianProperties *cp, int *coords)
 {
-  int flag, ret = -1, rank = -1;
+  int flag, ret = -1, comm_old_rank = -1, comm_cart_rank = -1;
 
   MPI_Initialized(&flag);
   if (!flag)
@@ -220,25 +220,23 @@ getCoordinates(CartesianTopology *cartesianTopology, int *coords)
     ret = 0;
 
   if (ret != -1) {
-    MPI_Cart_create(MPI_COMM_WORLD, cartesianTopology->number_of_dimensions,
-                    cartesianTopology->dimensions, cartesianTopology->periods,
-                    cartesianTopology->reorder, &restored_comm_cart);
+    MPI_Cart_create(MPI_COMM_WORLD, cp->ndims, cp->dimensions, cp->periods,
+                  cp->reorder, &comm_cart_prime);
 
-    MPI_Comm_rank(restored_comm_cart, &rank);
+    MPI_Comm_rank(comm_cart_prime, &comm_cart_rank);
 
-    MPI_Cart_coords(restored_comm_cart, rank,
-                    cartesianTopology->number_of_dimensions, coords);
+    MPI_Cart_coords(comm_cart_prime, comm_cart_rank, cp->ndims, coords);
 
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_rank(MPI_COMM_WORLD, &comm_old_rank);
   }
 
-  return rank;
+  return comm_old_rank;
 }
 
 void
 getCartesianCommunicator(MPI_Comm **comm_cart)
 {
-  *comm_cart = &restored_comm_cart;
+  *comm_cart = &comm_cart_prime;
 }
 
 void*

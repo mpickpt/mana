@@ -51,7 +51,7 @@
 using namespace dmtcp;
 
 /* Global variables */
-extern CartesianTopology g_cartesianTopology;
+extern CartesianProperties g_cartesian_properties;
 int g_numMmaps = 0;
 MmapInfo_t *g_list = NULL;
 mana_state_t mana_state = UNKNOWN_STATE;
@@ -244,28 +244,29 @@ computeUnionOfCkptImageAddresses()
 }
 
 const char *
-get_cartesian_topology_info_file_name()
+get_cartesian_properties_file_name()
 {
   const char *ckptDir = dmtcp_get_ckpt_dir();
-  dmtcp::ostringstream o;
-  o << ckptDir << "/ckpt_rank_" << g_world_rank;
 
   struct stat st;
   // Create directory if not already exist
-  if (stat(o.str().c_str(), &st) == -1)
-    mkdir(o.str().c_str(), 0700);
+  if (stat(ckptDir, &st) == -1)
+    mkdir(ckptDir, 0700);
 
-  o << "/cartesian.info";
-  dmtcp::string filename = o.str();
+  dmtcp::ostringstream o;
+  o << ckptDir << "/cartesian.info";
 
-  return strdup(filename.c_str());
+  return strdup(o.str().c_str());
 }
 
+
 void
-save_cartesian_topology_info(const char *filename)
+save_cartesian_properties(const char *filename)
 {
-  if ((g_cartesianTopology.old_comm_size + g_cartesianTopology.new_comm_size +
-       g_cartesianTopology.old_rank + g_cartesianTopology.new_rank) < 0)
+  if (g_cartesian_properties.comm_old_size == -1 ||
+      g_cartesian_properties.comm_cart_size == -1 ||
+      g_cartesian_properties.comm_old_rank == -1 ||
+      g_cartesian_properties.comm_cart_rank == -1)
     return;
 
   int i;
@@ -274,21 +275,21 @@ save_cartesian_topology_info(const char *filename)
   if (fd == -1)
     return;
 
-  write(fd, &g_cartesianTopology.old_comm_size, sizeof(int));
-  write(fd, &g_cartesianTopology.new_comm_size, sizeof(int));
-  write(fd, &g_cartesianTopology.old_rank, sizeof(int));
-  write(fd, &g_cartesianTopology.new_rank, sizeof(int));
-  write(fd, &g_cartesianTopology.reorder, sizeof(int));
-  write(fd, &g_cartesianTopology.number_of_dimensions, sizeof(int));
+  write(fd, &g_cartesian_properties.comm_old_size, sizeof(int));
+  write(fd, &g_cartesian_properties.comm_cart_size, sizeof(int));
+  write(fd, &g_cartesian_properties.comm_old_rank, sizeof(int));
+  write(fd, &g_cartesian_properties.comm_cart_rank, sizeof(int));
+  write(fd, &g_cartesian_properties.reorder, sizeof(int));
+  write(fd, &g_cartesian_properties.ndims, sizeof(int));
 
-  for (i = 0; i < g_cartesianTopology.number_of_dimensions; i++)
-    write(fd, &g_cartesianTopology.coordinates[i], sizeof(int));
+  for (i = 0; i < g_cartesian_properties.ndims; i++)
+    write(fd, &g_cartesian_properties.coordinates[i], sizeof(int));
 
-  for (i = 0; i < g_cartesianTopology.number_of_dimensions; i++)
-    write(fd, &g_cartesianTopology.dimensions[i], sizeof(int));
+  for (i = 0; i < g_cartesian_properties.ndims; i++)
+    write(fd, &g_cartesian_properties.dimensions[i], sizeof(int));
 
-  for (i = 0; i < g_cartesianTopology.number_of_dimensions; i++)
-    write(fd, &g_cartesianTopology.periods[i], sizeof(int));
+  for (i = 0; i < g_cartesian_properties.ndims; i++)
+    write(fd, &g_cartesian_properties.periods[i], sizeof(int));
 
   close(fd);
 }
@@ -343,7 +344,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
           int64_t counter;
           if (dmtcp_kvdb64_get(csId.c_str(), 0, &counter) == -1) {
             // No rank published IN_CS state.
-            coord_response == SAFE_TO_CHECKPOINT;
+            coord_response = SAFE_TO_CHECKPOINT;
             break;
           }
 
@@ -375,9 +376,9 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       drainSendRecv(); // p2p_drain_send_recv.cpp
       computeUnionOfCkptImageAddresses();
 
-      dmtcp_global_barrier("MPI:save-cartesian-topology-info");
-      const char *file = get_cartesian_topology_info_file_name();
-      save_cartesian_topology_info(file);
+      dmtcp_global_barrier("MPI:save-cartesian-properties");
+      const char *file = get_cartesian_properties_file_name();
+      save_cartesian_properties(file);
     }
     case DMTCP_EVENT_RESUME: {
       clearPendingCkpt(); // two-phase-algo.cpp
