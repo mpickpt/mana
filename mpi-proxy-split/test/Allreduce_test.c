@@ -14,6 +14,8 @@
 #include <getopt.h>
 #include <string.h>
 
+#define BUFFER_SIZE 1000
+
 int main(int argc, char *argv[])
 {
   //Parse runtime argument
@@ -43,18 +45,23 @@ int main(int argc, char *argv[])
   MPI_Init(&argc, &argv);
   MPI_Comm_size(MPI_COMM_WORLD, &size);
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  in = (int *)malloc(max_iterations * sizeof(int));
-  out = (int *)malloc(max_iterations * sizeof(int));
-  sol = (int *)malloc(max_iterations * sizeof(int));
-  while (1) {
-    for (i=0; i<max_iterations; i++)
+  in = (int *)malloc(BUFFER_SIZE * sizeof(int));
+  out = (int *)malloc(BUFFER_SIZE * sizeof(int));
+  sol = (int *)malloc(BUFFER_SIZE * sizeof(int));
+
+  if(rank == 0){
+    printf("Running test for %d iterations\n", max_iterations);
+  }
+
+  for(int i = 0; i < max_iterations; i++) {
+    for (i=0; i<BUFFER_SIZE; i++)
     {
       *(in + i) = i;
       *(sol + i) = i*size;
       *(out + i) = 0;
     }
     MPI_Allreduce(in, out, max_iterations, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-    for (i=0; i<max_iterations; i++)
+    for (i=0; i<BUFFER_SIZE; i++)
     {
       #ifdef DEBUG
         printf("[Rank = %d] at index = %d: In = %d, Out = %d, Expected Out = %d\
