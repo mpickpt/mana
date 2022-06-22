@@ -20,7 +20,7 @@
  ****************************************************************************/
 
 #include <mpi.h>
-
+#include <fcntl.h>
 #include "jassert.h"
 #include "jconvert.h"
 
@@ -595,12 +595,12 @@ restoreTypeCreateStruct(MpiRecord& rec)
   return retval;
 }
 
-/*
+
 int
-load_cartesian_properties(char *filename, CartesianProperties *cp)
+load_cartesian_properties(const char *filename, CartesianProperties *cp)
 {
   int i;
-
+  
   int fd = open(filename, O_RDONLY);
   if (fd == -1)
     return -1;
@@ -622,37 +622,151 @@ load_cartesian_properties(char *filename, CartesianProperties *cp)
     read(fd, &cp->periods[i], sizeof(int));
 
   close(fd);
-
+ 
   return 0;
 }
 
-int
-load_checkpoint_cartesian_mapping(CartesianInfo checkpoint_mapping[],
-                                  int comm_old_size,
-                                  int ndims)
+void
+load_checkpoint_cartesian_mapping(CartesianProperties *cp,
+                                  CartesianInfo checkpoint_mapping[])
 {
-  char buffer[10], filename[40];
-/*
+  int comm_old_size = cp->comm_old_size;
+  int ndims = cp->ndims;
+
   for (int i = 0; i < comm_old_size; i++) {
-    sprintf(filename, "./ckpt_rank_%d/cartesian.info", i);
+    dmtcp::ostringstream o;
+    o << "./ckpt_rank_" << i << "/cartesian.info";
 
     CartesianProperties cp;
-    if (load_cartesian_properties(filename, &cp) == 0) {
+    if (load_cartesian_properties(o.str().c_str(), &cp) == 0) {
       checkpoint_mapping[i].comm_old_rank = cp.comm_old_rank;
       checkpoint_mapping[i].comm_cart_rank = cp.comm_cart_rank;
       for (int j = 0; j < ndims; j++)
         checkpoint_mapping[i].coordinates[j] = cp.coordinates[j];
     }
   }
-
-  return -1;
 }
-*/
 
 MPI_Comm comm_cart;
 MPI_Comm *comm_cart_prime;
 MPI_Comm comm_old;
 MPI_Comm comm_old_prime;
+
+void
+create_cartesian_info_mpi_datatype(MPI_Datatype *cidt)
+{
+  int retval = -1;
+  int lengths[3] = { 1, 1, MAX_CART_PROP_SIZE };
+
+  // Calculate displacements
+  // In C, by default padding can be inserted between fields. MPI_Get_address
+  // will allow to get the address of each struct field and calculate the
+  // corresponding displacement relative to that struct base address. The
+  // displacements thus calculated will therefore include padding if any.
+  MPI_Aint base_address;
+  MPI_Aint displacements[3];
+  CartesianInfo dummy_ci;
+
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+
+  retval = NEXT_FUNC(Get_address)(&dummy_ci, &base_address);
+  retval += NEXT_FUNC(Get_address)(&dummy_ci.comm_old_rank, &displacements[0]);
+  retval += NEXT_FUNC(Get_address)(&dummy_ci.comm_cart_rank, &displacements[1]);
+  retval += NEXT_FUNC(Get_address)(&dummy_ci.coordinates[0], &displacements[2]);
+
+  displacements[0] = NEXT_FUNC(Aint_diff)(displacements[0], base_address);
+  displacements[1] = NEXT_FUNC(Aint_diff)(displacements[1], base_address);
+  displacements[2] = NEXT_FUNC(Aint_diff)(displacements[2], base_address);
+
+  MPI_Datatype types[3] = { MPI_INT, MPI_INT, MPI_INT };
+
+  retval =
+    NEXT_FUNC(Type_create_struct)(3, lengths, displacements, types, cidt);
+  JASSERT(retval == MPI_SUCCESS)
+    .Text("Failed to create MPI datatype for <CartesianInfo> struct.");
+
+  retval = NEXT_FUNC(Type_commit)(cidt);
+  JASSERT(retval == MPI_SUCCESS)
+    .Text("Failed to commit MPI datatype for <CartesianInfo> struct.");
+
+  RETURN_TO_UPPER_HALF();
+}
+
+void
+load_restart_cartesian_mapping(CartesianProperties *cp,
+                               CartesianInfo *ci,
+                               CartesianInfo restart_mapping[])
+{
+  int retval = -1;
+
+  MPI_Datatype ci_type;
+  create_cartesian_info_mpi_datatype(&ci_type);
+
+  // Root process will collect the cartesian info and all other process will
+  // send their cartesian info
+  if (ci->comm_old_rank == 0) {
+    // retval = MPI_Gather(ci, 1, ci_type, restart_mapping, 1, ci_type, 0,
+    //                    comm_old_prime);
+    retval = NEXT_FUNC(Gather)(ci, 1, ci_type, restart_mapping, 1, ci_type, 0,
+                               comm_old_prime);
+  } else {
+    // retval = MPI_Gather(ci, 1, ci_type, NULL, 0, ci_type, 0, comm_old_prime);
+    retval =
+      NEXT_FUNC(Gather)(ci, 1, ci_type, NULL, 0, ci_type, 0, comm_old_prime);
+  }
+
+  JASSERT(retval == MPI_SUCCESS)
+    .Text("Failed to load restart cartesian mapping.");
+}
+
+void
+compare_comm_old_cartesian_mapping(CartesianProperties *cp,
+                                   CartesianInfo checkpoint_mapping[],
+                                   CartesianInfo restart_mapping[],
+                                   int *comm_old_ranks_order)
+{
+  for (int i = 0; i < cp->comm_old_size; i++) {
+    CartesianInfo *checkpoint = &checkpoint_mapping[i];
+
+    // Iterate through each entry in the <restart_mapping> array and find out
+    // the rank of the process whose coordinates are equal to
+    // checkpoint.coordinates
+    for (int j = 0; j < cp->comm_old_size; j++) {
+      CartesianInfo *restart = &restart_mapping[j];
+
+      int sum = 0;
+      for (int k = 0; k < cp->ndims; k++)
+        if (checkpoint->coordinates[k] == restart->coordinates[k])
+          sum += 1;
+
+      if (sum == cp->ndims) {
+        comm_old_ranks_order[i] = checkpoint->comm_old_rank;
+        break;
+      }
+    }
+  }
+}
+
+void
+create_comm_old_communicator(CartesianProperties *cp, int *comm_old_ranks_order)
+{
+  int retval = -1;
+
+  MPI_Group comm_old_group_prime, comm_old_group;
+  MPI_Comm_group(comm_old_prime, &comm_old_group_prime);
+
+  retval = MPI_Group_incl(comm_old_group_prime, cp->comm_old_size,
+                          comm_old_ranks_order, &comm_old_group);
+
+  JASSERT(retval == MPI_SUCCESS)
+    .Text("Failed to create <comm_old_group> group.");
+
+  retval =
+    MPI_Comm_create_group(comm_old_prime, comm_old_group, 121, &comm_old);
+
+  JASSERT(retval == MPI_SUCCESS)
+    .Text("Failed to create <comm_old> communicator.");
+}
 
 void
 setCartesianCommunicator(void *getCartesianCommunicatorFptr)
@@ -670,15 +784,71 @@ setCartesianCommunicator(void *getCartesianCommunicatorFptr)
 static int
 restoreCartCreate(MpiRecord &rec)
 {
-/*
+  volatile int dummy = 1;
+
+  int retval = -1;
+  int comm_old_ranks_order[MAX_PROCESSES];
+  int comm_cart_ranks_order[MAX_PROCESSES];
+
+  CartesianInfo ci;
   CartesianProperties cp;
   CartesianInfo checkpoint_mapping[MAX_PROCESSES];
   CartesianInfo restart_mapping[MAX_PROCESSES];
 
-  load_checkpoint_cartesian_mapping(checkpoint_mapping, cp.comm_old_size,
-                                    cp.ndims);
-*/
+  // In current implementation, <comm_old> is MPI_COMM_WORLD
+  comm_old_prime = MPI_COMM_WORLD;
+
+  // Get cartesian info of this process
+  retval = MPI_Comm_rank(comm_old_prime, &ci.comm_old_rank);
+  retval = MPI_Comm_rank(*comm_cart_prime, &ci.comm_cart_rank);
+
+  // Get cartesian properties of this process
+  dmtcp::ostringstream o;
+  o << "./ckpt_rank_" << ci.comm_old_rank << "/cartesian.info";
+  retval = load_cartesian_properties(o.str().c_str(), &cp);
+  JASSERT(retval == 0)
+  (o.str().c_str()).Text("Failed to load cartesian properties.");
+
+  // Get coordinates of this process
+  retval = MPI_Cart_coords(*comm_cart_prime, ci.comm_cart_rank, cp.ndims,
+                           ci.coordinates);
+
+  // Load checkpoint cartesian mapping
+  load_checkpoint_cartesian_mapping(&cp, checkpoint_mapping);
+
+  // Load restart cartesian mapping
+  load_restart_cartesian_mapping(&cp, &ci, restart_mapping);
+
+  retval = MPI_Barrier(MPI_COMM_WORLD);
+  JASSERT(retval == MPI_SUCCESS).Text("MPI_Barrier(1) failed.");
+
+  // The root process will populate <comm_old_ranks_order> array
+  if (ci.comm_old_rank == 0)
+    compare_comm_old_cartesian_mapping(&cp, checkpoint_mapping, restart_mapping,
+                                       comm_old_ranks_order);
+
+  retval = MPI_Barrier(MPI_COMM_WORLD);
+  JASSERT(retval == MPI_SUCCESS).Text("MPI_Barrier(2) failed.");
+
+  retval = NEXT_FUNC(Bcast)(comm_old_ranks_order, cp.comm_old_size, MPI_INT, 0,
+                            comm_old_prime);
+  JASSERT(retval == MPI_SUCCESS)
+    .Text("Failed to broadcast <comm_old_ranks_order> integer array.");
+
+  retval = MPI_Barrier(MPI_COMM_WORLD);
+  JASSERT(retval == MPI_SUCCESS).Text("MPI_Barrier(3) failed.");
+
+  // Create <comm_old> communicator
+  create_comm_old_communicator(&cp, comm_old_ranks_order);
+
+  retval = MPI_Barrier(MPI_COMM_WORLD);
+  JASSERT(retval == MPI_SUCCESS).Text("MPI_Barrier(4) failed.");
+
+  // --------------------------------------------------------------------------
+
+  // Update mapping
   MPI_Comm virtComm = rec.args(5);
+  UPDATE_COMM_MAP(MPI_COMM_WORLD, comm_old);
   UPDATE_COMM_MAP(virtComm, *comm_cart_prime);
 
   return MPI_SUCCESS;
