@@ -720,10 +720,11 @@ load_restart_cartesian_mapping(CartesianProperties *cp,
 }
 
 void
-compare_comm_old_cartesian_mapping(CartesianProperties *cp,
-                                   CartesianInfo checkpoint_mapping[],
-                                   CartesianInfo restart_mapping[],
-                                   int *comm_old_ranks_order)
+compare_comm_old_and_cart_cartesian_mapping(CartesianProperties *cp,
+                                            CartesianInfo checkpoint_mapping[],
+                                            CartesianInfo restart_mapping[],
+                                            int *comm_old_ranks_order,
+                                            int *comm_cart_ranks_order)
 {
   for (int i = 0; i < cp->comm_old_size; i++) {
     CartesianInfo *checkpoint = &checkpoint_mapping[i];
@@ -741,6 +742,7 @@ compare_comm_old_cartesian_mapping(CartesianProperties *cp,
 
       if (sum == cp->ndims) {
         comm_old_ranks_order[i] = checkpoint->comm_old_rank;
+        comm_cart_ranks_order[i] = checkpoint->comm_cart_rank;
         break;
       }
     }
@@ -766,6 +768,34 @@ create_comm_old_communicator(CartesianProperties *cp, int *comm_old_ranks_order)
 
   JASSERT(retval == MPI_SUCCESS)
     .Text("Failed to create <comm_old> communicator.");
+}
+
+void
+create_comm_cart_communicator(CartesianProperties *cp, int *comm_cart_ranks_order)
+{
+  int retval = -1;
+
+  MPI_Group comm_cart_group_prime, comm_cart_group;
+  MPI_Comm_group(*comm_cart_prime, &comm_cart_group_prime);
+  
+  retval = MPI_Group_incl(comm_cart_group_prime, cp->comm_cart_size,
+                          comm_cart_ranks_order, &comm_cart_group);
+
+  JASSERT(retval == MPI_SUCCESS)
+    .Text("Failed to create <comm_cart_group> group.");
+
+  MPI_Comm comm_cart_tmp;
+  retval = MPI_Comm_create_group(*comm_cart_prime, comm_cart_group, 111,
+                                 &comm_cart_tmp);
+
+  JASSERT(retval == MPI_SUCCESS)
+    .Text("Failed to create <comm_cart_tmp> communicator.");
+
+  retval = MPI_Cart_create(comm_cart_tmp, cp->ndims, cp->dimensions,
+                           cp->periods, cp->reorder, &comm_cart);
+
+  JASSERT(retval == MPI_SUCCESS)
+    .Text("Failed to create <comm_cart> communicator.");
 }
 
 void
@@ -822,10 +852,14 @@ restoreCartCreate(MpiRecord &rec)
   retval = MPI_Barrier(MPI_COMM_WORLD);
   JASSERT(retval == MPI_SUCCESS).Text("MPI_Barrier(1) failed.");
 
-  // The root process will populate <comm_old_ranks_order> array
+  // while (dummy) {};
+
+  // The root process will populate <comm_old_ranks_order> and
+  // <comm_cart_ranks_order> arrays
   if (ci.comm_old_rank == 0)
-    compare_comm_old_cartesian_mapping(&cp, checkpoint_mapping, restart_mapping,
-                                       comm_old_ranks_order);
+    compare_comm_old_and_cart_cartesian_mapping(
+      &cp, checkpoint_mapping, restart_mapping, comm_old_ranks_order,
+      comm_cart_ranks_order);
 
   retval = MPI_Barrier(MPI_COMM_WORLD);
   JASSERT(retval == MPI_SUCCESS).Text("MPI_Barrier(2) failed.");
@@ -838,18 +872,27 @@ restoreCartCreate(MpiRecord &rec)
   retval = MPI_Barrier(MPI_COMM_WORLD);
   JASSERT(retval == MPI_SUCCESS).Text("MPI_Barrier(3) failed.");
 
-  // Create <comm_old> communicator
-  create_comm_old_communicator(&cp, comm_old_ranks_order);
+  retval = NEXT_FUNC(Bcast)(comm_cart_ranks_order, cp.comm_cart_size, MPI_INT,
+                            0, *comm_cart_prime);
+  JASSERT(retval == MPI_SUCCESS)
+    .Text("Failed to broadcast <comm_cart_ranks_order> integer array.");
 
   retval = MPI_Barrier(MPI_COMM_WORLD);
   JASSERT(retval == MPI_SUCCESS).Text("MPI_Barrier(4) failed.");
+
+  // Create <comm_old> and <comm_cart> communicators
+  create_comm_old_communicator(&cp, comm_old_ranks_order);
+  create_comm_cart_communicator(&cp, comm_cart_ranks_order);
+
+  retval = MPI_Barrier(MPI_COMM_WORLD);
+  JASSERT(retval == MPI_SUCCESS).Text("MPI_Barrier(5) failed.");
 
   // --------------------------------------------------------------------------
 
   // Update mapping
   MPI_Comm virtComm = rec.args(5);
   UPDATE_COMM_MAP(MPI_COMM_WORLD, comm_old);
-  UPDATE_COMM_MAP(virtComm, *comm_cart_prime);
+  UPDATE_COMM_MAP(virtComm, comm_cart);
 
   return MPI_SUCCESS;
 }
