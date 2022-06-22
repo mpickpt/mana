@@ -51,23 +51,22 @@ int main(int argc, char *argv[])
 
   if(rank == 0){
     printf("Running test for %d iterations\n", max_iterations);
+    fflush(stdout);
   }
 
-  for(int i = 0; i < max_iterations; i++) {
+  for(int iterations = 0; iterations < max_iterations; iterations++) {
     for (i=0; i<BUFFER_SIZE; i++)
     {
       *(in + i) = i;
       *(sol + i) = i*size;
       *(out + i) = 0;
     }
-    MPI_Allreduce(in, out, max_iterations, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(in, out, BUFFER_SIZE, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
     for (i=0; i<BUFFER_SIZE; i++)
     {
-      #ifdef DEBUG
-        printf("[Rank = %d] at index = %d: In = %d, Out = %d, Expected Out = %d\
-              \n", rank, i, *(in + i), *(out + i), *(sol + i));
-        fflush(stdout);
-      #endif
+      printf("[Rank = %d] at index = %d: In = %d, Out = %d, Expected Out = %d\
+            \n", rank, i, *(in + i), *(out + i), *(sol + i));
+      fflush(stdout);
 
       assert((*(out + i) == *(sol + i)));
       if (*(out + i) != *(sol + i))
