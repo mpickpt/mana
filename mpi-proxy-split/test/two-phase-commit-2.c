@@ -120,6 +120,7 @@ int main( int argc, char *argv[] )
         MPI_Barrier(comm1);
         printf("Rank %d leaving comm1, iteration %d\n", rank, comm1_counter);
         fflush(stdout);
+        sleep(SLEEP_PER_ITERATION);
       }
     }
     if (comm2 != MPI_COMM_NULL) {
@@ -129,8 +130,8 @@ int main( int argc, char *argv[] )
       MPI_Barrier(comm2);
       printf("Rank %d leaving comm2, iteration %d\n", rank, comm2_counter);
       fflush(stdout);
+      sleep(SLEEP_PER_ITERATION);
     }
-    sleep(SLEEP_PER_ITERATION);
   }
 
   MPI_Finalize();
