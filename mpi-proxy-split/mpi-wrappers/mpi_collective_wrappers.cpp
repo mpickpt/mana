@@ -29,7 +29,7 @@
 #include "mpi_plugin.h"
 #include "record-replay.h"
 #include "mpi_nextfunc.h"
-#include "two-phase-algo.h"
+#include "seq_num.h"
 #include "virtual-ids.h"
 #include "p2p_log_replay.h"
 #include "p2p_drain_send_recv.h"
