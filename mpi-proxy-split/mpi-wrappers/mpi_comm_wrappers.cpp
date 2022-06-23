@@ -36,7 +36,7 @@
 #include "mpi_nextfunc.h"
 #include "record-replay.h"
 #include "virtual-ids.h"
-#include "two-phase-algo.h"
+#include "seq_num.h"
 #include "p2p_drain_send_recv.h"
 
 using namespace dmtcp_mpi;

@@ -32,6 +32,7 @@
 #include "virtual-ids.h"
 #ifdef SINGLE_CART_REORDER
 #include "two-phase-algo.h"
+#include "seq_num.h"
 #include "../cartesian.h"
 #endif
 #include "p2p_drain_send_recv.h"
