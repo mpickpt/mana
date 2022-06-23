@@ -18,8 +18,7 @@ endif
 
 TESTS = record-replay-comm-test \
         record-replay-group-test \
-        record-replay-types-test \
-        record-replay-cart-test
+        record-replay-types-test
 
 TEST_OBJS=$(addsuffix .o, ${TESTS})
 TEST_BINS=$(addsuffix .exe, ${TESTS})
@@ -54,7 +53,7 @@ default: ${TEST_BINS}
 ../record-replay.o ../drain_send_recv_packets.o:
 	@make -C ..
 
-%.exe: %.o ../record-replay.o
+%.exe: %.o ../record-replay.o ../split_process.o ../lower-half/procmapsutils.o
 	${MPICXX} -fPIC -g3 -O0 -o $@ $^ ${TEST_LD_FLAGS}
 
 drain-send-recv-test.exe: ${DRAIN_TEST_OBJS}
