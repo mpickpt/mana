@@ -719,5 +719,4 @@ namespace dmtcp_mpi
 // post restart
 extern void restoreMpiLogState();
 extern void setCartesianCommunicator(void *getCartesianCommunicatorFptr);
-
 #endif // ifndef MPI_RECORD_REPLAY_H
