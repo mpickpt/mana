@@ -62,6 +62,12 @@ typedef LowerHalfInfo_t PluginInfo;
 typedef struct RestoreInfo RestoreInfo;
 union ProcMapsArea;
 void mtcp_plugin_hook(RestoreInfo *rinfo);
-int mtcp_plugin_skip_memory_region_munmap(ProcMapsArea *area, RestoreInfo *rinfo);
+int mtcp_plugin_skip_memory_region_munmap(ProcMapsArea *area,
+                                          RestoreInfo *rinfo);
+int getCkptImageByDir(RestoreInfo *rinfo,
+                      char *buffer,
+                      size_t buflen,
+                      int rank);
+char* getCkptImageByRank(int rank, char **argv);
 
 #endif // #ifndef __MTCP_RESTART_PLUGIN_H__
