@@ -157,6 +157,16 @@ USER_DEFINED_WRAPPER(int, Type_create_struct, (int) count,
   return retval;
 }
 
+USER_DEFINED_WRAPPER(int, Type_struct, (int) count,
+                     (const int*) array_of_blocklengths,
+                     (const MPI_Aint*) array_of_displacements,
+                     (const MPI_Datatype*) array_of_types, (MPI_Datatype*) newtype)
+{
+  return MPI_Type_create_struct(count, array_of_blocklengths,
+                                array_of_displacements, array_of_types, newtype
+                                );
+}
+
 USER_DEFINED_WRAPPER(int, Type_indexed, (int) count,
                      (const int*) array_of_blocklengths,
                      (const int*) array_of_displacements,
