@@ -201,7 +201,7 @@ getRank()
   }
   if (retval == MPI_SUCCESS) {
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
-
+  }
   return world_rank;
 }
 
