@@ -3,7 +3,7 @@ PLATFORM=${shell echo $$HOST}
 include ../Makefile_config
 
 PROXY_BIN = lh_proxy
-PROXY_BIN_DEFADDR = lh_proxy_default_address
+PROXY_BIN_DEFADDR = lh_proxy_da
 PROXY_OBJS = lh_proxy.o
 LIBPROXY = libproxy
 LIBPROXY_OBJS = libproxy.o procmapsutils.o sbrk.o mmap64.o munmap.o \
