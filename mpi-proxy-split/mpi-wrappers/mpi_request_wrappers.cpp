@@ -126,7 +126,7 @@ USER_DEFINED_WRAPPER(int, Testall, (int) count,
   int *local_flag = flag;
   MPI_Status *local_array_of_statuses = array_of_statuses;
 
-  int retval;
+  int retval = MPI_SUCCESS;
   bool incomplete = false;
   // FIXME: Perhaps use Testall directly? But then, need to take care of
   // the services requests
@@ -174,7 +174,7 @@ USER_DEFINED_WRAPPER(int, Testany, (int) count,
   int *local_flag = flag;
   MPI_Status *local_status = status;
 
-  int retval;
+  int retval = MPI_SUCCESS;
   *local_flag = 1;
   *local_index = MPI_UNDEFINED;
   for (int i = 0; i < local_count; i++) {
@@ -198,7 +198,7 @@ USER_DEFINED_WRAPPER(int, Waitall, (int) count,
                      (MPI_Status *) array_of_statuses)
 {
   // FIXME: Revisit this wrapper - call VIRTUAL_TO_REAL_REQUEST on array
-  int retval = 0;
+  int retval = MPI_SUCCESS;
 #if 0
   DMTCP_PLUGIN_DISABLE_CKPT();
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
