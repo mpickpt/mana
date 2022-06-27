@@ -198,7 +198,7 @@ USER_DEFINED_WRAPPER(int, Waitall, (int) count,
                      (MPI_Status *) array_of_statuses)
 {
   // FIXME: Revisit this wrapper - call VIRTUAL_TO_REAL_REQUEST on array
-  int retval;
+  int retval = 0;
 #if 0
   DMTCP_PLUGIN_DISABLE_CKPT();
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
