@@ -36,7 +36,7 @@
 #include <fcntl.h>
 #include <errno.h>
 
-#include "../../ds.h"
+#include "../cartesian.h"
 #include "libproxy.h"
 #include "mpi_copybits.h"
 #include "procmapsutils.h"
@@ -191,45 +191,43 @@ updateEnviron(const char **newenviron)
 int
 getRank()
 {
-  int flag, ret = -1;
-  MPI_Initialized(&flag);
-
-  if (!flag)
-    ret = MPI_Init(NULL, NULL);
-  else
-    ret = 0;
-
+  int flag;
   int world_rank = -1;
-  if (ret != -1)
+  int retval = MPI_SUCCESS;
+
+  MPI_Initialized(&flag);
+  if (!flag) {
+    retval = MPI_Init(NULL, NULL);
+  }
+  if (retval == MPI_SUCCESS) {
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
 
   return world_rank;
 }
 
+// Prior to checkpoint we will use the normal variable names, and
+// after restart we will use the '_prime' suffix with variable names.
 MPI_Comm comm_cart_prime;
 
 int
 getCoordinates(CartesianProperties *cp, int *coords)
 {
-  int flag, ret = -1, comm_old_rank = -1, comm_cart_rank = -1;
+  int flag;
+  int comm_old_rank = -1;
+  int comm_cart_rank = -1;
+  int retval = MPI_SUCCESS;
 
   MPI_Initialized(&flag);
-  if (!flag)
-    ret = MPI_Init(NULL, NULL);
-  else
-    ret = 0;
-
-  if (ret != -1) {
+  if (!flag) {
+    retval = MPI_Init(NULL, NULL);
+  }
+  if (retval == MPI_SUCCESS) {
     MPI_Cart_create(MPI_COMM_WORLD, cp->ndims, cp->dimensions, cp->periods,
-                  cp->reorder, &comm_cart_prime);
-
+                    cp->reorder, &comm_cart_prime);
     MPI_Comm_rank(comm_cart_prime, &comm_cart_rank);
-
     MPI_Cart_coords(comm_cart_prime, comm_cart_rank, cp->ndims, coords);
-
     MPI_Comm_rank(MPI_COMM_WORLD, &comm_old_rank);
   }
-
   return comm_old_rank;
 }
 
