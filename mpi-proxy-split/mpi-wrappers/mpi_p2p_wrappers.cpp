@@ -247,23 +247,28 @@ USER_DEFINED_WRAPPER(int, Sendrecv, (const void *) sendbuf, (int) sendcount,
   return retval;
 }
 
-// FIXME: Move this to mpi_collective_wrappers.cpp and reimplement
 USER_DEFINED_WRAPPER(int, Sendrecv_replace, (void *) buf, (int) count,
                      (MPI_Datatype) datatype, (int) dest,
                      (int) sendtag, (int) source,
                      (int) recvtag, (MPI_Comm) comm, (MPI_Status *) status)
 {
-  JASSERT(false).Text("MPI_Sendrecv_replace is not supported");
+
+  //Send first
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-  MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  retval = NEXT_FUNC(Sendrecv_replace)(buf, count, realType,
-                                       dest, sendtag, source, recvtag,
-                                       realComm, status);
-  RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  retval = MPI_Send(buf, count, datatype, dest, sendtag, comm);
+  if (retval != MPI_SUCCESS) {
+    return retval;
+  }
+
+  //Recv using asynchronous to fill status struct
+  MPI_Request req;
+  retval = MPI_Irecv(buf, count, datatype, source, recvtag, comm, &req);
+  if (retval != MPI_SUCCESS) {
+    return retval;
+  }
+  p2p_deterministic_skip_save_request = 0;
+  retval = MPI_Wait(&req, status);
+
   return retval;
 }
 
