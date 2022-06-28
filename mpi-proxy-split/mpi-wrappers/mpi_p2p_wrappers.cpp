@@ -261,13 +261,7 @@ USER_DEFINED_WRAPPER(int, Sendrecv_replace, (void *) buf, (int) count,
   }
 
   //Recv using asynchronous to fill status struct
-  MPI_Request req;
-  retval = MPI_Irecv(buf, count, datatype, source, recvtag, comm, &req);
-  if (retval != MPI_SUCCESS) {
-    return retval;
-  }
-  p2p_deterministic_skip_save_request = 0;
-  retval = MPI_Wait(&req, status);
+  retval = MPI_Recv(buf, count, datatype, source, recvtag, comm, status);
 
   return retval;
 }
