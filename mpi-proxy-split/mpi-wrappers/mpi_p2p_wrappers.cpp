@@ -253,14 +253,14 @@ USER_DEFINED_WRAPPER(int, Sendrecv_replace, (void *) buf, (int) count,
                      (int) recvtag, (MPI_Comm) comm, (MPI_Status *) status)
 {
 
-  //Send first
+  // Send first
   int retval;
   retval = MPI_Send(buf, count, datatype, dest, sendtag, comm);
   if (retval != MPI_SUCCESS) {
     return retval;
   }
 
-  //Recv using asynchronous to fill status struct
+  // Recv and fill status struct
   retval = MPI_Recv(buf, count, datatype, source, recvtag, comm, status);
 
   return retval;
