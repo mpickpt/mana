@@ -39,6 +39,7 @@
 #define MpiOpList    dmtcp_mpi::MpiVirtualization<MPI_Op>
 #define MpiCommKeyvalList    dmtcp_mpi::MpiVirtualization<int>
 #define MpiRequestList    dmtcp_mpi::MpiVirtualization<MPI_Request>
+#ifndef NEXT_FUNC
 # define NEXT_FUNC(func)                                                       \
   ({                                                                           \
     static __typeof__(&MPI_##func)_real_MPI_## func =                          \
@@ -48,6 +49,7 @@
     }                                                                          \
     _real_MPI_ ## func;                                                        \
   })
+#endif // ifndef NEXT_FUNC
 
 #define REAL_TO_VIRTUAL_COMM(id) \
   MpiCommList::instance("MpiComm", MPI_COMM_NULL).realToVirtual(id)
