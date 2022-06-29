@@ -52,6 +52,7 @@ int MPI_Cart_rank(MPI_Comm comm, const int* coords, int* rank);
 int MPI_Cart_shift(MPI_Comm comm, int direction, int disp, int* rank_source, int* rank_dest);
 int MPI_Cart_sub(MPI_Comm comm, const int* remain_dims, MPI_Comm* new_comm);
 int MPI_Cartdim_get(MPI_Comm comm, int* ndims);
+int MPI_Dims_create(int nnodes, int ndims, int* dims);
 
 int MPI_Test(MPI_Request* request, int* flag, MPI_Status* status);
 int MPI_Wait(MPI_Request* request, MPI_Status* status);
