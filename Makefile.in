@@ -46,7 +46,7 @@ default: display-build-env add-git-hooks mana_prereqs
 all: default
 
 mana: dmtcp
-	cd mpi-proxy-split && $(MAKE) install && $(MAKE) -j tests
+	cd mpi-proxy-split && $(MAKE) $(INSTALL_FLAGS) && $(MAKE) -j tests
 
 dmtcp:
 	cd dmtcp && $(MAKE)
@@ -63,8 +63,9 @@ create-dirs:
 
 install: all create-dirs
 	cd dmtcp && make DESTDIR=$(DESTDIR) $(INSTALL_FLAGS)
-	cd mpi-proxy-split && make DESTDIR=$(DESTDIR) $(INSTALL_FLAGS)
-	cd manpages && make DESTDIR=$(DESTDIR) $(INSTALL_FLAGS)
+	cd mpi-proxy-split && make DESTDIR=$(prefix) $(INSTALL_FLAGS)
+	cd manpages && make DESTDIR=$(prefix) $(INSTALL_FLAGS)
+	$(INSTALL) bin/mana* $(bindir)
 
 uninstall:
 	cd dmtcp && make DESTDIR=$(DESTDIR) $(UNINSTALL_FLAGS)

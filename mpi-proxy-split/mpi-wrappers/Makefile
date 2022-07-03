@@ -29,6 +29,11 @@ endif
 ifndef DMTCP_ROOT
   DMTCP_ROOT=${MANA_ROOT}/dmtcp
 endif
+
+ifeq ($(DESTDIR),)
+  DESTDIR=${MANA_ROOT}
+endif
+
 DMTCP_INCLUDE=${DMTCP_ROOT}/include
 JALIB_INCLUDE=${DMTCP_ROOT}/jalib
 
@@ -136,22 +141,22 @@ tidy:
 	rm -f *~ .*.swp dmtcp_restart_script*.sh ckpt_*.dmtcp
 	rm -rf ckpt_rank_*
 
-install: libmpistub.so mana_p2p_update_logs
-	cp -f libmpistub.so ${MANA_ROOT}/lib/dmtcp/
-	cd ${MANA_ROOT}/lib/dmtcp && \
+install: default
+	$(INSTALL) libmpistub.so $(DESTDIR)/lib/dmtcp
+	cd $(DESTDIR)/lib/dmtcp && \
 		ln -sf libmpistub.so libmpich_intel.so.3.0.1 && \
 		ln -sf libmpich_intel.so.3.0.1 libmpich_intel.so.3 && \
 		ln -sf libmpistub.so libmpich_gnu_82.so.3.0.1 && \
 		ln -sf libmpich_gnu_82.so.3.0.1 libmpich_gnu_82.so.3
-	cd ${MANA_ROOT}/lib/dmtcp && \
+	cd $(DESTDIR)/lib/dmtcp && \
 		ln -sf libmpistub.so libpmi.so.0.5.0 && \
 		ln -sf libpmi.so.0.5.0 libpmi.so.0
-	cp -f mana_p2p_update_logs ${MANA_ROOT}/bin/
+	$(INSTALL) mana_p2p_update_logs $(DESTDIR)/bin
 
 clean: tidy
 	rm -f ${LIBWRAPPER_OBJS}
 	rm -f ${LIBNAME}.a libmpistub.so
-	rm -f ${MANA_ROOT}/lib/dmtcp/libmpistub.so
+	rm -f ${DESTDIR}/lib/dmtcp/libmpistub.so
 	rm -f mpi_stub_wrappers.c
 	rm -f p2p-deterministic.h
 	rm -f mpi_unimplemented_wrappers.cpp
@@ -159,7 +164,7 @@ clean: tidy
 	rm -f libmpich_intel.so.3.0.1 libmpich_intel.so.3
 	rm -f libmpich_gnu_82.so.3.0.1 libmpich_gnu_82.so.3
 	rm -f libpmi.so.3.0.1 libpmi.so.0
-	cd ${MANA_ROOT}/lib/dmtcp && rm -f libmpich_gnu_82.so.* \
+	cd ${DESTDIR}/lib/dmtcp && rm -f libmpich_gnu_82.so.* \
 		libmpich_intel.so.* libpmi.so.*
 
 distclean: clean

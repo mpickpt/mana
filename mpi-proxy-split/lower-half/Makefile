@@ -22,6 +22,10 @@ ifndef PLUGIN_ROOT
   PLUGIN_ROOT=..
 endif
 
+ifeq ($(DESTDIR),)
+  DESTDIR=${shell readlink -f ${MANA_ROOT}}
+endif
+
 DMTCP_INCLUDE=${DMTCP_ROOT}/include
 JALIB_INCLUDE=${DMTCP_ROOT}/jalib
 PLUGIN_INCLUDE=${PLUGIN_ROOT}
@@ -34,20 +38,20 @@ PROXY_LD_FLAGS=-static -Wl,--wrap -Wl,__munmap -Wl,--wrap -Wl,shmat -Wl,--wrap -
 
 TEXTSEG_ADDR_FLAG=-Wl,-Ttext-segment=E000000
 
-default: ${PROXY_BIN} ${PROXY_BIN_DEFADDR} ${STATIC_GETHOSTBYNAME}
+default: ${STATIC_GETHOSTBYNAME} ${PROXY_BIN} ${PROXY_BIN_DEFADDR}
 
 # We should remove the special case for Cori, once we know this works on Cori.
 ifeq ($(findstring cori,$(PLATFORM)),cori)
   STATIC_GETHOSTBYNAME=
+	GETHOSTBYNAME_PROXY=
 else ifeq ($(findstring gert,$(PLATFORM)),gert)
   STATIC_GETHOSTBYNAME=
+	GETHOSTBYNAME_PROXY=
 else
   STATIC_GETHOSTBYNAME=gethostbyname-static/gethostbyname_static.o
-${STATIC_GETHOSTBYNAME}: gethostbyname-static/gethostbyname_static.c \
-                         gethostbyname-static/gethostbyname_proxy.c
-	cd gethostbyname-static && make gethostbyname_static.o
-	cd gethostbyname-static && make gethostbyname_proxy
-	cp -f gethostbyname-static/gethostbyname_proxy ${MANA_ROOT}/bin/
+	GETHOSTBYNAME_PROXY=gethostbyname-static/gethostbyname_proxy
+${STATIC_GETHOSTBYNAME}:
+	@make -C gethostbyname-static gethostbyname_static.o install
 endif
 
 .c.o:
@@ -79,12 +83,12 @@ ${PROXY_BIN}: ${PROXY_OBJS} ${LIBPROXY}.a ${STATIC_GETHOSTBYNAME}
 
 ${PROXY_BIN_DEFADDR}: ${PROXY_OBJS} ${LIBPROXY}.a ${STATIC_GETHOSTBYNAME}
 	if ${MPICC} -v 2>&1 | grep -q 'MPICH version'; then \
-	  rm -f tmp.sh; \
+	  rm -f tmp1.sh; \
 	  ${MPICC} -show ${PROXY_LD_FLAGS} -o $@ -Wl,-start-group \
 	    $^ ${MPI_LD_FLAG} -lrt -lpthread -lc -Wl,-end-group | \
-	    sed -e 's^-lunwind ^ ^'> tmp.sh; \
-	  sh tmp.sh; \
-	  rm -f tmp.sh; \
+	    sed -e 's^-lunwind ^ ^'> tmp1.sh; \
+	  sh tmp1.sh; \
+	  rm -f tmp1.sh; \
 	else \
 	  ${MPICC} ${PROXY_LD_FLAGS} -o $@ -Wl,-start-group \
             $^ ${MPI_LD_FLAG} -lrt -lpthread -lc -Wl,-end-group; \
@@ -93,8 +97,8 @@ ${PROXY_BIN_DEFADDR}: ${PROXY_OBJS} ${LIBPROXY}.a ${STATIC_GETHOSTBYNAME}
 ${LIBPROXY}.a: ${LIBPROXY_OBJS}
 	ar cr $@ $^
 
-install: ${PROXY_BIN} ${PROXY_BIN_DEFADDR} ${STATIC_GETHOSTBYNAME}
-	cp -f $^ ${MANA_ROOT}/bin/
+install: ${PROXY_BIN} ${PROXY_BIN_DEFADDR} ${GETHOSTBYNAME_PROXY}
+	$(INSTALL) $^ $(DESTDIR)/bin
 
 tidy:
 	rm -f *~ .*.swp dmtcp_restart_script*.sh ckpt_*.dmtcp
@@ -102,8 +106,8 @@ tidy:
 
 clean: tidy
 	rm -f ${PROXY_BIN} ${PROXY_BIN_DEFADDR} ${LIBPROXY}.a ${PROXY_OBJS} ${LIBPROXY_OBJS}
-	rm -f ${MANA_ROOT}/bin/${PROXY_BIN}
-	rm -f ${MANA_ROOT}/bin/${PROXY_BIN_DEFADDR}
+	rm -f ${DESTDIR}/bin/${PROXY_BIN}
+	rm -f ${DESTDIR}/bin/${PROXY_BIN_DEFADDR}
 	if test -d gethostbyname-static; then \
 	  cd gethostbyname-static && make clean; \
 	fi

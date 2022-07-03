@@ -1,6 +1,7 @@
 mandir=@mandir@
 PANDOC=@PANDOC@
-INSTALL_DATA = @INSTALL_DATA@
+INSTALL=@INSTALL@
+INSTALL_DATA=@INSTALL_DATA@
 
 MANPAGES = mana.1.gz
 
@@ -14,7 +15,7 @@ default: ${MANPAGES}
 	   fi
 
 %.1.gz: %.1
-	gzip --force --keep $<
+	gzip --force < $< > $<.gz
 
 install: ${MANPAGES}
 	$(INSTALL) -d $(DESTDIR)$(mandir)/man1
