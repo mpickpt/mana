@@ -86,6 +86,11 @@ int twoPhaseCommit(MPI_Comm comm,
   return retval;
 }
 
+int comm_target_reached(unsigned int global_comm) {
+  return seq_num[current_global_comm_id] >
+         target_seq_num[current_global_comm_id];
+}
+
 void commit_begin(MPI_Comm comm) {
   pthread_rwlock_rdlock(&seq_num_lock);
   current_global_comm_id = VirtualGlobalCommId::instance().getGlobalId(comm);
@@ -94,8 +99,7 @@ void commit_begin(MPI_Comm comm) {
   if (ckpt_pending) {
     // If the sequence number of this communicator has passed the
     // target sequence number, switch to the trivial barrier algorithm.
-    if (seq_num[current_global_comm_id] >
-        target_seq_num[current_global_comm_id]) {
+    if (comm_target_reached(current_global_comm_id)) {
       // Call the trivial barrier
       DMTCP_PLUGIN_DISABLE_CKPT();
       current_phase = IN_TRIVIAL_BARRIER;
@@ -126,7 +130,7 @@ void commit_begin(MPI_Comm comm) {
       p2p_deterministic_skip_save_request = 0;
 
       // Stop before the critical section during checkpoint time.
-      if (ckpt_pending) {
+      if (ckpt_pending && check_seq_nums()) {
         current_phase = STOP_BEFORE_CS;
         while (!freepass && ckpt_pending);
         freepass = false;
