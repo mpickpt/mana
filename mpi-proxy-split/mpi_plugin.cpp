@@ -328,7 +328,6 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
           rank_state_t data_to_coord = preSuspendBarrier(coord_response);
           coord_response = Q_UNKNOWN;
 
-          string targetId = "MANA-PRESUSPEND-TARGET-" + jalib::XToString(round);
           string barrierId = "MANA-PRESUSPEND-" + jalib::XToString(round);
           string csId = "MANA-PRESUSPEND-CS-" + jalib::XToString(round);
           string commId = "MANA-PRESUSPEND-COMM-" + jalib::XToString(round);
@@ -336,7 +335,6 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
           
           int target_reached = check_seq_nums();
           if (!target_reached) {
-            dmtcp_kvdb64(DMTCP_KVDB_INCRBY, targetId.c_str(), 0, 1);
             coord_response = WAIT_STRAGGLER;
           }
 
@@ -359,9 +357,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
           if (coord_response == Q_UNKNOWN) {
             int64_t commStatus = 0;
             dmtcp_kvdb64_get(commId.c_str(), commKey, &commStatus);
-            if ((commStatus == 1 && data_to_coord.st == STOP_BEFORE_CS) ||
-                (!target_reached &&
-                 dmtcp_kvdb64_get(targetId.c_str(), 0, &counter) == -1)) {
+            if (commStatus == 1 && data_to_coord.st == STOP_BEFORE_CS) {
               coord_response = FREE_PASS;
             } else {
               coord_response = WAIT_STRAGGLER;
