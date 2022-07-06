@@ -61,6 +61,10 @@ USER_DEFINED_WRAPPER(int, Cart_create, (MPI_Comm)old_comm, (int)ndims,
                      (const int *)dims, (const int *)periods, (int)reorder,
                      (MPI_Comm *)comm_cart)
 {
+  JASSERT(g_cartesian_properties.comm_old_size == -1)
+    .Text("MPI_Cart_create() called more than once. Current implementation "
+          "only supports one cartesian communicator.");
+
   std::function<int()> realBarrierCb = [=]() {
     int retval;
     DMTCP_PLUGIN_DISABLE_CKPT();
