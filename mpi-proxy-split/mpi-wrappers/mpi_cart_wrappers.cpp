@@ -61,9 +61,17 @@ USER_DEFINED_WRAPPER(int, Cart_create, (MPI_Comm)old_comm, (int)ndims,
                      (const int *)dims, (const int *)periods, (int)reorder,
                      (MPI_Comm *)comm_cart)
 {
-  JASSERT(g_cartesian_properties.comm_old_size == -1)
-    .Text("MPI_Cart_create() called more than once. Current implementation "
-          "only supports one cartesian communicator.");
+  /* FIXME: The comm size should be checked at checkpoint. We can checkpoint
+   * even if the application creates multiple cartesian communicators but only
+   * have one active cartesian communicator at checkpoint.
+   *
+   * This will be removed after we add support for multiple cartesian
+   * communicators.
+   */
+  JWARNING(g_cartesian_properties.comm_old_size == -1)
+    .Text("MPI_Cart_create() called more than once! The checkpoint-restart "
+          "might fail as the current implementation only supports one "
+          "cartesian communicator.");
 
   std::function<int()> realBarrierCb = [=]() {
     int retval;
