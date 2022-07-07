@@ -122,6 +122,28 @@ USER_DEFINED_WRAPPER(int, Type_vector, (int) count, (int) blocklength,
   return retval;
 }
 
+USER_DEFINED_WRAPPER(int, Type_hvector, (int) count, (int) blocklength,
+                     (MPI_Aint) stride, (MPI_Datatype) oldtype,
+                    (MPI_Datatype*) newtype)
+{
+  int size;
+  int retval = MPI_Type_size(oldtype, &size);
+  if(retval != MPI_SUCCESS) {
+    return retval;
+  }
+
+  // FIXME: This allows us to use the MPI_Type_vector to implement this method.
+  // A cleaner implementation would be to use MPI_Type_hvector to
+  // implement MPI_Type_vector (converting one stride to the other), but this
+  // would require refactoring MPI_Type_vector. The current implementation
+  // should be good enough because there's no reason for a vector type to have
+  // a spacing different from a multiple of its elements (in most cases).
+
+  JASSERT(stride % size == 0).Text("Current implementation only supports "
+                                    "stride as multiple of type size");
+  return MPI_Type_vector(count, blocklength, stride/size, oldtype, newtype);
+}
+
 //       int MPI_Type_create_struct(int count,
 //                                const int array_of_blocklengths[],
 //                                const MPI_Aint array_of_displacements[],
@@ -251,6 +273,8 @@ PMPI_IMPL(int, MPI_Type_contiguous, int count, MPI_Datatype oldtype,
 PMPI_IMPL(int, MPI_Type_free, MPI_Datatype *type)
 PMPI_IMPL(int, MPI_Type_vector, int count, int blocklength,
           int stride, MPI_Datatype oldtype, MPI_Datatype *newtype)
+PMPI_IMPL(int, MPI_Type_hvector, int count, int blocklength,
+          MPI_Aint stride, MPI_Datatype oldtype, MPI_Datatype *newtype)
 PMPI_IMPL(int, MPI_Type_create_struct, int count, const int array_of_blocklengths[],
           const MPI_Aint array_of_displacements[], const MPI_Datatype array_of_types[],
           MPI_Datatype *newtype)
@@ -275,3 +299,4 @@ PMPI_IMPL(int, MPI_Pack_size, int incount, MPI_Datatype datatype,
           MPI_Comm comm, int *size)
 PMPI_IMPL(int, MPI_Pack, const void *inbuf, int incount, MPI_Datatype datatype,
           void *outbuf, int outsize, int *position, MPI_Comm comm)
+
