@@ -7,8 +7,10 @@
 #include "mtcp_sys.h"
 #include "mtcp_util.h"
 #include "mtcp_split_process.h"
+#ifdef SINGLE_CART_REORDER
 #include "../mpi-proxy-split/cartesian.h"
 #include "../dmtcp/src/mtcp/mtcp_sys.h"
+#endif
 
 # define GB (uint64_t)(1024 * 1024 * 1024)
 #define ROUNDADDRUP(addr, size) ((addr + size - 1) & ~(size - 1))
@@ -324,6 +326,7 @@ mysetauxval(char **evp, unsigned long int type, unsigned long int val)
   return -1;
 }
 
+#ifdef SINGLE_CART_REORDER
 int
 load_cartesian_properties(char *filename, CartesianProperties *cp)
 {
@@ -420,7 +423,7 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
   // Refer to "blocked memory" in MANA Plugin Documentation for the addresses
   // FIXME:  Rewrite this logic more carefully.
   char *start1, *start2, *end1, *end2;
-  if (rinfo->maxLibsEnd + 1 * GB < rinfo->minHighMemStart /* end of stack of upper half */) {
+  if (rinfo->maxLibsEnd + 1 * GB < rinfo->minHighMemStart  /* end of stack of upper half */) {
     start1 = rinfo->minLibsStart;    // first lib (ld.so) of upper half
     // lh_info.memRange is the memory region for the mmaps of the lower half.
     // Apparently lh_info.memRange is a region between 1 GB and 2 GB below
@@ -510,6 +513,90 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
   MTCP_PRINTF("[Rank: %d] Choosing ckpt image: %s\n",
               ckpt_image_rank_to_be_restored, rinfo->ckptImage);
 }
+
+#else
+
+void
+mtcp_plugin_hook(RestoreInfo *rinfo)
+{
+  remap_vdso_and_vvar_regions(rinfo);
+  mysetauxval(rinfo->environ, AT_SYSINFO_EHDR,
+              (unsigned long int) rinfo->currentVdsoStart);
+
+  // NOTE: We use mtcp_restart's original stack to initialize the lower
+  // half. We need to do this in order to call MPI_Init() in the lower half,
+  // which is required to figure out our rank, and hence, figure out which
+  // checkpoint image to open for memory restoration.
+  // The other assumption here is that we can only handle uncompressed
+  // checkpoint images.
+
+  // This creates the lower half and copies the bits to this address space
+  splitProcess(rinfo);
+
+  // Reserve first 500 file descriptors for the Upper-half
+  int reserved_fds[500];
+  int total_reserved_fds;
+  total_reserved_fds = reserve_fds_upper_half(reserved_fds);
+
+  // Refer to "blocked memory" in MANA Plugin Documentation for the addresses
+  // FIXME:  Rewrite this logic more carefully.
+  char *start1, *start2, *end1, *end2;
+  if (rinfo->maxLibsEnd + 1 * GB < rinfo->minHighMemStart /* end of stack of upper half */) {
+    start1 = rinfo->minLibsStart;    // first lib (ld.so) of upper half
+    // lh_info.memRange is the memory region for the mmaps of the lower half.
+    // Apparently lh_info.memRange is a region between 1 GB and 2 GB below
+    //   the end of stack in the lower half.
+    // One gigabyte below those mmaps of the lower half, we are creating space
+    //   for the GNI driver data, to be created when the GNI library runs.
+    // This says that we have to reserve only up to the mtcp_restart stack.
+    end1 = rinfo->pluginInfo.memRange.start - 1 * GB;
+    // start2 == end2:  So, this will not be used.
+    start2 = 0;
+    end2 = start2;
+  } else {
+    // On standard Ubuntu/CentOS libs are mmap'ed downward in memory.
+    // Allow an extra 1 GB for future upper-half libs and mmaps to be loaded.
+    // FIXME:  Will the GNI driver data be allocated below start1?
+    //         If so, fix this to block more than a 1 GB address range.
+    //         The GNI driver data is only used by Cray GNI.
+    //         But lower-half MPI_Init may call additional mmap's not
+    //           controlled by us.
+    //         Check this logic.
+    // NOTE:   setLhMemRange (lh_info.memRange: future mmap's of lower half)
+    //           was chosen to be in safe memory region
+    // NOTE:   When we mmap start1..end1, we will overwrite the text and
+    //         data segments of ld.so belonging to mtcp_restart.  But
+    //         mtcp_restart is statically linked, and doesn't need it.
+    Area heap_area;
+    MTCP_ASSERT(getMappedArea(&heap_area, "[heap]") == 1);
+    start1 = MAX(heap_area.endAddr, (VA)rinfo->pluginInfo.memRange.end);
+    Area stack_area;
+    MTCP_ASSERT(getMappedArea(&stack_area, "[stack]") == 1);
+    end1 = MIN(stack_area.endAddr - 4 * GB, rinfo->minHighMemStart - 4 * GB);
+    start2 = 0;
+    end2 = start2;
+  }
+
+  typedef int (*getRankFptr_t)(void);
+  int rank = -1;
+  reserveUpperHalfMemoryRegionsForCkptImgs(start1, end1, start2, end2);
+  JUMP_TO_LOWER_HALF(rinfo->pluginInfo.fsaddr);
+
+  // MPI_Init is called here. GNI memory areas will be loaded by MPI_Init.
+  rank = ((getRankFptr_t)rinfo->pluginInfo.getRankFptr)();
+  RETURN_TO_UPPER_HALF();
+  releaseUpperHalfMemoryRegionsForCkptImgs(start1, end1, start2, end2);
+  unreserve_fds_upper_half(reserved_fds,total_reserved_fds);
+
+  if(getCkptImageByDir(rinfo, rinfo->ckptImage, 512, rank) == -1) {
+      mtcp_strncpy(rinfo->ckptImage,  getCkptImageByRank(rank, rinfo->argv), PATH_MAX);
+  }
+
+  MTCP_PRINTF("[Rank: %d] Choosing ckpt image: %s\n", rank, rinfo->ckptImage);
+  //ckptImage = getCkptImageByRank(rank, argv);
+  //MTCP_PRINTF("[Rank: %d] Choosing ckpt image: %s\n", rank, ckptImage);
+}
+#endif
 
 int
 mtcp_plugin_skip_memory_region_munmap(Area *area, RestoreInfo *rinfo)
