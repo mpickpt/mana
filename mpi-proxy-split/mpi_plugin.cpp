@@ -19,6 +19,7 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#ifdef SINGLE_CART_REORDER
 #include <stdio.h>
 #include <stdlib.h>
 #include <fcntl.h>
@@ -26,6 +27,8 @@
 #include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include "cartesian.h"
+#endif
 
 #include <signal.h>
 #include <sys/personality.h>
@@ -46,12 +49,13 @@
 #include "jfilesystem.h"
 #include "protectedfds.h"
 #include "procselfmaps.h"
-#include "cartesian.h"
 
 using namespace dmtcp;
 
 /* Global variables */
+#ifdef SINGLE_CART_REORDER
 extern CartesianProperties g_cartesian_properties;
+#endif
 int g_numMmaps = 0;
 MmapInfo_t *g_list = NULL;
 mana_state_t mana_state = UNKNOWN_STATE;
@@ -243,6 +247,7 @@ computeUnionOfCkptImageAddresses()
   dmtcp_add_to_ckpt_header("MANA_MinHighMemStart", minHighMemStartStr.c_str());
 }
 
+#ifdef SINGLE_CART_REORDER
 const char *
 get_cartesian_properties_file_name()
 {
@@ -284,6 +289,7 @@ save_cartesian_properties(const char *filename)
   write(fd, g_cartesian_properties.periods, array_size);
   close(fd);
 }
+#endif
 
 static void
 mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
@@ -366,9 +372,11 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       dmtcp_global_barrier("MPI:Drain-Send-Recv");
       drainSendRecv(); // p2p_drain_send_recv.cpp
       computeUnionOfCkptImageAddresses();
+#ifdef SINGLE_CART_REORDER
       dmtcp_global_barrier("MPI:save-cartesian-properties");
       const char *file = get_cartesian_properties_file_name();
       save_cartesian_properties(file);
+#endif
     }
     case DMTCP_EVENT_RESUME: {
       clearPendingCkpt(); // two-phase-algo.cpp
@@ -386,9 +394,11 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       dmtcp_local_barrier("MPI:Reset-Drain-Send-Recv-Counters");
       resetDrainCounters(); // p2p_drain_send_recv.cpp
       mana_state = RESTART_REPLAY;
+#ifdef SINGLE_CART_REORDER
       dmtcp_global_barrier("MPI:setCartesianCommunicator");
       // record-replay.cpp
       setCartesianCommunicator(lh_info.getCartesianCommunicatorFptr);
+#endif
       dmtcp_global_barrier("MPI:restoreMpiLogState");
       restoreMpiLogState(); // record-replay.cpp
       dmtcp_global_barrier("MPI:record-replay.cpp-void");
