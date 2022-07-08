@@ -19,12 +19,15 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#include <mpi.h>
+#ifdef SINGLE_CART_REORDER
 #include <fcntl.h>
+#include "cartesian.h"
+#endif
+
+#include <mpi.h>
 #include "jassert.h"
 #include "jconvert.h"
 
-#include "cartesian.h"
 #include "record-replay.h"
 #include "virtual-ids.h"
 #include "p2p_log_replay.h"
@@ -66,6 +69,7 @@ static int restoreIbcast(MpiRecord& rec);
 static int restoreIreduce(MpiRecord& rec);
 static int restoreIbarrier(MpiRecord& rec);
 
+#ifdef SINGLE_CART_REORDER
 void create_cartesian_info_mpi_datatype(MPI_Datatype *cidt);
 void load_restart_cartesian_mapping(CartesianProperties *cp,
                                     CartesianInfo *ci,
@@ -80,6 +84,7 @@ void create_comm_old_communicator(CartesianProperties *cp,
                                   int *comm_old_ranks_order);
 void create_comm_cart_communicator(CartesianProperties *cp,
                                    int *comm_cart_ranks_order);
+#endif
 
 void
 restoreMpiLogState()
@@ -610,6 +615,7 @@ restoreTypeCreateStruct(MpiRecord& rec)
   return retval;
 }
 
+#ifdef SINGLE_CART_REORDER
 int
 load_cartesian_properties(const char *filename, CartesianProperties *cp)
 {
@@ -769,7 +775,7 @@ create_comm_cart_communicator(CartesianProperties *cp, int *comm_cart_ranks_orde
   int retval = -1;
   MPI_Group comm_cart_group_prime, comm_cart_group;
   MPI_Comm_group(*comm_cart_prime, &comm_cart_group_prime);
-  
+
   retval = MPI_Group_incl(comm_cart_group_prime, cp->comm_cart_size,
                           comm_cart_ranks_order, &comm_cart_group);
   JASSERT(retval == MPI_SUCCESS)
@@ -859,6 +865,29 @@ restoreCartCreate(MpiRecord &rec)
   UPDATE_COMM_MAP(virtComm, comm_cart);
   return MPI_SUCCESS;
 }
+
+#else
+
+static int
+restoreCartCreate(MpiRecord& rec)
+{
+  int retval;
+  MPI_Comm comm = rec.args(0);
+  int ndims = rec.args(1);
+  int *dims = rec.args(2);
+  int *periods = rec.args(3);
+  int reorder = rec.args(4);
+  MPI_Comm newcomm = MPI_COMM_NULL;
+  retval = FNC_CALL(Cart_create, rec)(comm, ndims, dims,
+                                      periods, reorder, &newcomm);
+  if (retval == MPI_SUCCESS) {
+    MPI_Comm virtComm = rec.args(5);
+    UPDATE_COMM_MAP(virtComm, newcomm);
+  }
+  return retval;
+}
+
+#endif
 
 static int
 restoreCartMap(MpiRecord& rec)

@@ -309,7 +309,7 @@ namespace dmtcp_mpi
       bool getComplete()
       {
         return _complete;
-      }	
+      }
 
       // Returns a pointer to the wrapper function corresponding to this MPI
       // record object
@@ -718,5 +718,7 @@ namespace dmtcp_mpi
 // Restores the MPI state by recreating the communicator, groups, types, etc.
 // post restart
 extern void restoreMpiLogState();
+#ifdef SINGLE_CART_REORDER
 extern void setCartesianCommunicator(void *getCartesianCommunicatorFptr);
+#endif
 #endif // ifndef MPI_RECORD_REPLAY_H
