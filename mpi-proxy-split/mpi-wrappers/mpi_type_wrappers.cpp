@@ -101,29 +101,29 @@ USER_DEFINED_WRAPPER(int, Type_contiguous, (int) count, (MPI_Datatype) oldtype,
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, Type_vector, (int) count, (int) blocklength,
-                    (int) stride, (MPI_Datatype) oldtype,
+USER_DEFINED_WRAPPER(int, Type_hvector, (int) count, (int) blocklength,
+                    (MPI_Aint) stride, (MPI_Datatype) oldtype,
                     (MPI_Datatype*) newtype)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(oldtype);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  retval = NEXT_FUNC(Type_vector)(count, blocklength,
+  retval = NEXT_FUNC(Type_hvector)(count, blocklength,
                                   stride, realType, newtype);
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS && MPI_LOGGING()) {
     MPI_Datatype virtType = ADD_NEW_TYPE(*newtype);
     *newtype = virtType;
-    LOG_CALL(restoreTypes, Type_vector, count, blocklength,
+    LOG_CALL(restoreTypes, Type_hvector, count, blocklength,
              stride, oldtype, virtType);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, Type_hvector, (int) count, (int) blocklength,
-                     (MPI_Aint) stride, (MPI_Datatype) oldtype,
+USER_DEFINED_WRAPPER(int, Type_vector, (int) count, (int) blocklength,
+                     (int) stride, (MPI_Datatype) oldtype,
                     (MPI_Datatype*) newtype)
 {
   int size;
@@ -132,16 +132,7 @@ USER_DEFINED_WRAPPER(int, Type_hvector, (int) count, (int) blocklength,
     return retval;
   }
 
-  // FIXME: This allows us to use the MPI_Type_vector to implement this method.
-  // A cleaner implementation would be to use MPI_Type_hvector to
-  // implement MPI_Type_vector (converting one stride to the other), but this
-  // would require refactoring MPI_Type_vector. The current implementation
-  // should be good enough because there's no reason for a vector type to have
-  // a spacing different from a multiple of its elements (in most cases).
-
-  JASSERT(stride % size == 0).Text("Current implementation only supports "
-                                    "stride as multiple of type size");
-  return MPI_Type_vector(count, blocklength, stride/size, oldtype, newtype);
+  return MPI_Type_hvector(count, blocklength, stride*size, oldtype, newtype);
 }
 
 //       int MPI_Type_create_struct(int count,
