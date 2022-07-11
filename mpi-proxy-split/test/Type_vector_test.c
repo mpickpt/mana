@@ -1,5 +1,5 @@
 /*
-  Test for the MPI_Type_hvector method
+  Test for the MPI_Type_vector method
 
   Run with 2 ranks
   Run with -i [iterations] for specific number of iterations, defaults to 10000
@@ -53,8 +53,8 @@ int main(int argc, char ** argv)
   assert(comm_size == 2);
 
   MPI_Datatype column_type;
-  MPI_Type_hvector(BUFFER_SIZE, 1,
-                   BUFFER_SIZE*sizeof(int), MPI_INT, &column_type);
+  MPI_Type_vector(BUFFER_SIZE, 1,
+                   BUFFER_SIZE, MPI_INT, &column_type);
   MPI_Type_commit(&column_type);
   int buffer[BUFFER_SIZE][BUFFER_SIZE];
   int recvbuf[BUFFER_SIZE];

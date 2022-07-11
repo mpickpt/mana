@@ -52,7 +52,7 @@ static int restoreGroupIncl(MpiRecord& rec);
 
 static int restoreTypeContiguous(MpiRecord& rec);
 static int restoreTypeCommit(MpiRecord& rec);
-static int restoreTypeVector(MpiRecord& rec);
+static int restoreTypeHVector(MpiRecord& rec);
 static int restoreTypeIndexed(MpiRecord& rec);
 static int restoreTypeFree(MpiRecord& rec);
 static int restoreTypeCreateStruct(MpiRecord& rec);
@@ -189,9 +189,9 @@ dmtcp_mpi::restoreTypes(MpiRecord &rec)
       JTRACE("restoreTypeCommit");
       rc = restoreTypeCommit(rec);
       break;
-    case GENERATE_ENUM(Type_vector):
-      JTRACE("restoreTypeVector");
-      rc = restoreTypeVector(rec);
+    case GENERATE_ENUM(Type_hvector):
+      JTRACE("restoreTypeHVector");
+      rc = restoreTypeHVector(rec);
       break;
     case GENERATE_ENUM(Type_indexed):
       JTRACE("restoreTypeIndexed");
@@ -525,18 +525,18 @@ restoreTypeCommit(MpiRecord& rec)
 }
 
 static int
-restoreTypeVector(MpiRecord& rec)
+restoreTypeHVector(MpiRecord& rec)
 {
   int retval;
   int count = rec.args(0);
   int blocklength = rec.args(1);
-  int stride = rec.args(2);
+  MPI_Aint stride = rec.args(2);
   MPI_Datatype oldtype = rec.args(3);
   MPI_Datatype newtype = MPI_DATATYPE_NULL;
-  retval = FNC_CALL(Type_vector, rec)(count, blocklength,
+  retval = FNC_CALL(Type_hvector, rec)(count, blocklength,
                                       stride, oldtype, &newtype);
   JWARNING(retval == MPI_SUCCESS)(oldtype)
-          .Text("Could not restore MPI vector datatype");
+          .Text("Could not restore MPI hvector datatype");
   if (retval == MPI_SUCCESS) {
     MPI_Datatype virtType = rec.args(4);
     UPDATE_TYPE_MAP(virtType, newtype);
