@@ -181,8 +181,11 @@ void share_seq_nums() {
 rank_state_t preSuspendBarrier(query_t query) {
   switch (query) {
     case INTENT:
-      ckpt_pending = true;
       share_seq_nums();
+      // Set the ckpt_pending after sharing sequence numbers.
+      // Otherwise, the user thread can enter the trivial barrier
+      // before target_seq_num are properly updated.
+      ckpt_pending = true;
       break;
     case FREE_PASS:
       freepass = true;
