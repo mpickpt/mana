@@ -43,11 +43,6 @@ void seq_num_init() {
 void seq_num_reset() {
   ckpt_pending = false;
   freepass = false;
-  for (comm_seq_pair_t i : seq_num) {
-    seq_num[i.first] = 0;
-    target_seq_num[i.first] = 0;
-    dmtcp_kvdb64(DMTCP_KVDB_SET, "/mana/comm-seq-max", i.first, 0);
-  }
 }
 
 void seq_num_destroy() {
