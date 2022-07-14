@@ -112,7 +112,7 @@ fi
 # A temporary workaround is to swap the memory addresses of NIMROD and lh_proxy,
 # which requires a specially built version of lh_proxy.
 app_name="`echo $options | head -n1 | xargs basename`"
-if [ "$app_name" == "nimrod" ]; then
+if echo $app_name | grep -q nimrod ; then
   export USE_LH_PROXY_DEFADDR=1
 fi
 
