@@ -152,7 +152,7 @@ void test_case_1(void) {
 // Case 2 - In a regression bug, the sender could complete the last call while
 // receivers are still at the current or previous calls while checkpointing.
 void test_case_2(void) {
-    int i,myid,root, iterations;
+    int i,myid,root;
     int buffer[4];
     int expected_output[4];
     MPI_Status status;
@@ -161,32 +161,25 @@ void test_case_2(void) {
     MPI_Init(NULL,NULL);
     MPI_Comm_rank(MPI_COMM_WORLD,&myid);
 
-    if(myid == 0){
-      printf("Running test for %d iterations\n", max_iterations);
+    root = 0;
+    for (i=0; i<NUM_RANKS; i++) {
+        expected_output[i] = i;
+        if (myid == root) {
+          buffer[i] = expected_output[i];
+        } else {
+          buffer[i] = 0; // MPI_Ibcast should populate this.
+        }
     }
 
-    root = 0;
-
-    for(int iterations = 0; iterations < max_iterations; iterations++){
-
-      for (i=0; i<NUM_RANKS; i++) {
-          expected_output[i] = i + iterations;
-          if (myid == root) {
-            buffer[i] = expected_output[i];
-          } else {
-            buffer[i] = 0; // MPI_Ibcast should populate this.
-          }
-      }
-
-      // Checkpoint likely happens here - sender (root) advances to
-      // the next Ibcast while receivers is waiting.
-      if (myid != root) {
-          printf("[Rank = %d] sleep %d seconds\n", myid, SLEEP_PER_ITERATION);
-          fflush(stdout);
-          sleep(SLEEP_PER_ITERATION);
-      }
-      MPI_Ibcast(buffer,NUM_RANKS,MPI_INT,root,MPI_COMM_WORLD, &request);
-      printf("[Rank = %d]", myid);
+    // Checkpoint likely happens here - sender (root) advances to
+    // the next Ibcast while receivers is waiting.
+    if (myid != root) {
+        printf("[Rank = %d] sleep %d seconds\n", myid, SLEEP_PER_ITERATION);
+        fflush(stdout);
+        sleep(SLEEP_PER_ITERATION);
+    }
+    MPI_Ibcast(buffer,NUM_RANKS,MPI_INT,root,MPI_COMM_WORLD, &request);
+    printf("[Rank = %d]", myid);
 #ifdef MPI_TEST
     while (1) {
         int flag = 0;
@@ -197,18 +190,16 @@ void test_case_2(void) {
 #ifdef MPI_WAIT
     MPI_Wait(&request, &status);
 #endif
-      for (i=0;i<NUM_RANKS;i++) {
-          printf(" %d %d", buffer[i], expected_output[i]);
-          assert(buffer[i] == expected_output[i]);
-      }
-      printf("\n");
-      fflush(stdout);
-      if (myid == root) {
-          printf("[Rank = %d] sleep %d seconds\n", myid, SLEEP_PER_ITERATION);
-          fflush(stdout);
-          sleep(SLEEP_PER_ITERATION);
-      }
-      ;
+    for (i=0;i<NUM_RANKS;i++) {
+        printf(" %d %d", buffer[i], expected_output[i]);
+        assert(buffer[i] == expected_output[i]);
+    }
+    printf("\n");
+    fflush(stdout);
+    if (myid == root) {
+        printf("[Rank = %d] sleep %d seconds\n", myid, SLEEP_PER_ITERATION);
+        fflush(stdout);
+        sleep(SLEEP_PER_ITERATION);
     }
     MPI_Finalize();
 }
