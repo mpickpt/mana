@@ -45,7 +45,7 @@ default: display-build-env add-git-hooks mana_prereqs
 
 all: default
 
-mana: dmtcp
+mana: mana_prereqs dmtcp
 	cd mpi-proxy-split && $(MAKE) install && $(MAKE) -j tests
 
 dmtcp:
@@ -109,6 +109,11 @@ mana_prereqs:
 	    echo '** DMTCP is incompatible with the altd module.'; \
 	    echo '** Please do "module unload altd" before building DMTCP.';\
 	    exit 1; \
+	fi
+	@ # If one is building MANA on a compute node.
+	@ if test -n "$$SLURM_NODEID"; then \
+	    echo '** Warning: Building MANA can take longer on a compute node.'; \
+	    echo '** Please build MANA on a login node.'; \
 	fi
 
 display-build-env: display-config display-release
