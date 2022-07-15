@@ -8,6 +8,10 @@ CXXFLAGS = @CXXFLAGS@
 ifeq ($(findstring cori,$(PLATFORM)),cori)
 IS_CORI = 1
 endif
+# Mark the platform as Cori for a compute node.
+ifeq ($(findstring nid0,$(PLATFORM)),nid0)
+IS_CORI = 1
+endif
 ifeq ($(findstring gert,$(PLATFORM)),gert)
 IS_GERTY = 1
 endif
