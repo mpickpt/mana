@@ -42,14 +42,16 @@
         end interface
         ! These must match the list in get_fortran_constants.c
         call get_fortran_constants_helper(MPI_BOTTOM)
-        ! MPI_STATUS_IGNORE is a struct, similar to a rank-1 array
+        ! MPI_STATUS_IGNORE is a struct, similar to a length-1 array
         call get_fortran_arrays_helper(MPI_STATUS_IGNORE)
         call get_fortran_arrays_helper(MPI_STATUSES_IGNORE)
         call get_fortran_arrays_helper(MPI_ERRCODES_IGNORE)
         call get_fortran_constants_helper(MPI_IN_PLACE)
         ! FIXME: MPI_ARGV_NULL is a CHARACTER(1), not supported in MANA
         ! call get_fortran_constants_helper(MPI_ARGV_NULL)
-        call get_fortran_arrays_helper(MPI_ARGVS_NULL)
+        ! FIXME: MPI_ARGV_NULL is a CHARACTER(1) in mpich-gnu, not supported
+        ! in MANA
+        ! call get_fortran_arrays_helper(MPI_ARGVS_NULL)
         call get_fortran_constants_helper(MPI_UNWEIGHTED)
         call get_fortran_constants_helper(MPI_WEIGHTS_EMPTY)
       end subroutine get_fortran_constants
