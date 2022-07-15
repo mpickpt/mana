@@ -52,6 +52,7 @@ int MPI_Cart_rank(MPI_Comm comm, const int* coords, int* rank);
 int MPI_Cart_shift(MPI_Comm comm, int direction, int disp, int* rank_source, int* rank_dest);
 int MPI_Cart_sub(MPI_Comm comm, const int* remain_dims, MPI_Comm* new_comm);
 int MPI_Cartdim_get(MPI_Comm comm, int* ndims);
+int MPI_Dims_create(int nnodes, int ndims, int* dims);
 
 int MPI_Test(MPI_Request* request, int* flag, MPI_Status* status);
 int MPI_Wait(MPI_Request* request, MPI_Status* status);
@@ -74,6 +75,7 @@ int MPI_Type_commit(MPI_Datatype* type);
 int MPI_Type_contiguous(int count, MPI_Datatype oldtype, MPI_Datatype* newtype);
 int MPI_Type_free(MPI_Datatype* type);
 int MPI_Type_vector(int count, int blocklength, int stride, MPI_Datatype oldtype, MPI_Datatype* newtype);
+int MPI_Type_hvector(int count, int blocklength, MPI_Aint stride, MPI_Datatype oldtype, MPI_Datatype* newtype);
 int MPI_Type_create_struct(int count, const int* array_of_blocklengths, const MPI_Aint* array_of_displacements, MPI_Datatype* array_of_types, MPI_Datatype* newtype);
 int MPI_Type_indexed(int count, const int* array_of_blocklengths, const int* array_of_displacements, MPI_Datatype oldtype, MPI_Datatype* newtype);
 int MPI_Type_get_extent(MPI_Datatype type, MPI_Aint* lb, MPI_Aint* extent);
@@ -97,3 +99,5 @@ int MPI_Ireduce(const void* sendbuf, void* recvbuf, int count, MPI_Datatype data
 int MPI_Group_translate_ranks(MPI_Group group1, int n, const int* ranks1, MPI_Group group2, int* ranks2);
 int MPI_Alloc_mem(MPI_Aint size, MPI_Info info, void* baseptr);
 int MPI_Free_mem(void* base);
+
+int MPI_Error_string(int errorcode, char* string, int* resultlen);

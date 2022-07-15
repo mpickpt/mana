@@ -3,6 +3,7 @@ PLATFORM=${shell echo $$HOST}
 include ../Makefile_config
 
 PROXY_BIN = lh_proxy
+PROXY_BIN_DEFADDR = lh_proxy_da
 PROXY_OBJS = lh_proxy.o
 LIBPROXY = libproxy
 LIBPROXY_OBJS = libproxy.o procmapsutils.o sbrk.o mmap64.o munmap.o \
@@ -29,9 +30,11 @@ override CFLAGS += -fPIC -I${DMTCP_INCLUDE} -std=gnu11
 override CXXFLAGS += -fPIC -I${DMTCP_INCLUDE} -I${JALIB_INCLUDE} \
                      -I${DMTCP_ROOT}/src -std=c++11
 
-PROXY_LD_FLAGS=-static -Wl,-Ttext-segment -Wl,0xE000000 -Wl,--wrap -Wl,__munmap -Wl,--wrap -Wl,shmat -Wl,--wrap -Wl,shmget
+PROXY_LD_FLAGS=-static -Wl,--wrap -Wl,__munmap -Wl,--wrap -Wl,shmat -Wl,--wrap -Wl,shmget
 
-default: ${PROXY_BIN} ${STATIC_GETHOSTBYNAME}
+TEXTSEG_ADDR_FLAG=-Wl,-Ttext-segment=E000000
+
+default: ${PROXY_BIN} ${PROXY_BIN_DEFADDR} ${STATIC_GETHOSTBYNAME}
 
 # We should remove the special case for Cori, once we know this works on Cori.
 ifeq ($(findstring cori,$(PLATFORM)),cori)
@@ -64,6 +67,19 @@ endif
 ${PROXY_BIN}: ${PROXY_OBJS} ${LIBPROXY}.a ${STATIC_GETHOSTBYNAME}
 	if ${MPICC} -v 2>&1 | grep -q 'MPICH version'; then \
 	  rm -f tmp.sh; \
+	  ${MPICC} -show ${PROXY_LD_FLAGS} ${TEXTSEG_ADDR_FLAG} -o $@ -Wl,-start-group \
+	    $^ ${MPI_LD_FLAG} -lrt -lpthread -lc -Wl,-end-group | \
+	    sed -e 's^-lunwind ^ ^'> tmp.sh; \
+	  sh tmp.sh; \
+	  rm -f tmp.sh; \
+	else \
+	  ${MPICC} ${PROXY_LD_FLAGS} ${TEXTSEG_ADDR_FLAG} -o $@ -Wl,-start-group \
+            $^ ${MPI_LD_FLAG} -lrt -lpthread -lc -Wl,-end-group; \
+	fi
+
+${PROXY_BIN_DEFADDR}: ${PROXY_OBJS} ${LIBPROXY}.a ${STATIC_GETHOSTBYNAME}
+	if ${MPICC} -v 2>&1 | grep -q 'MPICH version'; then \
+	  rm -f tmp.sh; \
 	  ${MPICC} -show ${PROXY_LD_FLAGS} -o $@ -Wl,-start-group \
 	    $^ ${MPI_LD_FLAG} -lrt -lpthread -lc -Wl,-end-group | \
 	    sed -e 's^-lunwind ^ ^'> tmp.sh; \
@@ -77,7 +93,7 @@ ${PROXY_BIN}: ${PROXY_OBJS} ${LIBPROXY}.a ${STATIC_GETHOSTBYNAME}
 ${LIBPROXY}.a: ${LIBPROXY_OBJS}
 	ar cr $@ $^
 
-install: ${PROXY_BIN} ${STATIC_GETHOSTBYNAME}
+install: ${PROXY_BIN} ${PROXY_BIN_DEFADDR} ${STATIC_GETHOSTBYNAME}
 	cp -f $^ ${MANA_ROOT}/bin/
 
 tidy:
@@ -85,8 +101,9 @@ tidy:
 	rm -rf ckpt_rank_*
 
 clean: tidy
-	rm -f ${PROXY_BIN} ${LIBPROXY}.a ${PROXY_OBJS} ${LIBPROXY_OBJS}
+	rm -f ${PROXY_BIN} ${PROXY_BIN_DEFADDR} ${LIBPROXY}.a ${PROXY_OBJS} ${LIBPROXY_OBJS}
 	rm -f ${MANA_ROOT}/bin/${PROXY_BIN}
+	rm -f ${MANA_ROOT}/bin/${PROXY_BIN_DEFADDR}
 	if test -d gethostbyname-static; then \
 	  cd gethostbyname-static && make clean; \
 	fi

@@ -59,6 +59,7 @@ default: ${MANA_COORD_OBJS}
 	make -C ${WRAPPERS_SRCDIR} libmpiwrappers.a
 	@make libmana.so
 	@make -C ${LOWER_HALF_SRCDIR} lh_proxy
+	@make -C ${LOWER_HALF_SRCDIR} lh_proxy_default_address
 	@make -C ${WRAPPERS_SRCDIR} libmpistub.so
 
 # ${WRAPPERS_SRCDIR}/libmpiwrappers.a made in install/default before libmana.so

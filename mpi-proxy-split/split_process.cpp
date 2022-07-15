@@ -300,6 +300,9 @@ startProxy()
 
       dmtcp::string nockpt = dmtcp::Util::getPath("dmtcp_nocheckpoint");
       dmtcp::string progname = dmtcp::Util::getPath("lh_proxy");
+      if (getenv("USE_LH_PROXY_DEFADDR")) {
+        progname = progname + "_da";
+      }
       char* const args[] = {const_cast<char*>(nockpt.c_str()),
                             const_cast<char*>(progname.c_str()),
                             NULL};

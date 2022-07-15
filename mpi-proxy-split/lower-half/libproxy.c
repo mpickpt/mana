@@ -36,6 +36,10 @@
 #include <fcntl.h>
 #include <errno.h>
 
+#ifdef SINGLE_CART_REORDER
+#include "../cartesian.h"
+#endif
+
 #include "libproxy.h"
 #include "mpi_copybits.h"
 #include "procmapsutils.h"
@@ -190,13 +194,53 @@ updateEnviron(const char **newenviron)
 int
 getRank()
 {
-  int ret = MPI_Init(NULL, NULL);
+  int flag;
   int world_rank = -1;
-  if (ret != -1) {
+  int retval = MPI_SUCCESS;
+
+  MPI_Initialized(&flag);
+  if (!flag) {
+    retval = MPI_Init(NULL, NULL);
+  }
+  if (retval == MPI_SUCCESS) {
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
   }
   return world_rank;
 }
+
+#ifdef SINGLE_CART_REORDER
+// Prior to checkpoint we will use the normal variable names, and
+// after restart we will use the '_prime' suffix with variable names.
+MPI_Comm comm_cart_prime;
+
+int
+getCoordinates(CartesianProperties *cp, int *coords)
+{
+  int flag;
+  int comm_old_rank = -1;
+  int comm_cart_rank = -1;
+  int retval = MPI_SUCCESS;
+
+  MPI_Initialized(&flag);
+  if (!flag) {
+    retval = MPI_Init(NULL, NULL);
+  }
+  if (retval == MPI_SUCCESS) {
+    MPI_Cart_create(MPI_COMM_WORLD, cp->ndims, cp->dimensions, cp->periods,
+                    cp->reorder, &comm_cart_prime);
+    MPI_Comm_rank(comm_cart_prime, &comm_cart_rank);
+    MPI_Cart_coords(comm_cart_prime, comm_cart_rank, cp->ndims, coords);
+    MPI_Comm_rank(MPI_COMM_WORLD, &comm_old_rank);
+  }
+  return comm_old_rank;
+}
+
+void
+getCartesianCommunicator(MPI_Comm **comm_cart)
+{
+  *comm_cart = &comm_cart_prime;
+}
+#endif
 
 void*
 mydlsym(enum MPI_Fncs fnc)
@@ -252,6 +296,12 @@ void first_constructor()
     lh_info.g_appContext = (void*)&g_appContext;
     lh_info.lh_dlsym = (void*)&mydlsym;
     lh_info.getRankFptr = (void*)&getRank;
+
+#ifdef SINGLE_CART_REORDER
+    lh_info.getCoordinatesFptr = (void*)&getCoordinates;
+    lh_info.getCartesianCommunicatorFptr = (void *)&getCartesianCommunicator;
+#endif
+
     lh_info.parentStackStart = (void*)pstackstart;
     lh_info.updateEnvironFptr = (void*)&updateEnviron;
     lh_info.getMmappedListFptr = (void*)&getMmappedList;

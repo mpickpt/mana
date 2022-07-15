@@ -111,6 +111,15 @@ TEST_F(CartTests, testCartSub)
 int
 main(int argc, char **argv)
 {
+  // FIXME: This unit test has been disabled because MPI cartesian communicator
+  // is created at the restart step instead of the record-replay step, which
+  // happens after the restart step. The new cartesian communicator created at
+  // the restart step is then passed to record-replay separately via
+  // setCartesianCommunicator(). Therefore, the "record-replay-cart" unit test
+  // will result in seg fault error because <comm_cart_prime> variable (in
+  // record-replay.cpp) has not been set in this unit test.
+  //
+
   initializeJalib();
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();

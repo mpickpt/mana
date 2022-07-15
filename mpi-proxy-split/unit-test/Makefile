@@ -18,8 +18,7 @@ endif
 
 TESTS = record-replay-comm-test \
         record-replay-group-test \
-        record-replay-types-test \
-        record-replay-cart-test
+        record-replay-types-test
 
 TEST_OBJS=$(addsuffix .o, ${TESTS})
 TEST_BINS=$(addsuffix .exe, ${TESTS})
@@ -54,7 +53,11 @@ default: ${TEST_BINS}
 ../record-replay.o ../drain_send_recv_packets.o:
 	@make -C ..
 
-%.exe: %.o ../record-replay.o
+# NOTE:  The objects files split_process.o and procmapsutils.o
+# below are required only when MANA is configured with SINGLE_CART_REORDER
+# C/C++ flag. One should remove these two obj files when we decide to remove
+# the SINGLE_CART_REORDER macro implementation entirely from MANA.
+%.exe: %.o ../record-replay.o  ../split_process.o ../lower-half/procmapsutils.o
 	${MPICXX} -fPIC -g3 -O0 -o $@ $^ ${TEST_LD_FLAGS}
 
 drain-send-recv-test.exe: ${DRAIN_TEST_OBJS}

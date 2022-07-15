@@ -75,7 +75,6 @@ int MPI_Comm_spawn(const char *command, char *argv[], int maxprocs, MPI_Info inf
 int MPI_Comm_spawn_multiple(int count, char *array_of_commands[], char **array_of_argv[], const int array_of_maxprocs[], const MPI_Info array_of_info[], int root, MPI_Comm comm, MPI_Comm *intercomm, int array_of_errcodes[]);
 int MPI_Comm_test_inter(MPI_Comm comm, int *flag);
 int MPI_Compare_and_swap(const void *origin_addr, const void *compare_addr, void *result_addr, MPI_Datatype datatype, int target_rank, MPI_Aint target_disp, MPI_Win win);
-int MPI_Dims_create(int nnodes, int ndims, int dims[]);
 
 int MPI_Errhandler_create(MPI_Handler_function *function, MPI_Errhandler *errhandler);
 
@@ -263,12 +262,10 @@ int MPI_Type_get_name(MPI_Datatype type, char *type_name, int *resultlen);
 int MPI_Type_get_true_extent(MPI_Datatype datatype, MPI_Aint *true_lb, MPI_Aint *true_extent);
 int MPI_Type_get_true_extent_x(MPI_Datatype datatype, MPI_Count *true_lb, MPI_Count *true_extent);
 int MPI_Type_hindexed(int count, const int array_of_blocklengths[], const MPI_Aint array_of_displacements[], MPI_Datatype oldtype, MPI_Datatype *newtype);
-int MPI_Type_hvector(int count, int blocklength, MPI_Aint stride, MPI_Datatype oldtype, MPI_Datatype *newtype);
 int MPI_Type_lb(MPI_Datatype type, MPI_Aint *lb);
 int MPI_Type_match_size(int typeclass, int size, MPI_Datatype *type);
 int MPI_Type_set_attr(MPI_Datatype type, int type_keyval, void *attr_val);
 int MPI_Type_set_name(MPI_Datatype type, const char *type_name);
-int MPI_Type_struct(int count, const int array_of_blocklengths[], const MPI_Aint array_of_displacements[], const MPI_Datatype array_of_types[], MPI_Datatype *newtype);
 int MPI_Type_ub(MPI_Datatype mtype, MPI_Aint *ub);
 int MPI_Unpack(const void *inbuf, int insize, int *position, void *outbuf, int outcount, MPI_Datatype datatype, MPI_Comm comm);
 int MPI_Unpublish_name(const char *service_name, MPI_Info info, const char *port_name);

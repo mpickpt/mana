@@ -34,8 +34,8 @@ FILES=mpi_hello_world \
       Ibcast_test Ibarrier_test Isend_test \
       Abort_test Allreduce_test Alltoall_test Alltoallv_test \
       Allgather_test Group_size_rank Type_commit_contiguous \
-      Irecv_test Alloc_mem \
-      f_ibarrier \
+      Irecv_test Alloc_mem sendrecv_replace_test \
+      f_ibarrier sendrecv_test Type_hvector_test \
       wave_mpi day1_mpi quad_mpi poisson_nonblock_mpi \
       send_recv_loop large_async_p2p
 

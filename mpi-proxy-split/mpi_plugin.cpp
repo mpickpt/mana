@@ -19,6 +19,17 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#ifdef SINGLE_CART_REORDER
+#include <stdio.h>
+#include <stdlib.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <string.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include "cartesian.h"
+#endif
+
 #include <signal.h>
 #include <sys/personality.h>
 #include <sys/mman.h>
@@ -42,7 +53,9 @@
 using namespace dmtcp;
 
 /* Global variables */
-
+#ifdef SINGLE_CART_REORDER
+extern CartesianProperties g_cartesian_properties;
+#endif
 int g_numMmaps = 0;
 MmapInfo_t *g_list = NULL;
 mana_state_t mana_state = UNKNOWN_STATE;
@@ -69,7 +82,7 @@ dmtcp_skip_memory_region_ckpting(const ProcMapsArea *area)
       /* DMTCP SysVIPC plugin should be able to C/R this correctly */
 //      strstr(area->name, "/SYSV") ||
       strstr(area->name, "/dev/xpmem") ||
-      strstr(area->name, "xpmem") ||
+      // strstr(area->name, "xpmem") ||
       // strstr(area->name, "hugetlbfs") ||
       strstr(area->name, "/dev/shm")) {
     JTRACE("Ignoring region")(area->name)((void*)area->addr);
@@ -234,6 +247,50 @@ computeUnionOfCkptImageAddresses()
   dmtcp_add_to_ckpt_header("MANA_MinHighMemStart", minHighMemStartStr.c_str());
 }
 
+#ifdef SINGLE_CART_REORDER
+const char *
+get_cartesian_properties_file_name()
+{
+  struct stat st;
+  const char *ckptDir;
+  dmtcp::ostringstream o;
+
+  ckptDir = dmtcp_get_ckpt_dir();
+  if (stat(ckptDir, &st) == -1) {
+    mkdir(ckptDir, 0700); // Create directory if not already exist
+  }
+  o << ckptDir << "/cartesian.info";
+  return strdup(o.str().c_str());
+}
+
+
+void
+save_cartesian_properties(const char *filename)
+{
+  if (g_cartesian_properties.comm_old_size == -1 ||
+      g_cartesian_properties.comm_cart_size == -1 ||
+      g_cartesian_properties.comm_old_rank == -1 ||
+      g_cartesian_properties.comm_cart_rank == -1) {
+    return;
+  }
+  int fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0755);
+  if (fd == -1) {
+    return;
+  }
+  write(fd, &g_cartesian_properties.comm_old_size, sizeof(int));
+  write(fd, &g_cartesian_properties.comm_cart_size, sizeof(int));
+  write(fd, &g_cartesian_properties.comm_old_rank, sizeof(int));
+  write(fd, &g_cartesian_properties.comm_cart_rank, sizeof(int));
+  write(fd, &g_cartesian_properties.reorder, sizeof(int));
+  write(fd, &g_cartesian_properties.ndims, sizeof(int));
+  int array_size = sizeof(int) * g_cartesian_properties.ndims;
+  write(fd, g_cartesian_properties.coordinates, array_size);
+  write(fd, g_cartesian_properties.dimensions, array_size);
+  write(fd, g_cartesian_properties.periods, array_size);
+  close(fd);
+}
+#endif
+
 static void
 mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
@@ -246,11 +303,11 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       mana_state = RUNNING;
       break;
     }
-    case DMTCP_EVENT_EXIT:
+    case DMTCP_EVENT_EXIT: {
       JTRACE("*** DMTCP_EVENT_EXIT");
       break;
-
-    case DMTCP_EVENT_PRESUSPEND:
+    }
+    case DMTCP_EVENT_PRESUSPEND: {
       mana_state = CKPT_COLLECTIVE;
       // drainMpiCollectives() will send worker state and get coord response.
       // Unfortunately, dmtcp_global_barrier()/DMT_BARRIER can't send worker
@@ -284,7 +341,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
           int64_t counter;
           if (dmtcp_kvdb64_get(csId.c_str(), 0, &counter) == -1) {
             // No rank published IN_CS state.
-            coord_response == SAFE_TO_CHECKPOINT;
+            coord_response = SAFE_TO_CHECKPOINT;
             break;
           }
 
@@ -300,8 +357,8 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
         }
       }
       break;
-
-    case DMTCP_EVENT_PRECHECKPOINT:
+    }
+    case DMTCP_EVENT_PRECHECKPOINT: {
       logIbarrierIfInTrivBarrier(); // two-phase-algo.cpp
       dmtcp_local_barrier("MPI:GetLocalLhMmapList");
       getLhMmapList(); // two-phase-algo.cpp
@@ -315,15 +372,20 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       dmtcp_global_barrier("MPI:Drain-Send-Recv");
       drainSendRecv(); // p2p_drain_send_recv.cpp
       computeUnionOfCkptImageAddresses();
-
-    case DMTCP_EVENT_RESUME:
+#ifdef SINGLE_CART_REORDER
+      dmtcp_global_barrier("MPI:save-cartesian-properties");
+      const char *file = get_cartesian_properties_file_name();
+      save_cartesian_properties(file);
+#endif
+    }
+    case DMTCP_EVENT_RESUME: {
       clearPendingCkpt(); // two-phase-algo.cpp
       dmtcp_local_barrier("MPI:Reset-Drain-Send-Recv-Counters");
       resetDrainCounters(); // p2p_drain_send_recv.cpp
       mana_state = RUNNING;
       break;
-
-    case DMTCP_EVENT_RESTART:
+    }
+    case DMTCP_EVENT_RESTART: {
       save2pcGlobals(); // two-phase-algo.cpp
       dmtcp_local_barrier("MPI:updateEnviron");
       updateLhEnviron(); // mpi-plugin.cpp
@@ -332,6 +394,11 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       dmtcp_local_barrier("MPI:Reset-Drain-Send-Recv-Counters");
       resetDrainCounters(); // p2p_drain_send_recv.cpp
       mana_state = RESTART_REPLAY;
+#ifdef SINGLE_CART_REORDER
+      dmtcp_global_barrier("MPI:setCartesianCommunicator");
+      // record-replay.cpp
+      setCartesianCommunicator(lh_info.getCartesianCommunicatorFptr);
+#endif
       dmtcp_global_barrier("MPI:restoreMpiLogState");
       restoreMpiLogState(); // record-replay.cpp
       dmtcp_global_barrier("MPI:record-replay.cpp-void");
@@ -340,9 +407,10 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       restore2pcGlobals(); // two-phase-algo.cpp
       mana_state = RUNNING;
       break;
-
-    default:
+    }
+    default: {
       break;
+    }
   }
 }
 

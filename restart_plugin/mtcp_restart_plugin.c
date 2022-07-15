@@ -7,6 +7,10 @@
 #include "mtcp_sys.h"
 #include "mtcp_util.h"
 #include "mtcp_split_process.h"
+#ifdef SINGLE_CART_REORDER
+#include "../mpi-proxy-split/cartesian.h"
+#include "../dmtcp/src/mtcp/mtcp_sys.h"
+#endif
 
 # define GB (uint64_t)(1024 * 1024 * 1024)
 #define ROUNDADDRUP(addr, size) ((addr + size - 1) & ~(size - 1))
@@ -71,7 +75,7 @@ int reserve_fds_upper_half(int *reserved_fds) {
   int total_reserved_fds = 0;
   int tmp_fd = 0;
     while (tmp_fd < 500) {
-      MTCP_ASSERT((tmp_fd = mtcp_sys_open2("/dev/null",O_RDONLY)) != -1);  
+      MTCP_ASSERT((tmp_fd = mtcp_sys_open2("/dev/null",O_RDONLY)) != -1);
       reserved_fds[total_reserved_fds]=tmp_fd;
       total_reserved_fds++;
     }
@@ -80,7 +84,7 @@ int reserve_fds_upper_half(int *reserved_fds) {
 
 void unreserve_fds_upper_half(int *reserved_fds, int total_reserved_fds) {
     while (--total_reserved_fds >= 0) {
-      MTCP_ASSERT((mtcp_sys_close(reserved_fds[total_reserved_fds])) != -1);  
+      MTCP_ASSERT((mtcp_sys_close(reserved_fds[total_reserved_fds])) != -1);
     }
 }
 
@@ -110,21 +114,21 @@ int itoa2(int value, char* result, int base) {
 	return len;
 }
 
-int atoi2(char* str) 
-{ 
-	// Initialize result 
-	int res = 0; 
+int atoi2(char* str)
+{
+	// Initialize result
+	int res = 0;
 
-	// Iterate through all characters 
-	// of input string and update result 
+	// Iterate through all characters
+	// of input string and update result
 	int i;
-	for (i = 0; str[i] 
-			!= '\0'; 
-			++i) 
-		res = res * 10 + str[i] - '0'; 
+	for (i = 0; str[i]
+			!= '\0';
+			++i)
+		res = res * 10 + str[i] - '0';
 
-	// return result. 
-	return res; 
+	// return result
+	return res;
 }
 
 int my_memcmp(const void *buffer1, const void *buffer2, size_t len) {
@@ -206,7 +210,7 @@ int getCkptImageByDir(RestoreInfo *rinfo, char *buffer, size_t buflen, int rank)
         struct linux_dirent *entry = (struct linux_dirent *) (ldirents + bpos);
         int slen = mtcp_strlen(entry->d_name);
         // int slen = entry->d_reclen - 2 - offsetof(struct linux_dirent, d_name);
-        if(slen > 6 
+        if(slen > 6
             && my_memcmp(entry->d_name, "ckpt", 4) == 0
             && my_memcmp(entry->d_name + slen - 6, ".dmtcp", 6) == 0) {
           found = 1;
@@ -235,7 +239,7 @@ int getCkptImageByDir(RestoreInfo *rinfo, char *buffer, size_t buflen, int rank)
                   buffer, mtcp_sys_errno);
       return -1;
   }
-  
+
   return len;
 }
 
@@ -322,6 +326,196 @@ mysetauxval(char **evp, unsigned long int type, unsigned long int val)
   return -1;
 }
 
+#ifdef SINGLE_CART_REORDER
+int
+load_cartesian_properties(char *filename, CartesianProperties *cp)
+{
+  int fd = mtcp_sys_open2(filename, O_RDONLY);
+  if (fd == -1) {
+    return -1;
+  }
+  mtcp_sys_read(fd, &cp->comm_old_size, sizeof(int));
+  mtcp_sys_read(fd, &cp->comm_cart_size, sizeof(int));
+  mtcp_sys_read(fd, &cp->comm_old_rank, sizeof(int));
+  mtcp_sys_read(fd, &cp->comm_cart_rank, sizeof(int));
+  mtcp_sys_read(fd, &cp->reorder, sizeof(int));
+  mtcp_sys_read(fd, &cp->ndims, sizeof(int));
+  int array_size = sizeof(int) * cp->ndims;
+  mtcp_sys_read(fd, cp->coordinates, array_size);
+  mtcp_sys_read(fd, cp->dimensions, array_size);
+  mtcp_sys_read(fd, cp->periods, array_size);
+  mtcp_sys_close(fd);
+  return 0;
+}
+
+// This function is only for debugging purpose
+void
+print(CartesianProperties *cp)
+{
+  int i;
+  MTCP_PRINTF("\n\nCartesian Topology Details\n\n");
+  MTCP_PRINTF("\nComm Old Size: %d", cp->comm_old_size);
+  MTCP_PRINTF("\nComm Cart Size: %d", cp->comm_cart_size);
+  MTCP_PRINTF("\nComm Old Rank: %d", cp->comm_old_rank);
+  MTCP_PRINTF("\nComm Cart Rank: %d", cp->comm_cart_rank);
+  MTCP_PRINTF("\nReorder: %d", cp->reorder);
+  MTCP_PRINTF("\nNumber of Dimensions: %d", cp->ndims);
+  MTCP_PRINTF("\nCoordinates: ");
+  for (i = 0; i < cp->ndims; i++)
+    MTCP_PRINTF("%d, ", cp->coordinates[i]);
+  MTCP_PRINTF("\nDimensions: ");
+  for (i = 0; i < cp->ndims; i++)
+    MTCP_PRINTF("%d, ", cp->dimensions[i]);
+  MTCP_PRINTF("\nPeriods: ");
+  for (i = 0; i < cp->ndims; i++)
+    MTCP_PRINTF("%d, ", cp->periods[i]);
+  MTCP_PRINTF("\n\n");
+}
+
+int
+get_rank_corresponding_to_coordinates(int comm_old_size, int ndims, int *coords)
+{
+  int flag;
+  CartesianProperties cp;
+  char buffer[10], filename[40];
+  for (int i = 0; i < comm_old_size; i++) {
+    mtcp_strcpy(filename, "./ckpt_rank_");
+    itoa2(i, buffer, 10);
+    mtcp_strncat(filename, buffer, 9);
+    mtcp_strncat(filename, "/cartesian.info", 20);
+    if (load_cartesian_properties(filename, &cp) == 0) {
+      flag = 0;
+      for (int j = 0; j < ndims; j++) {
+        if (cp.coordinates[j] == coords[j]) {
+          flag++;
+        }
+      }
+      if (flag == ndims) {
+        return cp.comm_old_rank;
+      }
+    }
+  }
+  return -1;
+}
+
+void
+mtcp_plugin_hook(RestoreInfo *rinfo)
+{
+  remap_vdso_and_vvar_regions(rinfo);
+  mysetauxval(rinfo->environ, AT_SYSINFO_EHDR,
+              (unsigned long int) rinfo->currentVdsoStart);
+
+  // NOTE: We use mtcp_restart's original stack to initialize the lower
+  // half. We need to do this in order to call MPI_Init() in the lower half,
+  // which is required to figure out our rank, and hence, figure out which
+  // checkpoint image to open for memory restoration.
+  // The other assumption here is that we can only handle uncompressed
+  // checkpoint images.
+
+  // This creates the lower half and copies the bits to this address space
+  splitProcess(rinfo);
+
+  // Reserve first 500 file descriptors for the Upper-half
+  int reserved_fds[500];
+  int total_reserved_fds;
+  total_reserved_fds = reserve_fds_upper_half(reserved_fds);
+
+  // Refer to "blocked memory" in MANA Plugin Documentation for the addresses
+  // FIXME:  Rewrite this logic more carefully.
+  char *start1, *start2, *end1, *end2;
+  if (rinfo->maxLibsEnd + 1 * GB < rinfo->minHighMemStart  /* end of stack of upper half */) {
+    start1 = rinfo->minLibsStart;    // first lib (ld.so) of upper half
+    // lh_info.memRange is the memory region for the mmaps of the lower half.
+    // Apparently lh_info.memRange is a region between 1 GB and 2 GB below
+    //   the end of stack in the lower half.
+    // One gigabyte below those mmaps of the lower half, we are creating space
+    //   for the GNI driver data, to be created when the GNI library runs.
+    // This says that we have to reserve only up to the mtcp_restart stack.
+    end1 = rinfo->pluginInfo.memRange.start - 1 * GB;
+    // start2 == end2:  So, this will not be used.
+    start2 = 0;
+    end2 = start2;
+  } else {
+    // On standard Ubuntu/CentOS libs are mmap'ed downward in memory.
+    // Allow an extra 1 GB for future upper-half libs and mmaps to be loaded.
+    // FIXME:  Will the GNI driver data be allocated below start1?
+    //         If so, fix this to block more than a 1 GB address range.
+    //         The GNI driver data is only used by Cray GNI.
+    //         But lower-half MPI_Init may call additional mmap's not
+    //           controlled by us.
+    //         Check this logic.
+    // NOTE:   setLhMemRange (lh_info.memRange: future mmap's of lower half)
+    //           was chosen to be in safe memory region
+    // NOTE:   When we mmap start1..end1, we will overwrite the text and
+    //         data segments of ld.so belonging to mtcp_restart.  But
+    //         mtcp_restart is statically linked, and doesn't need it.
+    Area heap_area;
+    MTCP_ASSERT(getMappedArea(&heap_area, "[heap]") == 1);
+    start1 = MAX(heap_area.endAddr, (VA)rinfo->pluginInfo.memRange.end);
+    Area stack_area;
+    MTCP_ASSERT(getMappedArea(&stack_area, "[stack]") == 1);
+    end1 = MIN(stack_area.endAddr - 4 * GB, rinfo->minHighMemStart - 4 * GB);
+    start2 = 0;
+    end2 = start2;
+  }
+
+  reserveUpperHalfMemoryRegionsForCkptImgs(start1, end1, start2, end2);
+
+  int rc = -1;
+  int world_rank = -1;
+  int ckpt_image_rank_to_be_restored = -1;
+  char *filename = "./ckpt_rank_0/cartesian.info";
+
+  if (mtcp_sys_access(filename, F_OK) == 0) {
+    int coords[MAX_CART_PROP_SIZE];
+    CartesianProperties cp;
+    MTCP_ASSERT(load_cartesian_properties(filename, &cp) == 0);
+#if 0
+    print(&CartesianProperties);
+#endif
+    typedef int (*getCoordinatesFptr_t)(CartesianProperties *, int *);
+    JUMP_TO_LOWER_HALF(rinfo->pluginInfo.fsaddr);
+    // MPI_Init is called here. GNI memory areas will be loaded by MPI_Init.
+    // Also, MPI_Cart_create will be called to restore cartesian topology.
+    // Based on the coordinates, checkpoint image will be restored instead of
+    // world rank.
+    world_rank =
+      ((getCoordinatesFptr_t)rinfo->pluginInfo.getCoordinatesFptr)(&cp, coords);
+    RETURN_TO_UPPER_HALF();
+#if 0
+    MTCP_PRINTF("\nWorld Rank: %d \n: ", world_rank);
+    int i;
+    MTCP_PRINTF("\nMy Coordinates: ");
+    for (i = 0; i < cp.ndims; i++)
+      MTCP_PRINTF("%d, ", coords[i]);
+#endif
+    ckpt_image_rank_to_be_restored =
+    get_rank_corresponding_to_coordinates(cp.comm_old_size, cp.ndims, coords);
+  } else {
+    typedef int (*getRankFptr_t)(void);
+    JUMP_TO_LOWER_HALF(rinfo->pluginInfo.fsaddr);
+    // MPI_Init is called here. GNI memory areas will be loaded by MPI_Init.
+    world_rank = ((getRankFptr_t)rinfo->pluginInfo.getRankFptr)();
+    RETURN_TO_UPPER_HALF();
+    ckpt_image_rank_to_be_restored = world_rank;
+  }
+
+  releaseUpperHalfMemoryRegionsForCkptImgs(start1, end1, start2, end2);
+  unreserve_fds_upper_half(reserved_fds, total_reserved_fds);
+  MTCP_ASSERT(ckpt_image_rank_to_be_restored != -1);
+  if (getCkptImageByDir(rinfo, rinfo->ckptImage, 512,
+                        ckpt_image_rank_to_be_restored) == -1) {
+    mtcp_strncpy(
+      rinfo->ckptImage,
+      getCkptImageByRank(ckpt_image_rank_to_be_restored, rinfo->argv),
+      PATH_MAX);
+  }
+  MTCP_PRINTF("[Rank: %d] Choosing ckpt image: %s\n",
+              ckpt_image_rank_to_be_restored, rinfo->ckptImage);
+}
+
+#else
+
 void
 mtcp_plugin_hook(RestoreInfo *rinfo)
 {
@@ -387,7 +581,7 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
   int rank = -1;
   reserveUpperHalfMemoryRegionsForCkptImgs(start1, end1, start2, end2);
   JUMP_TO_LOWER_HALF(rinfo->pluginInfo.fsaddr);
-  
+
   // MPI_Init is called here. GNI memory areas will be loaded by MPI_Init.
   rank = ((getRankFptr_t)rinfo->pluginInfo.getRankFptr)();
   RETURN_TO_UPPER_HALF();
@@ -402,6 +596,7 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
   //ckptImage = getCkptImageByRank(rank, argv);
   //MTCP_PRINTF("[Rank: %d] Choosing ckpt image: %s\n", rank, ckptImage);
 }
+#endif
 
 int
 mtcp_plugin_skip_memory_region_munmap(Area *area, RestoreInfo *rinfo)

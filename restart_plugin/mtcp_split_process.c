@@ -194,8 +194,20 @@ startProxy(RestoreInfo *rinfo)
       // Replace ".../mtcp_restart" by ".../lh_proxy" in argv0/args[0]
       args[0] = rinfo->argv[0];
       char *last_component = mtcp_strrchr(args[0], '/');
-      MTCP_ASSERT(mtcp_strlen("lh_proxy") <= mtcp_strlen(last_component+1));
-      mtcp_strcpy(last_component+1, "lh_proxy");
+      // Set the ckptImage to rank 0 temporarily; later, it will be replaced
+      // with its respective image.
+      if (getCkptImageByDir(rinfo, rinfo->ckptImage, 512, 0) == -1) {
+        mtcp_strncpy(rinfo->ckptImage, getCkptImageByRank(0, rinfo->argv),
+                     PATH_MAX);
+      }
+      // checking space for lh_proxy_da's length is enough for lh_proxy
+      MTCP_ASSERT(mtcp_strlen("lh_proxy_da") <= mtcp_strlen(last_component+1));
+      // FIXME: it's a special case for nimrod application; make it general
+      if (mtcp_strstr(rinfo->ckptImage, "nimrod")) {
+        mtcp_strcpy(last_component+1, "lh_proxy_da");
+      } else {
+        mtcp_strcpy(last_component+1, "lh_proxy");
+      }
 
       // Move reading end of pipe to stadin of lh_proxy.
       // Can then write pipefd_out[1] to lh_proxy.

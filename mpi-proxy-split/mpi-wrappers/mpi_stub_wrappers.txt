@@ -111,7 +111,7 @@ int MPI_Comm_spawn_multiple(int count, char *array_of_commands[], char **array_o
 int MPI_Comm_split_type(MPI_Comm comm, int split_type, int key, MPI_Info info, MPI_Comm *newcomm);
 int MPI_Comm_test_inter(MPI_Comm comm, int *flag);
 int MPI_Compare_and_swap(const void *origin_addr, const void *compare_addr, void *result_addr, MPI_Datatype datatype, int target_rank, MPI_Aint target_disp, MPI_Win win);
-int MPI_Dims_create(int nnodes, int ndims, int dims[]);
+int MPI_Dims_create(int nnodes, int ndims, int *dims);
 
 int MPI_Errhandler_create(MPI_Handler_function *function, MPI_Errhandler *errhandler);
 

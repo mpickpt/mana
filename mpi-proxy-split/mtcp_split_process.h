@@ -54,6 +54,10 @@ typedef struct LowerHalfInfo
   void *g_appContext;
   void *lh_dlsym;
   void *getRankFptr;
+#ifdef SINGLE_CART_REORDER
+  void *getCoordinatesFptr;
+  void *getCartesianCommunicatorFptr;
+#endif
   void *parentStackStart;
   void *updateEnvironFptr;
   void *getMmappedListFptr;

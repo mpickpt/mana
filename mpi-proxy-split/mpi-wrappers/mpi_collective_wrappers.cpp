@@ -53,7 +53,6 @@ isUsingCollectiveToP2p() {
 using namespace dmtcp_mpi;
 
 #ifndef MPI_COLLECTIVE_P2P
-#define NO_BARRIER_BCAST
 #ifdef NO_BARRIER_BCAST
 USER_DEFINED_WRAPPER(int, Bcast,
                      (void *) buffer, (int) count, (MPI_Datatype) datatype,
@@ -89,9 +88,9 @@ USER_DEFINED_WRAPPER(int, Bcast,
 {
   std::function<int()> realBarrierCb = [=]() {
     int retval;
+#if 0 // for debugging
     int size;
     MPI_Type_size(datatype, &size);
-#if 0 // for debugging
     printf("Rank %d: MPI_Bcast sending %d bytes\n", g_world_rank, count * size);
     fflush(stdout);
 #endif

@@ -245,26 +245,27 @@ of 0x80000000, in which the heap still overflows. A devised workaround is to
 swap the memory region for the lower half and NIMROD, such that the heap can
 grow freely.
 
-To implement this, we have to change how NIMROD and MANA are built.
+As of 14 June '22, building MANA now builds two copies of `lh_proxy` that
+are loaded into different addresses, 0x400000 and 0xe000000, with the
+former named `lh_proxy_default_address`. `mana_launch` will now check if
+the application being run is NIMROD, in which `lh_proxy_default_address`
+will be loaded instead.
 
-A future MANA version will remove this special requirement - June, '22.
+A version of NIMROD with the text segment specified to load at 0xe000000 has
+also been built and is available as a module on Cori. On other platforms, it is
+necessary to follow the steps below.
 
-NIMROD:
+  $ module use /global/cfs/cdirs/cr/mvm/modulefiles
+  $ module avail nimrod # you should see nimrod/r7643-mana
+  $ module load nimrod/r7643-mana
+
+OTHER PLATFORMS:
 When linking NIMROD, it's necessary to add a flag specifying where it should be
 loaded (by default, this is 0x400000). The command can be found in the output of
 the build script, prepended by "[ 90%] Linking Fortran executable ../bin/nimrod".
 
 Add a `-Wl,-Ttext-segment=E000000` flag to the build command, then run ONLY the
 command.
-
-MANA:
-Conversely, we should no longer specify where the lower half is loaded (so it
-will now be loaded to 0x400000 - where the upper half was). This can be done by
-making changes to `mpi-proxy-split/lower-half/Makefile`.
-
-Search for where the `PROXY_LD_FLAGS` variable is defined, and remove the
-`-Wl,-Ttext-segment -Wl,0xE000000` flag from it. Then run `make clean`, followed
-by `make mana`.
 
 ### ON CENTOS 7 AND CENTOS STREAM ###
 
