@@ -47,9 +47,11 @@ int main(int argc, char ** argv)
     printf("Comm. size = %d\n", comm_size);
     printf("Running test for %d iterations\n", max_iterations);
   }
+  fflush(stdout);
   assert(comm_size > 0);
 
   int send_buf[BUFFER_SIZE] = {0};
+  int* recv_buf = (int*)malloc(comm_size * BUFFER_SIZE * sizeof(int));
   for (int iterations = 0; iterations < max_iterations; iterations++) {
 
     for (int i = 0; i < BUFFER_SIZE; i++)
@@ -57,7 +59,6 @@ int main(int argc, char ** argv)
       send_buf[i] = (rank+1)*100 + i + iterations;
     }
 
-    int recv_buf[comm_size * BUFFER_SIZE];
     MPI_Allgather(&send_buf, BUFFER_SIZE, MPI_INT, &recv_buf,
                   BUFFER_SIZE, MPI_INT, MPI_COMM_WORLD);
 
@@ -88,6 +89,7 @@ int main(int argc, char ** argv)
       recv_buf[i] = 0;
     }
   }
+  free(send_buf);
   MPI_Finalize();
   return EXIT_SUCCESS;
 }
