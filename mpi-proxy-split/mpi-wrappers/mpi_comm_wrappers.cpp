@@ -128,9 +128,13 @@ USER_DEFINED_WRAPPER(int, Comm_create, (MPI_Comm) comm, (MPI_Group) group,
     RETURN_TO_UPPER_HALF();
     if (retval == MPI_SUCCESS && MPI_LOGGING()) {
       MPI_Comm virtComm = ADD_NEW_COMM(*newcomm);
-      VirtualGlobalCommId::instance().createGlobalId(virtComm);
+      unsigned int gid = VirtualGlobalCommId::instance()
+        .createGlobalId(virtComm);
       *newcomm = virtComm;
       active_comms.insert(virtComm);
+      seq_num[gid] = 0;
+      target_start_triv_barrier[gid] = 0;
+      target_stop_triv_barrier[gid] = 0;
       LOG_CALL(restoreComms, Comm_create, comm, group, virtComm);
     }
     DMTCP_PLUGIN_ENABLE_CKPT();
@@ -206,6 +210,12 @@ USER_DEFINED_WRAPPER(int, Comm_free, (MPI_Comm *) comm)
     // realComm = REMOVE_OLD_COMM(*comm);
     // CLEAR_COMM_LOGS(*comm);
     active_comms.erase(*comm);
+    unsigned int gid = VirtualGlobalCommId::instance().getGlobalId(*comm);
+#if 0 
+    seq_num.erase(gid);
+    target_start_triv_barrier.erase(gid);
+    target_stop_triv_barrier.erase(gid);
+#endif
     LOG_CALL(restoreComms, Comm_free, *comm);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
