@@ -45,6 +45,11 @@ endif
 ifndef DMTCP_ROOT
   DMTCP_ROOT=${MANA_ROOT}/dmtcp
 endif
+
+ifeq ($(DESTDIR),)
+  DESTDIR=${shell readlink -f ${MANA_ROOT}}
+endif
+
 DMTCP_INCLUDE=${DMTCP_ROOT}/include
 JALIB_INCLUDE=${DMTCP_ROOT}/jalib
 
@@ -56,11 +61,9 @@ override CXXFLAGS += -fPIC -I${DMTCP_INCLUDE} -I${JALIB_INCLUDE} \
 # ${WRAPPERS_SRCDIR}/libmpiwrappers.a ia a prerequisite for libmana.so
 # Always do 'make default' or 'make install' -- not 'make libmana.so'
 default: ${MANA_COORD_OBJS}
-	make -C ${WRAPPERS_SRCDIR} libmpiwrappers.a
+	@make -C ${WRAPPERS_SRCDIR}
+	@make -C ${LOWER_HALF_SRCDIR}
 	@make libmana.so
-	@make -C ${LOWER_HALF_SRCDIR} lh_proxy
-	@make -C ${LOWER_HALF_SRCDIR} lh_proxy_default_address
-	@make -C ${WRAPPERS_SRCDIR} libmpistub.so
 
 # ${WRAPPERS_SRCDIR}/libmpiwrappers.a made in install/default before libmana.so
 libmana.so: ${LIBOBJS} ${WRAPPERS_SRCDIR}/libmpiwrappers.a
@@ -113,13 +116,11 @@ ${MANA_ROOT}/bin/mana_p2p_update_logs: ${WRAPPERS_SRCDIR}/mana_p2p_update_logs.c
 #   which is a prerequisite for ${MANA_ROOT}/lib/dmtcp/libmana.so
 # Always do 'make default' or 'make install' -- not 'make libmana.so'
 # MANA_COORD_OBJS needed for 'make mana' at top level.
-install: ${MANA_COORD_OBJS}
-	make -C ${WRAPPERS_SRCDIR} libmpiwrappers.a
-	make ${MANA_ROOT}/lib/dmtcp/libmana.so
-	make ${MANA_ROOT}/lib/dmtcp/libmpistub.so
-	make ${MANA_ROOT}/bin/lh_proxy
-	make ${MANA_ROOT}/bin/gethostbyname_proxy
-	make ${MANA_ROOT}/bin/mana_p2p_update_logs
+
+install: default
+	$(INSTALL) libmana.so $(DESTDIR)/lib/dmtcp/
+	make -C ${WRAPPERS_SRCDIR} DESTDIR=$(DESTDIR) install
+	make -C ${LOWER_HALF_SRCDIR} DESTDIR=$(DESTDIR) install
 
 tidy:
 	rm -f *~ .*.swp dmtcp_restart_script*.sh ckpt_*.dmtcp
@@ -128,7 +129,7 @@ tidy:
 clean: tidy
 	rm -f ${LIBOBJS} ${MANA_COORD_OBJS}
 	rm -f libmana.so
-	rm -f ${MANA_ROOT}/lib/dmtcp/libmana.so
+	rm -f ${DESTDIR}/lib/dmtcp/libmana.so
 	@cd ${LOWER_HALF_SRCDIR} && make clean
 	@cd ${WRAPPERS_SRCDIR} && make clean
 
