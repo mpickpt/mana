@@ -100,6 +100,9 @@ int twoPhaseCommit(MPI_Comm comm,
 }
 
 void commit_begin(MPI_Comm comm) {
+  if (mana_state != RUNNING || comm == MPI_COMM_NULL) {
+    return;
+  }
   pthread_mutex_lock(&seq_num_lock);
   current_global_comm_id = VirtualGlobalCommId::instance().getGlobalId(comm);
   seq_num[current_global_comm_id]++;
@@ -175,6 +178,9 @@ void commit_begin(MPI_Comm comm) {
 }
 
 void commit_finish() {
+  if (mana_state != RUNNING) {
+    return;
+  }
   pthread_mutex_lock(&seq_num_lock);
   current_phase = IS_READY;
   current_global_comm_id = MPI_COMM_NULL;

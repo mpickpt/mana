@@ -86,27 +86,26 @@ USER_DEFINED_WRAPPER(int, Bcast,
                      (void *) buffer, (int) count, (MPI_Datatype) datatype,
                      (int) root, (MPI_Comm) comm)
 {
-  std::function<int()> realBarrierCb = [=]() {
-    int retval;
+  commit_begin(comm);
+  int retval;
 #if 0 // for debugging
-    int size;
-    MPI_Type_size(datatype, &size);
-    printf("Rank %d: MPI_Bcast sending %d bytes\n", g_world_rank, count * size);
-    fflush(stdout);
+  int size;
+  MPI_Type_size(datatype, &size);
+  printf("Rank %d: MPI_Bcast sending %d bytes\n", g_world_rank, count * size);
+  fflush(stdout);
 #endif
-    DMTCP_PLUGIN_DISABLE_CKPT();
-    MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-    MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
-    JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-    retval = NEXT_FUNC(Bcast)(buffer, count, realType, root, realComm);
-    // Call lower-half Barrier in the critical section to wait until all rank in the
-    // communictor finished.
-    NEXT_FUNC(Barrier)(realComm);
-    RETURN_TO_UPPER_HALF();
-    DMTCP_PLUGIN_ENABLE_CKPT();
-    return retval;
-  };
-  return twoPhaseCommit(comm, realBarrierCb);
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+  MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  retval = NEXT_FUNC(Bcast)(buffer, count, realType, root, realComm);
+  // Call lower-half Barrier in the critical section to wait until all rank in the
+  // communictor finished.
+  NEXT_FUNC(Barrier)(realComm);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  commit_finish();
+  return retval;
 }
 #endif
 
@@ -135,27 +134,9 @@ USER_DEFINED_WRAPPER(int, Ibcast,
   return retval;
 }
 
-#if 1
 USER_DEFINED_WRAPPER(int, Barrier, (MPI_Comm) comm)
 {
-  std::function<int()> realBarrierCb = [=]() {
-    int retval;
-    DMTCP_PLUGIN_DISABLE_CKPT();
-    MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-    JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-    retval = NEXT_FUNC(Barrier)(realComm);
-    RETURN_TO_UPPER_HALF();
-    DMTCP_PLUGIN_ENABLE_CKPT();
-    return retval;
-  };
-  return twoPhaseCommit(comm, realBarrierCb);
-}
-#else
-USER_DEFINED_WRAPPER(int, Barrier, (MPI_Comm) comm)
-{
-  JTRACE("Invoking 2PC for MPI_Barrier");
-  dmtcp_mpi::TwoPhaseAlgo::instance().commit_begin(comm);
-          
+  commit_begin(comm);
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
@@ -163,11 +144,9 @@ USER_DEFINED_WRAPPER(int, Barrier, (MPI_Comm) comm)
   retval = NEXT_FUNC(Barrier)(realComm);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
-
-  dmtcp_mpi::TwoPhaseAlgo::instance().commit_finish();
+  commit_finish();
   return retval;
 }
-#endif
 
 EXTERNC
 USER_DEFINED_WRAPPER(int, Ibarrier, (MPI_Comm) comm, (MPI_Request *) request)
@@ -195,29 +174,28 @@ USER_DEFINED_WRAPPER(int, Allreduce,
                      (int) count, (MPI_Datatype) datatype,
                      (MPI_Op) op, (MPI_Comm) comm)
 {
-  std::function<int()> realBarrierCb = [=]() {
-    int retval;
-    DMTCP_PLUGIN_DISABLE_CKPT();
-    get_fortran_constants();
-    MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-    MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
-    MPI_Op realOp = VIRTUAL_TO_REAL_OP(op);
-    JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-    // FIXME: Ideally, we should only check FORTRAN_MPI_IN_PLACE
-    //        in the Fortran wrapper.
-    if (sendbuf == FORTRAN_MPI_IN_PLACE) {
-      retval = NEXT_FUNC(Allreduce)(MPI_IN_PLACE, recvbuf, count,
-                                    realType, realOp, realComm);
-    } else {
-      retval = NEXT_FUNC(Allreduce)(sendbuf, recvbuf, count,
-                                    realType, realOp, realComm);
-    }
-    NEXT_FUNC(Barrier)(realComm);
-    RETURN_TO_UPPER_HALF();
-    DMTCP_PLUGIN_ENABLE_CKPT();
-    return retval;
-  };
-  return twoPhaseCommit(comm, realBarrierCb);
+  commit_begin(comm);
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  get_fortran_constants();
+  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+  MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
+  MPI_Op realOp = VIRTUAL_TO_REAL_OP(op);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  // FIXME: Ideally, we should only check FORTRAN_MPI_IN_PLACE
+  //        in the Fortran wrapper.
+  if (sendbuf == FORTRAN_MPI_IN_PLACE) {
+    retval = NEXT_FUNC(Allreduce)(MPI_IN_PLACE, recvbuf, count,
+        realType, realOp, realComm);
+  } else {
+    retval = NEXT_FUNC(Allreduce)(sendbuf, recvbuf, count,
+        realType, realOp, realComm);
+  }
+  NEXT_FUNC(Barrier)(realComm);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  commit_finish();
+  return retval;
 }
 
 USER_DEFINED_WRAPPER(int, Reduce,
@@ -225,21 +203,20 @@ USER_DEFINED_WRAPPER(int, Reduce,
                      (MPI_Datatype) datatype, (MPI_Op) op,
                      (int) root, (MPI_Comm) comm)
 {
-  std::function<int()> realBarrierCb = [=]() {
-    int retval;
-    DMTCP_PLUGIN_DISABLE_CKPT();
-    MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-    MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
-    MPI_Op realOp = VIRTUAL_TO_REAL_OP(op);
-    JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-    retval = NEXT_FUNC(Reduce)(sendbuf, recvbuf, count,
-                               realType, realOp, root, realComm);
-    NEXT_FUNC(Barrier)(realComm);
-    RETURN_TO_UPPER_HALF();
-    DMTCP_PLUGIN_ENABLE_CKPT();
-    return retval;
-  };
-  return twoPhaseCommit(comm, realBarrierCb);
+  commit_begin(comm);
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+  MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
+  MPI_Op realOp = VIRTUAL_TO_REAL_OP(op);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  retval = NEXT_FUNC(Reduce)(sendbuf, recvbuf, count,
+                             realType, realOp, root, realComm);
+  NEXT_FUNC(Barrier)(realComm);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  commit_finish();
+  return retval;
 }
 
 USER_DEFINED_WRAPPER(int, Ireduce,
@@ -274,21 +251,20 @@ USER_DEFINED_WRAPPER(int, Reduce_scatter,
                      (const int) recvcounts[], (MPI_Datatype) datatype,
                      (MPI_Op) op, (MPI_Comm) comm)
 {
-  std::function<int()> realBarrierCb = [=]() {
-    int retval;
-    DMTCP_PLUGIN_DISABLE_CKPT();
-    MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-    MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
-    MPI_Op realOp = VIRTUAL_TO_REAL_OP(op);
-    JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-    retval = NEXT_FUNC(Reduce_scatter)(sendbuf, recvbuf, recvcounts,
-                                       realType, realOp, realComm);
-    NEXT_FUNC(Barrier)(realComm);
-    RETURN_TO_UPPER_HALF();
-    DMTCP_PLUGIN_ENABLE_CKPT();
-    return retval;
-  };
-  return twoPhaseCommit(comm, realBarrierCb);
+  commit_begin(comm);
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+  MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
+  MPI_Op realOp = VIRTUAL_TO_REAL_OP(op);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  retval = NEXT_FUNC(Reduce_scatter)(sendbuf, recvbuf, recvcounts,
+                                     realType, realOp, realComm);
+  NEXT_FUNC(Barrier)(realComm);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  commit_finish();
+  return retval;
 }
 #endif // #ifndef MPI_COLLECTIVE_P2P
 
@@ -324,11 +300,12 @@ USER_DEFINED_WRAPPER(int, Alltoall,
                      (MPI_Datatype) sendtype, (void *) recvbuf, (int) recvcount,
                      (MPI_Datatype) recvtype, (MPI_Comm) comm)
 {
-  std::function<int()> realBarrierCb = [=]() {
-    return MPI_Alltoall_internal(sendbuf, sendcount, sendtype,
+  commit_begin(comm);
+  int retval;
+  retval = MPI_Alltoall_internal(sendbuf, sendcount, sendtype,
                                  recvbuf, recvcount, recvtype, comm);
-  };
-  return twoPhaseCommit(comm, realBarrierCb);
+  commit_finish();
+  return retval;
 }
 
 USER_DEFINED_WRAPPER(int, Alltoallv,
@@ -338,44 +315,42 @@ USER_DEFINED_WRAPPER(int, Alltoallv,
                      (const int *) rdispls, (MPI_Datatype) recvtype,
                      (MPI_Comm) comm)
 {
-  std::function<int()> realBarrierCb = [=]() {
-    int retval;
-    DMTCP_PLUGIN_DISABLE_CKPT();
-    MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-    MPI_Datatype realSendType = VIRTUAL_TO_REAL_TYPE(sendtype);
-    MPI_Datatype realRecvType = VIRTUAL_TO_REAL_TYPE(recvtype);
-    JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-    retval = NEXT_FUNC(Alltoallv)(sendbuf, sendcounts, sdispls, realSendType,
-                                  recvbuf, recvcounts, rdispls, realRecvType,
-                                  realComm);
-    NEXT_FUNC(Barrier)(realComm);
-    RETURN_TO_UPPER_HALF();
-    DMTCP_PLUGIN_ENABLE_CKPT();
-    return retval;
-  };
-  return twoPhaseCommit(comm, realBarrierCb);
+  commit_begin(comm);
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+  MPI_Datatype realSendType = VIRTUAL_TO_REAL_TYPE(sendtype);
+  MPI_Datatype realRecvType = VIRTUAL_TO_REAL_TYPE(recvtype);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  retval = NEXT_FUNC(Alltoallv)(sendbuf, sendcounts, sdispls, realSendType,
+                                recvbuf, recvcounts, rdispls, realRecvType,
+                                realComm);
+  NEXT_FUNC(Barrier)(realComm);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  commit_finish();
+  return retval;
 }
 
 USER_DEFINED_WRAPPER(int, Gather, (const void *) sendbuf, (int) sendcount,
                      (MPI_Datatype) sendtype, (void *) recvbuf, (int) recvcount,
                      (MPI_Datatype) recvtype, (int) root, (MPI_Comm) comm)
 {
-  std::function<int()> realBarrierCb = [=]() {
-    int retval;
-    DMTCP_PLUGIN_DISABLE_CKPT();
-    MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-    MPI_Datatype realSendType = VIRTUAL_TO_REAL_TYPE(sendtype);
-    MPI_Datatype realRecvType = VIRTUAL_TO_REAL_TYPE(recvtype);
-    JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-    retval = NEXT_FUNC(Gather)(sendbuf, sendcount, realSendType,
-                               recvbuf, recvcount, realRecvType,
-                               root, realComm);
-    NEXT_FUNC(Barrier)(realComm);
-    RETURN_TO_UPPER_HALF();
-    DMTCP_PLUGIN_ENABLE_CKPT();
-    return retval;
-  };
-  return twoPhaseCommit(comm, realBarrierCb);
+  commit_begin(comm);
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+  MPI_Datatype realSendType = VIRTUAL_TO_REAL_TYPE(sendtype);
+  MPI_Datatype realRecvType = VIRTUAL_TO_REAL_TYPE(recvtype);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  retval = NEXT_FUNC(Gather)(sendbuf, sendcount, realSendType,
+                             recvbuf, recvcount, realRecvType,
+                             root, realComm);
+  NEXT_FUNC(Barrier)(realComm);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  commit_finish();
+  return retval;
 }
 
 USER_DEFINED_WRAPPER(int, Gatherv, (const void *) sendbuf, (int) sendcount,
@@ -383,44 +358,42 @@ USER_DEFINED_WRAPPER(int, Gatherv, (const void *) sendbuf, (int) sendcount,
                      (const int*) recvcounts, (const int*) displs,
                      (MPI_Datatype) recvtype, (int) root, (MPI_Comm) comm)
 {
-  std::function<int()> realBarrierCb = [=]() {
-    int retval;
-    DMTCP_PLUGIN_DISABLE_CKPT();
-    MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-    MPI_Datatype realSendType = VIRTUAL_TO_REAL_TYPE(sendtype);
-    MPI_Datatype realRecvType = VIRTUAL_TO_REAL_TYPE(recvtype);
-    JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-    retval = NEXT_FUNC(Gatherv)(sendbuf, sendcount, realSendType,
-                                recvbuf, recvcounts, displs, realRecvType,
-                                root, realComm);
-    NEXT_FUNC(Barrier)(realComm);
-    RETURN_TO_UPPER_HALF();
-    DMTCP_PLUGIN_ENABLE_CKPT();
-    return retval;
-  };
-  return twoPhaseCommit(comm, realBarrierCb);
+  commit_begin(comm);
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+  MPI_Datatype realSendType = VIRTUAL_TO_REAL_TYPE(sendtype);
+  MPI_Datatype realRecvType = VIRTUAL_TO_REAL_TYPE(recvtype);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  retval = NEXT_FUNC(Gatherv)(sendbuf, sendcount, realSendType,
+                              recvbuf, recvcounts, displs, realRecvType,
+                              root, realComm);
+  NEXT_FUNC(Barrier)(realComm);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  commit_finish();
+  return retval;
 }
 
 USER_DEFINED_WRAPPER(int, Scatter, (const void *) sendbuf, (int) sendcount,
                      (MPI_Datatype) sendtype, (void *) recvbuf, (int) recvcount,
                      (MPI_Datatype) recvtype, (int) root, (MPI_Comm) comm)
 {
-  std::function<int()> realBarrierCb = [=]() {
-    int retval;
-    DMTCP_PLUGIN_DISABLE_CKPT();
-    MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-    MPI_Datatype realSendType = VIRTUAL_TO_REAL_TYPE(sendtype);
-    MPI_Datatype realRecvType = VIRTUAL_TO_REAL_TYPE(recvtype);
-    JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-    retval = NEXT_FUNC(Scatter)(sendbuf, sendcount, realSendType,
-                                recvbuf, recvcount, realRecvType,
-                                root, realComm);
-    NEXT_FUNC(Barrier)(realComm);
-    RETURN_TO_UPPER_HALF();
-    DMTCP_PLUGIN_ENABLE_CKPT();
-    return retval;
-  };
-  return twoPhaseCommit(comm, realBarrierCb);
+  commit_begin(comm);
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+  MPI_Datatype realSendType = VIRTUAL_TO_REAL_TYPE(sendtype);
+  MPI_Datatype realRecvType = VIRTUAL_TO_REAL_TYPE(recvtype);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  retval = NEXT_FUNC(Scatter)(sendbuf, sendcount, realSendType,
+                              recvbuf, recvcount, realRecvType,
+                              root, realComm);
+  NEXT_FUNC(Barrier)(realComm);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  commit_finish();
+  return retval;
 }
 
 USER_DEFINED_WRAPPER(int, Scatterv, (const void *) sendbuf,
@@ -428,44 +401,42 @@ USER_DEFINED_WRAPPER(int, Scatterv, (const void *) sendbuf,
                      (MPI_Datatype) sendtype, (void *) recvbuf, (int) recvcount,
                      (MPI_Datatype) recvtype, (int) root, (MPI_Comm) comm)
 {
-  std::function<int()> realBarrierCb = [=]() {
-    int retval;
-    DMTCP_PLUGIN_DISABLE_CKPT();
-    MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-    MPI_Datatype realSendType = VIRTUAL_TO_REAL_TYPE(sendtype);
-    MPI_Datatype realRecvType = VIRTUAL_TO_REAL_TYPE(recvtype);
-    JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-    retval = NEXT_FUNC(Scatterv)(sendbuf, sendcounts, displs, realSendType,
-                                 recvbuf, recvcount, realRecvType,
-                                 root, realComm);
-    NEXT_FUNC(Barrier)(realComm);
-    RETURN_TO_UPPER_HALF();
-    DMTCP_PLUGIN_ENABLE_CKPT();
-    return retval;
-  };
-  return twoPhaseCommit(comm, realBarrierCb);
+  commit_begin(comm);
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+  MPI_Datatype realSendType = VIRTUAL_TO_REAL_TYPE(sendtype);
+  MPI_Datatype realRecvType = VIRTUAL_TO_REAL_TYPE(recvtype);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  retval = NEXT_FUNC(Scatterv)(sendbuf, sendcounts, displs, realSendType,
+                               recvbuf, recvcount, realRecvType,
+                               root, realComm);
+  NEXT_FUNC(Barrier)(realComm);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  commit_finish();
+  return retval;
 }
 
 USER_DEFINED_WRAPPER(int, Allgather, (const void *) sendbuf, (int) sendcount,
                      (MPI_Datatype) sendtype, (void *) recvbuf, (int) recvcount,
                      (MPI_Datatype) recvtype, (MPI_Comm) comm)
 {
-  std::function<int()> realBarrierCb = [=]() {
-    int retval;
-    DMTCP_PLUGIN_DISABLE_CKPT();
-    MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-    MPI_Datatype realSendType = VIRTUAL_TO_REAL_TYPE(sendtype);
-    MPI_Datatype realRecvType = VIRTUAL_TO_REAL_TYPE(recvtype);
-    JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-    retval = NEXT_FUNC(Allgather)(sendbuf, sendcount, realSendType,
-                                  recvbuf, recvcount, realRecvType,
-                                  realComm);
-    NEXT_FUNC(Barrier)(realComm);
-    RETURN_TO_UPPER_HALF();
-    DMTCP_PLUGIN_ENABLE_CKPT();
-    return retval;
-  };
-  return twoPhaseCommit(comm, realBarrierCb);
+  commit_begin(comm);
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+  MPI_Datatype realSendType = VIRTUAL_TO_REAL_TYPE(sendtype);
+  MPI_Datatype realRecvType = VIRTUAL_TO_REAL_TYPE(recvtype);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  retval = NEXT_FUNC(Allgather)(sendbuf, sendcount, realSendType,
+                                recvbuf, recvcount, realRecvType,
+                                realComm);
+  NEXT_FUNC(Barrier)(realComm);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  commit_finish();
+  return retval;
 }
 
 USER_DEFINED_WRAPPER(int, Allgatherv, (const void *) sendbuf, (int) sendcount,
@@ -473,43 +444,41 @@ USER_DEFINED_WRAPPER(int, Allgatherv, (const void *) sendbuf, (int) sendcount,
                      (const int*) recvcounts, (const int *) displs,
                      (MPI_Datatype) recvtype, (MPI_Comm) comm)
 {
-  std::function<int()> realBarrierCb = [=]() {
-    int retval;
-    DMTCP_PLUGIN_DISABLE_CKPT();
-    MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-    MPI_Datatype realSendType = VIRTUAL_TO_REAL_TYPE(sendtype);
-    MPI_Datatype realRecvType = VIRTUAL_TO_REAL_TYPE(recvtype);
-    JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-    retval = NEXT_FUNC(Allgatherv)(sendbuf, sendcount, realSendType,
-                                   recvbuf, recvcounts, displs, realRecvType,
-                                   realComm);
-    NEXT_FUNC(Barrier)(realComm);
-    RETURN_TO_UPPER_HALF();
-    DMTCP_PLUGIN_ENABLE_CKPT();
-    return retval;
-  };
-  return twoPhaseCommit(comm, realBarrierCb);
+  commit_begin(comm);
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+  MPI_Datatype realSendType = VIRTUAL_TO_REAL_TYPE(sendtype);
+  MPI_Datatype realRecvType = VIRTUAL_TO_REAL_TYPE(recvtype);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  retval = NEXT_FUNC(Allgatherv)(sendbuf, sendcount, realSendType,
+                                 recvbuf, recvcounts, displs, realRecvType,
+                                 realComm);
+  NEXT_FUNC(Barrier)(realComm);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  commit_finish();
+  return retval;
 }
 
 USER_DEFINED_WRAPPER(int, Scan, (const void *) sendbuf, (void *) recvbuf,
                      (int) count, (MPI_Datatype) datatype,
                      (MPI_Op) op, (MPI_Comm) comm)
 {
-  std::function<int()> realBarrierCb = [=]() {
-    int retval;
-    DMTCP_PLUGIN_DISABLE_CKPT();
-    MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-    MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
-    MPI_Op realOp = VIRTUAL_TO_REAL_TYPE(op);
-    JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-    retval = NEXT_FUNC(Scan)(sendbuf, recvbuf, count,
-                             realType, realOp, realComm);
-    NEXT_FUNC(Barrier)(realComm);
-    RETURN_TO_UPPER_HALF();
-    DMTCP_PLUGIN_ENABLE_CKPT();
-    return retval;
-  };
-  return twoPhaseCommit(comm, realBarrierCb);
+  commit_begin(comm);
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+  MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
+  MPI_Op realOp = VIRTUAL_TO_REAL_TYPE(op);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  retval = NEXT_FUNC(Scan)(sendbuf, recvbuf, count,
+                           realType, realOp, realComm);
+  NEXT_FUNC(Barrier)(realComm);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  commit_finish();
+  return retval;
 }
 #endif // #ifndef MPI_COLLECTIVE_P2P
 
@@ -517,46 +486,44 @@ USER_DEFINED_WRAPPER(int, Scan, (const void *) sendbuf, (void *) recvbuf,
 USER_DEFINED_WRAPPER(int, Comm_split, (MPI_Comm) comm, (int) color, (int) key,
     (MPI_Comm *) newcomm)
 {
-  std::function<int()> realBarrierCb = [=]() {
-    int retval;
-    DMTCP_PLUGIN_DISABLE_CKPT();
-    MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-    JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-    retval = NEXT_FUNC(Comm_split)(realComm, color, key, newcomm);
-    RETURN_TO_UPPER_HALF();
-    if (retval == MPI_SUCCESS && MPI_LOGGING()) {
-      MPI_Comm virtComm = ADD_NEW_COMM(*newcomm);
-      VirtualGlobalCommId::instance().createGlobalId(virtComm);
-      *newcomm = virtComm;
-      active_comms.insert(virtComm);
-      LOG_CALL(restoreComms, Comm_split, comm, color, key, *newcomm);
-    }
-    DMTCP_PLUGIN_ENABLE_CKPT();
-    return retval;
-  };
-  return twoPhaseCommit(comm, realBarrierCb);
+  commit_begin(comm);
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  retval = NEXT_FUNC(Comm_split)(realComm, color, key, newcomm);
+  RETURN_TO_UPPER_HALF();
+  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
+    MPI_Comm virtComm = ADD_NEW_COMM(*newcomm);
+    VirtualGlobalCommId::instance().createGlobalId(virtComm);
+    *newcomm = virtComm;
+    active_comms.insert(virtComm);
+    LOG_CALL(restoreComms, Comm_split, comm, color, key, *newcomm);
+  }
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  commit_finish();
+  return retval;
 }
 
 USER_DEFINED_WRAPPER(int, Comm_dup, (MPI_Comm) comm, (MPI_Comm *) newcomm)
 {
-  std::function<int()> realBarrierCb = [=]() {
-    int retval;
-    DMTCP_PLUGIN_DISABLE_CKPT();
-    MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-    JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-    retval = NEXT_FUNC(Comm_dup)(realComm, newcomm);
-    RETURN_TO_UPPER_HALF();
-    if (retval == MPI_SUCCESS && MPI_LOGGING()) {
-      MPI_Comm virtComm = ADD_NEW_COMM(*newcomm);
-      VirtualGlobalCommId::instance().createGlobalId(virtComm);
-      *newcomm = virtComm;
-      active_comms.insert(virtComm);
-      LOG_CALL(restoreComms, Comm_dup, comm, *newcomm);
-    }
-    DMTCP_PLUGIN_ENABLE_CKPT();
-    return retval;
-  };
-  return twoPhaseCommit(comm, realBarrierCb);
+  commit_begin(comm);
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  retval = NEXT_FUNC(Comm_dup)(realComm, newcomm);
+  RETURN_TO_UPPER_HALF();
+  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
+    MPI_Comm virtComm = ADD_NEW_COMM(*newcomm);
+    VirtualGlobalCommId::instance().createGlobalId(virtComm);
+    *newcomm = virtComm;
+    active_comms.insert(virtComm);
+    LOG_CALL(restoreComms, Comm_dup, comm, *newcomm);
+  }
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  commit_finish();
+  return retval;
 }
 
 
