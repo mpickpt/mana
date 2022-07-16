@@ -295,8 +295,7 @@ static void
 mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
-    case DMTCP_EVENT_INIT:
-    {
+    case DMTCP_EVENT_INIT: {
       JTRACE("*** DMTCP_EVENT_INIT");
       initialize_segv_handler();
       JASSERT(!splitProcess()).Text("Failed to create, initialize lower haf");
@@ -331,10 +330,12 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
           string barrierId = "MANA-PRESUSPEND-" + jalib::XToString(round);
           string csId = "MANA-PRESUSPEND-CS-" + jalib::XToString(round);
           string commId = "MANA-PRESUSPEND-COMM-" + jalib::XToString(round);
+          string targetId = "MANA-PRESUSPEND-TARGET-" + jalib::XToString(round);
           int64_t commKey = (int64_t) data_to_coord.comm;
           
           int target_reached = check_seq_nums();
           if (!target_reached) {
+            dmtcp_kvdb64(DMTCP_KVDB_OR, targetId.c_str(), 0, 1);
             coord_response = WAIT_STRAGGLER;
           }
 
@@ -347,10 +348,20 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
           dmtcp_global_barrier(barrierId.c_str());
 
           int64_t counter;
+          // If the database name and key combination does not exist, the in-out
+          // parameter will not be changed. So we need to initialize the
+          // variable not_all_targets_reached.
+          int64_t not_all_targets_reached = 0;
+          dmtcp_kvdb64_get(targetId.c_str(), 0, &not_all_targets_reached);
+
+          if (not_all_targets_reached && data_to_coord.st == STOP_BEFORE_CS) {
+            coord_response = FREE_PASS;
+          }
+
+          // No rank published IN_CS state and all sequence numbers
+          // reached the target number.
           if (dmtcp_kvdb64_get(csId.c_str(), 0, &counter) == -1 &&
-              target_reached) {
-            // No rank published IN_CS state and all sequence numbers
-            // reached the target number.
+              !not_all_targets_reached) {
             break;
           }
 
@@ -364,11 +375,12 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
             }
           }
           round++;
-          }
+        }
       }
       break;
+    }
 
-    case DMTCP_EVENT_PRECHECKPOINT:
+    case DMTCP_EVENT_PRECHECKPOINT: {
       dmtcp_local_barrier("MPI:GetLocalLhMmapList");
       getLhMmapList();
       dmtcp_local_barrier("MPI:GetLocalRankInfo");
@@ -386,17 +398,19 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       const char *file = get_cartesian_properties_file_name();
       save_cartesian_properties(file);
 #endif
+      break;
     }
 
-    case DMTCP_EVENT_RESUME:
+    case DMTCP_EVENT_RESUME: {
       dmtcp_local_barrier("MPI:Reset-Drain-Send-Recv-Counters");
       resetDrainCounters(); // p2p_drain_send_recv.cpp
-      seq_num_reset();
+      seq_num_reset(RESUME);
       dmtcp_local_barrier("MPI:seq_num_reset");
       mana_state = RUNNING;
       break;
+    }
 
-    case DMTCP_EVENT_RESTART:
+    case DMTCP_EVENT_RESTART: {
       dmtcp_local_barrier("MPI:updateEnviron");
       updateLhEnviron(); // mpi-plugin.cpp
       dmtcp_local_barrier("MPI:Reset-Drain-Send-Recv-Counters");
@@ -412,7 +426,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       dmtcp_global_barrier("MPI:record-replay.cpp-void");
       replayMpiP2pOnRestart(); // p2p_log_replay.cpp
       dmtcp_local_barrier("MPI:p2p_log_replay.cpp-void");
-      seq_num_reset();
+      seq_num_reset(RESTART);
       dmtcp_local_barrier("MPI:seq_num_reset");
       mana_state = RUNNING;
       break;
