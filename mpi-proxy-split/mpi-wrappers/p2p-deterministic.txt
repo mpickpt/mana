@@ -98,7 +98,8 @@ ssize_t writeall(int fd, void *buf, size_t count) {
 // NOT USED:  MPI_Recv wrapper calls MPI_Irecv
 #define LOG_PRE_Recv(status)
   MPI_Status local_status;
-  if (getenv("MANA_P2P_LOG") && status != MPI_STATUS_IGNORE) {
+  if (getenv("MANA_P2P_LOG") && status != MPI_STATUS_IGNORE
+      && status != FORTRAN_MPI_STATUS_IGNORE) {
     status = &local_status;
   }
 
@@ -127,7 +128,8 @@ ssize_t writeall(int fd, void *buf, size_t count) {
 // NOT USED:  MPI_Probe wrapper calls MPI_Iprobe
 #define LOG_PRE_Probe(status)
   MPI_Status local_status;
-  if (getenv("MANA_P2P_LOG") && status != MPI_STATUS_IGNORE) {
+  if (getenv("MANA_P2P_LOG") && status != MPI_STATUS_IGNORE
+      && status != FORTRAN_MPI_STATUS_IGNORE) {
     status = &local_status;
   }
 
@@ -142,7 +144,8 @@ ssize_t writeall(int fd, void *buf, size_t count) {
 // FIXME:  Need to add MPI_Improbe when MANA supports it
 #define LOG_PRE_Iprobe(status)
   MPI_Status local_status;
-  if (getenv("MANA_P2P_LOG") && status == MPI_STATUS_IGNORE) {
+  if (getenv("MANA_P2P_LOG") && status == MPI_STATUS_IGNORE
+      && status != FORTRAN_MPI_STATUS_IGNORE) {
     status = &local_status;
   }
 
@@ -227,7 +230,8 @@ ssize_t writeall(int fd, void *buf, size_t count) {
 // Before MPI_Wait, MPI_Test during replay
 #define REPLAY_PRE_Wait(status)
   MPI_Status local_status;
-  if (getenv("MANA_P2P_LOG") && status != MPI_STATUS_IGNORE) {
+  if (getenv("MANA_P2P_LOG") && status != MPI_STATUS_IGNORE
+      && status != FORTRAN_MPI_STATUS_IGNORE) {
     status = &local_status;
   }
 

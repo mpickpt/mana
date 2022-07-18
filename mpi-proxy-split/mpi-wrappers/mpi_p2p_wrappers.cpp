@@ -239,7 +239,11 @@ USER_DEFINED_WRAPPER(int, Sendrecv, (const void *) sendbuf, (int) sendcount,
     return retval;
   }
   retval = MPI_Waitall(2, reqs, sts);
-  *status = sts[1];
+  // Set status only when the status is neither MPI_STATUS_IGNORE nor
+  // FORTRAN_MPI_STATUS_IGNORE
+  if (status != MPI_STATUS_IGNORE || status != FORTRAN_MPI_STATUS_IGNORE) {
+    *status = sts[1];
+  }
   if (retval == MPI_SUCCESS) {
     // updateLocalRecvs();
   }
