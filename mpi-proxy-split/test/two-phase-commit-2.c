@@ -1,12 +1,27 @@
-#include "mpi.h"
+/*
+  Test for the two phase commit algorithm
+
+  Must run with >2 ranks
+  Defaults to 30 iterations
+  Intended to be run with mana_test.py
+*/
+
+#include <mpi.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <stdio.h>
+#include <string.h>
 
-int iterations = 100;
+#define SLEEP_PER_ITERATION 1
 
 int main( int argc, char *argv[] )
 {
+  // Parse runtime argument
+  int max_iterations = 30;
+  if (argc != 1) {
+    max_iterations = atoi(argv[1]);
+  }
+
   int provided, flag, claimed;
   int comm1_counter = 0;
   int comm2_counter = 0;
@@ -20,6 +35,11 @@ int main( int argc, char *argv[] )
   int rank, nprocs;
   MPI_Comm_size(MPI_COMM_WORLD,&nprocs);
   MPI_Comm_rank(MPI_COMM_WORLD,&rank);
+
+  if (rank == 0) {
+    printf("Running test for %d iterations\n", max_iterations);
+  }
+
   printf("Hello, world.  I am %d of %d\n", rank, nprocs);fflush(stdout);
   if (nprocs < 3) {
     printf("This test needs at least 3 ranks.\n");
@@ -28,7 +48,7 @@ int main( int argc, char *argv[] )
   }
   int group1_ranks[] = {0, 1};
   int group2_ranks[10000];
-  int i,j;
+  int i, j;
   for (i = 1; i < nprocs; i++) {
     group2_ranks[i-1] = i;
   }
@@ -76,7 +96,7 @@ int main( int argc, char *argv[] )
   //                (and so we know that all ranks have completed PHASE 1, and
   //                we just need to wait until they all complete PHASE 2
 
-  for (i = 0; i < iterations; i++) {
+  for (int iterations = 0; iterations < max_iterations; iterations++) {
     if (comm1 != MPI_COMM_NULL) {
       for (j = 0; j < 3; j++) {
         comm1_counter++;
@@ -85,7 +105,7 @@ int main( int argc, char *argv[] )
         MPI_Barrier(comm1);
         printf("Rank %d leaving comm1, iteration %d\n", rank, comm1_counter);
         fflush(stdout);
-        sleep(1);
+        sleep(SLEEP_PER_ITERATION);
       }
     }
     if (comm2 != MPI_COMM_NULL) {
@@ -95,7 +115,7 @@ int main( int argc, char *argv[] )
       MPI_Barrier(comm2);
       printf("Rank %d leaving comm2, iteration %d\n", rank, comm2_counter);
       fflush(stdout);
-      sleep(1);
+      sleep(SLEEP_PER_ITERATION);
     }
   }
 

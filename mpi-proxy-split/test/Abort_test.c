@@ -15,7 +15,6 @@ int main(int argc, char *argv[])
     ret = MPI_Abort(MPI_COMM_WORLD, 911);
     /* No further code will execute */
     printf("Return value =%d", ret);
-//    assert(ret == 1234);
     printf("MPI Abort implementation Failed\n");
     fflush(stdout);
     MPI_Finalize();

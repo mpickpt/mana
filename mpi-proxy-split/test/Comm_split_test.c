@@ -1,18 +1,30 @@
-// Author: Wesley Bland
-// Copyright 2015 www.mpitutorial.com
-// This code is provided freely with the tutorials on mpitutorial.com. Feel
-// free to modify it for your own use. Any distribution of the code must
-// either provide a link to www.mpitutorial.com or keep this header intact.
-//
-// Example using MPI_Comm_split to divide a communicator into subcommunicators
-//
+/*
+  Test for the MPI_Comm_split method
 
+  Must run with an even multiple of NUM_RANKS (default 4) ranks
+  Defaults to 60 iterations
+  Intended to be run with mana_test.py
+
+  Source: www.mpitutorial.com
+*/
+
+#include <mpi.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <mpi.h>
 #include <assert.h>
+#include <unistd.h>
+#include <string.h>
+
+#define NUM_RANKS 4
+#define SLEEP_PER_ITERATION 0.5
 
 int main(int argc, char **argv) {
+  // Parse runtime argument
+  int max_iterations = 60; // default
+  if (argc != 1) {
+    max_iterations = atoi(argv[1]);
+  }
+
   MPI_Init(NULL, NULL);
 
   // Get the rank and size in the original communicator
@@ -20,28 +32,36 @@ int main(int argc, char **argv) {
   MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
   MPI_Comm_size(MPI_COMM_WORLD, &world_size);
 
-  // We are assuming at least 2 processes for this task
-  if (world_size % 4 != 0) {
-    fprintf(stderr, "World size should be multiple of 4  for %s\n", argv[0]);
+  if (world_rank == 0) {
+    printf("Running test for %d iterations\n", max_iterations);
+  }
+
+  if (world_size % NUM_RANKS != 0) {
+    fprintf(stderr, "World size should be multiple \
+      of %d for %s\n", NUM_RANKS, argv[0]);
     MPI_Abort(MPI_COMM_WORLD, 1);
   }
-  int color = world_rank / 4; // Determine color based on row
+  int color = world_rank / NUM_RANKS; // Determine color based on row
 
   // Split the communicator based on the color
   // and use the original rank for ordering
   MPI_Comm row_comm;
-  MPI_Comm_split(MPI_COMM_WORLD, color, world_rank, &row_comm);
+  for (int iterations = 0; iterations < max_iterations; iterations++) {
+    int ret = MPI_Comm_split(MPI_COMM_WORLD, color, world_rank, &row_comm);
+    assert(ret == MPI_SUCCESS);
 
-  int row_rank, row_size;
-  MPI_Comm_rank(row_comm, &row_rank);
-  MPI_Comm_size(row_comm, &row_size);
-  assert( row_size == 4);
-  assert( row_rank == world_rank % 4);
-  printf("WORLD RANK/SIZE: %d/%d --- ROW RANK/SIZE: %d/%d\n",
-         world_rank, world_size, row_rank, row_size);
-  fflush(stdout);
+    sleep(SLEEP_PER_ITERATION);
+
+    int row_rank, row_size;
+    MPI_Comm_rank(row_comm, &row_rank);
+    MPI_Comm_size(row_comm, &row_size);
+    assert(row_size == NUM_RANKS);
+    assert(row_rank == world_rank % NUM_RANKS);
+    printf("WORLD RANK/SIZE: %d/%d --- ROW RANK/SIZE: %d/%d\n",
+           world_rank, world_size, row_rank, row_size);
+    fflush(stdout);
+  }
 
   MPI_Comm_free(&row_comm);
-
   MPI_Finalize();
 }
