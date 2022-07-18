@@ -52,6 +52,13 @@ int MPI_Test_internal(MPI_Request *request, int *flag, MPI_Status *status,
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   // MPI_Test can change the *request argument
   retval = NEXT_FUNC(Test)(&realRequest, flag, status);
+
+  // Set request to NULL on success to avoid issues with calling again
+  // with a bad virtual to real mapping
+  if (*flag) {
+    *request = MPI_REQUEST_NULL;
+  }
+
   RETURN_TO_UPPER_HALF();
   return retval;
 }
@@ -84,6 +91,7 @@ USER_DEFINED_WRAPPER(int, Test, (MPI_Request*) request,
     // FIXME: We should also fill in the status
     return MPI_SUCCESS;
   }
+
   retval = MPI_Test_internal(&realRequest, flag, statusPtr, true);
   // Updating global counter of recv bytes
   // FIXME: This if statement should be merged into

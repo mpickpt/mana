@@ -203,7 +203,7 @@ namespace dmtcp_mpi
         }
         lock_t lock(_mutex);
         if (_vIdTable.realIdExists(real)) {
-          // Adding a existing real id is a legal operation and 
+          // Adding a existing real id is a legal operation and
           // we should not report warning/error.
           // For example, MPI_Comm_group accesses the group associated with
           // given communicator. It can be called multiple times from
