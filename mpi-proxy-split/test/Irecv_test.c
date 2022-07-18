@@ -1,10 +1,29 @@
+/*
+  Test for the MPI_Irecv method
+
+  Must run with >1 ranks
+  Defaults to 5
+  Intended to be run with mana_test.py
+
+*/
+
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
 #include <unistd.h>
+#include <string.h>
+
+#define BUFFER_SIZE 100
+#define SLEEP_PER_ITERATION 5
 
 int main(int argc, char** argv) {
+  // Parse runtime argument
+  int max_iterations = 5; // default
+  if (argc != 1) {
+    max_iterations = atoi(argv[1]);
+  }
+
   // Initialize the MPI environment
   MPI_Init(NULL, NULL);
   // Find out rank, size
@@ -12,6 +31,10 @@ int main(int argc, char** argv) {
   MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
   int world_size;
   MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+
+  if (myrank == 0) {
+    printf("Running test for %d iterations\n", max_iterations);
+  }
 
   // We are assuming at least 2 processes for this task
   if (world_size < 2) {
@@ -23,30 +46,29 @@ int main(int argc, char** argv) {
   int number = 11223344;
   int i;
 
-  for (i = 0; i < 100; i++) {
-    
-    for (rank = 0; rank < world_size; rank++)
-    {
+  for (int iterations = 0; iterations < max_iterations; iterations++) {
+    for (rank = 0; rank < world_size; rank++) {
       if (rank == myrank)
         continue;
-      MPI_Send(&number, 1, MPI_INT, rank, 0, MPI_COMM_WORLD);
-      assert(number == 11223344);
+      int ret = MPI_Send(&number, 1, MPI_INT, rank, 0, MPI_COMM_WORLD);
+      assert(number == 11223344+iterations);
+      assert(ret == MPI_SUCCESS);
       printf("%d sent %d to %d\n", myrank, number, rank);
       fflush(stdout);
     }
-  
+
     MPI_Request reqs[world_size];
-    for (rank = 0; rank < world_size; rank++)
-    {
+    for (rank = 0; rank < world_size; rank++) {
       if (rank == myrank)
         continue;
-      MPI_Irecv(&number, 1, MPI_INT, rank, 0, MPI_COMM_WORLD, &reqs[rank]);
+      int ret = MPI_Irecv(&number, 1, MPI_INT, rank, 0,
+                          MPI_COMM_WORLD, &reqs[rank]);
+      assert(ret == MPI_SUCCESS);
     }
     printf("%d sleeping\n", myrank);
     fflush(stdout);
-    sleep(1);
-    for (rank = 0; rank < world_size; rank++)
-    {
+    sleep(SLEEP_PER_ITERATION);
+    for (rank = 0; rank < world_size; rank++) {
       if (rank == myrank)
         continue;
       int flag = 0;
@@ -64,6 +86,7 @@ int main(int argc, char** argv) {
         }
       }
     }
+    number++;
   }
 
   MPI_Finalize();

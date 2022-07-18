@@ -1,37 +1,65 @@
 /*
+  Test for the MPI_Type_commit method
+
+  Run with >1 ranks for non-trivial results
+  Defaults to 10000 iterations
+  Intended to be run with mana_test.py
+
   Source: http://mpi.deino.net/mpi_functions/MPI_Type_commit.html
 */
+
 #include <mpi.h>
 #include <stdio.h>
+#include <unistd.h>
 #include <assert.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define BUFFER_SIZE 100
+#define NUM_RANKS 4
 
 int main(int argc, char *argv[])
 {
+  // Parse runtime argument
+  int max_iterations = 10000; // default
+  if (argc != 1) {
+    max_iterations = atoi(argv[1]);
+  }
+
   int myrank;
   MPI_Status status;
   MPI_Datatype type;
-  int buffer[10] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
-  int buf[10];
+  int buffer[BUFFER_SIZE];
+  int buf[BUFFER_SIZE];
 
   MPI_Init(&argc, &argv);
 
-  MPI_Type_contiguous( 10, MPI_INT, &type );
+  MPI_Type_contiguous(BUFFER_SIZE, MPI_INT, &type);
   MPI_Type_commit(&type);
   MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
 
-  if (myrank == 0)
-  {
-    MPI_Send(buffer, 1, type, 1, 123, MPI_COMM_WORLD);
+  if (myrank == 0) {
+    printf("Running test for %d iterations\n", max_iterations);
   }
-  else if (myrank == 1)
-  {
-    MPI_Recv(buf, 1, type, 0, 123, MPI_COMM_WORLD, &status);
-    for (int i = 0; i < 10 ; i++) {
-      printf("[Rank = %d] got => %d \t expected => %d \n",
-             myrank, buf[i], buffer[i]);
-      fflush(stdout);
-      assert(buffer[i] == buf[i]);
+
+  for (int iterations = 0; iterations < max_iterations; iterations++) {
+    for (int i = 0; i < BUFFER_SIZE; i++) {
+      buffer[i] = i + iterations;
     }
+    if (myrank == 0) {
+      int ret = MPI_Send(buffer, 1, type, 1, 123+iterations, MPI_COMM_WORLD);
+      assert(ret == MPI_SUCCESS);
+    }
+    else if (myrank == 1) {
+      int ret = MPI_Recv(buf, 1, type, 0, 123+iterations, MPI_COMM_WORLD,
+                         &status);
+      assert(ret == MPI_SUCCESS);
+      for (int i = 0; i < BUFFER_SIZE; i++) {
+        assert(buffer[i] == buf[i]);
+      }
+    }
+    printf("Iteration %d completed\n", iterations);
+    fflush(stdout);
   }
   MPI_Finalize();
   return 0;

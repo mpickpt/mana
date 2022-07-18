@@ -24,9 +24,9 @@ DEMO_PORT=7787
 #       Comm_get_attr_test
 ## Reordering the tests:
 FILES=mpi_hello_world \
-      hello_mpi_init_thread \
+      hello_mpi_init_thread Sendrecv_test \
       keyval_test file_test \
-      send_recv send_recv_many ping_pong Comm_dup_test Sendrecv_test \
+      send_recv send_recv_many ping_pong Comm_dup_test \
       multi_send_recv Comm_get_attr_test \
       Barrier_test Bcast_test Comm_split_test Reduce_test \
       Waitall_test Waitany_test Testany_test \
@@ -35,7 +35,7 @@ FILES=mpi_hello_world \
       Abort_test Allreduce_test Alltoall_test Alltoallv_test \
       Allgather_test Group_size_rank Type_commit_contiguous \
       Irecv_test Alloc_mem sendrecv_replace_test \
-      f_ibarrier sendrecv_test Type_hvector_test Type_vector_test \
+      f_ibarrier Type_hvector_test Type_vector_test \
       wave_mpi day1_mpi quad_mpi poisson_nonblock_mpi \
       send_recv_loop large_async_p2p
 
