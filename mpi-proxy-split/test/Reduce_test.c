@@ -1,5 +1,5 @@
 /*
-  Test for the MPI_Reduce keyval method
+  Test for the MPI_Reduce method
 
   Run with >1 ranks for non-trivial results
   Defaults to 10000 iterations
