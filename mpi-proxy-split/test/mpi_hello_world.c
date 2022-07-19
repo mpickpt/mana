@@ -7,13 +7,14 @@
 // An intro MPI hello world program that uses MPI_Init, MPI_Comm_size,
 // MPI_Comm_rank, MPI_Finalize, and MPI_Get_processor_name.
 //
+#include <assert.h>
 #include <mpi.h>
 #include <stdio.h>
-#include <sys/time.h>
 #include <stdlib.h>
+#include <sys/time.h>
 #include <unistd.h>
-#include <assert.h>
-int main(int argc, char** argv)
+int
+main(int argc, char **argv)
 {
   // Initialize the MPI environment. The two arguments to MPI Init are not
   // currently used by MPI implementations, but are there in case future
@@ -29,9 +30,9 @@ int main(int argc, char** argv)
   MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
   int original_rank = world_rank, original_size = world_size;
   // Get the name of the processor
-  char processor_name[MPI_MAX_PROCESSOR_NAME] = {"test"};
-  //int name_len;
-  //MPI_Get_processor_name(processor_name, &name_len);
+  char processor_name[MPI_MAX_PROCESSOR_NAME] = { "test" };
+  // int name_len;
+  // MPI_Get_processor_name(processor_name, &name_len);
 
   MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
   MPI_Comm_size(MPI_COMM_WORLD, &world_size);

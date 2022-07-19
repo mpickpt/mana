@@ -8,15 +8,16 @@
   Source: http://mpi.deino.net/mpi_functions/MPI_Allreduce.html
 */
 
+#include <assert.h>
 #include <mpi.h>
 #include <stdio.h>
-#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 
 #define BUFFER_SIZE 1000
 
-int main(int argc, char *argv[])
+int
+main(int argc, char *argv[])
 {
   // Parse runtime argument
   int max_iterations = 10000; // default
@@ -25,7 +26,7 @@ int main(int argc, char *argv[])
   }
 
   int *in, *out, *sol;
-  int i, fnderr=0;
+  int i, fnderr = 0;
   int rank, size;
 
   MPI_Init(&argc, &argv);
@@ -43,15 +44,16 @@ int main(int argc, char *argv[])
   for (int iterations = 0; iterations < max_iterations; iterations++) {
     for (i = 0; i < BUFFER_SIZE; i++) {
       *(in + i) = i;
-      *(sol + i) = i*size;
+      *(sol + i) = i * size;
       *(out + i) = 0;
     }
-    int ret = MPI_Allreduce(in, out, BUFFER_SIZE, MPI_INT, MPI_SUM,
-                            MPI_COMM_WORLD);
+    int ret =
+      MPI_Allreduce(in, out, BUFFER_SIZE, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
     assert(ret == MPI_SUCCESS);
     for (i = 0; i < BUFFER_SIZE; i++) {
       printf("[Rank = %d] at index = %d: In = %d, Out = %d, Expected Out = %d\
-            \n", rank, i, *(in + i), *(out + i), *(sol + i));
+            \n",
+             rank, i, *(in + i), *(out + i), *(sol + i));
       fflush(stdout);
 
       assert((*(out + i) == *(sol + i)));

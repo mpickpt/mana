@@ -7,21 +7,22 @@
 
 */
 
+#include <assert.h>
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
-#include <assert.h>
 #include <string.h>
+#include <unistd.h>
 
 #define SLEEP_PER_ITERATION 5
 
 #define MPI_TEST
 #ifndef MPI_TEST
-# define MPI_WAIT
+#define MPI_WAIT
 #endif
 
-int main(int argc, char *argv[])
+int
+main(int argc, char *argv[])
 {
   // Parse runtime argument
   int max_iterations = 5; // default
@@ -34,9 +35,9 @@ int main(int argc, char *argv[])
   MPI_Status status;
   MPI_Request request = MPI_REQUEST_NULL;
 
-  MPI_Init(&argc,&argv);
-  MPI_Comm_size(MPI_COMM_WORLD,&numprocs);
-  MPI_Comm_rank(MPI_COMM_WORLD,&myid);
+  MPI_Init(&argc, &argv);
+  MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
+  MPI_Comm_rank(MPI_COMM_WORLD, &myid);
 
   if (myid == 0) {
     printf("Running test for %d iterations\n", max_iterations);
@@ -51,7 +52,9 @@ int main(int argc, char *argv[])
     while (1) {
       int flag = 0;
       MPI_Test(&request, &flag, &status);
-      if (flag) { break; }
+      if (flag) {
+        break;
+      }
     }
 #endif
 #ifdef MPI_WAIT

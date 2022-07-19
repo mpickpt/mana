@@ -7,13 +7,15 @@
 // Ping pong example with MPI_Send and MPI_Recv. Two processes ping pong a
 // number back and forth, incrementing it until it reaches a given value.
 //
+#include <assert.h>
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <assert.h>
 #include <unistd.h>
 
-int main(int argc, char** argv) {
+int
+main(int argc, char **argv)
+{
   const int PING_PONG_LIMIT = 10;
 
   // Initialize the MPI environment
@@ -31,29 +33,31 @@ int main(int argc, char** argv) {
   }
 
   int ping_pong_count = 0;
-  int partner_rank = world_rank % 2 == 0 ?
-                     (world_rank + 1) : (world_rank - 1);
+  int partner_rank = world_rank % 2 == 0 ? (world_rank + 1) : (world_rank - 1);
   while (ping_pong_count < PING_PONG_LIMIT) {
     if ((world_rank + ping_pong_count) % 2) {
       // Increment the ping pong count before you send it
       ping_pong_count++;
-      printf("[%d] Sending %d to %d\n",
-             world_rank, ping_pong_count, partner_rank); fflush(stdout);
+      printf("[%d] Sending %d to %d\n", world_rank, ping_pong_count,
+             partner_rank);
+      fflush(stdout);
       fflush(stdout);
       MPI_Send(&ping_pong_count, 1, MPI_INT, partner_rank, 0, MPI_COMM_WORLD);
-      printf("[%d] Sent ping_pong_count %d to %d\n",
-             world_rank, ping_pong_count, partner_rank); fflush(stdout);
+      printf("[%d] Sent ping_pong_count %d to %d\n", world_rank,
+             ping_pong_count, partner_rank);
+      fflush(stdout);
       fflush(stdout);
     } else {
-      printf("[%d] Receiving from %d\n",
-             world_rank, partner_rank); fflush(stdout);
+      printf("[%d] Receiving from %d\n", world_rank, partner_rank);
+      fflush(stdout);
       fflush(stdout);
       MPI_Recv(&ping_pong_count, 1, MPI_INT, partner_rank, 0, MPI_COMM_WORLD,
                MPI_STATUS_IGNORE);
       fflush(stdout);
       assert((world_rank + ping_pong_count) % 2 != 0);
-      printf("[%d] Received ping_pong_count %d from %d\n",
-             world_rank, ping_pong_count, partner_rank); fflush(stdout);
+      printf("[%d] Received ping_pong_count %d from %d\n", world_rank,
+             ping_pong_count, partner_rank);
+      fflush(stdout);
       fflush(stdout);
     }
     sleep(5);

@@ -7,17 +7,19 @@
 
 */
 
+#include <assert.h>
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <assert.h>
-#include <unistd.h>
 #include <string.h>
+#include <unistd.h>
 
 #define BUFFER_SIZE 100
 #define SLEEP_PER_ITERATION 5
 
-int main(int argc, char** argv) {
+int
+main(int argc, char **argv)
+{
   // Parse runtime argument
   int max_iterations = 5; // default
   if (argc != 1) {
@@ -51,7 +53,7 @@ int main(int argc, char** argv) {
       if (rank == myrank)
         continue;
       int ret = MPI_Send(&number, 1, MPI_INT, rank, 0, MPI_COMM_WORLD);
-      assert(number == 11223344+iterations);
+      assert(number == 11223344 + iterations);
       assert(ret == MPI_SUCCESS);
       printf("%d sent %d to %d\n", myrank, number, rank);
       fflush(stdout);
@@ -61,8 +63,8 @@ int main(int argc, char** argv) {
     for (rank = 0; rank < world_size; rank++) {
       if (rank == myrank)
         continue;
-      int ret = MPI_Irecv(&number, 1, MPI_INT, rank, 0,
-                          MPI_COMM_WORLD, &reqs[rank]);
+      int ret =
+        MPI_Irecv(&number, 1, MPI_INT, rank, 0, MPI_COMM_WORLD, &reqs[rank]);
       assert(ret == MPI_SUCCESS);
     }
     printf("%d sleeping\n", myrank);
@@ -91,4 +93,3 @@ int main(int argc, char** argv) {
 
   MPI_Finalize();
 }
-

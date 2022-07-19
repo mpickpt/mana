@@ -7,14 +7,15 @@
   Source: https://www.rookiehpc.com/mpi/docs/mpi_file_open.php
 */
 
+#include <assert.h>
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
-#include <assert.h>
+#include <unistd.h>
 
-int main (int argc, char *argv[])
+int
+main(int argc, char *argv[])
 {
   // Parse runtime argument
   int max_iterations = 10000; // default
@@ -29,11 +30,8 @@ int main (int argc, char *argv[])
   comm = MPI_COMM_WORLD;
 
   MPI_File handle;
-  access_mode = MPI_MODE_CREATE
-              | MPI_MODE_EXCL
-              | MPI_MODE_RDWR
-       	      | MPI_MODE_UNIQUE_OPEN
-              | MPI_MODE_DELETE_ON_CLOSE;
+  access_mode = MPI_MODE_CREATE | MPI_MODE_EXCL | MPI_MODE_RDWR |
+                MPI_MODE_UNIQUE_OPEN | MPI_MODE_DELETE_ON_CLOSE;
 
   for (int iterations = 0; iterations < max_iterations; iterations++) {
     int ret;
@@ -50,4 +48,3 @@ int main (int argc, char *argv[])
   MPI_Finalize();
   return 0;
 }
-

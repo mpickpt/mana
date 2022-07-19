@@ -6,12 +6,13 @@
   Intended to be run with mana_test.py
 */
 
-#include <stdio.h>
-#include <mpi.h>
 #include <assert.h>
+#include <mpi.h>
+#include <stdio.h>
 #include <stdlib.h>
 
-int main( int argc, char **argv )
+int
+main(int argc, char **argv)
 {
   // Parse runtime argument
   int max_iterations = 10000; // default
@@ -35,23 +36,23 @@ int main( int argc, char **argv )
 
   if (rank == 0) {
     for (i = 0; i < size; i++) {
-      send[i] = i+1;
+      send[i] = i + 1;
     }
   }
 
   for (int iterations = 0; iterations < max_iterations; iterations++) {
-    int ret = MPI_Scatter(&send, 1, MPI_INT, &recv,
-                          1, MPI_INT, 0, MPI_COMM_WORLD);
+    int ret =
+      MPI_Scatter(&send, 1, MPI_INT, &recv, 1, MPI_INT, 0, MPI_COMM_WORLD);
     assert(ret == MPI_SUCCESS);
 
     printf("rank = %d \t recv = %d\n", rank, recv);
     fflush(stdout);
-    assert(recv == rank+1);
+    assert(recv == rank + 1);
     MPI_Finalize();
 
     if (rank == 0) {
       for (i = 0; i < size; i++) {
-        send[i] = i+1;
+        send[i] = i + 1;
       }
     }
     recv = 0;

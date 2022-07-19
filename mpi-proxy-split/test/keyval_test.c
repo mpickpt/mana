@@ -6,23 +6,24 @@
   Intended to be run with mana_test.py
 */
 
+#include <assert.h>
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
-#include <assert.h>
+#include <unistd.h>
 
 
 #define BUFFER_SIZE 3
 #define SLEEP_PER_ITERATION 5
 
-int main(int argc, char *argv[])
+int
+main(int argc, char *argv[])
 {
   // Parse runtime argument
   int max_iterations = 5; // default
   if (argc != 1) {
-      max_iterations = atoi(argv[1]);
+    max_iterations = atoi(argv[1]);
   }
 
   int key[BUFFER_SIZE], attrval[BUFFER_SIZE];
@@ -30,7 +31,7 @@ int main(int argc, char *argv[])
   int flag;
   MPI_Comm comm;
 
-  MPI_Init( &argc, &argv );
+  MPI_Init(&argc, &argv);
   comm = MPI_COMM_WORLD;
   /* Create key values */
   for (i = 0; i < BUFFER_SIZE; i++) {
@@ -41,7 +42,7 @@ int main(int argc, char *argv[])
   for (int iterations = 0; iterations < max_iterations; iterations++) {
     int *val;
     for (int i = 0; i < BUFFER_SIZE; i++) {
-      attrval[i] = 100+i+iterations;
+      attrval[i] = 100 + i + iterations;
     }
     for (i = 0; i < BUFFER_SIZE; i++) {
       int ret = MPI_Comm_set_attr(comm, key[i], &attrval[i]);
@@ -64,8 +65,8 @@ int main(int argc, char *argv[])
     }
   }
 
-  for (i=0; i<BUFFER_SIZE; i++) {
-    MPI_Comm_free_keyval( &key[i] );
+  for (i = 0; i < BUFFER_SIZE; i++) {
+    MPI_Comm_free_keyval(&key[i]);
   }
 
   MPI_Finalize();

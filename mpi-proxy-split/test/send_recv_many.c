@@ -7,13 +7,15 @@
 // MPI_Send, MPI_Recv example. Communicates the number -1 from process 0
 // to processe 1.
 //
+#include <assert.h>
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <assert.h>
 #include <unistd.h>
 
-int main(int argc, char** argv) {
+int
+main(int argc, char **argv)
+{
   // Initialize the MPI environment
   MPI_Init(NULL, NULL);
   // Find out rank, size
@@ -30,8 +32,7 @@ int main(int argc, char** argv) {
 
   int rank = 0;
   int number = 11223344;
-  for (rank = 0; rank < world_size; rank++)
-  {
+  for (rank = 0; rank < world_size; rank++) {
     if (rank == world_rank)
       continue;
     MPI_Send(&number, 1, MPI_INT, rank, 0, MPI_COMM_WORLD);
@@ -39,9 +40,8 @@ int main(int argc, char** argv) {
   printf("%d sleeping\n", world_rank);
   fflush(stdout);
   sleep(5);
-  for (rank = 0; rank < world_size; rank++)
-  {
-    if(rank == world_rank)
+  for (rank = 0; rank < world_size; rank++) {
+    if (rank == world_rank)
       continue;
     MPI_Recv(&number, 1, MPI_INT, rank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     assert(number == 11223344);

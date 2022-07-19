@@ -8,14 +8,15 @@
   Source: http://mpi.deino.net/mpi_functions/MPI_Alltoall.html
 */
 
-#include <mpi.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <errno.h>
 #include <assert.h>
+#include <errno.h>
+#include <mpi.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-int main(int argc, char *argv[])
+int
+main(int argc, char *argv[])
 {
   // Parse runtime argument
   int max_iterations;
@@ -31,13 +32,13 @@ int main(int argc, char *argv[])
   int *rb;
   int status, gstatus, ret;
 
-  MPI_Init(&argc,&argv);
-  MPI_Comm_rank(MPI_COMM_WORLD,&rank);
-  MPI_Comm_size(MPI_COMM_WORLD,&size);
+  MPI_Init(&argc, &argv);
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &size);
   for (i = 1; i < argc; ++i) {
     if (argv[i][0] != '-')
       continue;
-    switch(argv[i][1]) {
+    switch (argv[i][1]) {
       case 'm':
         chunk = atoi(argv[++i]);
         break;
@@ -47,26 +48,26 @@ int main(int argc, char *argv[])
         MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
     }
   }
-  sb = (int *)malloc(size*chunk*sizeof(int));
+  sb = (int *)malloc(size * chunk * sizeof(int));
   if (!sb) {
     perror("can't allocate send buffer");
     fflush(stderr);
     MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
   }
-  rb = (int *)malloc(size*chunk*sizeof(int));
+  rb = (int *)malloc(size * chunk * sizeof(int));
   if (!rb) {
     perror("can't allocate recv buffer");
     fflush(stderr);
     free(sb);
     MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
   }
-  for (i = 0; i < size*chunk; ++i) {
+  for (i = 0; i < size * chunk; ++i) {
     sb[i] = rank + 1;
     rb[i] = 0;
   }
   for (int i = 0; i < max_iterations; i++) {
-    status = MPI_Alltoall(sb, chunk, MPI_INT, rb, chunk,
-                          MPI_INT, MPI_COMM_WORLD);
+    status =
+      MPI_Alltoall(sb, chunk, MPI_INT, rb, chunk, MPI_INT, MPI_COMM_WORLD);
 #ifdef DEBUG
     printf("[Rank = %d] Status = %d, size = %d, chunk = %d\n", rank, status,
            size, chunk);
@@ -74,8 +75,8 @@ int main(int argc, char *argv[])
 #endif
     ret = MPI_Allreduce(&status, &gstatus, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
     assert(ret == MPI_SUCCESS);
-    for (i = 0; i < size*chunk; ++i) {
-      assert(rb[i] == (int)(i/chunk) + 1);
+    for (i = 0; i < size * chunk; ++i) {
+      assert(rb[i] == (int)(i / chunk) + 1);
     }
     if (rank == 0) {
       if (gstatus != 0) {
@@ -84,8 +85,8 @@ int main(int argc, char *argv[])
         assert(gstatus == MPI_SUCCESS);
       }
     }
-    for (i = 0; i < size*chunk; ++i) {
-      assert(rb[i] == (int)(i/chunk) + 1);
+    for (i = 0; i < size * chunk; ++i) {
+      assert(rb[i] == (int)(i / chunk) + 1);
       rb[i] = 0; // clear the recv buffer
     }
 #ifdef DEBUG
@@ -97,5 +98,5 @@ int main(int argc, char *argv[])
   free(sb);
   free(rb);
   MPI_Finalize();
-  return(EXIT_SUCCESS);
+  return (EXIT_SUCCESS);
 }

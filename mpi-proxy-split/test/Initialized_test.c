@@ -7,12 +7,13 @@
 
 */
 
+#include <assert.h>
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <assert.h>
 
-int main( int argc, char *argv[] )
+int
+main(int argc, char *argv[])
 {
   // Parse runtime argument
   int max_iterations = 10000; // default

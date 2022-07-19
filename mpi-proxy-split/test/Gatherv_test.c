@@ -6,12 +6,13 @@
   Intended to be run with mana_test.py
 */
 
+#include <assert.h>
 #include <mpi.h>
 #include <stdio.h>
-#include <assert.h>
 #include <stdlib.h>
 
-int main(int argc, char *argv[])
+int
+main(int argc, char *argv[])
 {
   // Parse runtime argument
   int max_iterations = 10000; // default
@@ -27,11 +28,10 @@ int main(int argc, char *argv[])
   MPI_Init(&argc, &argv);
   MPI_Comm_size(MPI_COMM_WORLD, &size);
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  if (size != 4)
-  {
-    if (rank == 0)
-    {
-      printf("Please run with 4 processes\n");fflush(stdout);
+  if (size != 4) {
+    if (rank == 0) {
+      printf("Please run with 4 processes\n");
+      fflush(stdout);
     }
     MPI_Finalize();
     return 0;
@@ -45,14 +45,14 @@ int main(int argc, char *argv[])
     for (i = 0; i < rank; i++) {
       buffer[i] = rank;
     }
-    int expected_buf[6] = {1, 2, 2, 3, 3, 3};
+    int expected_buf[6] = { 1, 2, 2, 3, 3, 3 };
     int ret = MPI_Gatherv(buffer, rank, MPI_INT, buffer, receive_counts,
                           receive_displacements, MPI_INT, 0, MPI_COMM_WORLD);
     assert(ret == MPI_SUCCESS);
     if (rank == 0) {
       for (i = 0; i < 6; i++) {
-        printf("buffer[%d] = %d, expected = %d\n", i,
-                buffer[i], expected_buf[i]);
+        printf("buffer[%d] = %d, expected = %d\n", i, buffer[i],
+               expected_buf[i]);
         assert(buffer[i] == expected_buf[i]);
       }
       printf("\n");

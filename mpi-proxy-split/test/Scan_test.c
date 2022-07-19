@@ -6,12 +6,13 @@
   Intended to be run with mana_test.py
 */
 
+#include <assert.h>
 #include <mpi.h>
 #include <stdio.h>
-#include <assert.h>
 #include <stdlib.h>
 
-int main(int argc, char ** argv)
+int
+main(int argc, char **argv)
 {
   // Parse runtime argument
   int max_iterations = 10000; // default
@@ -36,8 +37,8 @@ int main(int argc, char ** argv)
     for (int i = 0; i <= rank; i++) {
       expected_sum += i;
     }
-    printf("[Rank %d] => recveived sum = %d, expected sum = %d\n",
-          rank, recv, expected_sum);
+    printf("[Rank %d] => recveived sum = %d, expected sum = %d\n", rank, recv,
+           expected_sum);
     fflush(stdout);
     assert(recv == expected_sum);
     recv = 0;

@@ -1,10 +1,12 @@
+#include <assert.h>
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <assert.h>
 #include <unistd.h>
 
-int main(int argc, char** argv) {
+int
+main(int argc, char **argv)
+{
   int data = 0;
   int recv_buf = 0;
   // Initialize the MPI environment
