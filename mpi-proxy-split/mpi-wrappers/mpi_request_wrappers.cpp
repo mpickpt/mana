@@ -81,6 +81,7 @@ USER_DEFINED_WRAPPER(int, Test, (MPI_Request*) request,
   if (*request != MPI_REQUEST_NULL && realRequest == MPI_REQUEST_NULL) {
     *flag = 1;
     REMOVE_OLD_REQUEST(*request);
+    *request = MPI_REQUEST_NULL;
     DMTCP_PLUGIN_ENABLE_CKPT();
     // FIXME: We should also fill in the status
     return MPI_SUCCESS;
