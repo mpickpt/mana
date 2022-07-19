@@ -1,12 +1,24 @@
 /*
-  Source: http://mpi.deino.net/mpi_functions/MPI_Gatherv.html
+  Test for the MPI_Gatherv method
+
+  Must run with 4 ranks
+  Defaults to 10000 iterations
+  Intended to be run with mana_test.py
 */
+
 #include <mpi.h>
 #include <stdio.h>
 #include <assert.h>
+#include <stdlib.h>
 
 int main(int argc, char *argv[])
 {
+  // Parse runtime argument
+  int max_iterations = 10000; // default
+  if (argc != 1) {
+    max_iterations = atoi(argv[1]);
+  }
+
   int buffer[6];
   int rank, size, i;
   int receive_counts[4] = { 0, 1, 2, 3 };
@@ -24,27 +36,28 @@ int main(int argc, char *argv[])
     MPI_Finalize();
     return 0;
   }
-  /*
-    Rank 0: Buffer[] = {0, 0, 0, 0, 0, 0} recv_count = 0, root-recv = []
-    Rank 1: Buffer[] = {1, 1, 1, 1, 1, 1} recv_count = 1, displs = 0, root-recv = [1]
-    Rank 2: Buffer[] = {2, 2, 2, 2, 2, 2} recv_count = 2, displs = 1, root-recv = [2, 2]
-    Rank 3: Buffer[] = {3, 3, 3, 3, 3, 3} recv_count = 3, displs = 3, root-recv = [3, 3, 3]
-  */
-  for (i=0; i<rank; i++)
-  {
-    buffer[i] = rank;
+
+  if (rank == 0) {
+    printf("Running test for %d iterations\n", max_iterations);
   }
-  int expected_buf[6] = {1, 2, 2, 3, 3, 3};
-  MPI_Gatherv(buffer, rank, MPI_INT, buffer, receive_counts, receive_displacements, MPI_INT, 0, MPI_COMM_WORLD);
-  if (rank == 0)
-  {
-    for (i=0; i < 6; i++)
-    {
-      printf("buffer[%d] = %d, expected = %d\n", i, buffer[i], expected_buf[i]);
-      assert(buffer[i] == expected_buf[i]);
+
+  for (int iterations = 0; iterations<max_iterations; iterations++) {
+    for (i = 0; i < rank; i++) {
+      buffer[i] = rank;
     }
-    printf("\n");
-    fflush(stdout);
+    int expected_buf[6] = {1, 2, 2, 3, 3, 3};
+    int ret = MPI_Gatherv(buffer, rank, MPI_INT, buffer, receive_counts,
+                          receive_displacements, MPI_INT, 0, MPI_COMM_WORLD);
+    assert(ret == MPI_SUCCESS);
+    if (rank == 0) {
+      for (i = 0; i < 6; i++) {
+        printf("buffer[%d] = %d, expected = %d\n", i,
+                buffer[i], expected_buf[i]);
+        assert(buffer[i] == expected_buf[i]);
+      }
+      printf("\n");
+      fflush(stdout);
+    }
   }
   MPI_Finalize();
   return 0;

@@ -24,14 +24,21 @@ DEMO_PORT=7787
 #       Comm_get_attr_test
 ## Reordering the tests:
 FILES=mpi_hello_world \
+<<<<<<< HEAD
+      hello_mpi_init_thread Sendrecv_test Gatherv_test \
+      keyval_test file_test Scatterv_test Gather_test \
+      ping_pong Comm_dup_test Scan_test Scatter_test \
+      Comm_get_attr_test Initialized_test Cart_sub_test\
+=======
       hello_mpi_init_thread Sendrecv_test \
       keyval_test file_test \
       send_recv send_recv_many ping_pong Comm_dup_test \
       multi_send_recv Comm_get_attr_test \
+>>>>>>> 136381f... Updated tests, cleaned up formatting, added argument parsing util
       Barrier_test Bcast_test Comm_split_test Reduce_test \
       Waitall_test Waitany_test Testany_test \
-      two-phase-commit-1 two-phase-commit-2 \
-      Ibcast_test Ibarrier_test Isend_test \
+      two-phase-commit-1 two-phase-commit-2 Cartdim_get_test \
+      Ibcast_test Ibarrier_test Isend_test Cart_map_test \
       Abort_test Allreduce_test Alltoall_test Alltoallv_test \
       Allgather_test Group_size_rank Type_commit_contiguous \
       Irecv_test Alloc_mem sendrecv_replace_test \
