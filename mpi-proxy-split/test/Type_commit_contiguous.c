@@ -8,17 +8,18 @@
   Source: http://mpi.deino.net/mpi_functions/MPI_Type_commit.html
 */
 
+#include <assert.h>
 #include <mpi.h>
 #include <stdio.h>
-#include <unistd.h>
-#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #define BUFFER_SIZE 100
 #define NUM_RANKS 4
 
-int main(int argc, char *argv[])
+int
+main(int argc, char *argv[])
 {
   // Parse runtime argument
   int max_iterations = 10000; // default
@@ -47,12 +48,11 @@ int main(int argc, char *argv[])
       buffer[i] = i + iterations;
     }
     if (myrank == 0) {
-      int ret = MPI_Send(buffer, 1, type, 1, 123+iterations, MPI_COMM_WORLD);
+      int ret = MPI_Send(buffer, 1, type, 1, 123 + iterations, MPI_COMM_WORLD);
       assert(ret == MPI_SUCCESS);
-    }
-    else if (myrank == 1) {
-      int ret = MPI_Recv(buf, 1, type, 0, 123+iterations, MPI_COMM_WORLD,
-                         &status);
+    } else if (myrank == 1) {
+      int ret =
+        MPI_Recv(buf, 1, type, 0, 123 + iterations, MPI_COMM_WORLD, &status);
       assert(ret == MPI_SUCCESS);
       for (int i = 0; i < BUFFER_SIZE; i++) {
         assert(buffer[i] == buf[i]);

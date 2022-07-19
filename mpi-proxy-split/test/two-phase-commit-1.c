@@ -9,17 +9,18 @@
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
+#include <unistd.h>
 
 #define SLEEP_PER_ITERATION 1
 
-int main( int argc, char *argv[] )
+int
+main(int argc, char *argv[])
 {
   // Parse runtime argument
   int max_iterations = 30;
   if (argc != 1) {
-      max_iterations = atoi(argv[1]);
+    max_iterations = atoi(argv[1]);
   }
 
   int provided, flag, claimed;
@@ -45,11 +46,11 @@ int main( int argc, char *argv[] )
     MPI_Finalize();
     return 1;
   }
-  int group1_ranks[] = {0, 1};
+  int group1_ranks[] = { 0, 1 };
   int group2_ranks[10000];
-  int i,j;
+  int i, j;
   for (i = 1; i < nprocs; i++) {
-    group2_ranks[i-1] = i;
+    group2_ranks[i - 1] = i;
   }
 
   MPI_Group world_group;
@@ -57,7 +58,7 @@ int main( int argc, char *argv[] )
   MPI_Group group2;
   MPI_Comm_group(MPI_COMM_WORLD, &world_group);
   MPI_Group_incl(world_group, 2, group1_ranks, &group1);
-  MPI_Group_incl(world_group, nprocs-1, group2_ranks, &group2);
+  MPI_Group_incl(world_group, nprocs - 1, group2_ranks, &group2);
 
   MPI_Comm comm1; // Set to MPI_COMM_NULL by default.
   MPI_Comm comm2; // Set to MPI_COMM_NULL by default.

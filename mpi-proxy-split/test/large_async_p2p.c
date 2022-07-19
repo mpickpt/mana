@@ -6,21 +6,23 @@
   Intended to be run with mana_test.py
 */
 
+#include <assert.h>
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <assert.h>
-#include <unistd.h>
 #include <string.h>
+#include <unistd.h>
 
-#define MSG_SIZE 256*1024 // large message
+#define MSG_SIZE 256 * 1024 // large message
 #define SLEEP_PER_ITERATION 5
 
-int main(int argc, char** argv) {
+int
+main(int argc, char **argv)
+{
   // Parse runtime argument
   int max_iterations = 5; // default
   if (argc != 1) {
-      max_iterations = atoi(argv[1]);
+    max_iterations = atoi(argv[1]);
   }
 
   char *data = malloc(MSG_SIZE);
@@ -46,7 +48,7 @@ int main(int argc, char** argv) {
 
   for (int iterations = 0; iterations < max_iterations; iterations++) {
     for (int i = 0; i < MSG_SIZE; i++) {
-      data[i] = i+iterations;
+      data[i] = i + iterations;
     }
     if (world_rank == 0) {
       printf("Rank 0 sleeping\n");
@@ -54,8 +56,8 @@ int main(int argc, char** argv) {
       sleep(SLEEP_PER_ITERATION);
       printf("Rank 0 draining from rank 1\n");
       fflush(stdout);
-      int ret = MPI_Irecv(recv_buf, MSG_SIZE, MPI_BYTE, 1, 0,
-                          MPI_COMM_WORLD, &req);
+      int ret =
+        MPI_Irecv(recv_buf, MSG_SIZE, MPI_BYTE, 1, 0, MPI_COMM_WORLD, &req);
       assert(ret == MPI_SUCCESS);
       ret = MPI_Wait(&req, MPI_STATUSES_IGNORE);
       assert(ret == MPI_SUCCESS);

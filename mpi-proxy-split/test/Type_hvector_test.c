@@ -11,16 +11,17 @@
 
 #define _POSIX_C_SOURCE 199309L
 
+#include <assert.h>
 #include <mpi.h>
 #include <stdio.h>
-#include <assert.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
+#include <unistd.h>
 
 #define BUFFER_SIZE 100
 
-int main(int argc, char ** argv)
+int
+main(int argc, char **argv)
 {
   // Parse runtime argument
   int max_iterations = 10000; // default
@@ -41,29 +42,28 @@ int main(int argc, char ** argv)
   assert(comm_size == 2);
 
   MPI_Datatype column_type;
-  MPI_Type_hvector(BUFFER_SIZE, 1, BUFFER_SIZE * sizeof(int),
-                   MPI_INT, &column_type);
+  MPI_Type_hvector(BUFFER_SIZE, 1, BUFFER_SIZE * sizeof(int), MPI_INT,
+                   &column_type);
   MPI_Type_commit(&column_type);
   int buffer[BUFFER_SIZE][BUFFER_SIZE];
   int recvbuf[BUFFER_SIZE];
   int expected_output[BUFFER_SIZE][BUFFER_SIZE];
   for (int i = 0; i < max_iterations; i++) {
     if (i % 100 == 99) {
-      printf("Completed %d iterations\n", i+1);
+      printf("Completed %d iterations\n", i + 1);
       fflush(stdout);
     }
     for (int j = 0; j < BUFFER_SIZE; j++) {
       for (int k = 0; k < BUFFER_SIZE; k++) {
-        buffer[j][k] = j+k+i;
-        expected_output[j][k] = j+k+i;
+        buffer[j][k] = j + k + i;
+        expected_output[j][k] = j + k + i;
       }
     }
 
     if (rank == 0) {
       int ret = MPI_Send(&buffer[0][1], 1, column_type, 1, 0, MPI_COMM_WORLD);
       assert(ret == MPI_SUCCESS);
-    }
-    else {
+    } else {
       int ret = MPI_Recv(&recvbuf, BUFFER_SIZE, MPI_INT, 0, 0, MPI_COMM_WORLD,
                          MPI_STATUS_IGNORE);
       assert(ret == MPI_SUCCESS);

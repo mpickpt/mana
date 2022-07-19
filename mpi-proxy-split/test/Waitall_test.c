@@ -8,23 +8,24 @@
   Source: http://mpi.deino.net/mpi_functions/MPI_Waitall.html
 */
 
+#include <assert.h>
 #include <mpi.h>
 #include <stdio.h>
-#include <unistd.h>
-#include <assert.h>
-#include <string.h>
 #include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
 #define BUFFER_SIZE 100
 #define SLEEP_PER_ITERATION 5
 #define NUM_RANKS 4
 
-int main(int argc, char *argv[])
+int
+main(int argc, char *argv[])
 {
   // Parse runtime argument
-  int max_iterations = 5;  // default
+  int max_iterations = 5; // default
   if (argc != 1) {
-      max_iterations = atoi(argv[1]);
+    max_iterations = atoi(argv[1]);
   }
 
   int rank, size;
@@ -44,27 +45,25 @@ int main(int argc, char *argv[])
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
   if (rank == 0) {
-      printf("Running test for %d iterations\n", max_iterations);
+    printf("Running test for %d iterations\n", max_iterations);
   }
 
   for (int iterations = 0; iterations < max_iterations; iterations++) {
-    if (rank == 0)
-    {
+    if (rank == 0) {
       for (i = 0; i < size * BUFFER_SIZE; i++)
-        buffer[i] = i/BUFFER_SIZE + iterations;
-      for (i = 0; i < size-1; i++) {
-        int ret = MPI_Isend(&buffer[i*BUFFER_SIZE], BUFFER_SIZE,
-                            MPI_INT, i+1, 123+iterations,
-                            MPI_COMM_WORLD, &request[i]);
+        buffer[i] = i / BUFFER_SIZE + iterations;
+      for (i = 0; i < size - 1; i++) {
+        int ret =
+          MPI_Isend(&buffer[i * BUFFER_SIZE], BUFFER_SIZE, MPI_INT, i + 1,
+                    123 + iterations, MPI_COMM_WORLD, &request[i]);
         assert(ret == MPI_SUCCESS);
       }
-      MPI_Waitall(size-1, request, status);
+      MPI_Waitall(size - 1, request, status);
       sleep(SLEEP_PER_ITERATION);
-    }
-    else {
+    } else {
       sleep(SLEEP_PER_ITERATION);
-      int ret = MPI_Recv(buffer, BUFFER_SIZE, MPI_INT, 0, 123+iterations,
-                          MPI_COMM_WORLD, &status[0]);
+      int ret = MPI_Recv(buffer, BUFFER_SIZE, MPI_INT, 0, 123 + iterations,
+                         MPI_COMM_WORLD, &status[0]);
       assert(ret == MPI_SUCCESS);
       printf("%d: buffer[0] = %d\n", rank, buffer[0]);
       fflush(stdout);

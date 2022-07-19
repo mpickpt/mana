@@ -5,17 +5,18 @@
   Intended to be run with mana_test.py
 */
 
+#include <assert.h>
 #include <mpi.h>
 #include <stdio.h>
-#include <unistd.h>
-#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #define CHAR_COUNT 100
 #define SLEEP_PER_ITERATION 2
 
-int main(int argc, char *argv[])
+int
+main(int argc, char *argv[])
 {
   // Parse runtime argument
   int max_iterations = 15; // default

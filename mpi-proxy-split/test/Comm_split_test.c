@@ -8,17 +8,19 @@
   Source: www.mpitutorial.com
 */
 
-#include <mpi.h>
-#include <stdlib.h>
-#include <stdio.h>
 #include <assert.h>
-#include <unistd.h>
+#include <mpi.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #define NUM_RANKS 4
 #define SLEEP_PER_ITERATION 0.5
 
-int main(int argc, char **argv) {
+int
+main(int argc, char **argv)
+{
   // Parse runtime argument
   int max_iterations = 60; // default
   if (argc != 1) {
@@ -38,7 +40,8 @@ int main(int argc, char **argv) {
 
   if (world_size % NUM_RANKS != 0) {
     fprintf(stderr, "World size should be multiple \
-      of %d for %s\n", NUM_RANKS, argv[0]);
+      of %d for %s\n",
+            NUM_RANKS, argv[0]);
     MPI_Abort(MPI_COMM_WORLD, 1);
   }
   int color = world_rank / NUM_RANKS; // Determine color based on row
@@ -57,8 +60,8 @@ int main(int argc, char **argv) {
     MPI_Comm_size(row_comm, &row_size);
     assert(row_size == NUM_RANKS);
     assert(row_rank == world_rank % NUM_RANKS);
-    printf("WORLD RANK/SIZE: %d/%d --- ROW RANK/SIZE: %d/%d\n",
-           world_rank, world_size, row_rank, row_size);
+    printf("WORLD RANK/SIZE: %d/%d --- ROW RANK/SIZE: %d/%d\n", world_rank,
+           world_size, row_rank, row_size);
     fflush(stdout);
   }
 

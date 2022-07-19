@@ -8,12 +8,12 @@
   Source: https://www.rookiehpc.com/mpi/docs/mpi_testany.php
 */
 
+#include <assert.h>
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <assert.h>
-#include <unistd.h>
 #include <string.h>
+#include <unistd.h>
 
 #define SLEEP_PER_ITERATION 5
 
@@ -42,7 +42,8 @@
  * flow to make sure it exposes the different cases mentioned above when the
  * MPI_Testany are called.)
  **/
-int main(int argc, char* argv[])
+int
+main(int argc, char *argv[])
 {
   // Parse runtime argument
   int max_iterations = 6;
@@ -67,13 +68,12 @@ int main(int argc, char* argv[])
   if (my_rank == 0) {
     printf("Running test for %d iterations\n", max_iterations);
   }
-  int buffer[2] = {12345, 67890};
+  int buffer[2] = { 12345, 67890 };
 
   for (int iterations = 0; iterations < max_iterations; iterations++) {
-    buffer[0]+=iterations;
+    buffer[0] += iterations;
     buffer[1]++;
-    if (my_rank == 0)
-    {
+    if (my_rank == 0) {
       // The "master" MPI process sends the messages.
       int count = 2;
       MPI_Request requests[2];
@@ -99,8 +99,7 @@ int main(int argc, char* argv[])
       if (ready) {
         printf("MPI_Isend to process %d completed.\n", index + 1);
         fflush(stdout);
-      }
-      else {
+      } else {
         printf("None of the MPI_Isend completed for now.\n");
         fflush(stdout);
       }
@@ -117,8 +116,7 @@ int main(int argc, char* argv[])
         printf("MPI_Isend to process %d completed.\n",
                recipient_rank_of_request[index]);
         fflush(stdout);
-      }
-      else {
+      } else {
         printf("None of the MPI_Isend completed for now.\n");
         fflush(stdout);
       }
@@ -133,16 +131,13 @@ int main(int argc, char* argv[])
       MPI_Testany(count, requests, &index, &ready, MPI_STATUS_IGNORE);
       if (ready) {
         printf("MPI_Isend to process %d completed.\n",
-                recipient_rank_of_request[index]);
+               recipient_rank_of_request[index]);
         fflush(stdout);
-      }
-      else {
+      } else {
         printf("None of the MPI_Isend completed for now.\n");
         fflush(stdout);
       }
-    }
-    else
-    {
+    } else {
       // The "slave" MPI processes receive the messages.
 
       // Wait until the first MPI_Testany is issued.
@@ -150,7 +145,8 @@ int main(int argc, char* argv[])
 
       if (my_rank == 1) {
         int received;
-        MPI_Recv(&received, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        MPI_Recv(&received, 1, MPI_INT, 0, 0, MPI_COMM_WORLD,
+                 MPI_STATUS_IGNORE);
         printf("[Process %d] Received value %d.\n", my_rank, received);
         fflush(stdout);
         assert(received == buffer[0]);
@@ -164,7 +160,8 @@ int main(int argc, char* argv[])
 
       if (my_rank == 2) {
         int received;
-        MPI_Recv(&received, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        MPI_Recv(&received, 1, MPI_INT, 0, 0, MPI_COMM_WORLD,
+                 MPI_STATUS_IGNORE);
         printf("[Process %d] Received value %d.\n", my_rank, received);
         fflush(stdout);
         assert(received == buffer[1]);
@@ -199,8 +196,7 @@ int main(int argc, char* argv[])
       if (ready) {
         printf("MPI_Isend to process %d completed.\n", index + 1);
         fflush(stdout);
-      }
-      else {
+      } else {
         printf("None of the MPI_Isend completed for now.\n");
         fflush(stdout);
       }
@@ -217,8 +213,7 @@ int main(int argc, char* argv[])
         printf("MPI_Isend to process %d completed.\n",
                recipient_rank_of_request[index]);
         fflush(stdout);
-      }
-      else {
+      } else {
         printf("None of the MPI_Isend completed for now.\n");
         fflush(stdout);
       }
@@ -235,13 +230,11 @@ int main(int argc, char* argv[])
         printf("MPI_Isend to process %d completed.\n",
                recipient_rank_of_request[index]);
         fflush(stdout);
-      }
-      else {
+      } else {
         printf("None of the MPI_Isend completed for now.\n");
         fflush(stdout);
       }
-    }
-    else {
+    } else {
       // The "slave" MPI processes receive the messages.
       // Wait until the first MPI_Testany is issued.
       MPI_Barrier(MPI_COMM_WORLD);
@@ -264,7 +257,7 @@ int main(int argc, char* argv[])
       if (my_rank == 2) {
         int received;
         MPI_Recv(&received, 1, MPI_INT, 0, 0, MPI_COMM_WORLD,
-                MPI_STATUS_IGNORE);
+                 MPI_STATUS_IGNORE);
         printf("[Process %d] Received value %d.\n", my_rank, received);
         fflush(stdout);
         assert(received == buffer[1]);

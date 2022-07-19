@@ -7,12 +7,14 @@
 // MPI_Send, MPI_Recv example. Communicates the number -1 from process 0
 // to processe 1.
 //
+#include <assert.h>
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <assert.h>
 
-int main(int argc, char** argv) {
+int
+main(int argc, char **argv)
+{
   // Initialize the MPI environment
   MPI_Init(NULL, NULL);
   // Find out rank, size

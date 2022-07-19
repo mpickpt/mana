@@ -7,13 +7,14 @@
 
   Source: http://mpi.deino.net/mpi_functions/MPI_Cart_coords.html
 */
-#include<mpi.h>
-#include<stdio.h>
-#include<assert.h>
+#include <assert.h>
+#include <mpi.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 /* A two-dimensional torus of 12 processes in a 4x3 grid */
-int main(int argc, char *argv[])
+int
+main(int argc, char *argv[])
 {
   // Parse runtime argument
   int max_iterations = 10000; // default
@@ -29,9 +30,9 @@ int main(int argc, char *argv[])
   MPI_Init(&argc, &argv);
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &size);
-  if (size != 12)
-  {
-    printf("Please run with 12 processes.\n");fflush(stdout);
+  if (size != 12) {
+    printf("Please run with 12 processes.\n");
+    fflush(stdout);
     MPI_Abort(MPI_COMM_WORLD, 1);
   }
 
@@ -39,12 +40,14 @@ int main(int argc, char *argv[])
     printf("Running test for %d iterations\n", max_iterations);
   }
 
-  dim[0]=4; dim[1]=3;
-  period[0]=1; period[1]=0;
-  reorder=1;
+  dim[0] = 4;
+  dim[1] = 3;
+  period[0] = 1;
+  period[1] = 0;
+  reorder = 1;
   int ret = MPI_Cart_create(MPI_COMM_WORLD, 2, dim, period, reorder, &comm);
   assert(ret == MPI_SUCCESS);
-  for (int iterations = 0; iterations<max_iterations; iterations++) {
+  for (int iterations = 0; iterations < max_iterations; iterations++) {
     int ndims = 0;
     ret = MPI_Cartdim_get(comm, &ndims);
     assert(ret == MPI_SUCCESS);

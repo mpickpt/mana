@@ -7,17 +7,18 @@
 
   Source: http://mpi.deino.net/mpi_functions/MPI_Reduce.html
 */
-#include "mpi.h"
+#include <assert.h>
+#include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <assert.h>
-#include <unistd.h>
 #include <string.h>
+#include <unistd.h>
 
 #define BUFFER_SIZE 100
 
 /* A simple test of Reduce with all choices of root process */
-int main(int argc, char *argv[])
+int
+main(int argc, char *argv[])
 {
   // Parse runtime argument
   int max_iterations = 10000; // default
@@ -41,24 +42,24 @@ int main(int argc, char *argv[])
     printf("Running test for %d iterations\n", max_iterations);
   }
 
-  for (int iterations = 0; iterations<max_iterations; iterations++) {
+  for (int iterations = 0; iterations < max_iterations; iterations++) {
     for (count = 1; count < 10; count = count * 2) {
       sendbuf = (int *)malloc(count * sizeof(int));
       recvbuf = (int *)malloc(count * sizeof(int));
-      for (root = 0; root < size; root ++) {
+      for (root = 0; root < size; root++) {
         for (i = 0; i < count; i++)
-          sendbuf[i] = i+iterations;
+          sendbuf[i] = i + iterations;
         for (i = 0; i < count; i++)
           recvbuf[i] = -1;
-        int ret = MPI_Reduce(sendbuf, recvbuf, count, MPI_INT, MPI_SUM, root,
-                             comm);
+        int ret =
+          MPI_Reduce(sendbuf, recvbuf, count, MPI_INT, MPI_SUM, root, comm);
         assert(ret == MPI_SUCCESS);
         if (rank == root) {
           for (i = 0; i < count; i++) {
             printf("[Rank = %d]: recvd = %d, expected = %d\n", rank, recvbuf[i],
-                   (i+iterations) * size);
+                   (i + iterations) * size);
             fflush(stdout);
-            assert(recvbuf[i] == (i+iterations) * size);
+            assert(recvbuf[i] == (i + iterations) * size);
           }
         }
       }

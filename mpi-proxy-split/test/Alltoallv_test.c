@@ -7,12 +7,12 @@
 
   Source: http://mpi.deino.net/mpi_functions/MPI_Alltoallv.html
 */
+#include <assert.h>
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
-#include <assert.h>
 #include <string.h>
+#include <unistd.h>
 
 #define BUFFER_SIZE 100
 
@@ -21,7 +21,8 @@
    amounts of data to each processor.
    The first test sends i items to processor i from all processors.
  */
-int main(int argc, char **argv)
+int
+main(int argc, char **argv)
 {
   // Parse runtime argument
   int max_iterations = 10000; // default
@@ -49,21 +50,22 @@ int main(int argc, char **argv)
   sbuf = (int *)malloc(size * size * sizeof(int));
   rbuf = (int *)malloc(size * size * sizeof(int));
   if (!sbuf || !rbuf) {
-    fprintf( stderr, "Could not allocated buffers!\n" );
+    fprintf(stderr, "Could not allocated buffers!\n");
     MPI_Abort(comm, 1);
   }
   /* Load up the buffers */
-  for (i = 0; i < size*size; i++) {
-    sbuf[i] = i + BUFFER_SIZE*rank;
+  for (i = 0; i < size * size; i++) {
+    sbuf[i] = i + BUFFER_SIZE * rank;
     rbuf[i] = -i;
   }
   /* Create and load the arguments to alltoallv */
   sendcounts = (int *)malloc(size * sizeof(int));
   recvcounts = (int *)malloc(size * sizeof(int));
-  rdispls = (int *)malloc( size * sizeof(int));
-  sdispls = (int *)malloc( size * sizeof(int));
+  rdispls = (int *)malloc(size * sizeof(int));
+  sdispls = (int *)malloc(size * sizeof(int));
   if (!sendcounts || !recvcounts || !rdispls || !sdispls) {
-    fprintf(stderr, "Could not allocate arg items!\n" );fflush(stderr);
+    fprintf(stderr, "Could not allocate arg items!\n");
+    fflush(stderr);
     MPI_Abort(comm, 1);
   }
 
@@ -72,7 +74,7 @@ int main(int argc, char **argv)
       sendcounts[i] = i;
       recvcounts[i] = rank;
       rdispls[i] = i * rank;
-      sdispls[i] = (i * (i+1))/2;
+      sdispls[i] = (i * (i + 1)) / 2;
     }
     int ret = MPI_Alltoallv(sbuf, sendcounts, sdispls, MPI_INT, rbuf,
                             recvcounts, rdispls, MPI_INT, comm);
@@ -81,18 +83,17 @@ int main(int argc, char **argv)
     for (i = 0; i < size; i++) {
       p = rbuf + rdispls[i];
       for (j = 0; j < rank; j++) {
-        if (p[j] != i * BUFFER_SIZE + (rank*(rank+1))/2 + j) {
-          int exp = (i*(i+1))/2 + j;
-          fprintf(stderr, "[%d] got %d expected %d for %dth\n",
-                  rank, p[j], exp, j);
+        if (p[j] != i * BUFFER_SIZE + (rank * (rank + 1)) / 2 + j) {
+          int exp = (i * (i + 1)) / 2 + j;
+          fprintf(stderr, "[%d] got %d expected %d for %dth\n", rank, p[j], exp,
+                  j);
           fflush(stderr);
           err++;
-          assert(p[j] == i * BUFFER_SIZE + (rank*(rank+1))/2 + j);
-        }
-        else {
-          int expected = i * BUFFER_SIZE + (rank*(rank+1))/2 + j;
-          fprintf(stdout, "[%d]=> got %d expected %d for %dth\n",
-                  rank, p[j], expected, j);
+          assert(p[j] == i * BUFFER_SIZE + (rank * (rank + 1)) / 2 + j);
+        } else {
+          int expected = i * BUFFER_SIZE + (rank * (rank + 1)) / 2 + j;
+          fprintf(stdout, "[%d]=> got %d expected %d for %dth\n", rank, p[j],
+                  expected, j);
           fflush(stdout);
         }
       }

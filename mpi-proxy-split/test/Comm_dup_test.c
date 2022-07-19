@@ -9,16 +9,17 @@
   Source: http://mpi.deino.net/mpi_functions/MPI_Comm_dup.html
 */
 
+#include <assert.h>
 #include <mpi.h>
 #include <stdio.h>
-#include <unistd.h>
-#include <string.h>
 #include <stdlib.h>
-#include <assert.h>
+#include <string.h>
+#include <unistd.h>
 
 #define SLEEP_PER_ITERATION 5
 
-int main(int argc, char* argv[] )
+int
+main(int argc, char *argv[])
 {
   // Parse runtime argument
   int max_iterations = 5; // default
@@ -50,9 +51,9 @@ int main(int argc, char* argv[] )
 
     MPI_Comm_rank(world_comm, &rank);
     if (rank != world_rank) {
-        printf( "incorrect rank in world comm: %d\n", rank );
-        fflush(stdout);
-        MPI_Abort(MPI_COMM_WORLD, 3001);
+      printf("incorrect rank in world comm: %d\n", rank);
+      fflush(stdout);
+      MPI_Abort(MPI_COMM_WORLD, 3001);
     }
     printf("[Rank %d] \n", rank);
     fflush(stdout);

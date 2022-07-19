@@ -8,14 +8,15 @@
   Source: http://mpi.deino.net/mpi_functions/MPI_Group_size.html
 */
 
+#include <assert.h>
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <assert.h>
-#include <unistd.h>
 #include <string.h>
+#include <unistd.h>
 
-int main(int argc, char **argv)
+int
+main(int argc, char **argv)
 {
   // Parse runtime argument
   int max_iterations = 10000; // default
@@ -23,7 +24,7 @@ int main(int argc, char **argv)
     max_iterations = atoi(argv[1]);
   }
 
-  int errs=0, toterr;
+  int errs = 0, toterr;
   MPI_Group basegroup;
   MPI_Comm comm;
   int grp_rank, rank, grp_size, size;
@@ -40,20 +41,20 @@ int main(int argc, char **argv)
     printf("Running test for %d iterations\n", max_iterations);
   }
 
-  for (int iterations = 0; iterations<max_iterations; iterations++) {
+  for (int iterations = 0; iterations < max_iterations; iterations++) {
     /* Get the basic information on this group */
-    int ret = MPI_Group_rank( basegroup, &grp_rank);
+    int ret = MPI_Group_rank(basegroup, &grp_rank);
     assert(ret == MPI_SUCCESS);
     if (grp_rank != rank) {
       errs++;
       fprintf(stdout, "group rank %d != comm rank %d\n", grp_rank, rank);
       fflush(stdout);
     }
-    ret = MPI_Group_size( basegroup, &grp_size );
+    ret = MPI_Group_size(basegroup, &grp_size);
     assert(ret == MPI_SUCCESS);
     if (grp_size != size) {
       errs++;
-      fprintf( stdout, "group size %d != comm size %d\n", grp_size, size);
+      fprintf(stdout, "group size %d != comm size %d\n", grp_size, size);
       fflush(stdout);
     }
     assert(errs == 0);

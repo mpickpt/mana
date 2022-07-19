@@ -7,17 +7,19 @@
 
   Source: www.mpitutorial.com
 */
+#include <assert.h>
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <assert.h>
-#include <unistd.h>
 #include <string.h>
+#include <unistd.h>
 
 #define SLEEP_PER_ITERATION 5
 #define MESSAGES_PER_ITERATION 10
 
-int main(int argc, char** argv) {
+int
+main(int argc, char **argv)
+{
   // Parse runtime argument
   int max_iterations = 5; // default
   if (argc != 1) {
@@ -56,8 +58,7 @@ int main(int argc, char** argv) {
         printf("Rank 0 have successfully sent %d messages to rank 1\n", i + 1);
         fflush(stdout);
       }
-    }
-    else if (world_rank == 1) {
+    } else if (world_rank == 1) {
       // rank 1 receive message from 0 first and then 2
       int number = 0;
       for (int i = 0; i < MESSAGES_PER_ITERATION; i++) {
@@ -66,15 +67,14 @@ int main(int argc, char** argv) {
                  MPI_STATUS_IGNORE);
         assert(number == recv_number);
         MPI_Recv(&recv_number, 1, MPI_INT, 2, 0, MPI_COMM_WORLD,
-                MPI_STATUS_IGNORE);
+                 MPI_STATUS_IGNORE);
         assert(number == recv_number);
         number++;
         MPI_Barrier(MPI_COMM_WORLD);
         printf("Rank 1 have successfully received %d messages\n", (i + 1) * 2);
         fflush(stdout);
       }
-    }
-    else {
+    } else {
       // rank 2 send messages to rank 1 right away
       int number = 0;
       for (int i = 0; i < MESSAGES_PER_ITERATION; i++) {

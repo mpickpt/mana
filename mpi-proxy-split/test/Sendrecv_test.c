@@ -6,19 +6,21 @@
   Intended to be run with mana_test.py
 
 */
+#include <assert.h>
+#include <getopt.h>
+#include <limits.h>
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <assert.h>
-#include <unistd.h>
-#include <limits.h>
-#include <time.h>
-#include <getopt.h>
 #include <string.h>
+#include <time.h>
+#include <unistd.h>
 
 #define BUFFER_SIZE 3
 
-int main(int argc, char** argv) {
+int
+main(int argc, char **argv)
+{
   // Parse runtime argument
   int max_iterations;
   max_iterations = 100000;
@@ -55,19 +57,18 @@ int main(int argc, char** argv) {
   for (int iterations = 0; iterations < max_iterations; iterations++) {
     for (int i = 0; i < BUFFER_SIZE; i++) {
       sendbuf[i] = iterations + rank + i;
-      exp[i] = iterations + ((rank+1)%3) + i;
+      exp[i] = iterations + ((rank + 1) % 3) + i;
     }
-    int src = (rank+1) % 3;
-    int dst = (rank+2) % 3;
+    int src = (rank + 1) % 3;
+    int dst = (rank + 2) % 3;
     int tag = 123;
-    retval = MPI_Sendrecv(sendbuf, BUFFER_SIZE, MPI_INT, dst, tag+iterations,
-        recvbuf, BUFFER_SIZE, MPI_INT, src, tag+iterations, MPI_COMM_WORLD,
-        &status);
+    retval = MPI_Sendrecv(sendbuf, BUFFER_SIZE, MPI_INT, dst, tag + iterations,
+                          recvbuf, BUFFER_SIZE, MPI_INT, src, tag + iterations,
+                          MPI_COMM_WORLD, &status);
     assert(retval == MPI_SUCCESS);
     for (int i = 0; i < BUFFER_SIZE; i++) {
       assert(exp[i] == recvbuf[i]);
     }
-
   }
   MPI_Finalize();
   return 0;
