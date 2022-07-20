@@ -26,6 +26,8 @@ def main():
                          '', required=False)
     parser.add_argument('-r','--mpirun', help='Use mpirun instead\
                          of srun', action="store_true")
+    parser.add_argument('-a', '--args', help='Arguments to pass to test',
+                        default='')
 
     args = parser.parse_args()
     if args.mana_bin == '':
@@ -43,16 +45,28 @@ def main():
 
     if args.iterations == None:
         print(f'{run} -n {args.num_ranks} {mana_launch_path} '
-               f'{args.test}.mana.exe')
+               f'{args.test}.mana.exe {arg.args}')
         test_child = subprocess.run([f'{run}', '-n', f'{args.num_ranks}',
                                  f'{mana_launch_path}',
-                                 f'{args.test}.mana.exe'])
+                                 f'{args.test}.mana.exe'
+                                 f'{args.args}'], stdout = subprocess.DEVNULL)
     else:
-        print(f'{run} -n {args.num_ranks} {mana_launch_path} '
-               f'{args.test}.mana.exe {args.iterations}')
-        test_child = subprocess.run([f'{run}', '-n', f'{args.num_ranks}',
-                                 f'{mana_launch_path}',
-                                 f'{args.test}.mana.exe', f'{args.iterations}'])
+        if args.args == '':
+            print(f'{run} -n {args.num_ranks} {mana_launch_path} '
+                f'{args.test}.mana.exe {args.iterations} {args.args}')
+            test_child = subprocess.run([f'{run}', '-n', f'{args.num_ranks}',
+                                    f'{mana_launch_path}',
+                                    f'{args.test}.mana.exe',
+                                    f'{args.iterations}', f'{args.args}'],
+                                    stdout = subprocess.DEVNULL)
+        else:
+            print(f'{run} -n {args.num_ranks} {mana_launch_path} '
+                f'{args.test}.mana.exe -i {args.iterations} {args.args}')
+            test_child = subprocess.run([f'{run}', '-n', f'{args.num_ranks}',
+                                    f'{mana_launch_path}',
+                                    f'{args.test}.mana.exe', '-i'
+                                    f'{args.iterations}', f'{args.args}'],
+                                    stdout = subprocess.DEVNULL)
 
 
 if __name__ == "__main__":
