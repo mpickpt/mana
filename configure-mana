@@ -10,7 +10,7 @@ MPI_ETHERNET_INTERFACE=\
 `PATH=$PATH:/usr/sbin ip addr |grep -B1 link/ether | head -1 |sed -e 's%[^ ]*: \([^ ]*\): .*%\1%'`
 
 # Note: modify this path according to your environment.
-if [[ -z "${MPI__INSTALL_DIR}" ]]; then
+if [[ -z "${MPI_INSTALL_DIR}" ]]; then
   MPI_INSTALL_DIR=/usr/local
 fi
 

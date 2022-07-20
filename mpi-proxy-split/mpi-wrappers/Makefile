@@ -159,8 +159,11 @@ clean: tidy
 	rm -f libmpich_intel.so.3.0.1 libmpich_intel.so.3
 	rm -f libmpich_gnu_82.so.3.0.1 libmpich_gnu_82.so.3
 	rm -f libpmi.so.3.0.1 libpmi.so.0
-	cd ${MANA_ROOT}/lib/dmtcp && rm -f libmpich_gnu_82.so.* \
-		libmpich_intel.so.* libpmi.so.*
+	if test -d ${MANA_ROOT}/lib/dmtcp; then \
+        cd ${MANA_ROOT}/lib/dmtcp && rm -f libmpich_gnu_82.so.* \
+            libmpich_intel.so.* libpmi.so.*; \
+    fi
+
 
 distclean: clean
 
