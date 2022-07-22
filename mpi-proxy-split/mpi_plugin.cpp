@@ -310,13 +310,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     }
     case DMTCP_EVENT_PRESUSPEND: {
       mana_state = CKPT_COLLECTIVE;
-      // drainMpiCollectives() will send worker state and get coord response.
-      // Unfortunately, dmtcp_global_barrier()/DMT_BARRIER can't send worker
-      // state and get a coord responds.  So, drainMpiCollective() will use the
-      // special messages:  DMT_MPI_PRESUSPEND and DMT_MPI_PRESUSPEND_RESPONSE
-      // 'INTENT' (intend to ckpt) acts as the first corodinator response.
-      // * drainMpiCollective() calls preSuspendBarrier()
-      // * mpi_presuspend_barrier() calls waitForMpiPresuspendBarrier()
+      // preSuspendBarrier() will send coord response and get worker state.
       // FIXME:  See commant at: dmtcpplugin.cpp:'case DMTCP_EVENT_PRESUSPEND'
       {
         query_t coord_response = INTENT;
