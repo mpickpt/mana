@@ -113,7 +113,7 @@ def main():
 
     # Wait for ranks to start
     while get_running_ranks(mana_dir, "WorkerState::RUNNING") != int(ranks):
-        sleep(0.5)
+        time.sleep(0.5)
 
     print("Running")
 
