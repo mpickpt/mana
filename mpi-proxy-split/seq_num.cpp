@@ -12,7 +12,7 @@
 
 using namespace dmtcp_mpi;
 
-#define DEBUG_SEQ_NUM
+// #define DEBUG_SEQ_NUM
 
 extern int g_world_rank;
 extern int g_world_size;
@@ -82,6 +82,7 @@ int check_seq_nums() {
     seq = pair.second;
     if (target_start_triv_barrier[comm_id] > seq_num[comm_id]) {
       target_reached = 0;
+      break;
     }
   }
   return target_reached;
