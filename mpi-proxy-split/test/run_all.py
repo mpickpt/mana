@@ -93,7 +93,9 @@ def main():
             cmd = (f'python3 {mana}/mpi-proxy-split'
                    f'/test/run_mana_mpi_regression_test.py {mpirun}-m {mana}'
                    f' -t 120 -i {i} -n {n} {test}')
-        test_child = subprocess.run([cmd], shell=True)
+        test_child = subprocess.run([cmd], shell=True,
+                                    stderr=subprocess.DEVNULL,
+                                    stdout=subprocess.DEVNULL)
         try:
             r = test_child.check_returncode()
             print(f'TEST CASE PASSED: {test}')

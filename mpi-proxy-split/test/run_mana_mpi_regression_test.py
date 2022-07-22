@@ -11,9 +11,9 @@ from subprocess import PIPE
 verbose = False
 
 # Wrapper to eprint to stderr
-def eprint(*args):
+def eprint(verbose, args):
     if verbose:
-        print(*args, file=sys.stderr)
+        print(args, file=sys.stderr)
 
 # Custom argparser to eprint error message
 class CustomParser(argparse.ArgumentParser):
@@ -86,18 +86,18 @@ def main():
 
     # Set timeout as thread
     if not args.timeout == None:
-        eprint("Setting timeout...")
+        eprint(verbose, "Setting timeout...")
         t = Thread(target=timeout_exit, args=(args.timeout, ))
         t.start()
-        eprint("Timeout set...")
+        eprint(verbose,"Timeout set...")
 
-    eprint(f"Running {name} for {itr} iterations with {ranks} ranks")
+    eprint(verbose, f"Running {name} for {itr} iterations with {ranks} ranks")
 
     # Start test by running mana_coordinator and executable
     clean()
     kill_child = subprocess.Popen(['pkill', '-9', 'dmtcp_coord'])
     kill_child.wait()
-    eprint("Starting test...")
+    eprint(verbose, "Starting test...")
     cmd=''
     if add_args == '':
         cmd = (f'python3 {mana_dir}/mpi-proxy-split/test/mana_test.py '
@@ -118,24 +118,24 @@ def main():
     print("Running")
 
     # Test executable starting, checkpoint 3 times
-    eprint("Test started...")
+    eprint(verbose, "Test started...")
     for i in range(3):
         time.sleep(3)
         if run_child.poll() is None:
             # Send checkpoint command and wait on it to succeed
-            eprint("Sending checkpoint command...")
+            eprint(verbose, "Sending checkpoint command...")
             ckpt_child = subprocess.run([f'{mana_dir}/bin/mana_status',
                                          '--checkpoint'])
             if ckpt_child.check_returncode() is not None:
-                eprint("Test case failed: checkpointing failed")
+                eprint(verbose, "Test case failed: checkpointing failed")
                 return 1
-            eprint("Checkpoint command successful")
+            eprint(verbose, "Checkpoint command successful")
 
             # Wait for checkpoint to complete, make sure no ranks die
             while get_running_ranks(mana_dir, "WorkerState::RUNNING") \
                     != int(ranks):
                 if get_running_ranks(mana_dir) != int(ranks):
-                    eprint("Test case failed: not enough \
+                    eprint(verbose, "Test case failed: not enough \
                         ranks running while checkpointing")
                     return 6
 
@@ -151,7 +151,7 @@ def main():
                 status = \
                     subprocess.run([f'{mana_dir}/bin/mana_status'],
                                     stdout=PIPE, stderr=PIPE)
-            eprint("Checkpointed, restarting...")
+            eprint(verbose, "Checkpointed, restarting...")
             subprocess.run([f"{mana_dir}/bin/mana_coordinator"],
                            stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
 
@@ -163,36 +163,35 @@ def main():
                                          stderr=subprocess.DEVNULL)
 
             # Wait for ranks to restart without dying
+            num_seen = 0
             while get_running_ranks(mana_dir, "WorkerState::RUNNING") \
                     != int(ranks):
-                if get_running_ranks(mana_dir) \
-                        != int(ranks) and \
-                        get_running_ranks(mana_dir, "WorkerState::RESTARTING") \
-                        == 0:
-
-                    eprint("Test case failed: not enough \
+                if get_running_ranks(mana_dir) < num_seen:
+                    eprint(verbose, "Test case failed: not enough \
                         ranks running after restart")
                     return 2
+                num_seen = get_running_ranks(mana_dir)
 
             time.sleep(3) # Sleep between checkpoints to allow for progression
 
             clean() # Remove ckpt images and restart scripts
         else: # Child died earlier, check retval to see if successful
             if run_child.poll() != 0:
-                eprint("Test case failed: child exited early")
+                eprint(verbose, "Test case failed: child exited early")
                 return 3
             else:
-                eprint("Child exited early: increase iterations")
+                eprint(verbose, "Child exited early: increase iterations")
                 return 0
 
     # Check enough ranks running at exit, then return
     # Kills mana_coordinator + spawned MPI children
     if get_running_ranks(mana_dir) != int(ranks):
-        eprint("Test case failed: not enough ranks running when exiting")
+        eprint(verbose, "Test case failed: not enough ranks "
+               "running when exiting")
         run_child.kill()
         return 4
     else:
-        eprint("Test case passed")
+        eprint(verbose, "Test case passed")
         run_child.kill()
         return 0
 
