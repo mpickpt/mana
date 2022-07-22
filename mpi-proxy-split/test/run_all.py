@@ -75,37 +75,34 @@ def main():
                                                  'test/run_all.py', '')
     mpirun = ''
     if args.mpirun:
-        mpirun = '-r'
+        mpirun = '-r '
     num_tests = 0
     num_passed = 0
     failed = []
 
     for test in tests:
-        print(f'Running test {test}')
+        print(f'Running test {test}:', end=" ")
+        sys.stdout.flush()
         i = tests[test]['itr']
         n = tests[test]['ranks']
         if 'args' in tests[test]:
             a = tests[test]['args']
-            test_child=subprocess.run(['python3', f'{mana}/mpi-proxy-split'
-                                      '/test/run_mana_mpi_regression_test.py',
-                                      f'{mpirun}', '-m', f'{mana}', '-t', '120',
-                                      '-i', f'{i}', '-n', f'{n}', f'-a={a}',
-                                      f'{test}'],
-                                      stdout=subprocess.DEVNULL,
-                                      stderr=subprocess.DEVNULL)
+            cmd = (f'python3 {mana}/mpi-proxy-split'
+                   f'/test/run_mana_mpi_regression_test.py {mpirun}-m {mana}'
+                   f' -t 120 -i {i} -n {n} -a={a} {test}')
         else:
-            test_child=subprocess.run(['python3', f'{mana}/mpi-proxy-split'
-                                     '/test/run_mana_mpi_regression_test.py',
-                                     f'{mpirun}', '-m', f'{mana}', '-t', '120',
-                                     '-i', f'{i}', '-n', f'{n}', f'{test}'],
-                                      stdout=subprocess.DEVNULL,
-                                      stderr=subprocess.DEVNULL)
+            cmd = (f'python3 {mana}/mpi-proxy-split'
+                   f'/test/run_mana_mpi_regression_test.py {mpirun}-m {mana}'
+                   f' -t 120 -i {i} -n {n} {test}')
+        test_child = subprocess.run([cmd], shell=True,
+                                    stderr=subprocess.DEVNULL,
+                                    stdout=subprocess.DEVNULL)
         try:
             r = test_child.check_returncode()
-            print(f'TEST CASE PASSED: {test}')
+            print('PASSED')
             num_passed += 1
         except:
-            print(f'TEST CASE FAILED: {test}')
+            print('FAILED')
             failed.append(test)
         num_tests += 1
     print("TESTS COMPLETED")
