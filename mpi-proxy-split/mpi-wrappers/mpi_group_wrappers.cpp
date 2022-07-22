@@ -30,13 +30,18 @@
 #include "mpi_nextfunc.h"
 #include "record-replay.h"
 #include "virtual-ids.h"
+#include <sys/prctl.h>
+#include <sys/syscall.h>
+#include <asm/prctl.h>
 
 using namespace dmtcp_mpi;
 
 USER_DEFINED_WRAPPER(int, Comm_group, (MPI_Comm) comm, (MPI_Group *) group)
 {
+  unsigned long fsaddr;
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Comm_group)(realComm, group);
@@ -46,18 +51,22 @@ USER_DEFINED_WRAPPER(int, Comm_group, (MPI_Comm) comm, (MPI_Group *) group)
     *group = virtGroup;
     LOG_CALL(restoreGroups, Comm_group, comm, *group);
   }
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
 
 USER_DEFINED_WRAPPER(int, Group_size, (MPI_Group) group, (int *) size)
 {
+  unsigned long fsaddr;
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   MPI_Group realGroup = VIRTUAL_TO_REAL_GROUP(group);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Group_size)(realGroup, size);
   RETURN_TO_UPPER_HALF();
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -75,7 +84,9 @@ MPI_Group_free_internal(MPI_Group *group)
 
 USER_DEFINED_WRAPPER(int, Group_free, (MPI_Group *) group)
 {
+  unsigned long fsaddr;
   DMTCP_PLUGIN_DISABLE_CKPT();
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   int retval = MPI_Group_free_internal(group);
   if (retval == MPI_SUCCESS && MPI_LOGGING()) {
     // NOTE: We cannot remove the old group, since we'll need
@@ -86,6 +97,7 @@ USER_DEFINED_WRAPPER(int, Group_free, (MPI_Group *) group)
     // CLEAR_GROUP_LOGS(*group);
     LOG_CALL(restoreGroups, Group_free, *group);
   }
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -93,25 +105,31 @@ USER_DEFINED_WRAPPER(int, Group_free, (MPI_Group *) group)
 USER_DEFINED_WRAPPER(int, Group_compare, (MPI_Group) group1,
                      (MPI_Group) group2, (int *) result)
 {
+  unsigned long fsaddr;
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   MPI_Group realGroup1 = VIRTUAL_TO_REAL_GROUP(group1);
   MPI_Group realGroup2 = VIRTUAL_TO_REAL_GROUP(group2);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Group_compare)(realGroup1, realGroup2, result);
   RETURN_TO_UPPER_HALF();
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
 
 USER_DEFINED_WRAPPER(int, Group_rank, (MPI_Group) group, (int *) rank)
 {
+  unsigned long fsaddr;
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   MPI_Group realGroup = VIRTUAL_TO_REAL_GROUP(group);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Group_rank)(realGroup, rank);
   RETURN_TO_UPPER_HALF();
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -119,8 +137,10 @@ USER_DEFINED_WRAPPER(int, Group_rank, (MPI_Group) group, (int *) rank)
 USER_DEFINED_WRAPPER(int, Group_incl, (MPI_Group) group, (int) n,
                      (const int*) ranks, (MPI_Group *) newgroup)
 {
+  unsigned long fsaddr;
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   MPI_Group realGroup = VIRTUAL_TO_REAL_GROUP(group);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Group_incl)(realGroup, n, ranks, newgroup);
@@ -131,6 +151,7 @@ USER_DEFINED_WRAPPER(int, Group_incl, (MPI_Group) group, (int) n,
     FncArg rs = CREATE_LOG_BUF(ranks, n * sizeof(int));
     LOG_CALL(restoreGroups, Group_incl, group, n, rs, *newgroup);
   }
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -139,14 +160,17 @@ USER_DEFINED_WRAPPER(int, Group_translate_ranks, (MPI_Group) group1,
                      (int) n, (const int) ranks1[], (MPI_Group) group2,
                      (int) ranks2[])
 {
+  unsigned long fsaddr;
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   MPI_Group realGroup1 = VIRTUAL_TO_REAL_GROUP(group1);
   MPI_Group realGroup2 = VIRTUAL_TO_REAL_GROUP(group2);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Group_translate_ranks)(realGroup1, n, ranks1,
                                             realGroup2, ranks2);
   RETURN_TO_UPPER_HALF();
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }

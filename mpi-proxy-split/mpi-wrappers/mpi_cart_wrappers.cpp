@@ -35,18 +35,24 @@
 #include "../cartesian.h"
 #endif
 #include "p2p_drain_send_recv.h"
+#include <sys/prctl.h>
+#include <sys/syscall.h>
+#include <asm/prctl.h>
 
 using namespace dmtcp_mpi;
 
 USER_DEFINED_WRAPPER(int, Cart_coords, (MPI_Comm) comm, (int) rank,
                      (int) maxdims, (int*) coords)
 {
+  unsigned long fsaddr;
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Cart_coords)(realComm, rank, maxdims, coords);
   RETURN_TO_UPPER_HALF();
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -54,12 +60,15 @@ USER_DEFINED_WRAPPER(int, Cart_coords, (MPI_Comm) comm, (int) rank,
 USER_DEFINED_WRAPPER(int, Cart_get, (MPI_Comm) comm, (int) maxdims,
                      (int*) dims, (int*) periods, (int*) coords)
 {
+  unsigned long fsaddr;
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Cart_get)(realComm, maxdims, dims, periods, coords);
   RETURN_TO_UPPER_HALF();
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -67,8 +76,10 @@ USER_DEFINED_WRAPPER(int, Cart_get, (MPI_Comm) comm, (int) maxdims,
 USER_DEFINED_WRAPPER(int, Cart_map, (MPI_Comm) comm, (int) ndims,
                      (const int*) dims, (const int*) periods, (int *) newrank)
 {
+  unsigned long fsaddr;
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   // FIXME: Need to virtualize this newrank??
@@ -79,6 +90,7 @@ USER_DEFINED_WRAPPER(int, Cart_map, (MPI_Comm) comm, (int) ndims,
     FncArg ps = CREATE_LOG_BUF(periods, ndims * sizeof(int));
     LOG_CALL(restoreCarts, Cart_map, comm, ndims, ds, ps, newrank);
   }
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -86,12 +98,15 @@ USER_DEFINED_WRAPPER(int, Cart_map, (MPI_Comm) comm, (int) ndims,
 USER_DEFINED_WRAPPER(int, Cart_rank, (MPI_Comm) comm,
                      (const int*) coords, (int *) rank)
 {
+  unsigned long fsaddr;
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Cart_rank)(realComm, coords, rank);
   RETURN_TO_UPPER_HALF();
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -99,8 +114,10 @@ USER_DEFINED_WRAPPER(int, Cart_rank, (MPI_Comm) comm,
 USER_DEFINED_WRAPPER(int, Cart_shift, (MPI_Comm) comm, (int) direction,
                      (int) disp, (int *) rank_source, (int *) rank_dest)
 {
+  unsigned long fsaddr;
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Cart_shift)(realComm, direction,
@@ -110,6 +127,7 @@ USER_DEFINED_WRAPPER(int, Cart_shift, (MPI_Comm) comm, (int) direction,
     LOG_CALL(restoreCarts, Cart_shift, comm, direction,
              disp, *rank_source, *rank_dest);
   }
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -117,9 +135,11 @@ USER_DEFINED_WRAPPER(int, Cart_shift, (MPI_Comm) comm, (int) direction,
 USER_DEFINED_WRAPPER(int, Cart_sub, (MPI_Comm) comm,
                      (const int*) remain_dims, (MPI_Comm *) new_comm)
 {
+  unsigned long fsaddr;
   int retval;
 
   DMTCP_PLUGIN_DISABLE_CKPT();
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Cart_sub)(realComm, remain_dims, new_comm);
@@ -134,29 +154,36 @@ USER_DEFINED_WRAPPER(int, Cart_sub, (MPI_Comm) comm,
     FncArg rs = CREATE_LOG_BUF(remain_dims, ndims * sizeof(int));
     LOG_CALL(restoreCarts, Cart_sub, comm, ndims, rs, virtComm);
   }
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
 
 USER_DEFINED_WRAPPER(int, Cartdim_get, (MPI_Comm) comm, (int *) ndims)
 {
+  unsigned long fsaddr;
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Cartdim_get)(realComm, ndims);
   RETURN_TO_UPPER_HALF();
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
 
 USER_DEFINED_WRAPPER(int, Dims_create, (int)nnodes, (int)ndims, (int *)dims)
 {
+  unsigned long fsaddr;
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Dims_create)(nnodes, ndims, dims);
   RETURN_TO_UPPER_HALF();
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -179,7 +206,10 @@ USER_DEFINED_WRAPPER(int, Cart_create, (MPI_Comm)old_comm, (int)ndims,
 
   std::function<int()> realBarrierCb = [=]() {
     int retval;
+    unsigned long fsaddr;
     DMTCP_PLUGIN_DISABLE_CKPT();
+    syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
+
     MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(old_comm);
     JUMP_TO_LOWER_HALF(lh_info.fsaddr);
     retval = NEXT_FUNC(Cart_create)(realComm, ndims, dims, periods, reorder,
@@ -210,10 +240,12 @@ USER_DEFINED_WRAPPER(int, Cart_create, (MPI_Comm)old_comm, (int)ndims,
       LOG_CALL(restoreCarts, Cart_create, old_comm, ndims, ds, ps, reorder,
                virtComm);
     }
+    syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
     DMTCP_PLUGIN_ENABLE_CKPT();
     return retval;
   };
-  return twoPhaseCommit(old_comm, realBarrierCb);
+  int retval = twoPhaseCommit(old_comm, realBarrierCb);
+  return retval;
 }
 #else
 
@@ -221,6 +253,7 @@ USER_DEFINED_WRAPPER(int, Cart_create, (MPI_Comm) old_comm, (int) ndims,
                      (const int*) dims, (const int*) periods, (int) reorder,
                      (MPI_Comm *) comm_cart)
 {
+  unsigned long fsaddr;
   int retval;
   // The MPI library assigns the cartesian coordinates naively
   // (in the increasing rank order) with no reordering as opposed to optimal
@@ -243,6 +276,7 @@ USER_DEFINED_WRAPPER(int, Cart_create, (MPI_Comm) old_comm, (int) ndims,
                                      "support reordered ranks.");
   reorder = 0;
   DMTCP_PLUGIN_DISABLE_CKPT();
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(old_comm);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Cart_create)(realComm, ndims, dims,
@@ -258,6 +292,7 @@ USER_DEFINED_WRAPPER(int, Cart_create, (MPI_Comm) old_comm, (int) ndims,
     LOG_CALL(restoreCarts, Cart_create, old_comm, ndims,
              ds, ps, reorder, virtComm);
   }
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }

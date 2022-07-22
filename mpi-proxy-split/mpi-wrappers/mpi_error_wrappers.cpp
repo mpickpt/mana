@@ -30,6 +30,9 @@
 #include "mpi_nextfunc.h"
 #include "record-replay.h"
 #include "virtual-ids.h"
+#include <sys/prctl.h>
+#include <sys/syscall.h>
+#include <asm/prctl.h>
 
 DEFINE_FNC(int, Error_class, (int) errorcode, (int *) errorclass);
 DEFINE_FNC(int, Error_string, (int) errorcode, (char *) string,

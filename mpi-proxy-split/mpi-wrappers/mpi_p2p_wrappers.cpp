@@ -34,6 +34,9 @@
 #include "record-replay.h"
 // To support MANA_P2P_LOG and MANA_P2P_REPLAY:
 #include "p2p-deterministic.h"
+#include <sys/prctl.h>
+#include <sys/syscall.h>
+#include <asm/prctl.h>
 
 extern int p2p_deterministic_skip_save_request;
 
@@ -41,6 +44,8 @@ USER_DEFINED_WRAPPER(int, Send,
                      (const void *) buf, (int) count, (MPI_Datatype) datatype,
                      (int) dest, (int) tag, (MPI_Comm) comm)
 {
+  unsigned long fsaddr;
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   int retval;
 #if 0
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -56,12 +61,14 @@ USER_DEFINED_WRAPPER(int, Send,
   MPI_Status st;
   retval = MPI_Isend(buf, count, datatype, dest, tag, comm, &req);
   if (retval != MPI_SUCCESS) {
+    syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
     return retval;
   }
   p2p_deterministic_skip_save_request = 1;
   retval = MPI_Wait(&req, &st);
   p2p_deterministic_skip_save_request = 0;
 #endif
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   return retval;
 }
 
@@ -70,8 +77,10 @@ USER_DEFINED_WRAPPER(int, Isend,
                      (int) dest, (int) tag,
                      (MPI_Comm) comm, (MPI_Request *) request)
 {
+  unsigned long fsaddr;
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
   MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
@@ -97,6 +106,7 @@ USER_DEFINED_WRAPPER(int, Isend,
     logRequestInfo(*request, ISEND_REQUEST);
 #endif
   }
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -105,9 +115,11 @@ USER_DEFINED_WRAPPER(int, Rsend, (const void*) ibuf, (int) count,
                      (MPI_Datatype) datatype, (int) dest,
                      (int) tag, (MPI_Comm) comm)
 {
+  unsigned long fsaddr;
   // FIXME: Implement this wrapper with MPI_Irsend
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
   MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
@@ -126,6 +138,7 @@ USER_DEFINED_WRAPPER(int, Rsend, (const void*) ibuf, (int) count,
     fflush(stdout);
 #endif
   }
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -135,6 +148,8 @@ USER_DEFINED_WRAPPER(int, Recv,
                      (int) source, (int) tag,
                      (MPI_Comm) comm, (MPI_Status *) status)
 {
+  unsigned long fsaddr;
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   int retval;
 #if 0
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -147,6 +162,7 @@ USER_DEFINED_WRAPPER(int, Recv,
   MPI_Request req;
   retval = MPI_Irecv(buf, count, datatype, source, tag, comm, &req);
   if (retval != MPI_SUCCESS) {
+    syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
     return retval;
   }
   p2p_deterministic_skip_save_request = 0;
@@ -156,6 +172,7 @@ USER_DEFINED_WRAPPER(int, Recv,
 #if 0
   DMTCP_PLUGIN_ENABLE_CKPT();
 #endif
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   return retval;
 }
 
@@ -164,6 +181,7 @@ USER_DEFINED_WRAPPER(int, Irecv,
                      (int) source, (int) tag,
                      (MPI_Comm) comm, (MPI_Request *) request)
 {
+  unsigned long fsaddr;
   int retval;
   int flag = 0;
   int size = 0;
@@ -173,6 +191,7 @@ USER_DEFINED_WRAPPER(int, Irecv,
   size = size * count;
 
   DMTCP_PLUGIN_DISABLE_CKPT();
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
 
   if (mana_state == RUNNING &&
       isBufferedPacket(source, tag, comm, &flag, &status)) {
@@ -181,6 +200,7 @@ USER_DEFINED_WRAPPER(int, Irecv,
     *request = MPI_REQUEST_NULL;
     retval = MPI_SUCCESS;
     DMTCP_PLUGIN_ENABLE_CKPT();
+    syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
     return retval;
   }
   LOG_PRE_Irecv(&status);
@@ -202,6 +222,7 @@ USER_DEFINED_WRAPPER(int, Irecv,
 #endif
   }
   LOG_POST_Irecv(source,tag,comm,&status,request);
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -213,6 +234,8 @@ USER_DEFINED_WRAPPER(int, Sendrecv, (const void *) sendbuf, (int) sendcount,
                      (int) recvcount, (MPI_Datatype) recvtype, (int) source,
                      (int) recvtag, (MPI_Comm) comm, (MPI_Status *) status)
 {
+  unsigned long fsaddr;
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   int retval;
 #if 0
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -231,11 +254,13 @@ USER_DEFINED_WRAPPER(int, Sendrecv, (const void *) sendbuf, (int) sendcount,
   retval = MPI_Isend(sendbuf, sendcount, sendtype, dest,
       sendtag, comm, &reqs[0]);
   if (retval != MPI_SUCCESS) {
+    syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
     return retval;
   }
   retval = MPI_Irecv(recvbuf, recvcount, recvtype, source,
                      recvtag, comm, &reqs[1]);
   if (retval != MPI_SUCCESS) {
+    syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
     return retval;
   }
   retval = MPI_Waitall(2, reqs, sts);
@@ -248,6 +273,7 @@ USER_DEFINED_WRAPPER(int, Sendrecv, (const void *) sendbuf, (int) sendcount,
     // updateLocalRecvs();
   }
 #endif
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   return retval;
 }
 
@@ -256,17 +282,19 @@ USER_DEFINED_WRAPPER(int, Sendrecv_replace, (void *) buf, (int) count,
                      (int) sendtag, (int) source,
                      (int) recvtag, (MPI_Comm) comm, (MPI_Status *) status)
 {
-
+  unsigned long fsaddr;
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   // Send first
   int retval;
   retval = MPI_Send(buf, count, datatype, dest, sendtag, comm);
   if (retval != MPI_SUCCESS) {
+    syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
     return retval;
   }
 
   // Recv and fill status struct
   retval = MPI_Recv(buf, count, datatype, source, recvtag, comm, status);
-
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   return retval;
 }
 

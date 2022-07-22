@@ -30,18 +30,24 @@
 #include "mpi_nextfunc.h"
 #include "record-replay.h"
 #include "virtual-ids.h"
+#include <sys/prctl.h>
+#include <sys/syscall.h>
+#include <asm/prctl.h>
 
 using namespace dmtcp_mpi;
 
 USER_DEFINED_WRAPPER(int, File_open, (MPI_Comm) comm, (const char *) filename,
                      (int) amode, (MPI_Info) info, (MPI_File *) fh)
 {
+  unsigned long fsaddr;
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(File_open)(realComm, filename, amode, info, fh);
   RETURN_TO_UPPER_HALF();
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }

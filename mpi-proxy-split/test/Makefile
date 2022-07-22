@@ -38,7 +38,7 @@ FILES=mpi_hello_world \
       Allgather_test Group_size_rank Type_commit_contiguous \
       Irecv_test Alloc_mem sendrecv_replace_test \
       f_ibarrier Type_hvector_test Type_vector_test \
-      wave_mpi day1_mpi quad_mpi poisson_nonblock_mpi \
+      quad_mpi poisson_nonblock_mpi \
       send_recv_loop large_async_p2p
 
 OBJS=$(addsuffix .o, ${FILES})

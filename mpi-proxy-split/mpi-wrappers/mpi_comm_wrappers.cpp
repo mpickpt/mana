@@ -38,6 +38,9 @@
 #include "virtual-ids.h"
 #include "two-phase-algo.h"
 #include "p2p_drain_send_recv.h"
+#include <sys/prctl.h>
+#include <sys/syscall.h>
+#include <asm/prctl.h>
 
 using namespace dmtcp_mpi;
 
@@ -93,24 +96,30 @@ static const int MPI_WTIME_IS_GLOBAL_VAL = 0;
 
 USER_DEFINED_WRAPPER(int, Comm_size, (MPI_Comm) comm, (int *) world_size)
 {
+  unsigned long fsaddr;
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Comm_size)(realComm, world_size);
   RETURN_TO_UPPER_HALF();
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
 
 USER_DEFINED_WRAPPER(int, Comm_rank, (MPI_Comm) comm, (int *) world_rank)
 {
+  unsigned long fsaddr;
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Comm_rank)(realComm, world_rank);
   RETURN_TO_UPPER_HALF();
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -118,9 +127,11 @@ USER_DEFINED_WRAPPER(int, Comm_rank, (MPI_Comm) comm, (int *) world_rank)
 USER_DEFINED_WRAPPER(int, Comm_create, (MPI_Comm) comm, (MPI_Group) group,
                      (MPI_Comm *) newcomm)
 {
+  unsigned long fsaddr;
   std::function<int()> realBarrierCb = [=]() {
     int retval;
     DMTCP_PLUGIN_DISABLE_CKPT();
+    syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
     MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
     MPI_Group realGroup = VIRTUAL_TO_REAL_GROUP(group);
     JUMP_TO_LOWER_HALF(lh_info.fsaddr);
@@ -133,20 +144,25 @@ USER_DEFINED_WRAPPER(int, Comm_create, (MPI_Comm) comm, (MPI_Group) group,
       active_comms.insert(virtComm);
       LOG_CALL(restoreComms, Comm_create, comm, group, virtComm);
     }
+    syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
     DMTCP_PLUGIN_ENABLE_CKPT();
     return retval;
   };
-  return twoPhaseCommit(comm, realBarrierCb);
+  int retval = twoPhaseCommit(comm, realBarrierCb);
+  return retval;
 }
 
 USER_DEFINED_WRAPPER(int, Abort, (MPI_Comm) comm, (int) errorcode)
 {
+  unsigned long fsaddr;
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Abort)(realComm, errorcode);
   RETURN_TO_UPPER_HALF();
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -154,13 +170,16 @@ USER_DEFINED_WRAPPER(int, Abort, (MPI_Comm) comm, (int) errorcode)
 USER_DEFINED_WRAPPER(int, Comm_compare,
                      (MPI_Comm) comm1, (MPI_Comm) comm2, (int*) result)
 {
+  unsigned long fsaddr;
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   MPI_Comm realComm1 = VIRTUAL_TO_REAL_COMM(comm1);
   MPI_Comm realComm2 = VIRTUAL_TO_REAL_COMM(comm2);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Comm_compare)(realComm1, realComm2, result);
   RETURN_TO_UPPER_HALF();
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -168,6 +187,7 @@ USER_DEFINED_WRAPPER(int, Comm_compare,
 int
 MPI_Comm_free_internal(MPI_Comm *comm)
 {
+  unsigned long fsaddr;
   int retval;
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(*comm);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
@@ -178,6 +198,7 @@ MPI_Comm_free_internal(MPI_Comm *comm)
 
 USER_DEFINED_WRAPPER(int, Comm_free, (MPI_Comm *) comm)
 {
+  unsigned long fsaddr;
   // This bit of code is to execute the delete callback function when
   // MPI_Comm_free is called. Typically we call this function for each
   // attribute, but since our structure here is a bit different, we check, for
@@ -197,6 +218,7 @@ USER_DEFINED_WRAPPER(int, Comm_free, (MPI_Comm *) comm)
     }
   }
   DMTCP_PLUGIN_DISABLE_CKPT();
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   int retval = MPI_Comm_free_internal(comm);
   if (retval == MPI_SUCCESS && MPI_LOGGING()) {
     // NOTE: We cannot remove the old comm from the map, since
@@ -208,6 +230,7 @@ USER_DEFINED_WRAPPER(int, Comm_free, (MPI_Comm *) comm)
     active_comms.erase(*comm);
     LOG_CALL(restoreComms, Comm_free, *comm);
   }
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -215,9 +238,12 @@ USER_DEFINED_WRAPPER(int, Comm_free, (MPI_Comm *) comm)
 USER_DEFINED_WRAPPER(int, Comm_get_attr, (MPI_Comm) comm,
                      (int) comm_keyval, (void *) attribute_val, (int *) flag)
 {
+  unsigned long fsaddr;
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   int retval = MPI_SUCCESS;
   *flag = 0;
   if (comm == MPI_COMM_NULL) {
+    syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
     return MPI_ERR_COMM;
   }
   // Environmental inquiries
@@ -225,23 +251,28 @@ USER_DEFINED_WRAPPER(int, Comm_get_attr, (MPI_Comm) comm,
     case MPI_TAG_UB:
       * (const int **) attribute_val = &MAX_TAG_COUNT;
       *flag = 1;
+      syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
       return retval;
     case MPI_HOST:
       * (const int **) attribute_val = &MPI_HOST_RANK;
       *flag = 1;
+      syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
       return retval;
     case MPI_IO:
       * (const int **) attribute_val = &MPI_IO_SOURCE;
       *flag = 1;
+      syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
       return retval;
     case MPI_WTIME_IS_GLOBAL:
       * (const int **) attribute_val = &MPI_WTIME_IS_GLOBAL_VAL;
       *flag = 1;
+      syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
       return retval;
   }
 
   // Regular queries
   if (tupleMap.find(comm_keyval) == tupleMap.end()) {
+    syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
     return MPI_ERR_KEYVAL;
   }
   KeyvalTuple *tuple = &tupleMap.at(comm_keyval);
@@ -250,19 +281,24 @@ USER_DEFINED_WRAPPER(int, Comm_get_attr, (MPI_Comm) comm,
     * (void **) attribute_val = attributeMap->at(comm);
     * flag = 1;
   }
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   return retval;
 }
 
 USER_DEFINED_WRAPPER(int, Comm_set_attr, (MPI_Comm) comm,
                      (int) comm_keyval, (void *) attribute_val)
 {
+  unsigned long fsaddr;
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   int retval = MPI_SUCCESS;
   if (comm == MPI_COMM_NULL) {
     retval = MPI_ERR_COMM;
+    syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
     return retval;
   }
   if (tupleMap.find(comm_keyval) == tupleMap.end()) {
     retval = MPI_ERR_KEYVAL;
+    syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
     return retval;
   }
   KeyvalTuple *tuple = &tupleMap.at(comm_keyval);
@@ -277,17 +313,22 @@ USER_DEFINED_WRAPPER(int, Comm_set_attr, (MPI_Comm) comm,
     attributeMap->erase(comm);
   }
   attributeMap->emplace(comm, attribute_val);
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   return retval;
 }
 
 USER_DEFINED_WRAPPER(int, Comm_delete_attr, (MPI_Comm) comm, (int) comm_keyval)
 {
+  unsigned long fsaddr;
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   int retval = MPI_SUCCESS;
   if (comm == MPI_COMM_NULL) {
     retval = MPI_ERR_COMM;
+    syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
     return retval;
   }
   if (tupleMap.find(comm_keyval) == tupleMap.end()) {
+    syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
     return retval;
   }
   KeyvalTuple *tuple = &tupleMap.at(comm_keyval);
@@ -301,14 +342,17 @@ USER_DEFINED_WRAPPER(int, Comm_delete_attr, (MPI_Comm) comm, (int) comm_keyval)
     }
     attributeMap->erase(comm);
   }
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   return retval;
 }
 
 USER_DEFINED_WRAPPER(int, Comm_set_errhandler,
                      (MPI_Comm) comm, (MPI_Errhandler) errhandler)
 {
+  unsigned long fsaddr;
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Comm_set_errhandler)(realComm, errhandler);
@@ -316,6 +360,7 @@ USER_DEFINED_WRAPPER(int, Comm_set_errhandler,
   if (retval == MPI_SUCCESS && MPI_LOGGING()) {
     LOG_CALL(restoreComms, Comm_set_errhandler, comm, errhandler);
   }
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -323,12 +368,15 @@ USER_DEFINED_WRAPPER(int, Comm_set_errhandler,
 USER_DEFINED_WRAPPER(int, Topo_test,
                      (MPI_Comm) comm, (int *) status)
 {
+  unsigned long fsaddr;
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Topo_test)(realComm, status);
   RETURN_TO_UPPER_HALF();
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -336,8 +384,10 @@ USER_DEFINED_WRAPPER(int, Topo_test,
 USER_DEFINED_WRAPPER(int, Comm_split_type, (MPI_Comm) comm, (int) split_type,
                      (int) key, (MPI_Info) inf, (MPI_Comm*) newcomm)
 {
+  unsigned long fsaddr;
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Comm_split_type)(realComm, split_type, key, inf, newcomm);
@@ -350,6 +400,7 @@ USER_DEFINED_WRAPPER(int, Comm_split_type, (MPI_Comm) comm, (int) split_type,
     LOG_CALL(restoreComms, Comm_split_type, comm,
              split_type, key, inf, virtComm);
   }
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -357,26 +408,30 @@ USER_DEFINED_WRAPPER(int, Comm_split_type, (MPI_Comm) comm, (int) split_type,
 USER_DEFINED_WRAPPER(int, Attr_get, (MPI_Comm) comm, (int) keyval,
                      (void*) attribute_val, (int*) flag)
 {
+  unsigned long fsaddr;
   JWARNING(false).Text(
     "Use of MPI_Attr_get is deprecated - use MPI_Comm_get_attr instead");
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
   int realCommKeyval = VIRTUAL_TO_REAL_COMM_KEYVAL(keyval);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Attr_get)(realComm, realCommKeyval, attribute_val, flag);
   RETURN_TO_UPPER_HALF();
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
 
 USER_DEFINED_WRAPPER(int, Attr_delete, (MPI_Comm) comm, (int) keyval)
 {
-
+  unsigned long fsaddr;
   JWARNING(false).Text(
     "Use of MPI_Attr_delete is deprecated - use MPI_Comm_delete_attr instead");
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
   int realCommKeyval = VIRTUAL_TO_REAL_COMM_KEYVAL(keyval);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
@@ -385,6 +440,7 @@ USER_DEFINED_WRAPPER(int, Attr_delete, (MPI_Comm) comm, (int) keyval)
   if (retval == MPI_SUCCESS && MPI_LOGGING()) {
     LOG_CALL(restoreComms, Attr_delete, comm, keyval);
   }
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -392,10 +448,12 @@ USER_DEFINED_WRAPPER(int, Attr_delete, (MPI_Comm) comm, (int) keyval)
 USER_DEFINED_WRAPPER(int, Attr_put, (MPI_Comm) comm,
                      (int) keyval, (void*) attribute_val)
 {
+  unsigned long fsaddr;
   JWARNING(false).Text(
     "Use of MPI_Attr_put is deprecated - use MPI_Comm_set_attr instead");
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
   int realCommKeyval = VIRTUAL_TO_REAL_COMM_KEYVAL(keyval);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
@@ -404,6 +462,7 @@ USER_DEFINED_WRAPPER(int, Attr_put, (MPI_Comm) comm,
   if (retval == MPI_SUCCESS && MPI_LOGGING()) {
     LOG_CALL(restoreComms, Attr_put, comm, keyval, attribute_val);
   }
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -413,6 +472,8 @@ USER_DEFINED_WRAPPER(int, Comm_create_keyval,
                      (MPI_Comm_delete_attr_function *) comm_delete_attr_fn,
                      (int *) comm_keyval, (void *) extra_state)
 {
+  unsigned long fsaddr;
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   int retval = MPI_SUCCESS;
   int keyval = 0;
   for (; keyval < keyvalVec.size(); keyval++) {
@@ -427,6 +488,7 @@ USER_DEFINED_WRAPPER(int, Comm_create_keyval,
                        comm_copy_attr_fn,
                        comm_delete_attr_fn,
                        std::unordered_map<MPI_Comm, void*>()));
+      syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
       return retval;
     }
   }
@@ -437,11 +499,14 @@ USER_DEFINED_WRAPPER(int, Comm_create_keyval,
                    comm_copy_attr_fn,
                    comm_delete_attr_fn,
                    std::unordered_map<MPI_Comm, void*>()));
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   return retval;
 }
 
 USER_DEFINED_WRAPPER(int, Comm_free_keyval, (int *) comm_keyval)
 {
+  unsigned long fsaddr;
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   int retval = MPI_SUCCESS;
   int keyval = *comm_keyval;
   if (keyval < keyvalVec.size() && keyvalVec[keyval] != -1) {
@@ -450,6 +515,7 @@ USER_DEFINED_WRAPPER(int, Comm_free_keyval, (int *) comm_keyval)
   } else {
     JWARNING(false)(keyval).Text("Attempted to free an invalid key!");
   }
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   return retval;
 }
 
@@ -457,13 +523,16 @@ int
 MPI_Comm_create_group_internal(MPI_Comm comm, MPI_Group group, int tag,
                                MPI_Comm *newcomm)
 {
+  unsigned long fsaddr;
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
   MPI_Group realGroup = VIRTUAL_TO_REAL_GROUP(group);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Comm_create_group)(realComm, realGroup, tag, newcomm);
   RETURN_TO_UPPER_HALF();
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -471,6 +540,8 @@ MPI_Comm_create_group_internal(MPI_Comm comm, MPI_Group group, int tag,
 USER_DEFINED_WRAPPER(int, Comm_create_group, (MPI_Comm) comm,
                      (MPI_Group) group, (int) tag, (MPI_Comm *) newcomm)
 {
+  unsigned long fsaddr;
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   std::function<int()> realBarrierCb = [=]() {
     int retval = MPI_Comm_create_group_internal(comm, group, tag, newcomm);
     if (retval == MPI_SUCCESS && MPI_LOGGING()) {
@@ -482,7 +553,9 @@ USER_DEFINED_WRAPPER(int, Comm_create_group, (MPI_Comm) comm,
     }
     return retval;
   };
-  return twoPhaseCommit(comm, realBarrierCb);
+  int retval = twoPhaseCommit(comm, realBarrierCb);
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
+  return retval;
 }
 
 PMPI_IMPL(int, MPI_Comm_size, MPI_Comm comm, int *world_size)

@@ -29,6 +29,9 @@
 #include "mpi_nextfunc.h"
 #include "record-replay.h"
 #include "virtual-ids.h"
+#include <sys/prctl.h>
+#include <sys/syscall.h>
+#include <asm/prctl.h>
 
 using namespace dmtcp_mpi;
 
@@ -37,8 +40,10 @@ USER_DEFINED_WRAPPER(int, Op_create,
                      (MPI_User_function *) user_fn, (int) commute,
                      (MPI_Op *) op)
 {
+  unsigned long fsaddr;
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Op_create)(user_fn, commute, op);
   RETURN_TO_UPPER_HALF();
@@ -47,14 +52,17 @@ USER_DEFINED_WRAPPER(int, Op_create,
     *op = virtOp;
     LOG_CALL(restoreOps, Op_create, user_fn, commute, virtOp);
   }
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
 
 USER_DEFINED_WRAPPER(int, Op_free, (MPI_Op*) op)
 {
+  unsigned long fsaddr;
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   MPI_Op realOp = MPI_OP_NULL;
   if (op) {
     realOp = VIRTUAL_TO_REAL_OP(*op);
@@ -70,6 +78,7 @@ USER_DEFINED_WRAPPER(int, Op_free, (MPI_Op*) op)
     // realOp = REMOVE_OLD_OP(*op);
     LOG_CALL(restoreOps, Op_free, *op);
   }
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -78,13 +87,16 @@ USER_DEFINED_WRAPPER(int, Reduce_local,
                      (const void *) inbuf, (void *) inoutbuf, (int) count,
                      (MPI_Datatype) datatype, (MPI_Op) op)
 {
+  unsigned long fsaddr;
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   MPI_Op realOp = VIRTUAL_TO_REAL_OP(op);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Reduce_local)(inbuf, inoutbuf, count, datatype, realOp);
   RETURN_TO_UPPER_HALF();
   // This is non-blocking.  No need to log it.
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }

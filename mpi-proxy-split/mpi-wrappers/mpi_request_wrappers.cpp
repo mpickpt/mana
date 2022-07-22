@@ -36,12 +36,17 @@
 #include "virtual-ids.h"
 // To support MANA_P2P_LOG and MANA_P2P_REPLAY:
 #include "p2p-deterministic.h"
+#include <sys/prctl.h>
+#include <sys/syscall.h>
+#include <asm/prctl.h>
 
 extern int p2p_deterministic_skip_save_request;
 
 int MPI_Test_internal(MPI_Request *request, int *flag, MPI_Status *status,
                       bool isRealRequest)
 {
+  unsigned long fsaddr;
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   int retval;
   MPI_Request realRequest;
   if (isRealRequest) {
@@ -54,6 +59,7 @@ int MPI_Test_internal(MPI_Request *request, int *flag, MPI_Status *status,
   retval = NEXT_FUNC(Test)(&realRequest, flag, status);
 
   RETURN_TO_UPPER_HALF();
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   return retval;
 }
 
@@ -61,6 +67,7 @@ EXTERNC
 USER_DEFINED_WRAPPER(int, Test, (MPI_Request*) request,
                      (int*) flag, (MPI_Status*) status)
 {
+  unsigned long fsaddr;
   int retval;
   if (*request == MPI_REQUEST_NULL) {
     // *request might be in read-only memory. So we can't overwrite it with
@@ -70,6 +77,7 @@ USER_DEFINED_WRAPPER(int, Test, (MPI_Request*) request,
   }
   LOG_PRE_Test(status);
   DMTCP_PLUGIN_DISABLE_CKPT();
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   MPI_Status statusBuffer;
   MPI_Status *statusPtr = status;
   if (statusPtr == MPI_STATUS_IGNORE ||
@@ -84,6 +92,7 @@ USER_DEFINED_WRAPPER(int, Test, (MPI_Request*) request,
     *request = MPI_REQUEST_NULL;
     DMTCP_PLUGIN_ENABLE_CKPT();
     // FIXME: We should also fill in the status
+    syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
     return MPI_SUCCESS;
   }
 
@@ -115,6 +124,7 @@ USER_DEFINED_WRAPPER(int, Test, (MPI_Request*) request,
     LOG_REMOVE_REQUEST(*request); // remove from record-replay log
     *request = MPI_REQUEST_NULL;
   }
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -123,6 +133,8 @@ USER_DEFINED_WRAPPER(int, Testall, (int) count,
                      (MPI_Request *) array_of_requests, (int *) flag,
                      (MPI_Status *) array_of_statuses)
 {
+  unsigned long fsaddr;
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   // NOTE: See MPI_Testany below for the rationale for these variables.
   int local_count = count;
   MPI_Request *local_array_of_requests = array_of_requests;
@@ -155,6 +167,7 @@ USER_DEFINED_WRAPPER(int, Testall, (int) count,
   if (incomplete) {
     *local_flag = 0;
   }
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   return retval;
 }
 
@@ -162,6 +175,8 @@ USER_DEFINED_WRAPPER(int, Testany, (int) count,
                      (MPI_Request *) array_of_requests, (int *) index,
                      (int *) flag, (MPI_Status *) status)
 {
+  unsigned long fsaddr;
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   // FIXME:  Revise this note if definition if FORTRAM_MPI_STATUS_IGNORE
   //         fixes the problem.
   // NOTE: We're seeing a weird bug with the Fortran-to-C interface when Nimrod
@@ -193,6 +208,7 @@ USER_DEFINED_WRAPPER(int, Testany, (int) count,
       break;
     }
   }
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   return retval;
 }
 
@@ -200,6 +216,8 @@ USER_DEFINED_WRAPPER(int, Waitall, (int) count,
                      (MPI_Request *) array_of_requests,
                      (MPI_Status *) array_of_statuses)
 {
+  unsigned long fsaddr;
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   // FIXME: Revisit this wrapper - call VIRTUAL_TO_REAL_REQUEST on array
   int retval = MPI_SUCCESS;
 #if 0
@@ -237,6 +255,7 @@ USER_DEFINED_WRAPPER(int, Waitall, (int) count,
     }
   }
 #endif
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   return retval;
 }
 
@@ -244,6 +263,8 @@ USER_DEFINED_WRAPPER(int, Waitany, (int) count,
                      (MPI_Request *) array_of_requests, (int *) index,
                      (MPI_Status *) status)
 {
+  unsigned long fsaddr;
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   // NOTE: See MPI_Testany above for the rationale for these variables.
   int local_count = count;
   MPI_Request *local_array_of_requests = array_of_requests;
@@ -263,6 +284,7 @@ USER_DEFINED_WRAPPER(int, Waitany, (int) count,
       retval = MPI_Test_internal(&local_array_of_requests[i], &flag,
                                  local_status, false);
       if (retval != MPI_SUCCESS) {
+        syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
         return retval;
       }
       if (flag) {
@@ -285,10 +307,12 @@ USER_DEFINED_WRAPPER(int, Waitany, (int) count,
           local_array_of_requests[i] = MPI_REQUEST_NULL;
         }
         *local_index = i;
+        syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
         return retval;
       }
     }
     if (all_null) {
+      syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
       return retval;
     }
   }
@@ -296,6 +320,7 @@ USER_DEFINED_WRAPPER(int, Waitany, (int) count,
 
 USER_DEFINED_WRAPPER(int, Wait, (MPI_Request*) request, (MPI_Status*) status)
 {
+  unsigned long fsaddr;
   int retval;
   if (*request == MPI_REQUEST_NULL) {
     // *request might be in read-only memory. So we can't overwrite it with
@@ -317,6 +342,7 @@ USER_DEFINED_WRAPPER(int, Wait, (MPI_Request*) request, (MPI_Status*) status)
   // Then MPI_Test_internal should use isRealRequest = true.
   while (!flag) {
     DMTCP_PLUGIN_DISABLE_CKPT();
+    syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
     retval = MPI_Test_internal(request, &flag, statusPtr, false);
     // Updating global counter of recv bytes
     // FIXME: This if statement should be merged into
@@ -347,6 +373,7 @@ USER_DEFINED_WRAPPER(int, Wait, (MPI_Request*) request, (MPI_Status*) status)
       LOG_REMOVE_REQUEST(*request); // Remove from record-replay log
       *request = MPI_REQUEST_NULL;
     }
+    syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
     DMTCP_PLUGIN_ENABLE_CKPT();
   }
   return retval;
@@ -355,19 +382,24 @@ USER_DEFINED_WRAPPER(int, Wait, (MPI_Request*) request, (MPI_Status*) status)
 USER_DEFINED_WRAPPER(int, Probe, (int) source, (int) tag,
                      (MPI_Comm) comm, (MPI_Status *) status)
 {
+  unsigned long fsaddr;
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   int retval;
   int flag = 0;
   while (!flag) {
     retval = MPI_Iprobe(source, tag, comm, &flag, status);
   }
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   return retval;
 }
 
 USER_DEFINED_WRAPPER(int, Iprobe, (int) source, (int) tag, (MPI_Comm) comm,
                      (int *) flag, (MPI_Status *) status)
 {
+  unsigned long fsaddr;
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   // LOG_PRE_Iprobe(status);
 
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
@@ -376,6 +408,7 @@ USER_DEFINED_WRAPPER(int, Iprobe, (int) source, (int) tag, (MPI_Comm) comm,
   RETURN_TO_UPPER_HALF();
   // LOG_POST_Iprobe(source,tag,comm,status);
   // REPLAY_POST_Iprobe(source,tag,comm,status,flag);
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -383,12 +416,15 @@ USER_DEFINED_WRAPPER(int, Iprobe, (int) source, (int) tag, (MPI_Comm) comm,
 USER_DEFINED_WRAPPER(int, Request_get_status, (MPI_Request) request,
                      (int *) flag, (MPI_Status *) status)
 {
+  unsigned long fsaddr;
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   MPI_Request realRequest = VIRTUAL_TO_REAL_REQUEST(request);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Request_get_status)(realRequest, flag, status);
   RETURN_TO_UPPER_HALF();
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }

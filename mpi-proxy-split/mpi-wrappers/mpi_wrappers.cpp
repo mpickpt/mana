@@ -29,6 +29,9 @@
 #include "mpi_nextfunc.h"
 #include "virtual-ids.h"
 #include "p2p_drain_send_recv.h"
+#include <sys/prctl.h>
+#include <sys/syscall.h>
+#include <asm/prctl.h>
 
 #if 0
 DEFINE_FNC(int, Init, (int *) argc, (char ***) argv)
@@ -46,29 +49,35 @@ static const char collective_p2p_string[] =
    "   ***************************************************************************\n"
    "\n";
 USER_DEFINED_WRAPPER(int, Init, (int *) argc, (char ***) argv) {
+  unsigned long fsaddr;
   int retval;
   if (isUsingCollectiveToP2p()) {
     fprintf(stderr, collective_p2p_string);
   }
   DMTCP_PLUGIN_DISABLE_CKPT();
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Init)(argc, argv);
   RETURN_TO_UPPER_HALF();
   initialize_drain_send_recv();
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
 USER_DEFINED_WRAPPER(int, Init_thread, (int *) argc, (char ***) argv,
                      (int) required, (int *) provided) {
+  unsigned long fsaddr;
   int retval;
   if (isUsingCollectiveToP2p()) {
     fprintf(stderr, collective_p2p_string);
   }
   DMTCP_PLUGIN_DISABLE_CKPT();
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Init_thread)(argc, argv, required, provided);
   RETURN_TO_UPPER_HALF();
   initialize_drain_send_recv();
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -99,6 +108,8 @@ USER_DEFINED_WRAPPER(int, Get_count,
                      (const MPI_Status *) status, (MPI_Datatype) datatype,
                      (int *) count)
 {
+  unsigned long fsaddr;
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
@@ -106,6 +117,7 @@ USER_DEFINED_WRAPPER(int, Get_count,
   retval = NEXT_FUNC(Get_count)(status, realType, count);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   return retval;
 }
 

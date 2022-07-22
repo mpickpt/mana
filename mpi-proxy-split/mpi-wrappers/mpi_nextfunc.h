@@ -25,6 +25,9 @@
 #include "lower_half_api.h"
 #include "split_process.h"
 #include "mpi_plugin.h"
+#include <sys/prctl.h>
+#include <sys/syscall.h>
+#include <asm/prctl.h>
 
 #define EAT(x)
 #define REM(x) x
@@ -86,11 +89,14 @@
 #define DEFINE_FNC(rettype, name, args...)                                     \
   EXTERNC rettype MPI_##name(APPLY(PAIR, args))                                \
   {                                                                            \
+    unsigned long fsaddr;                                                      \
     rettype retval;                                                            \
     DMTCP_PLUGIN_DISABLE_CKPT();                                               \
-    JUMP_TO_LOWER_HALF(lh_info.fsaddr);                                           \
+    syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);                             \
+    JUMP_TO_LOWER_HALF(lh_info.fsaddr);                                        \
     retval = NEXT_FUNC(name)(APPLY(STRIP, args));                              \
     RETURN_TO_UPPER_HALF();                                                    \
+    syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);                              \
     DMTCP_PLUGIN_ENABLE_CKPT();                                                \
     return retval;                                                             \
   }

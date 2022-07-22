@@ -33,6 +33,10 @@
 #include "virtual-ids.h"
 #include "p2p_log_replay.h"
 #include "p2p_drain_send_recv.h"
+#include <sys/prctl.h>
+#include <sys/syscall.h>
+#include <asm/prctl.h>
+
 
 #ifdef MPI_COLLECTIVE_P2P
 # include "mpi_collective_p2p.c"
@@ -58,6 +62,8 @@ USER_DEFINED_WRAPPER(int, Bcast,
                      (void *) buffer, (int) count, (MPI_Datatype) datatype,
                      (int) root, (MPI_Comm) comm)
 {
+  unsigned long fsaddr;
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   int rank, size;
   int retval = MPI_SUCCESS;
   MPI_Comm_rank(comm, &rank);
@@ -73,12 +79,16 @@ USER_DEFINED_WRAPPER(int, Bcast,
     for (dest = 0; dest < size; dest++) {
       if (dest == root) { continue; }
       retval = MPI_Send(buffer, count, datatype, dest, 0, comm);
-      if (retval != MPI_SUCCESS) { return retval; }
+      if (retval != MPI_SUCCESS) {
+        syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
+        return retval;
+      }
     }
   } else { // receiver
     retval = MPI_Recv(buffer, count, datatype, root,
                       0, comm, MPI_STATUS_IGNORE);
   }
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   return retval;
 }
 #else
@@ -88,6 +98,7 @@ USER_DEFINED_WRAPPER(int, Bcast,
 {
   std::function<int()> realBarrierCb = [=]() {
     int retval;
+    unsigned long fsaddr;
 #if 0 // for debugging
     int size;
     MPI_Type_size(datatype, &size);
@@ -95,6 +106,7 @@ USER_DEFINED_WRAPPER(int, Bcast,
     fflush(stdout);
 #endif
     DMTCP_PLUGIN_DISABLE_CKPT();
+    syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
     MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
     MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
     JUMP_TO_LOWER_HALF(lh_info.fsaddr);
@@ -103,10 +115,12 @@ USER_DEFINED_WRAPPER(int, Bcast,
     // communictor finished.
     NEXT_FUNC(Barrier)(realComm);
     RETURN_TO_UPPER_HALF();
+    syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
     DMTCP_PLUGIN_ENABLE_CKPT();
     return retval;
   };
-  return twoPhaseCommit(comm, realBarrierCb);
+  int retval = twoPhaseCommit(comm, realBarrierCb);
+  return retval;
 }
 #endif
 
@@ -114,8 +128,10 @@ USER_DEFINED_WRAPPER(int, Ibcast,
                      (void *) buffer, (int) count, (MPI_Datatype) datatype,
                      (int) root, (MPI_Comm) comm, (MPI_Request *) request)
 {
+  unsigned long fsaddr;
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
   MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
@@ -131,6 +147,7 @@ USER_DEFINED_WRAPPER(int, Ibcast,
     logRequestInfo(*request, IBCAST_REQUEST);
 #endif
   }
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -140,28 +157,35 @@ USER_DEFINED_WRAPPER(int, Barrier, (MPI_Comm) comm)
 {
   std::function<int()> realBarrierCb = [=]() {
     int retval;
+    unsigned long fsaddr;
     DMTCP_PLUGIN_DISABLE_CKPT();
+    syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
     MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
     JUMP_TO_LOWER_HALF(lh_info.fsaddr);
     retval = NEXT_FUNC(Barrier)(realComm);
     RETURN_TO_UPPER_HALF();
+    syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
     DMTCP_PLUGIN_ENABLE_CKPT();
     return retval;
   };
-  return twoPhaseCommit(comm, realBarrierCb);
+  int retval = twoPhaseCommit(comm, realBarrierCb);
+  return retval;
 }
 #else
 USER_DEFINED_WRAPPER(int, Barrier, (MPI_Comm) comm)
 {
+  unsigned long fsaddr;
   JTRACE("Invoking 2PC for MPI_Barrier");
   dmtcp_mpi::TwoPhaseAlgo::instance().commit_begin(comm);
-          
+
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Barrier)(realComm);
   RETURN_TO_UPPER_HALF();
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   DMTCP_PLUGIN_ENABLE_CKPT();
 
   dmtcp_mpi::TwoPhaseAlgo::instance().commit_finish();
@@ -172,8 +196,10 @@ USER_DEFINED_WRAPPER(int, Barrier, (MPI_Comm) comm)
 EXTERNC
 USER_DEFINED_WRAPPER(int, Ibarrier, (MPI_Comm) comm, (MPI_Request *) request)
 {
+  unsigned long fsaddr;
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Ibarrier)(realComm, request);
@@ -186,6 +212,7 @@ USER_DEFINED_WRAPPER(int, Ibarrier, (MPI_Comm) comm, (MPI_Request *) request)
     logRequestInfo(*request, IBARRIER_REQUEST);
 #endif
   }
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -197,7 +224,9 @@ USER_DEFINED_WRAPPER(int, Allreduce,
 {
   std::function<int()> realBarrierCb = [=]() {
     int retval;
+    unsigned long fsaddr;
     DMTCP_PLUGIN_DISABLE_CKPT();
+    syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
     get_fortran_constants();
     MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
     MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
@@ -214,10 +243,12 @@ USER_DEFINED_WRAPPER(int, Allreduce,
     }
     NEXT_FUNC(Barrier)(realComm);
     RETURN_TO_UPPER_HALF();
+    syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
     DMTCP_PLUGIN_ENABLE_CKPT();
     return retval;
   };
-  return twoPhaseCommit(comm, realBarrierCb);
+  int retval = twoPhaseCommit(comm, realBarrierCb);
+  return retval;
 }
 
 USER_DEFINED_WRAPPER(int, Reduce,
@@ -227,7 +258,9 @@ USER_DEFINED_WRAPPER(int, Reduce,
 {
   std::function<int()> realBarrierCb = [=]() {
     int retval;
+    unsigned long fsaddr;
     DMTCP_PLUGIN_DISABLE_CKPT();
+    syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
     MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
     MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
     MPI_Op realOp = VIRTUAL_TO_REAL_OP(op);
@@ -236,10 +269,12 @@ USER_DEFINED_WRAPPER(int, Reduce,
                                realType, realOp, root, realComm);
     NEXT_FUNC(Barrier)(realComm);
     RETURN_TO_UPPER_HALF();
+    syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
     DMTCP_PLUGIN_ENABLE_CKPT();
     return retval;
   };
-  return twoPhaseCommit(comm, realBarrierCb);
+  int retval = twoPhaseCommit(comm, realBarrierCb);
+  return retval;
 }
 
 USER_DEFINED_WRAPPER(int, Ireduce,
@@ -247,8 +282,10 @@ USER_DEFINED_WRAPPER(int, Ireduce,
                      (MPI_Datatype) datatype, (MPI_Op) op,
                      (int) root, (MPI_Comm) comm, (MPI_Request *) request)
 {
+  unsigned long fsaddr;
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
   MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
   MPI_Op realOp = VIRTUAL_TO_REAL_OP(op);
@@ -265,6 +302,7 @@ USER_DEFINED_WRAPPER(int, Ireduce,
     logRequestInfo(*request, IREDUCE_REQUSET);
 #endif
   }
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -276,7 +314,9 @@ USER_DEFINED_WRAPPER(int, Reduce_scatter,
 {
   std::function<int()> realBarrierCb = [=]() {
     int retval;
+    unsigned long fsaddr;
     DMTCP_PLUGIN_DISABLE_CKPT();
+    syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
     MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
     MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
     MPI_Op realOp = VIRTUAL_TO_REAL_OP(op);
@@ -285,10 +325,12 @@ USER_DEFINED_WRAPPER(int, Reduce_scatter,
                                        realType, realOp, realComm);
     NEXT_FUNC(Barrier)(realComm);
     RETURN_TO_UPPER_HALF();
+    syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
     DMTCP_PLUGIN_ENABLE_CKPT();
     return retval;
   };
-  return twoPhaseCommit(comm, realBarrierCb);
+  int retval = twoPhaseCommit(comm, realBarrierCb);
+  return retval;
 }
 #endif // #ifndef MPI_COLLECTIVE_P2P
 
@@ -304,8 +346,10 @@ MPI_Alltoall_internal(const void *sendbuf, int sendcount,
                       MPI_Datatype sendtype, void *recvbuf, int recvcount,
                       MPI_Datatype recvtype, MPI_Comm comm)
 {
+  unsigned long fsaddr;
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
   MPI_Datatype realSendType = VIRTUAL_TO_REAL_TYPE(sendtype);
   MPI_Datatype realRecvType = VIRTUAL_TO_REAL_TYPE(recvtype);
@@ -314,6 +358,7 @@ MPI_Alltoall_internal(const void *sendbuf, int sendcount,
       recvcount, realRecvType, realComm);
   NEXT_FUNC(Barrier)(realComm);
   RETURN_TO_UPPER_HALF();
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -324,11 +369,13 @@ USER_DEFINED_WRAPPER(int, Alltoall,
                      (MPI_Datatype) sendtype, (void *) recvbuf, (int) recvcount,
                      (MPI_Datatype) recvtype, (MPI_Comm) comm)
 {
+  unsigned long fsaddr;
   std::function<int()> realBarrierCb = [=]() {
     return MPI_Alltoall_internal(sendbuf, sendcount, sendtype,
                                  recvbuf, recvcount, recvtype, comm);
   };
-  return twoPhaseCommit(comm, realBarrierCb);
+  int retval = twoPhaseCommit(comm, realBarrierCb);
+  return retval;
 }
 
 USER_DEFINED_WRAPPER(int, Alltoallv,
@@ -340,7 +387,9 @@ USER_DEFINED_WRAPPER(int, Alltoallv,
 {
   std::function<int()> realBarrierCb = [=]() {
     int retval;
+    unsigned long fsaddr;
     DMTCP_PLUGIN_DISABLE_CKPT();
+    syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
     MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
     MPI_Datatype realSendType = VIRTUAL_TO_REAL_TYPE(sendtype);
     MPI_Datatype realRecvType = VIRTUAL_TO_REAL_TYPE(recvtype);
@@ -350,10 +399,12 @@ USER_DEFINED_WRAPPER(int, Alltoallv,
                                   realComm);
     NEXT_FUNC(Barrier)(realComm);
     RETURN_TO_UPPER_HALF();
+    syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
     DMTCP_PLUGIN_ENABLE_CKPT();
     return retval;
   };
-  return twoPhaseCommit(comm, realBarrierCb);
+  int retval = twoPhaseCommit(comm, realBarrierCb);
+  return retval;
 }
 
 USER_DEFINED_WRAPPER(int, Gather, (const void *) sendbuf, (int) sendcount,
@@ -362,7 +413,9 @@ USER_DEFINED_WRAPPER(int, Gather, (const void *) sendbuf, (int) sendcount,
 {
   std::function<int()> realBarrierCb = [=]() {
     int retval;
+    unsigned long fsaddr;
     DMTCP_PLUGIN_DISABLE_CKPT();
+    syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
     MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
     MPI_Datatype realSendType = VIRTUAL_TO_REAL_TYPE(sendtype);
     MPI_Datatype realRecvType = VIRTUAL_TO_REAL_TYPE(recvtype);
@@ -372,10 +425,12 @@ USER_DEFINED_WRAPPER(int, Gather, (const void *) sendbuf, (int) sendcount,
                                root, realComm);
     NEXT_FUNC(Barrier)(realComm);
     RETURN_TO_UPPER_HALF();
+    syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
     DMTCP_PLUGIN_ENABLE_CKPT();
     return retval;
   };
-  return twoPhaseCommit(comm, realBarrierCb);
+  int retval = twoPhaseCommit(comm, realBarrierCb);
+  return retval;
 }
 
 USER_DEFINED_WRAPPER(int, Gatherv, (const void *) sendbuf, (int) sendcount,
@@ -385,7 +440,9 @@ USER_DEFINED_WRAPPER(int, Gatherv, (const void *) sendbuf, (int) sendcount,
 {
   std::function<int()> realBarrierCb = [=]() {
     int retval;
+    unsigned long fsaddr;
     DMTCP_PLUGIN_DISABLE_CKPT();
+    syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
     MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
     MPI_Datatype realSendType = VIRTUAL_TO_REAL_TYPE(sendtype);
     MPI_Datatype realRecvType = VIRTUAL_TO_REAL_TYPE(recvtype);
@@ -395,10 +452,12 @@ USER_DEFINED_WRAPPER(int, Gatherv, (const void *) sendbuf, (int) sendcount,
                                 root, realComm);
     NEXT_FUNC(Barrier)(realComm);
     RETURN_TO_UPPER_HALF();
+    syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
     DMTCP_PLUGIN_ENABLE_CKPT();
     return retval;
   };
-  return twoPhaseCommit(comm, realBarrierCb);
+  int retval = twoPhaseCommit(comm, realBarrierCb);
+  return retval;
 }
 
 USER_DEFINED_WRAPPER(int, Scatter, (const void *) sendbuf, (int) sendcount,
@@ -407,7 +466,9 @@ USER_DEFINED_WRAPPER(int, Scatter, (const void *) sendbuf, (int) sendcount,
 {
   std::function<int()> realBarrierCb = [=]() {
     int retval;
+    unsigned long fsaddr;
     DMTCP_PLUGIN_DISABLE_CKPT();
+    syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
     MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
     MPI_Datatype realSendType = VIRTUAL_TO_REAL_TYPE(sendtype);
     MPI_Datatype realRecvType = VIRTUAL_TO_REAL_TYPE(recvtype);
@@ -417,10 +478,12 @@ USER_DEFINED_WRAPPER(int, Scatter, (const void *) sendbuf, (int) sendcount,
                                 root, realComm);
     NEXT_FUNC(Barrier)(realComm);
     RETURN_TO_UPPER_HALF();
+    syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
     DMTCP_PLUGIN_ENABLE_CKPT();
     return retval;
   };
-  return twoPhaseCommit(comm, realBarrierCb);
+  int retval = twoPhaseCommit(comm, realBarrierCb);
+  return retval;
 }
 
 USER_DEFINED_WRAPPER(int, Scatterv, (const void *) sendbuf,
@@ -430,7 +493,9 @@ USER_DEFINED_WRAPPER(int, Scatterv, (const void *) sendbuf,
 {
   std::function<int()> realBarrierCb = [=]() {
     int retval;
+    unsigned long fsaddr;
     DMTCP_PLUGIN_DISABLE_CKPT();
+    syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
     MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
     MPI_Datatype realSendType = VIRTUAL_TO_REAL_TYPE(sendtype);
     MPI_Datatype realRecvType = VIRTUAL_TO_REAL_TYPE(recvtype);
@@ -440,10 +505,12 @@ USER_DEFINED_WRAPPER(int, Scatterv, (const void *) sendbuf,
                                  root, realComm);
     NEXT_FUNC(Barrier)(realComm);
     RETURN_TO_UPPER_HALF();
+    syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
     DMTCP_PLUGIN_ENABLE_CKPT();
     return retval;
   };
-  return twoPhaseCommit(comm, realBarrierCb);
+  int retval = twoPhaseCommit(comm, realBarrierCb);
+  return retval;
 }
 
 USER_DEFINED_WRAPPER(int, Allgather, (const void *) sendbuf, (int) sendcount,
@@ -452,7 +519,9 @@ USER_DEFINED_WRAPPER(int, Allgather, (const void *) sendbuf, (int) sendcount,
 {
   std::function<int()> realBarrierCb = [=]() {
     int retval;
+    unsigned long fsaddr;
     DMTCP_PLUGIN_DISABLE_CKPT();
+    syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
     MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
     MPI_Datatype realSendType = VIRTUAL_TO_REAL_TYPE(sendtype);
     MPI_Datatype realRecvType = VIRTUAL_TO_REAL_TYPE(recvtype);
@@ -462,10 +531,12 @@ USER_DEFINED_WRAPPER(int, Allgather, (const void *) sendbuf, (int) sendcount,
                                   realComm);
     NEXT_FUNC(Barrier)(realComm);
     RETURN_TO_UPPER_HALF();
+    syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
     DMTCP_PLUGIN_ENABLE_CKPT();
     return retval;
   };
-  return twoPhaseCommit(comm, realBarrierCb);
+  int retval = twoPhaseCommit(comm, realBarrierCb);
+  return retval;
 }
 
 USER_DEFINED_WRAPPER(int, Allgatherv, (const void *) sendbuf, (int) sendcount,
@@ -475,7 +546,9 @@ USER_DEFINED_WRAPPER(int, Allgatherv, (const void *) sendbuf, (int) sendcount,
 {
   std::function<int()> realBarrierCb = [=]() {
     int retval;
+    unsigned long fsaddr;
     DMTCP_PLUGIN_DISABLE_CKPT();
+    syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
     MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
     MPI_Datatype realSendType = VIRTUAL_TO_REAL_TYPE(sendtype);
     MPI_Datatype realRecvType = VIRTUAL_TO_REAL_TYPE(recvtype);
@@ -485,10 +558,12 @@ USER_DEFINED_WRAPPER(int, Allgatherv, (const void *) sendbuf, (int) sendcount,
                                    realComm);
     NEXT_FUNC(Barrier)(realComm);
     RETURN_TO_UPPER_HALF();
+    syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
     DMTCP_PLUGIN_ENABLE_CKPT();
     return retval;
   };
-  return twoPhaseCommit(comm, realBarrierCb);
+  int retval = twoPhaseCommit(comm, realBarrierCb);
+  return retval;
 }
 
 USER_DEFINED_WRAPPER(int, Scan, (const void *) sendbuf, (void *) recvbuf,
@@ -497,7 +572,9 @@ USER_DEFINED_WRAPPER(int, Scan, (const void *) sendbuf, (void *) recvbuf,
 {
   std::function<int()> realBarrierCb = [=]() {
     int retval;
+    unsigned long fsaddr;
     DMTCP_PLUGIN_DISABLE_CKPT();
+    syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
     MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
     MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
     MPI_Op realOp = VIRTUAL_TO_REAL_TYPE(op);
@@ -506,10 +583,12 @@ USER_DEFINED_WRAPPER(int, Scan, (const void *) sendbuf, (void *) recvbuf,
                              realType, realOp, realComm);
     NEXT_FUNC(Barrier)(realComm);
     RETURN_TO_UPPER_HALF();
+    syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
     DMTCP_PLUGIN_ENABLE_CKPT();
     return retval;
   };
-  return twoPhaseCommit(comm, realBarrierCb);
+  int retval = twoPhaseCommit(comm, realBarrierCb);
+  return retval;
 }
 #endif // #ifndef MPI_COLLECTIVE_P2P
 
@@ -519,7 +598,9 @@ USER_DEFINED_WRAPPER(int, Comm_split, (MPI_Comm) comm, (int) color, (int) key,
 {
   std::function<int()> realBarrierCb = [=]() {
     int retval;
+    unsigned long fsaddr;
     DMTCP_PLUGIN_DISABLE_CKPT();
+    syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
     MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
     JUMP_TO_LOWER_HALF(lh_info.fsaddr);
     retval = NEXT_FUNC(Comm_split)(realComm, color, key, newcomm);
@@ -531,17 +612,21 @@ USER_DEFINED_WRAPPER(int, Comm_split, (MPI_Comm) comm, (int) color, (int) key,
       active_comms.insert(virtComm);
       LOG_CALL(restoreComms, Comm_split, comm, color, key, *newcomm);
     }
+    syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
     DMTCP_PLUGIN_ENABLE_CKPT();
     return retval;
   };
-  return twoPhaseCommit(comm, realBarrierCb);
+  int retval = twoPhaseCommit(comm, realBarrierCb);
+  return retval;
 }
 
 USER_DEFINED_WRAPPER(int, Comm_dup, (MPI_Comm) comm, (MPI_Comm *) newcomm)
 {
   std::function<int()> realBarrierCb = [=]() {
     int retval;
+    unsigned long fsaddr;
     DMTCP_PLUGIN_DISABLE_CKPT();
+    syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
     MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
     JUMP_TO_LOWER_HALF(lh_info.fsaddr);
     retval = NEXT_FUNC(Comm_dup)(realComm, newcomm);
@@ -553,10 +638,12 @@ USER_DEFINED_WRAPPER(int, Comm_dup, (MPI_Comm) comm, (MPI_Comm *) newcomm)
       active_comms.insert(virtComm);
       LOG_CALL(restoreComms, Comm_dup, comm, *newcomm);
     }
+    syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
     DMTCP_PLUGIN_ENABLE_CKPT();
     return retval;
   };
-  return twoPhaseCommit(comm, realBarrierCb);
+  int retval = twoPhaseCommit(comm, realBarrierCb);
+  return retval;
 }
 
 

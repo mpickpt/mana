@@ -29,25 +29,33 @@
 #include "mpi_nextfunc.h"
 #include "record-replay.h"
 #include "virtual-ids.h"
+#include <sys/prctl.h>
+#include <sys/syscall.h>
+#include <asm/prctl.h>
 
 using namespace dmtcp_mpi;
 
 USER_DEFINED_WRAPPER(int, Type_size, (MPI_Datatype) datatype, (int *) size)
 {
+  unsigned long fsaddr;
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Type_size)(realType, size);
   RETURN_TO_UPPER_HALF();
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
 
 USER_DEFINED_WRAPPER(int, Type_free, (MPI_Datatype *) type)
 {
+  unsigned long fsaddr;
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(*type);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Type_free)(&realType);
@@ -60,14 +68,17 @@ USER_DEFINED_WRAPPER(int, Type_free, (MPI_Datatype *) type)
     // realType = REMOVE_OLD_TYPE(*type);
     LOG_CALL(restoreTypes, Type_free, *type);
   }
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
 
 USER_DEFINED_WRAPPER(int, Type_commit, (MPI_Datatype *) type)
 {
+  unsigned long fsaddr;
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(*type);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Type_commit)(&realType);
@@ -79,6 +90,7 @@ USER_DEFINED_WRAPPER(int, Type_commit, (MPI_Datatype *) type)
       LOG_CALL(restoreTypes, Type_commit, *type);
     }
   }
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -86,8 +98,10 @@ USER_DEFINED_WRAPPER(int, Type_commit, (MPI_Datatype *) type)
 USER_DEFINED_WRAPPER(int, Type_contiguous, (int) count, (MPI_Datatype) oldtype,
                      (MPI_Datatype *) newtype)
 {
+  unsigned long fsaddr;
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(oldtype);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Type_contiguous)(count, realType, newtype);
@@ -97,6 +111,7 @@ USER_DEFINED_WRAPPER(int, Type_contiguous, (int) count, (MPI_Datatype) oldtype,
     *newtype = virtType;
     LOG_CALL(restoreTypes, Type_contiguous, count, oldtype, virtType);
   }
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -105,8 +120,10 @@ USER_DEFINED_WRAPPER(int, Type_hvector, (int) count, (int) blocklength,
                     (MPI_Aint) stride, (MPI_Datatype) oldtype,
                     (MPI_Datatype*) newtype)
 {
+  unsigned long fsaddr;
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(oldtype);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Type_hvector)(count, blocklength,
@@ -118,6 +135,7 @@ USER_DEFINED_WRAPPER(int, Type_hvector, (int) count, (int) blocklength,
     LOG_CALL(restoreTypes, Type_hvector, count, blocklength,
              stride, oldtype, virtType);
   }
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -126,12 +144,15 @@ USER_DEFINED_WRAPPER(int, Type_vector, (int) count, (int) blocklength,
                      (int) stride, (MPI_Datatype) oldtype,
                     (MPI_Datatype*) newtype)
 {
+  unsigned long fsaddr;
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   int size;
   int retval = MPI_Type_size(oldtype, &size);
   if(retval != MPI_SUCCESS) {
+    syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
     return retval;
   }
-
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   return MPI_Type_hvector(count, blocklength, stride*size, oldtype, newtype);
 }
 
@@ -146,8 +167,10 @@ USER_DEFINED_WRAPPER(int, Type_create_struct, (int) count,
                      (const MPI_Aint*) array_of_displacements,
                      (const MPI_Datatype*) array_of_types, (MPI_Datatype*) newtype)
 {
+  unsigned long fsaddr;
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   MPI_Datatype realTypes[count];
   for (int i = 0; i < count; i++) {
     realTypes[i] = VIRTUAL_TO_REAL_TYPE(array_of_types[i]);
@@ -166,6 +189,7 @@ USER_DEFINED_WRAPPER(int, Type_create_struct, (int) count,
     FncArg ts = CREATE_LOG_BUF(array_of_types, count * sizeof(MPI_Datatype));
     LOG_CALL(restoreTypes, Type_create_struct, count, bs, ds, ts, virtType);
   }
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -192,8 +216,10 @@ USER_DEFINED_WRAPPER(int, Type_indexed, (int) count,
                      (const int*) array_of_displacements,
                      (MPI_Datatype) oldtype, (MPI_Datatype*) newtype)
 {
+  unsigned long fsaddr;
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(oldtype);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Type_indexed)(count, array_of_blocklengths,
@@ -207,6 +233,7 @@ USER_DEFINED_WRAPPER(int, Type_indexed, (int) count,
     FncArg ds = CREATE_LOG_BUF(array_of_displacements, count * sizeof(int));
     LOG_CALL(restoreTypes, Type_indexed, count, bs, ds, oldtype, virtType);
   }
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -214,12 +241,15 @@ USER_DEFINED_WRAPPER(int, Type_indexed, (int) count,
 USER_DEFINED_WRAPPER(int, Type_get_extent, (MPI_Datatype) datatype,
                      (MPI_Aint*) lb, (MPI_Aint*) extent)
 {
+  unsigned long fsaddr;
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Type_get_extent)(realType, lb, extent);
   RETURN_TO_UPPER_HALF();
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -228,13 +258,16 @@ USER_DEFINED_WRAPPER(int, Pack_size, (int) incount,
                      (MPI_Datatype) datatype, (MPI_Comm) comm,
                      (int*) size)
 {
+  unsigned long fsaddr;
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Pack_size)(incount, realType, realComm, size);
   RETURN_TO_UPPER_HALF();
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -243,14 +276,17 @@ USER_DEFINED_WRAPPER(int, Pack, (const void*) inbuf, (int) incount,
                      (MPI_Datatype) datatype, (void*) outbuf, (int) outsize,
                      (int*) position, (MPI_Comm) comm)
 {
+  unsigned long fsaddr;
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Pack)(inbuf, incount, realType, outbuf,
                            outsize, position, realComm);
   RETURN_TO_UPPER_HALF();
+  syscall(SYS_arch_prctl, ARCH_SET_FS, fsaddr);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
