@@ -170,6 +170,31 @@ USER_DEFINED_WRAPPER(int, Type_create_struct, (int) count,
   return retval;
 }
 
+USER_DEFINED_WRAPPER(int, Type_create_subarray, (int) ndims, (const int*) array_of_sizes,
+                     (const int*) array_of_subsizes, (const int*) array_of_starts,
+                     (int) order, (MPI_Datatype) oldtype, (MPI_Datatype*) newtype)
+{
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(oldtype);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  retval = NEXT_FUNC(Type_create_subarray)(ndims, array_of_sizes, array_of_subsizes,
+                                           array_of_starts,  order, realType, newtype);
+  RETURN_TO_UPPER_HALF();
+  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
+    MPI_Datatype virtType = ADD_NEW_TYPE(*newtype);
+    *newtype = virtType;
+    FncArg sizes = CREATE_LOG_BUF(array_of_sizes, ndims * sizeof(int));
+    FncArg subsizes = CREATE_LOG_BUF(array_of_subsizes, ndims * sizeof(int));
+    FncArg starts = CREATE_LOG_BUF(array_of_starts, ndims * sizeof(int));
+    LOG_CALL(restoreTypes, Type_create_subarray, ndims, sizes, subsizes, starts,
+             order, oldtype, virtType);
+  }
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return retval;
+}
+
+
 #ifdef CRAY_MPICH_VERSION
 USER_DEFINED_WRAPPER(int, Type_struct, (int) count,
                      (const int*) array_of_blocklengths,
@@ -269,6 +294,9 @@ PMPI_IMPL(int, MPI_Type_hvector, int count, int blocklength,
 PMPI_IMPL(int, MPI_Type_create_struct, int count, const int array_of_blocklengths[],
           const MPI_Aint array_of_displacements[], const MPI_Datatype array_of_types[],
           MPI_Datatype *newtype)
+PMPI_IMPL(int, MPI_Type_create_subarray, int ndims, const int array_of_sizes[],
+                     const int array_of_subsizes[], const int array_of_starts[],
+                     int order, MPI_Datatype oldtype, MPI_Datatype *newtype)
 
 #ifdef CRAY_MPICH_VERSION
 PMPI_IMPL(int, MPI_Type_struct, int count, const int array_of_blocklengths[],
