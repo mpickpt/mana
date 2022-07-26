@@ -41,6 +41,7 @@ using namespace dmtcp_mpi;
 USER_DEFINED_WRAPPER(int, Cart_coords, (MPI_Comm) comm, (int) rank,
                      (int) maxdims, (int*) coords)
 {
+  fprintf(stderr, "CART_COORDS\n"); fflush(stderr);
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
@@ -54,6 +55,7 @@ USER_DEFINED_WRAPPER(int, Cart_coords, (MPI_Comm) comm, (int) rank,
 USER_DEFINED_WRAPPER(int, Cart_get, (MPI_Comm) comm, (int) maxdims,
                      (int*) dims, (int*) periods, (int*) coords)
 {
+  fprintf(stderr, "CART_GET\n"); fflush(stderr);
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
@@ -67,6 +69,7 @@ USER_DEFINED_WRAPPER(int, Cart_get, (MPI_Comm) comm, (int) maxdims,
 USER_DEFINED_WRAPPER(int, Cart_map, (MPI_Comm) comm, (int) ndims,
                      (const int*) dims, (const int*) periods, (int *) newrank)
 {
+  fprintf(stderr, "CART_MAP\n"); fflush(stderr);
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
@@ -86,6 +89,7 @@ USER_DEFINED_WRAPPER(int, Cart_map, (MPI_Comm) comm, (int) ndims,
 USER_DEFINED_WRAPPER(int, Cart_rank, (MPI_Comm) comm,
                      (const int*) coords, (int *) rank)
 {
+  fprintf(stderr, "CART_RANK\n"); fflush(stderr);
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
@@ -99,6 +103,7 @@ USER_DEFINED_WRAPPER(int, Cart_rank, (MPI_Comm) comm,
 USER_DEFINED_WRAPPER(int, Cart_shift, (MPI_Comm) comm, (int) direction,
                      (int) disp, (int *) rank_source, (int *) rank_dest)
 {
+  fprintf(stderr, "Cart_shift\n"); fflush(stderr);
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
@@ -117,6 +122,8 @@ USER_DEFINED_WRAPPER(int, Cart_shift, (MPI_Comm) comm, (int) direction,
 USER_DEFINED_WRAPPER(int, Cart_sub, (MPI_Comm) comm,
                      (const int*) remain_dims, (MPI_Comm *) new_comm)
 {
+  fprintf(stderr, "Cart_sub\n"); fflush(stderr);
+
   int retval;
 
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -140,6 +147,8 @@ USER_DEFINED_WRAPPER(int, Cart_sub, (MPI_Comm) comm,
 
 USER_DEFINED_WRAPPER(int, Cartdim_get, (MPI_Comm) comm, (int *) ndims)
 {
+  fprintf(stderr, "Cartdim_get\n"); fflush(stderr);
+
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
@@ -152,6 +161,7 @@ USER_DEFINED_WRAPPER(int, Cartdim_get, (MPI_Comm) comm, (int *) ndims)
 
 USER_DEFINED_WRAPPER(int, Dims_create, (int)nnodes, (int)ndims, (int *)dims)
 {
+  fprintf(stderr, "Dims_create\n"); fflush(stderr);
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
@@ -173,6 +183,8 @@ USER_DEFINED_WRAPPER(int, Cart_create, (MPI_Comm)old_comm, (int)ndims,
                      (const int *)dims, (const int *)periods, (int)reorder,
                      (MPI_Comm *)comm_cart)
 {
+  fprintf(stderr, "Cart_create\n"); fflush(stderr);
+
   JWARNING(g_cartesian_properties.comm_old_size == -1)
     .Text("MPI_Cart_create() called more than once. Current implementation "
           "only supports one cartesian communicator.");
@@ -221,6 +233,8 @@ USER_DEFINED_WRAPPER(int, Cart_create, (MPI_Comm) old_comm, (int) ndims,
                      (const int*) dims, (const int*) periods, (int) reorder,
                      (MPI_Comm *) comm_cart)
 {
+  fprintf(stderr, "Cart_create\n"); fflush(stderr);
+
   int retval;
   // The MPI library assigns the cartesian coordinates naively
   // (in the increasing rank order) with no reordering as opposed to optimal
