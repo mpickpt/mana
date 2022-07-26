@@ -147,11 +147,17 @@ check-integrated_dmtcp_text: tidy integrated_dmtcp_test
 %.o: %.c
 	 $(MPICC) -g3 -O0 -c -o $@ $< $(MPI_CFLAGS)
 
+# Allowing fortran argument mismatch in order to allow wave and day1 tests to
+# compile with GNU compiler. Note that this should not affect execution
+# Intel/GNU compilers on Cray Haswell
+# Argument mistmatch is a legacy feature that newer fortran compilers do not
+# allow, but is still used in two of our test cases
 %.exe: %.f90
-	$(MPIFORTRAN) -g3 -O0 -o $@ $< -fPIC
+	$(MPIFORTRAN) -g3 -O0 -o $@ $< -fPIC -fallow-argument-mismatch
 
 %.mana.exe: %.f90
-	$(MPIFORTRAN) -g3 -O0 -o $@ $< -fPIC ${LDFLAGS_DUMMY}
+	$(MPIFORTRAN) -g3 -O0 -o $@ $< -fPIC -fallow-argument-mismatch \
+	  ${LDFLAGS_DUMMY}
 
 %.exe: %.o
 	 $(MPICC) -o $@ $< ${MPI_LDFLAGS}
