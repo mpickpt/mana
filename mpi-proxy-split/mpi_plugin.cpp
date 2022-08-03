@@ -40,7 +40,7 @@
 #include "p2p_log_replay.h"
 #include "p2p_drain_send_recv.h"
 #include "record-replay.h"
-#include "two-phase-algo.h"
+#include "seq_num.h"
 
 #include "config.h"
 #include "dmtcp.h"
@@ -295,27 +295,22 @@ static void
 mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
-    case DMTCP_EVENT_INIT:
-    {
+    case DMTCP_EVENT_INIT: {
       JTRACE("*** DMTCP_EVENT_INIT");
       initialize_segv_handler();
       JASSERT(!splitProcess()).Text("Failed to create, initialize lower haf");
+      seq_num_init();
       mana_state = RUNNING;
       break;
     }
     case DMTCP_EVENT_EXIT: {
       JTRACE("*** DMTCP_EVENT_EXIT");
+      seq_num_destroy();
       break;
     }
     case DMTCP_EVENT_PRESUSPEND: {
       mana_state = CKPT_COLLECTIVE;
-      // drainMpiCollectives() will send worker state and get coord response.
-      // Unfortunately, dmtcp_global_barrier()/DMT_BARRIER can't send worker
-      // state and get a coord responds.  So, drainMpiCollective() will use the
-      // special messages:  DMT_MPI_PRESUSPEND and DMT_MPI_PRESUSPEND_RESPONSE
-      // 'INTENT' (intend to ckpt) acts as the first corodinator response.
-      // * drainMpiCollective() calls preSuspendBarrier()
-      // * mpi_presuspend_barrier() calls waitForMpiPresuspendBarrier()
+      // preSuspendBarrier() will send coord response and get worker state.
       // FIXME:  See commant at: dmtcpplugin.cpp:'case DMTCP_EVENT_PRESUSPEND'
       {
         query_t coord_response = INTENT;
@@ -323,12 +318,20 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
         while (1) {
           // FIXME: see informCoordinator...() for the 2pc_data that we send
           //       to the coordinator.  Now, return it and use it below.
-          rank_state_t data_to_coord = drainMpiCollectives(coord_response);
+          rank_state_t data_to_coord = preSuspendBarrier(coord_response);
+          coord_response = Q_UNKNOWN;
 
           string barrierId = "MANA-PRESUSPEND-" + jalib::XToString(round);
           string csId = "MANA-PRESUSPEND-CS-" + jalib::XToString(round);
           string commId = "MANA-PRESUSPEND-COMM-" + jalib::XToString(round);
+          string targetId = "MANA-PRESUSPEND-TARGET-" + jalib::XToString(round);
           int64_t commKey = (int64_t) data_to_coord.comm;
+          
+          int target_reached = check_seq_nums();
+          if (!target_reached) {
+            dmtcp_kvdb64(DMTCP_KVDB_OR, targetId.c_str(), 0, 1);
+            coord_response = WAIT_STRAGGLER;
+          }
 
           if (data_to_coord.st == IN_CS) {
             dmtcp_kvdb64(DMTCP_KVDB_INCRBY, csId.c_str(), 0, 1);
@@ -339,29 +342,41 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
           dmtcp_global_barrier(barrierId.c_str());
 
           int64_t counter;
-          if (dmtcp_kvdb64_get(csId.c_str(), 0, &counter) == -1) {
-            // No rank published IN_CS state.
-            coord_response = SAFE_TO_CHECKPOINT;
+          // If the database name and key combination does not exist, the in-out
+          // parameter will not be changed. So we need to initialize the
+          // variable not_all_targets_reached.
+          int64_t not_all_targets_reached = 0;
+          dmtcp_kvdb64_get(targetId.c_str(), 0, &not_all_targets_reached);
+
+          if (not_all_targets_reached && data_to_coord.st == STOP_BEFORE_CS) {
+            coord_response = FREE_PASS;
+          }
+
+          // No rank published IN_CS state and all sequence numbers
+          // reached the target number.
+          if (dmtcp_kvdb64_get(csId.c_str(), 0, &counter) == -1 &&
+              !not_all_targets_reached) {
             break;
           }
 
-          int64_t commStatus = 0;
-          dmtcp_kvdb64_get(commId.c_str(), commKey, &commStatus);
-          if (commStatus == 1 && data_to_coord.st == PHASE_1) {
-            coord_response = FREE_PASS;
-          } else {
-            coord_response = WAIT_STRAGGLER;
+          if (coord_response == Q_UNKNOWN) {
+            int64_t commStatus = 0;
+            dmtcp_kvdb64_get(commId.c_str(), commKey, &commStatus);
+            if (commStatus == 1 && data_to_coord.st == STOP_BEFORE_CS) {
+              coord_response = FREE_PASS;
+            } else {
+              coord_response = WAIT_STRAGGLER;
+            }
           }
-
           round++;
         }
       }
       break;
     }
+
     case DMTCP_EVENT_PRECHECKPOINT: {
-      logIbarrierIfInTrivBarrier(); // two-phase-algo.cpp
       dmtcp_local_barrier("MPI:GetLocalLhMmapList");
-      getLhMmapList(); // two-phase-algo.cpp
+      getLhMmapList();
       dmtcp_local_barrier("MPI:GetLocalRankInfo");
       getLocalRankInfo(); // p2p_log_replay.cpp
       dmtcp_global_barrier("MPI:update-ckpt-dir-by-rank");
@@ -377,20 +392,21 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       const char *file = get_cartesian_properties_file_name();
       save_cartesian_properties(file);
 #endif
+      break;
     }
+
     case DMTCP_EVENT_RESUME: {
-      clearPendingCkpt(); // two-phase-algo.cpp
       dmtcp_local_barrier("MPI:Reset-Drain-Send-Recv-Counters");
       resetDrainCounters(); // p2p_drain_send_recv.cpp
+      seq_num_reset(RESUME);
+      dmtcp_local_barrier("MPI:seq_num_reset");
       mana_state = RUNNING;
       break;
     }
+
     case DMTCP_EVENT_RESTART: {
-      save2pcGlobals(); // two-phase-algo.cpp
       dmtcp_local_barrier("MPI:updateEnviron");
       updateLhEnviron(); // mpi-plugin.cpp
-      dmtcp_local_barrier("MPI:Clear-Pending-Ckpt-Msg-Post-Restart");
-      clearPendingCkpt(); // two-phase-algo.cpp
       dmtcp_local_barrier("MPI:Reset-Drain-Send-Recv-Counters");
       resetDrainCounters(); // p2p_drain_send_recv.cpp
       mana_state = RESTART_REPLAY;
@@ -404,7 +420,8 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       dmtcp_global_barrier("MPI:record-replay.cpp-void");
       replayMpiP2pOnRestart(); // p2p_log_replay.cpp
       dmtcp_local_barrier("MPI:p2p_log_replay.cpp-void");
-      restore2pcGlobals(); // two-phase-algo.cpp
+      seq_num_reset(RESTART);
+      dmtcp_local_barrier("MPI:seq_num_reset");
       mana_state = RUNNING;
       break;
     }
