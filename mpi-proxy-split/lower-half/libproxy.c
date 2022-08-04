@@ -192,15 +192,24 @@ updateEnviron(const char **newenviron)
 }
 
 int
-getRank()
+getRank(int initFlag)
 {
   int flag;
   int world_rank = -1;
+  int provided;
   int retval = MPI_SUCCESS;
 
   MPI_Initialized(&flag);
   if (!flag) {
-    retval = MPI_Init(NULL, NULL);
+    if(initFlag == -1){
+      MPI_Init(NULL, NULL);
+    }
+    else{
+      retval = MPI_Init_thread(NULL, NULL, initFlag, &provided);
+    }
+  }
+  if(retval != MPI_SUCCESS){
+    MPI_ABORT();
   }
   if (retval == MPI_SUCCESS) {
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
@@ -214,16 +223,25 @@ getRank()
 MPI_Comm comm_cart_prime;
 
 int
-getCoordinates(CartesianProperties *cp, int *coords)
+getCoordinates(CartesianProperties *cp, int *coords, int initFlag)
 {
   int flag;
   int comm_old_rank = -1;
   int comm_cart_rank = -1;
   int retval = MPI_SUCCESS;
+  int provided;
 
   MPI_Initialized(&flag);
   if (!flag) {
-    retval = MPI_Init(NULL, NULL);
+    if(initFlag == -1){
+      MPI_Init(NULL, NULL);
+    }
+    else{
+      retval = MPI_Init_thread(NULL, NULL, initFlag, &provided);
+    }
+  }
+  if(retval != MPI_SUCCESS){
+    MPI_ABORT();
   }
   if (retval == MPI_SUCCESS) {
     MPI_Cart_create(MPI_COMM_WORLD, cp->ndims, cp->dimensions, cp->periods,

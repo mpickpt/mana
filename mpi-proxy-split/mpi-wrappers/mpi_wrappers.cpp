@@ -29,6 +29,7 @@
 #include "mpi_nextfunc.h"
 #include "virtual-ids.h"
 #include "p2p_drain_send_recv.h"
+#include "processinfo.h"
 
 #if 0
 DEFINE_FNC(int, Init, (int *) argc, (char ***) argv)
@@ -51,6 +52,7 @@ USER_DEFINED_WRAPPER(int, Init, (int *) argc, (char ***) argv) {
     fprintf(stderr, collective_p2p_string);
   }
   DMTCP_PLUGIN_DISABLE_CKPT();
+  dmtcp::ProcessInfo::instance().setInitThreadFlag(-1);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Init)(argc, argv);
   RETURN_TO_UPPER_HALF();
@@ -65,6 +67,7 @@ USER_DEFINED_WRAPPER(int, Init_thread, (int *) argc, (char ***) argv,
     fprintf(stderr, collective_p2p_string);
   }
   DMTCP_PLUGIN_DISABLE_CKPT();
+  dmtcp::ProcessInfo::instance().setInitThreadFlag(required);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Init_thread)(argc, argv, required, provided);
   RETURN_TO_UPPER_HALF();

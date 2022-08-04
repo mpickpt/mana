@@ -473,14 +473,16 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
 #if 0
     print(&CartesianProperties);
 #endif
-    typedef int (*getCoordinatesFptr_t)(CartesianProperties *, int *);
+    typedef int (*getCoordinatesFptr_t)(CartesianProperties *, int *, int);
     JUMP_TO_LOWER_HALF(rinfo->pluginInfo.fsaddr);
     // MPI_Init is called here. GNI memory areas will be loaded by MPI_Init.
     // Also, MPI_Cart_create will be called to restore cartesian topology.
     // Based on the coordinates, checkpoint image will be restored instead of
     // world rank.
     world_rank =
-      ((getCoordinatesFptr_t)rinfo->pluginInfo.getCoordinatesFptr)(&cp, coords);
+      ((getCoordinatesFptr_t)rinfo->pluginInfo.getCoordinatesFptr)(&cp, coords, rinfo->flag);
+    MTCP_PRINTF("[Rank: %d] Restoring with flag: %d\n", rank, rinfo->flag);
+
     RETURN_TO_UPPER_HALF();
 #if 0
     MTCP_PRINTF("\nWorld Rank: %d \n: ", world_rank);
@@ -492,11 +494,13 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
     ckpt_image_rank_to_be_restored =
     get_rank_corresponding_to_coordinates(cp.comm_old_size, cp.ndims, coords);
   } else {
-    typedef int (*getRankFptr_t)(void);
+    typedef int (*getRankFptr_t)(int);
     JUMP_TO_LOWER_HALF(rinfo->pluginInfo.fsaddr);
     // MPI_Init is called here. GNI memory areas will be loaded by MPI_Init.
-    world_rank = ((getRankFptr_t)rinfo->pluginInfo.getRankFptr)();
+    world_rank = ((getRankFptr_t)rinfo->pluginInfo.getRankFptr)(rinfo->flag);
     RETURN_TO_UPPER_HALF();
+    MTCP_PRINTF("[Rank: %d] Restoring with flag: %d\n", rank, rinfo->flag);
+
     ckpt_image_rank_to_be_restored = world_rank;
   }
 
@@ -577,14 +581,15 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
     end2 = start2;
   }
 
-  typedef int (*getRankFptr_t)(void);
+  typedef int (*getRankFptr_t)(int);
   int rank = -1;
   reserveUpperHalfMemoryRegionsForCkptImgs(start1, end1, start2, end2);
   JUMP_TO_LOWER_HALF(rinfo->pluginInfo.fsaddr);
 
   // MPI_Init is called here. GNI memory areas will be loaded by MPI_Init.
-  rank = ((getRankFptr_t)rinfo->pluginInfo.getRankFptr)();
+  rank = ((getRankFptr_t)rinfo->pluginInfo.getRankFptr)(rinfo->flag);
   RETURN_TO_UPPER_HALF();
+  MTCP_PRINTF("[Rank: %d] Restoring with flag: %d\n", rank, rinfo->flag);
   releaseUpperHalfMemoryRegionsForCkptImgs(start1, end1, start2, end2);
   unreserve_fds_upper_half(reserved_fds,total_reserved_fds);
 
