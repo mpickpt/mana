@@ -43,7 +43,7 @@ override CXXFLAGS += -g3 -O0 -fPIC -I${DMTCP_INCLUDE} \
 TEST_LD_FLAGS=${DMTCP_ROOT}/src/libdmtcpinternal.a \
               ${DMTCP_ROOT}/src/libjalib.a \
               ${DMTCP_ROOT}/src/libnohijack.a \
-              -lgtest -lpthread
+              -lgtest -lpthread -ldl
 
 DRAIN_TEST_OBJS = drain-send-recv-test.o ../p2p_drain_send_recv.cpp \
                   ../p2p_log_replay.cpp ${DMTCP_ROOT}/src/lookup_service.o
