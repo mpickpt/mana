@@ -22,7 +22,6 @@
 #ifdef SINGLE_CART_REORDER
 #include <stdio.h>
 #include <stdlib.h>
-#include <fcntl.h>
 #include <unistd.h>
 #include <string.h>
 #include <sys/types.h>
@@ -30,10 +29,13 @@
 #include "cartesian.h"
 #endif
 
+#include <fcntl.h>
+
 #include <signal.h>
 #include <sys/personality.h>
 #include <sys/mman.h>
 
+#include "mana_header.h"
 #include "mpi_plugin.h"
 #include "lower_half_api.h"
 #include "split_process.h"
@@ -56,6 +58,8 @@ using namespace dmtcp;
 #ifdef SINGLE_CART_REORDER
 extern CartesianProperties g_cartesian_properties;
 #endif
+
+extern ManaHeader g_mana_header;
 int g_numMmaps = 0;
 MmapInfo_t *g_list = NULL;
 mana_state_t mana_state = UNKNOWN_STATE;
@@ -247,6 +251,34 @@ computeUnionOfCkptImageAddresses()
   dmtcp_add_to_ckpt_header("MANA_MinHighMemStart", minHighMemStartStr.c_str());
 }
 
+const char *
+get_mana_header_file_name()
+{
+  struct stat st;
+  const char *ckptDir;
+  dmtcp::ostringstream o;
+
+  ckptDir = dmtcp_get_ckpt_dir();
+  if (stat(ckptDir, &st) == -1) {
+    mkdir(ckptDir, 0700); // Create directory if not already exist
+  }
+  o << ckptDir << "/header.mana";
+  return strdup(o.str().c_str());
+}
+
+void
+save_mana_header(const char *filename)
+{
+  int fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0755);
+  if (fd == -1) {
+    return;
+  }
+
+  write(fd, &g_mana_header.init_flag, sizeof(int));
+  close(fd);
+}
+
+
 #ifdef SINGLE_CART_REORDER
 const char *
 get_cartesian_properties_file_name()
@@ -262,7 +294,6 @@ get_cartesian_properties_file_name()
   o << ckptDir << "/cartesian.info";
   return strdup(o.str().c_str());
 }
-
 
 void
 save_cartesian_properties(const char *filename)
@@ -326,7 +357,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
           string commId = "MANA-PRESUSPEND-COMM-" + jalib::XToString(round);
           string targetId = "MANA-PRESUSPEND-TARGET-" + jalib::XToString(round);
           int64_t commKey = (int64_t) data_to_coord.comm;
-          
+
           int target_reached = check_seq_nums();
           if (!target_reached) {
             dmtcp_kvdb64(DMTCP_KVDB_OR, targetId.c_str(), 0, 1);
@@ -387,6 +418,9 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       dmtcp_global_barrier("MPI:Drain-Send-Recv");
       drainSendRecv(); // p2p_drain_send_recv.cpp
       computeUnionOfCkptImageAddresses();
+      dmtcp_global_barrier("MPI:save-mana-header");
+      const char *file = get_mana_header_file_name();
+      save_mana_header(file);
 #ifdef SINGLE_CART_REORDER
       dmtcp_global_barrier("MPI:save-cartesian-properties");
       const char *file = get_cartesian_properties_file_name();

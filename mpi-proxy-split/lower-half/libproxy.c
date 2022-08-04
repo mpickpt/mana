@@ -44,6 +44,7 @@
 #include "mpi_copybits.h"
 #include "procmapsutils.h"
 #include "lower_half_api.h"
+#include "../mana_header.h"
 
 LowerHalfInfo_t lh_info = {0};
 // This is the allocated buffer for lh_info.memRange
@@ -191,16 +192,24 @@ updateEnviron(const char **newenviron)
   __environ = (char **)newenviron;
 }
 
+// MPI Spec: A call to MPI_INIT has the same effect as a call to
+// MPI_INIT_THREAD with a required = MPI_THREAD_SINGLE.
 int
-getRank()
+getRank(int init_flag)
 {
   int flag;
   int world_rank = -1;
   int retval = MPI_SUCCESS;
+  int provided;
 
   MPI_Initialized(&flag);
   if (!flag) {
-    retval = MPI_Init(NULL, NULL);
+    if (init_flag == MPI_INIT_NO_THREAD) {
+      retval = MPI_Init(NULL, NULL);
+    }
+    else {
+      retval = MPI_Init_thread(NULL, NULL, init_flag, &provided);
+    }
   }
   if (retval == MPI_SUCCESS) {
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
@@ -214,16 +223,22 @@ getRank()
 MPI_Comm comm_cart_prime;
 
 int
-getCoordinates(CartesianProperties *cp, int *coords)
+getCoordinates(CartesianProperties *cp, int *coords, int init_flag)
 {
   int flag;
   int comm_old_rank = -1;
   int comm_cart_rank = -1;
   int retval = MPI_SUCCESS;
+  int provided;
 
   MPI_Initialized(&flag);
   if (!flag) {
-    retval = MPI_Init(NULL, NULL);
+    if (init_flag == MPI_INIT_NO_THREAD) {
+      retval = MPI_Init(NULL, NULL);
+    }
+    else {
+      retval = MPI_Init_thread(NULL, NULL, init_flag, &provided);
+    }
   }
   if (retval == MPI_SUCCESS) {
     MPI_Cart_create(MPI_COMM_WORLD, cp->ndims, cp->dimensions, cp->periods,
