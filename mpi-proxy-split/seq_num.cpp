@@ -56,7 +56,7 @@ void seq_num_reset(reset_type_t type) {
   reset_type = type;
   if (type == RESUME) {
     share_seq_nums(target_stop_triv_barrier);
-#ifdef DEBUG_SEQ_NUM 
+#ifdef DEBUG_SEQ_NUM
     printf("rank %d resumed\n",
            g_world_rank);
     fflush(stdout);
@@ -88,7 +88,7 @@ int check_seq_nums() {
   return target_reached;
 }
 
-int twoPhaseCommit(MPI_Comm comm, 
+int twoPhaseCommit(MPI_Comm comm,
                    std::function<int(void)>doRealCollectiveComm) {
   if (!MPI_LOGGING() || comm == MPI_COMM_NULL) {
     return doRealCollectiveComm(); // lambda function: already captured args
@@ -101,7 +101,7 @@ int twoPhaseCommit(MPI_Comm comm,
 }
 
 void commit_begin(MPI_Comm comm) {
-  if (mana_state != RUNNING || comm == MPI_COMM_NULL) {
+  if (comm == MPI_COMM_NULL) {
     return;
   }
   pthread_mutex_lock(&seq_num_lock);
@@ -115,7 +115,7 @@ void commit_begin(MPI_Comm comm) {
   //    or equal to the target_stop_triv_barrier.
   if ((ckpt_pending && comm_ckpt_target_reached(current_global_comm_id)) ||
       (!comm_resume_target_reached(current_global_comm_id))) {
-#ifdef DEBUG_SEQ_NUM 
+#ifdef DEBUG_SEQ_NUM
     if (!comm_resume_target_reached(current_global_comm_id)) {
       printf("rank %d starts trivial barrier with comm %u seq num %lu after resume.\n",
             g_world_rank, current_global_comm_id,
@@ -148,7 +148,7 @@ void commit_begin(MPI_Comm comm) {
       // mode, we are back from restart. In this case, re-enable ckpt and break
       // from this test loop.
       if (!ckpt_pending && reset_type == RESTART) {
-#ifdef DEBUG_SEQ_NUM 
+#ifdef DEBUG_SEQ_NUM
         printf("rank %d returned from trivial barrier because of restart\n",
                g_world_rank);
         fflush(stdout);
@@ -161,7 +161,7 @@ void commit_begin(MPI_Comm comm) {
       RETURN_TO_UPPER_HALF();
       DMTCP_PLUGIN_ENABLE_CKPT();
     }
-#ifdef DEBUG_SEQ_NUM 
+#ifdef DEBUG_SEQ_NUM
     printf("rank %d finished trivial barrier\n", g_world_rank);
     fflush(stdout);
 #endif
