@@ -39,6 +39,7 @@
 #define MpiOpList    dmtcp_mpi::MpiVirtualization<MPI_Op>
 #define MpiCommKeyvalList    dmtcp_mpi::MpiVirtualization<int>
 #define MpiRequestList    dmtcp_mpi::MpiVirtualization<MPI_Request>
+#define MpiWinList    dmtcp_mpi::MpiVirtualization<MPI_Win>
 #ifndef NEXT_FUNC
 # define NEXT_FUNC(func)                                                       \
   ({                                                                           \
@@ -123,6 +124,17 @@
 #define UPDATE_REQUEST_MAP(v, r) r
 #endif
 
+#define REAL_TO_VIRTUAL_WIN(id) \
+  MpiWinList::instance("MpiWin", MPI_WIN_NULL).realToVirtual(id)
+#define VIRTUAL_TO_REAL_WIN(id) \
+  MpiWinList::instance("MpiWin", MPI_WIN_NULL).virtualToReal(id)
+#define ADD_NEW_WIN(id) \
+  MpiWinList::instance("MpiWin", MPI_WIN_NULL).onCreate(id)
+#define REMOVE_OLD_WIN(id) \
+  MpiWinList::instance("MpiWin", MPI_WIN_NULL).onRemove(id)
+#define UPDATE_WIN_MAP(v, r) \
+  MpiWinList::instance("MpiWin", MPI_WIN_NULL).updateMapping(v, r)
+
 namespace dmtcp_mpi
 {
 
@@ -162,9 +174,12 @@ namespace dmtcp_mpi
 	  return _virTableMpiCommKeyval;
 	} else if (strcmp(name, "MpiRequest") == 0) {
 	  static MpiVirtualization _virTableMpiRequest(name, nullId);
-	  return _virTableMpiRequest;
-	}
-	JWARNING(false)(name)(nullId).Text("Unhandled type");
+          return _virTableMpiRequest;
+        } else if (strcmp(name, "MpiWin") == 0) {
+          static MpiVirtualization _virTableMpiWin(name, nullId);
+          return _virTableMpiWin;
+        }
+        JWARNING(false)(name)(nullId).Text("Unhandled type");
 	static MpiVirtualization _virTableNoSuchObject(name, nullId);
 	return _virTableNoSuchObject;
       }

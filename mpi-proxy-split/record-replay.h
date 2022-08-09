@@ -718,6 +718,9 @@ namespace dmtcp_mpi
   // Restores the MPI ops and returns MPI_SUCCESS on success
   extern int restoreOps(MpiRecord& );
 
+  // Restores the MPI windows and returns MPI_SUCCESS on success
+  extern int restoreWindows(MpiRecord& );
+
 }; // namespace dmtcp_mpi
 
 // Restores the MPI state by recreating the communicator, groups, types, etc.

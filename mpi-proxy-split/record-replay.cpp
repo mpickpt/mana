@@ -65,6 +65,9 @@ static int restoreCartSub(MpiRecord& rec);
 static int restoreOpCreate(MpiRecord& rec);
 static int restoreOpFree(MpiRecord& rec);
 
+static int restoreWinCreate(MpiRecord &rec);
+static int restoreWinCreateDynamic(MpiRecord &rec);
+
 static int restoreIbcast(MpiRecord& rec);
 static int restoreIreduce(MpiRecord& rec);
 static int restoreIbarrier(MpiRecord& rec);
@@ -254,6 +257,27 @@ dmtcp_mpi::restoreOps(MpiRecord &rec)
     case GENERATE_ENUM(Op_free):
       JTRACE("restoreOpFree");
       rc = restoreOpFree(rec);
+      break;
+    default:
+      JWARNING(false)(rec.getType()).Text("Unknown call");
+      break;
+  }
+  return rc;
+}
+
+int
+dmtcp_mpi::restoreWindows(MpiRecord &rec)
+{
+  int rc = -1;
+  JTRACE("Restoring MPI Windows");
+  switch (rec.getType()) {
+    case GENERATE_ENUM(Win_create):
+      JTRACE("restoreWinCreate");
+      rc = restoreWinCreate(rec);
+      break;
+    case GENERATE_ENUM(Win_create_dynamic):
+      JTRACE("restoreWinCreateDynamic");
+      rc = restoreWinCreateDynamic(rec);
       break;
     default:
       JWARNING(false)(rec.getType()).Text("Unknown call");
@@ -974,6 +998,38 @@ restoreOpFree(MpiRecord& rec)
     // might have been created using this op.
     //
     // realOp = REMOVE_OLD_OP(op);
+  }
+  return retval;
+}
+
+static int
+restoreWinCreate(MpiRecord &rec)
+{
+  int retval = -1;
+  void *base = (void *)rec.args(0);
+  MPI_Aint size = (MPI_Aint)rec.args(1);
+  int disp_unit = rec.args(2);
+  MPI_Comm comm = rec.args(4);
+  MPI_Win newWin;
+  retval = FNC_CALL(Win_create, rec)(base, size, disp_unit, MPI_INFO_NULL, comm,
+                                     &newWin);
+  if (retval == MPI_SUCCESS) {
+    MPI_Win virtualWinId = rec.args(5);
+    UPDATE_WIN_MAP(virtualWinId, newWin);
+  }
+  return retval;
+}
+
+static int
+restoreWinCreateDynamic(MpiRecord &rec)
+{
+  int retval = -1;
+  MPI_Comm comm = rec.args(1);
+  MPI_Win newWin;
+  retval = FNC_CALL(Win_create_dynamic, rec)(MPI_INFO_NULL, comm, &newWin);
+  if (retval == MPI_SUCCESS) {
+    MPI_Win virtualWinId = rec.args(2);
+    UPDATE_WIN_MAP(virtualWinId, newWin);
   }
   return retval;
 }
