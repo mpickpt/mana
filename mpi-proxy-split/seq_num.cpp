@@ -101,7 +101,7 @@ int twoPhaseCommit(MPI_Comm comm,
 }
 
 void commit_begin(MPI_Comm comm) {
-  if (comm == MPI_COMM_NULL) {
+  if (mana_state == RESTART_REPLAY || comm == MPI_COMM_NULL) {
     return;
   }
   pthread_mutex_lock(&seq_num_lock);
