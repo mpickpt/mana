@@ -18,7 +18,6 @@ extern int g_world_rank;
 extern int g_world_size;
 extern int p2p_deterministic_skip_save_request;
 volatile bool ckpt_pending;
-volatile bool freepass;
 volatile phase_t current_phase;
 unsigned int current_global_comm_id;
 reset_type_t reset_type;
@@ -26,6 +25,18 @@ reset_type_t reset_type;
 pthread_mutex_t seq_num_lock;
 sem_t user_thread_sem;
 sem_t ckpt_thread_sem;
+
+/* Freepass implemented using semaphore to avoid the following situation:
+*  T1: current_phase = STOP_BEFORE_CS;
+*  T2: freepass = true;
+*  while (current_phase == STOP_BEFORE_CS);
+*  T1: while (!freepass && ckpt_pending);
+*  freepass = false;
+*  current_phase = IN_CS;
+*  ....
+*  current_phase = STOP_BEFORE_CS;
+*/
+sem_t freepass_sem;
 
 std::map<unsigned int, unsigned long> seq_num;
 std::map<unsigned int, unsigned long> target_start_triv_barrier;
@@ -44,15 +55,17 @@ int comm_resume_target_reached(unsigned int global_comm) {
 
 void seq_num_init() {
   ckpt_pending = false;
-  freepass = false;
   pthread_mutex_init(&seq_num_lock, NULL);
   sem_init(&user_thread_sem, 0, 0);
   sem_init(&ckpt_thread_sem, 0, 0);
+  sem_init(&freepass_sem, 0, 0);
 }
 
 void seq_num_reset(reset_type_t type) {
   ckpt_pending = false;
-  freepass = false;
+
+  // Reset freepass_sem to 0, like in sem_init()
+  while (sem_trywait(&freepass_sem) == 0);
   reset_type = type;
   if (type == RESUME) {
     share_seq_nums(target_stop_triv_barrier);
@@ -71,6 +84,7 @@ void seq_num_destroy() {
   pthread_mutex_destroy(&seq_num_lock);
   sem_destroy(&user_thread_sem);
   sem_destroy(&ckpt_thread_sem);
+  sem_destroy(&freepass_sem);
 }
 
 int check_seq_nums() {
@@ -170,8 +184,7 @@ void commit_begin(MPI_Comm comm) {
     // Stop before the critical section during checkpoint time.
     if (ckpt_pending && check_seq_nums()) {
       current_phase = STOP_BEFORE_CS;
-      while (!freepass && ckpt_pending);
-      freepass = false;
+      while (ckpt_pending && sem_trywait(&freepass_sem) != 0);
       current_phase = IN_CS;
     }
   }
@@ -179,7 +192,7 @@ void commit_begin(MPI_Comm comm) {
 }
 
 void commit_finish() {
-  if (mana_state != RUNNING) {
+  if (mana_state != RESTART_REPLAY) {
     return;
   }
   pthread_mutex_lock(&seq_num_lock);
@@ -227,7 +240,7 @@ rank_state_t preSuspendBarrier(query_t query) {
       ckpt_pending = true;
       break;
     case FREE_PASS:
-      freepass = true;
+      sem_post(&freepass_sem);
       while (current_phase == STOP_BEFORE_CS);
       break;
     case WAIT_STRAGGLER:
