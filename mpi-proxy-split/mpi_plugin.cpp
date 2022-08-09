@@ -326,7 +326,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
           string commId = "MANA-PRESUSPEND-COMM-" + jalib::XToString(round);
           string targetId = "MANA-PRESUSPEND-TARGET-" + jalib::XToString(round);
           int64_t commKey = (int64_t) data_to_coord.comm;
-          
+
           int target_reached = check_seq_nums();
           if (!target_reached) {
             dmtcp_kvdb64(DMTCP_KVDB_OR, targetId.c_str(), 0, 1);
