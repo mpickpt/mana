@@ -24,6 +24,7 @@
 
 #include <mpi.h>
 #include <cstdint>
+#include <cstddef>
 
 #include "lower_half_api.h"
 #include "dmtcp_dlsym.h"

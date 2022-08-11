@@ -12,6 +12,12 @@ endif
 ifeq ($(findstring nid0,$(PLATFORM)),nid0)
 IS_CORI = 1
 endif
+# Perlmutter's login node starts with login keyword
+# FIXME: have less checks to find the platform
+ifeq ($(findstring login,$(PLATFORM)),login)
+IS_CORI = 1
+endif
+
 ifeq ($(findstring gert,$(PLATFORM)),gert)
 IS_GERTY = 1
 endif
