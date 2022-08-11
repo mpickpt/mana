@@ -3,6 +3,8 @@
 #include <sys/mman.h>
 #include <sys/prctl.h>
 #include <sys/auxv.h>
+#include <mtcp_util.h>
+#include <linux/limits.h>
 #include "mtcp_restart.h"
 #include "mtcp_sys.h"
 #include "mtcp_util.h"
@@ -478,9 +480,14 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
   int ckpt_image_rank_to_be_restored = -1;
   char *filename = "./ckpt_rank_0/cartesian.info";
 
-  char *header_filname = "./ckpt_rank_0/header.mana";
+  char *header_filename = "ckpt_rank_0/header.mana";
+  char full_filename[PATH_MAX];
+  mtcp_strcpy(full_filename, rinfo->restartDir);
+  mtcp_strncat(full_filename, header_filename, mtcp_strlen(header_filename));
   ManaHeader m_header;
-  MTCP_ASSERT(load_mana_header(header_filename, &m_header) == 0);
+  MTCP_ASSERT(mtcp_strlen(header_filename) +
+              mtcp_strlen(rinfo->restartDir) <= PATH_MAX - 1);
+  MTCP_ASSERT(load_mana_header(full_filename, &m_header) == 0);
 
   MTCP_PRINTF("Initializing with flag: %d\n", m_header.init_flag);
 
@@ -597,9 +604,14 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
     end2 = start2;
   }
 
-  char *header_filename = "./ckpt_rank_0/header.mana";
+  char *header_filename = "ckpt_rank_0/header.mana";
+  char full_filename[PATH_MAX];
+  mtcp_strcpy(full_filename, rinfo->restartDir);
+  mtcp_strncat(full_filename, header_filename, mtcp_strlen(header_filename));
   ManaHeader m_header;
-  MTCP_ASSERT(load_mana_header(header_filename, &m_header) == 0);
+  MTCP_ASSERT(mtcp_strlen(header_filename) +
+              mtcp_strlen(rinfo->restartDir) <= PATH_MAX - 1);
+  MTCP_ASSERT(load_mana_header(full_filename, &m_header) == 0);
 
   typedef int (*getRankFptr_t)(int);
   int rank = -1;
