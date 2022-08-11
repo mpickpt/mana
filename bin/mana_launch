@@ -60,6 +60,8 @@ if [ "$NERSC_HOST" = "cori" ]; then
   SITE=nersc
 elif [ "$NERSC_HOST" = "gerty" ]; then
   SITE=nersc
+elif [ "$NERSC_HOST" = "perlmutter" ]; then
+  SITE=nersc
 fi
 
 if [ "$SITE" = "nersc" ]; then

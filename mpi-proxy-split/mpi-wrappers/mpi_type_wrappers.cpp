@@ -177,7 +177,7 @@ USER_DEFINED_WRAPPER(int, Type_create_struct, (int) count,
   return retval;
 }
 
-#ifdef CRAY_MPICH_VERSION
+#if MPICH_NUMVERSION < MPICH_CALC_VERSION(3,4,0,0,2) && defined(CRAY_MPICH_VERSION)
 USER_DEFINED_WRAPPER(int, Type_struct, (int) count,
                      (const int*) array_of_blocklengths,
                      (const MPI_Aint*) array_of_displacements,
@@ -400,7 +400,7 @@ PMPI_IMPL(int, MPI_Type_create_struct, int count, const int array_of_blocklength
           const MPI_Aint array_of_displacements[], const MPI_Datatype array_of_types[],
           MPI_Datatype *newtype)
 
-#ifdef CRAY_MPICH_VERSION
+#if MPICH_NUMVERSION < MPICH_CALC_VERSION(3,4,0,0,2) && defined(CRAY_MPICH_VERSION)
 PMPI_IMPL(int, MPI_Type_struct, int count, const int array_of_blocklengths[],
           const MPI_Aint array_of_displacements[], const MPI_Datatype array_of_types[],
           MPI_Datatype *newtype)
