@@ -340,6 +340,27 @@ load_mana_header (char *filename, ManaHeader *mh)
   return 0;
 }
 
+void
+set_header_filepath(char* full_filename, char* restartDir)
+{
+  char *header_filename = "ckpt_rank_0/header.mana";
+  char restart_path[PATH_MAX];
+
+  MTCP_ASSERT(mtcp_strlen(header_filename) +
+              mtcp_strlen(restartDir) <= PATH_MAX - 2);
+
+  if (mtcp_strlen(restartDir) == 0) {
+    mtcp_strcpy(restart_path, "./");
+  }
+  else {
+    mtcp_strcpy(restart_path, restartDir);
+    restart_path[mtcp_strlen(restartDir)] = '/';
+    restart_path[mtcp_strlen(restartDir)+1] = '\0';
+  }
+  mtcp_strcpy(full_filename, restart_path);
+  mtcp_strncat(full_filename, header_filename, mtcp_strlen(header_filename));
+}
+
 #ifdef SINGLE_CART_REORDER
 int
 load_cartesian_properties(char *filename, CartesianProperties *cp)
@@ -480,13 +501,9 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
   int ckpt_image_rank_to_be_restored = -1;
   char *filename = "./ckpt_rank_0/cartesian.info";
 
-  char *header_filename = "ckpt_rank_0/header.mana";
   char full_filename[PATH_MAX];
-  mtcp_strcpy(full_filename, rinfo->restartDir);
-  mtcp_strncat(full_filename, header_filename, mtcp_strlen(header_filename));
+  set_header_filepath(full_filename, rinfo->restartDir);
   ManaHeader m_header;
-  MTCP_ASSERT(mtcp_strlen(header_filename) +
-              mtcp_strlen(rinfo->restartDir) <= PATH_MAX - 1);
   MTCP_ASSERT(load_mana_header(full_filename, &m_header) == 0);
 
   MTCP_PRINTF("Initializing with flag: %d\n", m_header.init_flag);
@@ -604,13 +621,9 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
     end2 = start2;
   }
 
-  char *header_filename = "ckpt_rank_0/header.mana";
   char full_filename[PATH_MAX];
-  mtcp_strcpy(full_filename, rinfo->restartDir);
-  mtcp_strncat(full_filename, header_filename, mtcp_strlen(header_filename));
+  set_header_filepath(full_filename, rinfo->restartDir);
   ManaHeader m_header;
-  MTCP_ASSERT(mtcp_strlen(header_filename) +
-              mtcp_strlen(rinfo->restartDir) <= PATH_MAX - 1);
   MTCP_ASSERT(load_mana_header(full_filename, &m_header) == 0);
 
   typedef int (*getRankFptr_t)(int);
