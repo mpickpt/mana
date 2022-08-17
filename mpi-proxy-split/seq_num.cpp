@@ -29,14 +29,21 @@ sem_t ckpt_thread_sem;
 /* Freepass implemented using semaphore to avoid the following situation:
 *  T1: current_phase = STOP_BEFORE_CS;
 *  T2: freepass = true;
-*  while (current_phase == STOP_BEFORE_CS);
+*      while (current_phase == STOP_BEFORE_CS);
 *  T1: while (!freepass && ckpt_pending);
-*  freepass = false;
-*  current_phase = IN_CS;
-*  ....
-*  current_phase = STOP_BEFORE_CS;
+*      freepass = false;
+*      current_phase = IN_CS;
+*      ....
+*      current_phase = STOP_BEFORE_CS;
+*
+*  Note that this situation can still occur with only a semaphore to
+*  implement the freepass, so another semaphore is required to
+*  enforce that the thread in commit_begin cannot enter the state
+*  STOP_BEFORE_CS until we verify that the thread giving the free pass
+*  has checked the thread state
 */
 sem_t freepass_sem;
+sem_t freepass_sync_sem;
 
 std::map<unsigned int, unsigned long> seq_num;
 std::map<unsigned int, unsigned long> target_start_triv_barrier;
@@ -59,6 +66,8 @@ void seq_num_init() {
   sem_init(&user_thread_sem, 0, 0);
   sem_init(&ckpt_thread_sem, 0, 0);
   sem_init(&freepass_sem, 0, 0);
+  sem_init(&freepass_sync_sem, 0, 0);
+  sem_post(&freepass_sync_sem);
 }
 
 void seq_num_reset(reset_type_t type) {
@@ -66,6 +75,12 @@ void seq_num_reset(reset_type_t type) {
 
   // Reset freepass_sem to 0, like in sem_init()
   while (sem_trywait(&freepass_sem) == 0);
+  // Reset freepass_sync_set to 1
+  // Must be reset to 1 to allow the commit_begin thread to enter
+  // the STOP_BEFORE_CS state for the first time
+  while (sem_trywait(&freepass_sync_sem) == 0);
+  sem_post(&freepass_sync_sem);
+
   reset_type = type;
   if (type == RESUME) {
     share_seq_nums(target_stop_triv_barrier);
@@ -85,6 +100,7 @@ void seq_num_destroy() {
   sem_destroy(&user_thread_sem);
   sem_destroy(&ckpt_thread_sem);
   sem_destroy(&freepass_sem);
+  sem_destroy(&freepass_sync_sem);
 }
 
 int check_seq_nums() {
@@ -183,6 +199,9 @@ void commit_begin(MPI_Comm comm) {
 
     // Stop before the critical section during checkpoint time.
     if (ckpt_pending && check_seq_nums()) {
+      // Wait until the freepass thread has checked our state
+      // before changing the state
+      while (ckpt_pending && sem_trywait(&freepass_sync_sem) != 0);
       current_phase = STOP_BEFORE_CS;
       while (ckpt_pending && sem_trywait(&freepass_sem) != 0);
       current_phase = IN_CS;
@@ -242,6 +261,9 @@ rank_state_t preSuspendBarrier(query_t query) {
     case FREE_PASS:
       sem_post(&freepass_sem);
       while (current_phase == STOP_BEFORE_CS);
+      // Notify thread in commit_begin that we have checked its
+      // state, so it is safe to change it
+      sem_post(&freepass_sync_sem);
       break;
     case WAIT_STRAGGLER:
       // Maybe some peers in critical section and some in PHASE_1 or
