@@ -211,7 +211,7 @@ void commit_begin(MPI_Comm comm) {
 }
 
 void commit_finish() {
-  if (mana_state != RESTART_REPLAY) {
+  if (mana_state == RESTART_REPLAY) {
     return;
   }
   pthread_mutex_lock(&seq_num_lock);
