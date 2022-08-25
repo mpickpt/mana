@@ -143,7 +143,6 @@ int MPI_File_get_atomicity(MPI_File fh, int *flag);
 int MPI_File_sync(MPI_File fh);
 int MPI_Igather(const void *sendbuf, int sendcount, MPI_Datatype sendtype, void *recvbuf, int recvcount, MPI_Datatype recvtype, int root, MPI_Comm comm, MPI_Request *request);
 int MPI_Igatherv(const void *sendbuf, int sendcount, MPI_Datatype sendtype, void *recvbuf, const int recvcounts[], const int displs[], MPI_Datatype recvtype, int root, MPI_Comm comm, MPI_Request *request);
-int MPI_Get_address(const void *location, MPI_Aint *address);
 int MPI_Get_accumulate(const void *origin_addr, int origin_count, MPI_Datatype origin_datatype, void *result_addr, int result_count, MPI_Datatype result_datatype, int target_rank, MPI_Aint target_disp, int target_count, MPI_Datatype target_datatype, MPI_Op op, MPI_Win win);
 int MPI_Get_library_version(char *version, int *resultlen);
 int MPI_Get_version(int *version, int *subversion);
@@ -269,7 +268,6 @@ int MPI_Unpack(const void *inbuf, int insize, int *position, void *outbuf, int o
 int MPI_Unpublish_name(const char *service_name, MPI_Info info, const char *port_name);
 int MPI_Unpack_external (const char datarep[], const void *inbuf, MPI_Aint insize, MPI_Aint *position, void *outbuf, int outcount, MPI_Datatype datatype);
 int MPI_Waitsome(int incount, MPI_Request array_of_requests[], int *outcount, int array_of_indices[], MPI_Status array_of_statuses[]);
-int MPI_Win_attach(MPI_Win win, void *base, MPI_Aint size);
 
 int MPI_Win_call_errhandler(MPI_Win win, int errorcode);
 int MPI_Win_complete(MPI_Win win);
@@ -279,7 +277,6 @@ int MPI_Win_create_keyval(MPI_Win_copy_attr_function *win_copy_attr_fn,
         MPI_Win_delete_attr_function *win_delete_attr_fn,
         int *win_keyval, void *extra_state);
 int MPI_Win_delete_attr(MPI_Win win, int win_keyval);
-int MPI_Win_detach(MPI_Win win, const void *base);
 
 int MPI_Win_flush_all(MPI_Win win);
 int MPI_Win_flush_local(int rank, MPI_Win win);

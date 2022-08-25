@@ -74,6 +74,31 @@ USER_DEFINED_WRAPPER(int, Win_set_info, (MPI_Win) win, (MPI_Info) info)
   return twoPhaseCommit(comm, realBarrierCb);
 }
 
+USER_DEFINED_WRAPPER(int, Win_attach, (MPI_Win) win, (void *) base, (MPI_Aint) size)
+{
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  MPI_Win realWin = VIRTUAL_TO_REAL_WIN(win);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  retval = NEXT_FUNC(Win_attach)(realWin, base, size);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return retval;
+}
+
+
+USER_DEFINED_WRAPPER(int, Win_detach, (MPI_Win) win, (const void *) base)
+{
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  MPI_Win realWin = VIRTUAL_TO_REAL_WIN(win);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  retval = NEXT_FUNC(Win_detach)(realWin, base);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return retval;
+}
+
 USER_DEFINED_WRAPPER(int, Win_create, (void *) base, (MPI_Aint) size,
                      (int) disp_unit, (MPI_Info) info, (MPI_Comm) comm,
                      (MPI_Win *) win)
@@ -415,6 +440,9 @@ PMPI_IMPL(int, MPI_Free_mem, void *baseptr)
 PMPI_IMPL(int, MPI_Win_get_info, MPI_Win win, MPI_Info *info_used) //
 PMPI_IMPL(int, MPI_Win_set_info, MPI_Win win, MPI_Info info)
 
+PMPI_IMPL(int, MPI_Win_attach, MPI_Win win, void *base, MPI_Aint size)
+PMPI_IMPL(int, MPI_Win_detach, MPI_Win win, const void *base)
+
 PMPI_IMPL(int, MPI_Win_create, void *base, MPI_Aint size, int disp_unit,
           MPI_Info info, MPI_Comm comm, MPI_Win *win)
 PMPI_IMPL(int, MPI_Win_create_dynamic, MPI_Info info, MPI_Comm comm,
@@ -438,4 +466,4 @@ PMPI_IMPL(int, MPI_Get, void *origin_addr, int origin_count,
           int target_count, MPI_Datatype target_datatype, MPI_Win win)
 PMPI_IMPL(int, MPI_Put, const void *origin_addr, int origin_count,
           MPI_Datatype origin_datatype, int target_rank, MPI_Aint target_disp,
-          int target_count, MPI_Datatype target_datatype, MPI_Win win);
+          int target_count, MPI_Datatype target_datatype, MPI_Win win)
