@@ -8,7 +8,7 @@
  * The goal of this file is to _temporarily_ replace all MPI collective
  *   communication calls by point-to-point.  This is used _only_
  *   for debugging, since it adds substantial runtime overhead.
- * This replaces all MPI collective communication calls (calls that 
+ * This replaces all MPI collective communication calls (calls that
  *   use a communicator to send and receive messages) by subroutines
  *   that use only MPI point-to-point and other non-collective calls.
  * TODO:  Replace tag of 0 by a semi-unique tag to guarantee that
@@ -115,7 +115,7 @@ int MPI_Gather(const void* sendbuf, int sendcount, MPI_Datatype sendtype,
                int root, MPI_Comm comm) {
   PROLOG_Comm_rank_size;
   int i;
-  int inplace = (sendbuf == MPI_IN_PLACE);
+  int inplace = (sendbuf == MPI_IN_PLACE || FORTRAN_MPI_IN_PLACE);
   if (rank != root) {
     MPI_Send(sendbuf, sendcount, sendtype, root, 0, comm);
   } else { // else: rank == root
@@ -146,7 +146,7 @@ int MPI_Gatherv(const void* sendbuf, int sendcount, MPI_Datatype sendtype,
                 MPI_Datatype recvtype, int root, MPI_Comm comm) {
   PROLOG_Comm_rank_size;
   int i;
-  int inplace = (sendbuf == MPI_IN_PLACE);
+  int inplace = (sendbuf == MPI_IN_PLACE || FORTRAN_MPI_IN_PLACE);
   if (rank != root) {
     for (i = 0; i < size; i++) {
       if (i != root) {
@@ -182,7 +182,7 @@ int MPI_Scatter(const void* sendbuf, int sendcount, MPI_Datatype sendtype,
                 int root, MPI_Comm comm) {
   PROLOG_Comm_rank_size;
   int i;
-  int inplace = (recvbuf == MPI_IN_PLACE);
+  int inplace = (sendbuf == MPI_IN_PLACE || FORTRAN_MPI_IN_PLACE);
   if (inplace) { // if true, MPI says to ignore recvcount/recvtype
     recvcount = sendcount;
     recvtype = sendtype;
@@ -224,7 +224,7 @@ int MPI_Scatterv(const void* sendbuf, const int sendcounts[],
                  int root, MPI_Comm comm) {
   PROLOG_Comm_rank_size;
   int i;
-  int inplace = (recvbuf == MPI_IN_PLACE);
+  int inplace = (sendbuf == MPI_IN_PLACE || FORTRAN_MPI_IN_PLACE);
   if (rank == root) {
     MPI_Aint lower_bound;
     MPI_Aint sendextent;
@@ -282,7 +282,7 @@ int MPI_Alltoall(const void* sendbuf, int sendcount, MPI_Datatype sendtype,
                  MPI_Comm comm) {
   PROLOG_Comm_rank_size;
   int i;
-  int inplace = (recvbuf == MPI_IN_PLACE);
+  int inplace = (sendbuf == MPI_IN_PLACE || FORTRAN_MPI_IN_PLACE);
   if (inplace) { // if true, MPI says to ignore recvcount/recvtype
     recvcount = sendcount;
     recvtype = sendtype;
@@ -335,7 +335,7 @@ int MPI_Alltoallv(const void* sendbuf, const int sendcounts[],
 
   PROLOG_Comm_rank_size;
   int i;
-  int inplace = (recvbuf == MPI_IN_PLACE);
+  int inplace = (sendbuf == MPI_IN_PLACE || FORTRAN_MPI_IN_PLACE);
   if (inplace) { // if true, MPI says to ignore recvcount/recvtype
     recvcounts = sendcounts;
     recvtype = sendtype;
@@ -425,7 +425,7 @@ int MPI_Reduce(const void* sendbuf, void* recvbuf, int count,
   MPI_Aint lower_bound;
   MPI_Aint extent;
   MPI_Type_get_extent(datatype, &lower_bound, &extent);
-  int inplace = (sendbuf == MPI_IN_PLACE);
+  int inplace = (sendbuf == MPI_IN_PLACE || FORTRAN_MPI_IN_PLACE);
   if (inplace && rank == root) {
     sendbuf = recvbuf;
   }
@@ -437,7 +437,7 @@ int MPI_Reduce(const void* sendbuf, void* recvbuf, int count,
     MPI_Gather(sendbuf, count, datatype, tmp_sendbuf, count, datatype,
                root, comm);
     // Initialize tmp_recvbuf from sendbuf at rank 0
-    char *tmp_recvbuf = (char *)malloc(count * extent); 
+    char *tmp_recvbuf = (char *)malloc(count * extent);
     memcpy(tmp_recvbuf, tmp_sendbuf, count * extent);
     // Everything is local now; locally reduce tmp_recvbuf, copy to recvbuf
     for (i = 1; i < size; i++) { // skip i=0; already initialized
@@ -485,39 +485,60 @@ int MPI_Reduce_scatter(const void* sendbuf, void* recvbuf,
 int MPI_Scan(const void* sendbuf, void* recvbuf, int count,
              MPI_Datatype datatype, MPI_Op op, MPI_Comm comm) {
   PROLOG_Comm_rank_size;
+
+  // Get MPI datatype size to allocate buffers
   int root = 0;
   MPI_Aint lower_bound;
   MPI_Aint extent;
   MPI_Type_get_extent(datatype, &lower_bound, &extent);
-  int inplace = (sendbuf == MPI_IN_PLACE);
+  int retval;
+
+  // Deal with buffers in place
+  int inplace = (sendbuf == MPI_IN_PLACE || FORTRAN_MPI_IN_PLACE);
   if (inplace) {
     sendbuf = recvbuf;
   }
-  if (rank == root) { // root is rank 0
-    int i;
-    char *tmp_sendbuf = (char *)malloc(count * extent);
-    // Gather data into tmp_sendbuf at root
-    MPI_Gather(sendbuf, count, datatype, tmp_sendbuf, count, datatype,
-               root, comm);
-    memcpy(recvbuf, tmp_sendbuf, count * extent);
-    // Initialize tmp_recvbuf from sendbuf at rank 0
-    char *tmp_recvbuf = (char *)malloc(count * extent);
-    memcpy(tmp_recvbuf, tmp_sendbuf, count * extent);
-    for (i = root+1; i < size; i++) {
-      MPI_Reduce_local(tmp_sendbuf + i*extent*count /* inbuf */,
-                       tmp_recvbuf /* inoutbuf */, count, datatype, op);
-      MPI_Send(tmp_recvbuf, count, datatype, i, 0, comm);
+
+  // Root (rank 0) performs reduction
+  if (rank == root) {
+    // Allocate buffer to gather each rank's data, and gather data
+    char *tmp_buf = (char*) malloc(count * extent * size);
+    retval = MPI_Gather(sendbuf, count, datatype, tmp_buf, count, datatype, 0,
+                        comm);
+    if (retval != MPI_SUCCESS) return retval;
+
+    // Matrix of data must be transposed for reduce to be successful
+    // This does not relate to the datatype being processed
+    // This is simply a result of the alignment required for the Reduce method
+    char *temp=(char*) malloc(extent);
+    for (int i = 0; i < count; i++) {
+      for (int j = i; j < size; j++) {
+        memcpy(temp, tmp_buf+(extent*i+extent*count*j), extent);
+        memcpy(tmp_buf+(extent*i+extent*count*j),
+               tmp_buf+(extent*i*count+extent*j), extent);
+        memcpy(tmp_buf+(extent*i*count+extent*j), temp, extent);
+      }
     }
-    free(tmp_sendbuf);
-    free(tmp_recvbuf);
-  } else { // else: rank != root
-    // Gather data into tmp_sendbuf at root
-    MPI_Gather(sendbuf, count, datatype, NULL, 0, datatype,
-               root, comm);
-    int i;
-    for (i = root+1; i < size; i++) {
-      MPI_Recv(recvbuf, count, datatype, i, 0, comm, MPI_STATUS_IGNORE);
+
+    memcpy(recvbuf, sendbuf, count*extent); // Setup root output
+    for (int i = 1; i < size; i++) {        // Perform reductions
+      MPI_Reduce_local(tmp_buf+count*extent*(i-1),
+                                    tmp_buf+count*extent*i, count,
+                                    datatype, op);
+      retval = MPI_Send(tmp_buf+count*extent*i, count, datatype, i, 0, comm);
     }
+    free(temp);
+    free(tmp_buf);
+
+    if(retval != MPI_SUCCESS) return retval;
+  }
+  else{
+    // Send data to root
+    retval = MPI_Gather(sendbuf, count, datatype, NULL, 0, datatype, 0, comm);
+    if (retval != MPI_SUCCESS) return retval;
+    // Receive reduced output from root
+    retval = MPI_Recv(recvbuf, count, datatype, 0, 0, comm, MPI_STATUS_IGNORE);
+    if (retval != MPI_SUCCESS) return retval;
   }
   return MPI_SUCCESS;
 }

@@ -3,9 +3,12 @@
 #include <sys/mman.h>
 #include <sys/prctl.h>
 #include <sys/auxv.h>
+#include <mtcp_util.h>
+#include <linux/limits.h>
 #include "mtcp_restart.h"
 #include "mtcp_sys.h"
 #include "mtcp_util.h"
+#include "../mpi-proxy-split/mana_header.h"
 #include "mtcp_split_process.h"
 #ifdef SINGLE_CART_REORDER
 #include "../mpi-proxy-split/cartesian.h"
@@ -326,6 +329,38 @@ mysetauxval(char **evp, unsigned long int type, unsigned long int val)
   return -1;
 }
 
+int
+load_mana_header (char *filename, ManaHeader *mh)
+{
+  int fd = mtcp_sys_open2(filename, O_RDONLY);
+  if (fd == -1) {
+    return -1;
+  }
+  mtcp_sys_read(fd, &mh->init_flag, sizeof(int));
+  return 0;
+}
+
+void
+set_header_filepath(char* full_filename, char* restartDir)
+{
+  char *header_filename = "ckpt_rank_0/header.mana";
+  char restart_path[PATH_MAX];
+
+  MTCP_ASSERT(mtcp_strlen(header_filename) +
+              mtcp_strlen(restartDir) <= PATH_MAX - 2);
+
+  if (mtcp_strlen(restartDir) == 0) {
+    mtcp_strcpy(restart_path, "./");
+  }
+  else {
+    mtcp_strcpy(restart_path, restartDir);
+    restart_path[mtcp_strlen(restartDir)] = '/';
+    restart_path[mtcp_strlen(restartDir)+1] = '\0';
+  }
+  mtcp_strcpy(full_filename, restart_path);
+  mtcp_strncat(full_filename, header_filename, mtcp_strlen(header_filename));
+}
+
 #ifdef SINGLE_CART_REORDER
 int
 load_cartesian_properties(char *filename, CartesianProperties *cp)
@@ -466,6 +501,13 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
   int ckpt_image_rank_to_be_restored = -1;
   char *filename = "./ckpt_rank_0/cartesian.info";
 
+  char full_filename[PATH_MAX];
+  set_header_filepath(full_filename, rinfo->restartDir);
+  ManaHeader m_header;
+  MTCP_ASSERT(load_mana_header(full_filename, &m_header) == 0);
+
+  MTCP_PRINTF("Initializing with flag: %d\n", m_header.init_flag);
+
   if (mtcp_sys_access(filename, F_OK) == 0) {
     int coords[MAX_CART_PROP_SIZE];
     CartesianProperties cp;
@@ -473,14 +515,15 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
 #if 0
     print(&CartesianProperties);
 #endif
-    typedef int (*getCoordinatesFptr_t)(CartesianProperties *, int *);
+    typedef int (*getCoordinatesFptr_t)(CartesianProperties *, int *, int);
     JUMP_TO_LOWER_HALF(rinfo->pluginInfo.fsaddr);
     // MPI_Init is called here. GNI memory areas will be loaded by MPI_Init.
     // Also, MPI_Cart_create will be called to restore cartesian topology.
     // Based on the coordinates, checkpoint image will be restored instead of
     // world rank.
     world_rank =
-      ((getCoordinatesFptr_t)rinfo->pluginInfo.getCoordinatesFptr)(&cp, coords);
+      ((getCoordinatesFptr_t)
+      rinfo->pluginInfo.getCoordinatesFptr)(&cp, coords, m_header.init_flag);
     RETURN_TO_UPPER_HALF();
 #if 0
     MTCP_PRINTF("\nWorld Rank: %d \n: ", world_rank);
@@ -490,12 +533,13 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
       MTCP_PRINTF("%d, ", coords[i]);
 #endif
     ckpt_image_rank_to_be_restored =
-    get_rank_corresponding_to_coordinates(cp.comm_old_size, cp.ndims, coords);
+    get_rank_corresponding_to_coordinates(cp.comm_old_size, cp.ndims, coords, m_header.init_flag);
   } else {
     typedef int (*getRankFptr_t)(void);
     JUMP_TO_LOWER_HALF(rinfo->pluginInfo.fsaddr);
     // MPI_Init is called here. GNI memory areas will be loaded by MPI_Init.
-    world_rank = ((getRankFptr_t)rinfo->pluginInfo.getRankFptr)();
+    world_rank =
+      ((getRankFptr_t)rinfo->pluginInfo.getRankFptr)(m_header.init_flag);
     RETURN_TO_UPPER_HALF();
     ckpt_image_rank_to_be_restored = world_rank;
   }
@@ -577,13 +621,18 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
     end2 = start2;
   }
 
-  typedef int (*getRankFptr_t)(void);
+  char full_filename[PATH_MAX];
+  set_header_filepath(full_filename, rinfo->restartDir);
+  ManaHeader m_header;
+  MTCP_ASSERT(load_mana_header(full_filename, &m_header) == 0);
+
+  typedef int (*getRankFptr_t)(int);
   int rank = -1;
   reserveUpperHalfMemoryRegionsForCkptImgs(start1, end1, start2, end2);
   JUMP_TO_LOWER_HALF(rinfo->pluginInfo.fsaddr);
 
   // MPI_Init is called here. GNI memory areas will be loaded by MPI_Init.
-  rank = ((getRankFptr_t)rinfo->pluginInfo.getRankFptr)();
+  rank = ((getRankFptr_t)rinfo->pluginInfo.getRankFptr)(m_header.init_flag);
   RETURN_TO_UPPER_HALF();
   releaseUpperHalfMemoryRegionsForCkptImgs(start1, end1, start2, end2);
   unreserve_fds_upper_half(reserved_fds,total_reserved_fds);

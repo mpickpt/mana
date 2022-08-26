@@ -32,8 +32,9 @@ FILES=mpi_hello_world \
       Comm_get_attr_test Initialized_test Cart_sub_test\
       Barrier_test Bcast_test Comm_split_test Reduce_test \
       Waitall_test Waitany_test Testany_test \
-      two-phase-commit-1 two-phase-commit-2 Cartdim_get_test \
-      Ibcast_test Ibarrier_test Isend_test Cart_map_test \
+      two-phase-commit-1 two-phase-commit-2 two-phase-commit-3 \
+      Ibcast_test Ibarrier_test Isend_test \
+      Cart_map_test Cartdim_get_test \
       Abort_test Allreduce_test Alltoall_test Alltoallv_test \
       Allgather_test Group_size_rank Type_commit_contiguous \
       Irecv_test Alloc_mem sendrecv_replace_test \
@@ -146,11 +147,17 @@ check-integrated_dmtcp_text: tidy integrated_dmtcp_test
 %.o: %.c
 	 $(MPICC) -g3 -O0 -c -o $@ $< $(MPI_CFLAGS)
 
+# Allowing fortran argument mismatch in order to allow wave and day1 tests to
+# compile with GNU compiler. Note that this should not affect execution
+# Intel/GNU compilers on Cray Haswell
+# Argument mistmatch is a legacy feature that newer fortran compilers do not
+# allow, but is still used in two of our test cases
 %.exe: %.f90
-	$(MPIFORTRAN) -g3 -O0 -o $@ $< -fPIC
+	$(MPIFORTRAN) -g3 -O0 -o $@ $< -fPIC -fallow-argument-mismatch
 
 %.mana.exe: %.f90
-	$(MPIFORTRAN) -g3 -O0 -o $@ $< -fPIC ${LDFLAGS_DUMMY}
+	$(MPIFORTRAN) -g3 -O0 -o $@ $< -fPIC -fallow-argument-mismatch \
+	  ${LDFLAGS_DUMMY}
 
 %.exe: %.o
 	 $(MPICC) -o $@ $< ${MPI_LDFLAGS}

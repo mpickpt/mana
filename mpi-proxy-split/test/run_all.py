@@ -81,7 +81,8 @@ def main():
     failed = []
 
     for test in tests:
-        print(f'Running test {test}')
+        print(f'Running test {test}:', end=" ")
+        sys.stdout.flush()
         i = tests[test]['itr']
         n = tests[test]['ranks']
         if 'args' in tests[test]:
@@ -98,10 +99,10 @@ def main():
                                     stdout=subprocess.DEVNULL)
         try:
             r = test_child.check_returncode()
-            print(f'TEST CASE PASSED: {test}')
+            print('PASSED')
             num_passed += 1
         except:
-            print(f'TEST CASE FAILED: {test}')
+            print('FAILED')
             failed.append(test)
         num_tests += 1
     print("TESTS COMPLETED")
