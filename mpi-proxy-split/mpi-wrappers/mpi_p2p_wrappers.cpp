@@ -256,16 +256,37 @@ USER_DEFINED_WRAPPER(int, Sendrecv_replace, (void *) buf, (int) count,
                      (int) sendtag, (int) source,
                      (int) recvtag, (MPI_Comm) comm, (MPI_Status *) status)
 {
+  MPI_Request reqs[2];
+  MPI_Status sts[2];
 
-  // Send first
-  int retval;
-  retval = MPI_Send(buf, count, datatype, dest, sendtag, comm);
+  // Allocate temp buffer
+  int type_size, retval;
+  MPI_Type_size(datatype, &type_size);
+  void* tmpbuf = (void*) malloc(count * type_size);
+
+  // Recv into temp buffer to avoid overwriting
+  retval = MPI_Irecv(tmpbuf, count, datatype, source, recvtag, comm, &reqs[0]);
   if (retval != MPI_SUCCESS) {
+    free(tmpbuf);
     return retval;
   }
 
-  // Recv and fill status struct
-  retval = MPI_Recv(buf, count, datatype, source, recvtag, comm, status);
+  // Send from original buffer
+  retval = MPI_Isend(buf, count, datatype, dest, sendtag, comm, &reqs[1]);
+  if (retval != MPI_SUCCESS) {
+    free(tmpbuf);
+    return retval;
+  }
+
+  // Wait on send/recv, then copy from temp into permanent buffer
+  retval = MPI_Waitall(2, reqs, sts);
+  memcpy(buf, tmpbuf, count * type_size);
+
+  // Set status, free buffer, and return
+  if (status != MPI_STATUS_IGNORE && status != FORTRAN_MPI_STATUS_IGNORE) {
+    *status = sts[0];
+  }
+  free(tmpbuf);
 
   return retval;
 }
