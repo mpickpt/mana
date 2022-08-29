@@ -132,9 +132,13 @@ USER_DEFINED_WRAPPER(int, Comm_create, (MPI_Comm) comm, (MPI_Group) group,
         .createGlobalId(virtComm);
       *newcomm = virtComm;
       active_comms.insert(virtComm);
-      seq_num[gid] = 0;
-      target_start_triv_barrier[gid] = 0;
-      target_stop_triv_barrier[gid] = 0;
+      std::map<unsigned int, unsigned long>::iterator it =
+        seq_num.find(gid);
+      if (it == seq_num.end()) {
+        seq_num[gid] = 0;
+        target_start_triv_barrier[gid] = 0;
+        target_stop_triv_barrier[gid] = 0;
+      }
       LOG_CALL(restoreComms, Comm_create, comm, group, virtComm);
     }
     DMTCP_PLUGIN_ENABLE_CKPT();
