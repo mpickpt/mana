@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <mpi.h>
@@ -39,7 +40,8 @@ static struct p2p_log_msg *next_msg = NULL;
 static int logging_start = 0;
 
 void p2p_log(int count, MPI_Datatype datatype, int source, int tag,
-             MPI_Comm comm, MPI_Status *status, MPI_Request *request) {
+             MPI_Comm comm, MPI_Status *status, MPI_Request *request,
+             void *buf) {
   if (status) {
     source = status->MPI_SOURCE;
     tag = status->MPI_TAG;
@@ -47,7 +49,7 @@ void p2p_log(int count, MPI_Datatype datatype, int source, int tag,
     MPI_Get_count(status, MPI_CHAR, &count);
     datatype = MPI_CHAR;
   }
-  set_next_msg(count, datatype, source, tag, comm, NULL, request);
+  set_next_msg(count, datatype, source, tag, comm, NULL, request, buf);
 }
 
 void initialize_next_msg(int fd) {
@@ -140,8 +142,9 @@ int get_next_msg_iprobe(struct p2p_log_msg *p2p_msg) {
 // Either status and request are non-null, or source, tag defined.
 void set_next_msg(int count, MPI_Datatype datatype,
                   int source, int tag, MPI_Comm comm,
-                  MPI_Status *status, MPI_Request *request) {
-  struct p2p_log_msg p2p_msg;
+                  MPI_Status *status, MPI_Request *request,
+                  void *data) {
+  struct p2p_log_msg *p2p_msg;
   static int fd = -2;
   if (fd == -2) {
     char buf[100];
@@ -155,28 +158,33 @@ void set_next_msg(int count, MPI_Datatype datatype,
     }
   }
   logging_start = 1;
-  p2p_msg.count = count;
-  p2p_msg.datatype = datatype;
-  p2p_msg.source = source;
-  p2p_msg.tag = tag;
-  p2p_msg.comm = comm;
+  int size;
+  MPI_Type_size(datatype, &size);
+  p2p_msg = malloc(sizeof(*p2p_msg) + size * count);
+  p2p_msg->count = count;
+  p2p_msg->datatype = datatype;
+  p2p_msg->source = source;
+  p2p_msg->tag = tag;
+  p2p_msg->comm = comm;
+  memcpy(p2p_msg->data, data, size * count);
   // request is NULL for MPI_Recv (no such arg), and for MPI_Wait (block until done)
   // We save requests in a separate file.
-  p2p_msg.request = (request ? *request : MPI_REQUEST_NULL);
+  p2p_msg->request = (request ? *request : MPI_REQUEST_NULL);
   if (status != NULL) {
-    p2p_msg.source = status->MPI_SOURCE;
-    p2p_msg.tag = status->MPI_TAG;
+    p2p_msg->source = status->MPI_SOURCE;
+    p2p_msg->tag = status->MPI_TAG;
     if (status->MPI_ERROR) {
       fprintf(stderr, "Recv with error:  %d\n", status->MPI_ERROR);
       exit(1);
     }
   }
-  writeall(fd, &p2p_msg, sizeof(p2p_msg));
+  writeall(fd, p2p_msg, sizeof(*p2p_msg) + size * count);
   static int i = 100;
   if (i-- == 0) {
     fflush(stdout);
     i = 100;
   }
+  free(p2p_msg);
 }
 
 void p2p_replay_pre_irecv(int count, MPI_Datatype datatype, int *source,
