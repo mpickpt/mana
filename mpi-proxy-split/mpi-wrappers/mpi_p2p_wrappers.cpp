@@ -201,7 +201,7 @@ USER_DEFINED_WRAPPER(int, Irecv,
     logRequestInfo(*request, IRECV_REQUEST);
 #endif
   }
-  LOG_POST_Irecv(source,tag,comm,&status,request);
+  LOG_POST_Irecv(source,tag,comm,&status,request,buf);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }

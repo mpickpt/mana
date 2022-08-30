@@ -24,6 +24,7 @@ struct p2p_log_msg {
   int MPI_ERROR;
   MPI_Comm comm; // comm == MPI_COMM_NULL if this logs a failed MPI_Iprobe
   MPI_Request request;
+  char data[];
 };
 struct p2p_log_request {
   MPI_Request request;
@@ -32,7 +33,7 @@ struct p2p_log_request {
 };
 
 void p2p_log(int count, MPI_Datatype datatype, int source, int tag,
-             MPI_Comm comm, MPI_Status *status, MPI_Request *request);
+             MPI_Comm comm, MPI_Status *status, MPI_Request *request,             void *data);
 void  p2p_replay(int count, MPI_Datatype datatype, int *source, int *tag,
                  MPI_Comm comm);
 void  p2p_replay_pre_irecv(int count, MPI_Datatype datatype, int *source,
@@ -44,7 +45,7 @@ int get_next_msg_iprobe(struct p2p_log_msg *p2p_msg);
 int iprobe_next_msg(struct p2p_log_msg *p2p_msg);
 void set_next_msg(int count, MPI_Datatype datatype,
                   int source, int tag, MPI_Comm comm,
-                  MPI_Status *status, MPI_Request *request);
+                  MPI_Status *status, MPI_Request *request, void *buf);
 void save_request_info(MPI_Request *request, MPI_Status *status);
 
 #ifdef USE_READALL
@@ -108,7 +109,7 @@ ssize_t writeall(int fd, void *buf, size_t count) {
 #define LOG_POST_Recv(source,tag,comm,status,request)
   if (getenv("MANA_P2P_LOG")) {
     p2p_log(bytesRecvd, MPI_CHAR, source, tag, comm,
-            status, NULL /* no request */);
+            status, NULL /* no request */,NULL /* buf */);
   }
 
 // Before MPI_Irecv during original launch/log
@@ -117,11 +118,11 @@ ssize_t writeall(int fd, void *buf, size_t count) {
 
 // After MPI_Irecv during original launch/log
 // FIXME:  Need to add MPI_Recv_init when MANA supports it
-#define LOG_POST_Irecv(source,tag,comm,status,request)
+#define LOG_POST_Irecv(source,tag,comm,status,request,buf)
   if (getenv("MANA_P2P_LOG")) {
     // source and tag will be filled in later, based on request
     // (count, datatype) will be replaced by (bytesRecvd, MPI_CHAR)
-    p2p_log(count, datatype, source, tag, comm, NULL, request);
+    p2p_log(count, datatype, source, tag, comm, NULL, request, buf);
   }
 
 // Before MPI_Probe during original launch/log
@@ -137,7 +138,9 @@ ssize_t writeall(int fd, void *buf, size_t count) {
 // NOT USED:  MPI_Probe wrapper calls MPI_Iprobe
 #define LOG_POST_Probe(source,tag,comm,status,request)
   if (getenv("MANA_P2P_LOG")) {
-    p2p_log(count, MPI_CHAR, source, tag, comm, status, NULL /* no request */);
+    p2p_log(count, MPI_CHAR, source, tag, comm, status,
+            NULL /* no request */,
+            NULL /* no buffer */);
   }
 
 // Before MPI_Iprobe during original launch/log
@@ -163,7 +166,7 @@ ssize_t writeall(int fd, void *buf, size_t count) {
       tag = status->MPI_TAG;
     }
     p2p_log(bytesRecvd, MPI_CHAR, source, tag, comm,
-            status, NULL /* no request */);
+            status, NULL /* no request */, NULL /* buf */);
   }
 
 /****************************************
