@@ -48,6 +48,19 @@ void set_next_msg(int count, MPI_Datatype datatype,
                   MPI_Status *status, MPI_Request *request, void *buf);
 void save_request_info(MPI_Request *request, MPI_Status *status);
 
+#ifdef USE_CHECKSUM_LRC
+/* 8 bits lrc checksum */
+char checksum_lrc(char *buf, int size)
+{
+   char lrc = '\0';
+   for (int i = 0; i < size; i++) {
+     lrc = (lrc + buf[i]) & 0xff;
+     lrc = (((lrc ^ 0xff) + 1) & 0xff);
+   }
+   return lrc;
+}
+#endif
+
 #ifdef USE_READALL
 static
 ssize_t readall(int fd, void *buf, size_t count) {

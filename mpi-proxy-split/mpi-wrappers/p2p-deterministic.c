@@ -11,6 +11,7 @@
 //   Define USE_READALL/WRITEALL if using readall/writeall.
 #define USE_READALL
 #define USE_WRITEALL
+#define USE_CHECKSUM_LRC
 #include "p2p-deterministic.h"
 
 int p2p_deterministic_skip_save_request = 0;
