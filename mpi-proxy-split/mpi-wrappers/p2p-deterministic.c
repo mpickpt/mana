@@ -11,7 +11,6 @@
 //   Define USE_READALL/WRITEALL if using readall/writeall.
 #define USE_READALL
 #define USE_WRITEALL
-#define USE_CHECKSUM_LRC
 #include "p2p-deterministic.h"
 
 int p2p_deterministic_skip_save_request = 0;
@@ -176,6 +175,7 @@ void set_next_msg(int count, MPI_Datatype datatype,
     p2p_msg->tag = status->MPI_TAG;
     if (status->MPI_ERROR) {
       fprintf(stderr, "Recv with error:  %d\n", status->MPI_ERROR);
+      free(p2p_msg);
       exit(1);
     }
   }
