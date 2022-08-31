@@ -9,6 +9,7 @@
 // To support MANA_P2P_LOG and MANA_P2P_REPLAY:
 #define USE_READALL
 #define USE_WRITEALL
+#define USE_CHECKSUM_LRC
 #include "p2p-deterministic.h"
 
 void fill_in_log(struct p2p_log_msg *p2p_log);
@@ -35,17 +36,27 @@ int main(int argc, char *argv[]) {
   }
 
   while (1) {
-    struct p2p_log_msg p2p_log;
+    struct p2p_log_msg p2p_log_head;
     off_t offset = lseek(fd_log, 0, SEEK_CUR);
-    rc = readall(fd_log, &p2p_log, sizeof(p2p_log));
+    rc = readall(fd_log, &p2p_log_head, offsetof(struct p2p_log_msg, data));
     if (rc == 0) {
       break;
     }
-    if (p2p_log.request != MPI_REQUEST_NULL) {
-      fill_in_log(&p2p_log);
+    int size;
+    MPI_Type_size(p2p_log_head.datatype, &size);
+    struct p2p_log_msg *p2p_log;
+    p2p_log = malloc(sizeof(struct p2p_log_msg) + size * p2p_log_head.count);
+    *p2p_log=p2p_log_head;
+    rc = readall(fd_log, p2p_log->data, size * p2p_log->count);
+    if (rc == 0) {
+      free(p2p_log);
+      break;
+    }
+    if (p2p_log->request != MPI_REQUEST_NULL) {
+      fill_in_log(p2p_log);
     }
     lseek(fd_log, offset, SEEK_SET);
-    writeall(fd_log, &p2p_log, sizeof(p2p_log));
+    writeall(fd_log, p2p_log, offsetof(struct p2p_log_msg, data));
   }
   MPI_Finalize();
 
@@ -100,14 +111,29 @@ int show_msg_file(char *name)
   }
 
   while (1) {
-    struct p2p_log_msg p2p_log;
-    int rc = readall(fd_log, &p2p_log, sizeof(p2p_log));
+    struct p2p_log_msg p2p_log_head;
+    int rc;
+    rc = readall(fd_log, &p2p_log_head, offsetof(struct p2p_log_msg, data));
     if (rc == 0) {
       break;
     }
+    int size;
+    MPI_Type_size(p2p_log_head.datatype, &size);
+    struct p2p_log_msg *p2p_log;
+    p2p_log = malloc(sizeof(struct p2p_log_msg) + size * p2p_log_head.count);
+    *p2p_log = p2p_log_head;
+    rc = readall(fd_log, &p2p_log->data, size * p2p_log->count);
+    if (rc == 0) {
+      free(p2p_log);
+      break;
+    }
 
-    printf("MSG(request,source,tag,count,comm): %d,%d,%d,%d,%d\n",
-	   p2p_log.request, p2p_log.source, p2p_log.tag, p2p_log.count, p2p_log.comm);
+    /* Checksum */
+    char lrc = checksum_lrc(p2p_log->data, size * p2p_log->count);
+
+    printf("MSG(request,source,tag,count,comm,lrc): %d,%d,%d,%d,%d,%x\n",
+	   p2p_log->request, p2p_log->source, p2p_log->tag, p2p_log->count, p2p_log->comm, lrc & 0xff);
+    free(p2p_log);
   }
   return 0;
 }
