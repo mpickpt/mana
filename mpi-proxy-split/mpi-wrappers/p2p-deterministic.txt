@@ -91,6 +91,7 @@ int readp2pmsg(int fd, struct p2p_log_msg **p2p_log_out, int *size_out)
   int size;
   MPI_Type_size(p2p_log_head.datatype, &size);
   p2p_log = malloc(sizeof(struct p2p_log_msg) + size * p2p_log_head.count);
+  *p2p_log = p2p_log_head;
   rc = readall(fd, p2p_log->data, size * p2p_log->count);
   if (rc <= 0) {
     free(p2p_log);

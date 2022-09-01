@@ -19,12 +19,12 @@ int main(int argc, char *argv[]) {
   int rank;
   int rc;
 
+  MPI_Init(NULL, NULL);
   if (argc == 2) {
     rc = show_log(argv[1]);
     return rc;
   }
 
-  MPI_Init(NULL, NULL);
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   snprintf(buf, sizeof(buf)-1, P2P_LOG_MSG, rank);
   int fd_log = open(buf, O_RDWR);
