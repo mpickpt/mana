@@ -241,22 +241,22 @@ void download_targets(std::map<unsigned int, unsigned long> &target) {
 }
 
 void share_seq_nums(std::map<unsigned int, unsigned long> &target) {
-  pthread_mutex_lock(&seq_num_lock);
   upload_seq_num();
   dmtcp_global_barrier("mana/comm-seq-round");
   download_targets(target);
-  pthread_mutex_unlock(&seq_num_lock);
 }
 
 
 rank_state_t preSuspendBarrier(query_t query) {
   switch (query) {
     case INTENT:
+      pthread_mutex_lock(&seq_num_lock);
       share_seq_nums(target_start_triv_barrier);
       // Set the ckpt_pending after sharing sequence numbers.
       // Otherwise, the user thread can enter the trivial barrier
       // before target_seq_num are properly updated.
       ckpt_pending = true;
+      pthread_mutex_unlock(&seq_num_lock);
       break;
     case FREE_PASS:
       sem_post(&freepass_sem);
