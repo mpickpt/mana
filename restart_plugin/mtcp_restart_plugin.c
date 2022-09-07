@@ -337,6 +337,7 @@ load_mana_header (char *filename, ManaHeader *mh)
     return -1;
   }
   mtcp_sys_read(fd, &mh->init_flag, sizeof(int));
+  mtcp_sys_close(fd);
   return 0;
 }
 

@@ -37,6 +37,7 @@
 #define MpiGroupList dmtcp_mpi::MpiVirtualization<MPI_Group>
 #define MpiTypeList  dmtcp_mpi::MpiVirtualization<MPI_Datatype>
 #define MpiOpList    dmtcp_mpi::MpiVirtualization<MPI_Op>
+#define MpiFileList  dmtcp_mpi::MpiVirtualization<MPI_File>
 #define MpiCommKeyvalList    dmtcp_mpi::MpiVirtualization<int>
 #define MpiRequestList    dmtcp_mpi::MpiVirtualization<MPI_Request>
 #ifndef NEXT_FUNC
@@ -50,6 +51,16 @@
     _real_MPI_ ## func;                                                        \
   })
 #endif // ifndef NEXT_FUNC
+#define REAL_TO_VIRTUAL_FILE(id) \
+  MpiFileList::instance("MpiFile", MPI_FILE_NULL).realToVirtual(id)
+#define VIRTUAL_TO_REAL_FILE(id) \
+  MpiFileList::instance("MpiFile", MPI_FILE_NULL).virtualToReal(id)
+#define ADD_NEW_FILE(id) \
+  MpiFileList::instance("MpiFile", MPI_FILE_NULL).onCreate(id)
+#define REMOVE_OLD_FILE(id) \
+  MpiFileList::instance("MpiFile", MPI_FILE_NULL).onRemove(id)
+#define UPDATE_FILE_MAP(v, r) \
+  MpiFileList::instance("MpiFile", MPI_FILE_NULL).updateMapping(v, r)
 
 #define REAL_TO_VIRTUAL_COMM(id) \
   MpiCommList::instance("MpiComm", MPI_COMM_NULL).realToVirtual(id)
@@ -163,6 +174,9 @@ namespace dmtcp_mpi
 	} else if (strcmp(name, "MpiRequest") == 0) {
 	  static MpiVirtualization _virTableMpiRequest(name, nullId);
 	  return _virTableMpiRequest;
+	} else if (strcmp(name, "MpiFile") == 0) {
+	  static MpiVirtualization _virTableMpiFile(name, nullId);
+	  return _virTableMpiFile;
 	}
 	JWARNING(false)(name)(nullId).Text("Unhandled type");
 	static MpiVirtualization _virTableNoSuchObject(name, nullId);
@@ -268,7 +282,7 @@ namespace dmtcp_mpi
     private:
       // Pvt. constructor
       MpiVirtualization(const char *name, T nullId)
-        : _vIdTable(name, (T)0, (T)999999),
+        : _vIdTable(name, (T)0, (size_t)999999),
           _mutex(),
           _nullId(nullId)
       {
