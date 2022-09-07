@@ -255,6 +255,17 @@ USER_DEFINED_WRAPPER(int, Pack, (const void*) inbuf, (int) incount,
   return retval;
 }
 
+USER_DEFINED_WRAPPER(int, Get_address, (const void *) location, (MPI_Aint *) address)
+{
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  retval = NEXT_FUNC(Get_address)(location, address);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return retval;
+}
+
 DEFINE_FNC(int, Type_size_x, (MPI_Datatype) type, (MPI_Count *) size);
 
 PMPI_IMPL(int, MPI_Type_size, MPI_Datatype datatype, int *size)
@@ -290,4 +301,4 @@ PMPI_IMPL(int, MPI_Pack_size, int incount, MPI_Datatype datatype,
           MPI_Comm comm, int *size)
 PMPI_IMPL(int, MPI_Pack, const void *inbuf, int incount, MPI_Datatype datatype,
           void *outbuf, int outsize, int *position, MPI_Comm comm)
-
+PMPI_IMPL(int, MPI_Get_address, const void *location, MPI_Aint *address)
