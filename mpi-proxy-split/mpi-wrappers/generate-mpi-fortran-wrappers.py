@@ -24,7 +24,7 @@ else:
 declarations = declarations_file.read().split(';')[:-1]  # Each decl ends in ';'
 declarations_file.close()
 
-def print_mpi_type():
+def print_mpi_type_struct():
   print("#ifdef CRAY_MPICH_VERSION")
   print("""EXTERNC int mpi_type_struct_ (int* count,
             const int* array_of_blocklengths,
@@ -43,6 +43,37 @@ def print_mpi_type():
   print("  return *ierr;")
   print("}")
 
+def print_mpi_type_hindexed():
+  print("#ifdef CRAY_MPICH_VERSION")
+  print("""EXTERNC int mpi_type_hindexed_ (int* count,
+            const int* array_of_blocklengths,
+            const MPI_Aint* array_of_displacements,
+            MPI_Datatype* oldtype,  MPI_Datatype* newtype, int *ierr) {""")
+  print("#else")
+  print("""EXTERNC int mpi_type_hindexed_ (int* count,
+            int* array_of_blocklengths,  MPI_Aint* array_of_displacements,
+            MPI_Datatype* oldtype,  MPI_Datatype* newtype, int *ierr) {""")
+  print("#endif")
+  print("""    *ierr = MPI_Type_hindexed(*count, array_of_blocklengths,
+            array_of_displacements, *oldtype, newtype);""")
+  print("  return *ierr;")
+  print("}")
+
+def print_mpi_type_create_hindexed():
+  print("#ifdef CRAY_MPICH_VERSION")
+  print("""EXTERNC int mpi_type_create_hindexed_ (int* count,
+            const int* array_of_blocklengths,
+            const MPI_Aint* array_of_displacements,  MPI_Datatype* oldtype,
+            MPI_Datatype* newtype, int *ierr) {""")
+  print("#else")
+  print("""EXTERNC int mpi_type_create_hindexed_ (int* count,
+            int* array_of_blocklengths,  MPI_Aint* array_of_displacements,
+            MPI_Datatype* oldtype,  MPI_Datatype* newtype, int *ierr) {""")
+  print("#endif")
+  print("""    *ierr = MPI_Type_create_hindexed(*count, array_of_blocklengths,
+             array_of_displacements, *oldtype, newtype);""")
+  print("  return *ierr;")
+  print("}")
 # =============================================================
 
 def abort_decl(decl, comment):
@@ -104,7 +135,10 @@ def emit_wrapper(decl, ret_type, fnc, args, arg_vars):
 
   # Handle MPI_Type_struct separately to ensure macros generate correctly
   if fnc == 'MPI_Type_struct':
-    print_mpi_type()
+    print_mpi_type_struct()
+    return
+  elif fnc == 'MPI_Type_hindexed':
+    print_mpi_type_hindexed()
     return
 
   if fargs == '' and not(fnc in ['MPI_Wtime', 'MPI_Wtick']):
