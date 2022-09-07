@@ -56,6 +56,7 @@ static int restoreTypeHVector(MpiRecord& rec);
 static int restoreTypeIndexed(MpiRecord& rec);
 static int restoreTypeFree(MpiRecord& rec);
 static int restoreTypeCreateStruct(MpiRecord& rec);
+static int restoreTypeCreateSubarray(MpiRecord& rec);
 
 static int restoreCartCreate(MpiRecord& rec);
 static int restoreCartMap(MpiRecord& rec);
@@ -204,6 +205,10 @@ dmtcp_mpi::restoreTypes(MpiRecord &rec)
     case GENERATE_ENUM(Type_create_struct):
       JTRACE("restoreTypeCreateStruct");
       rc = restoreTypeCreateStruct(rec);
+      break;
+    case GENERATE_ENUM(Type_create_subarray):
+      JTRACE("restoreTypeCreateSubarray");
+      rc = restoreTypeCreateSubarray(rec);
       break;
     default:
       JWARNING(false)(rec.getType()).Text("Unknown call");
@@ -614,6 +619,29 @@ restoreTypeCreateStruct(MpiRecord& rec)
   }
   return retval;
 }
+
+static int
+restoreTypeCreateSubarray(MpiRecord& rec)
+{
+  int retval;
+  int ndims = rec.args(0);
+  const int *array_of_sizes = rec.args(1);
+  const int *array_of_subsizes = rec.args(2);
+  const int *array_of_starts = rec.args(3);
+  int order = rec.args(4);
+  MPI_Datatype oldtype = rec.args(5);
+  MPI_Datatype newtype = MPI_DATATYPE_NULL;
+  retval = FNC_CALL(Type_create_subarray, rec)(ndims, array_of_sizes,
+           array_of_subsizes, array_of_starts, order, oldtype, &newtype);
+  JWARNING(retval == MPI_SUCCESS)
+          .Text("Could not restore MPI subarray datatype");
+  if (retval == MPI_SUCCESS) {
+    MPI_Datatype virtType = rec.args(6);
+    UPDATE_TYPE_MAP(virtType, newtype);
+  }
+  return retval;
+}
+
 
 #ifdef SINGLE_CART_REORDER
 int

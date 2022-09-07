@@ -338,6 +338,9 @@ USER_DEFINED_WRAPPER(int, Wait, (MPI_Request*) request, (MPI_Status*) status)
       fflush(stdout);
 #endif
     }
+    if (flag) {
+      statusPtr->MPI_ERROR = MPI_SUCCESS;
+    }
     if (p2p_deterministic_skip_save_request == 0) {
       if (flag) LOG_POST_Wait(request, statusPtr);
     }
@@ -393,6 +396,38 @@ USER_DEFINED_WRAPPER(int, Request_get_status, (MPI_Request) request,
   return retval;
 }
 
+USER_DEFINED_WRAPPER(int, Cancel, (MPI_Request *) request)
+{
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  MPI_Request realRequest = VIRTUAL_TO_REAL_REQUEST(*request);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  if( realRequest == MPI_REQUEST_NULL ){
+    retval = MPI_SUCCESS;
+  } else {
+    retval = NEXT_FUNC(Cancel)(&realRequest);
+  }
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return retval;
+}
+
+USER_DEFINED_WRAPPER(int, Request_free, (MPI_Request *) request)
+{
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  MPI_Request realRequest = VIRTUAL_TO_REAL_REQUEST(*request);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  if( realRequest == MPI_REQUEST_NULL ){
+    retval = MPI_SUCCESS;
+  } else {
+    retval = NEXT_FUNC(Request_free)(&realRequest);
+  }
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return retval;
+}
+
 DEFINE_FNC(int, Get_elements, (const MPI_Status *) status,
            (MPI_Datatype) datatype, (int *) count);
 DEFINE_FNC(int, Get_elements_x, (const MPI_Status *) status,
@@ -418,4 +453,5 @@ PMPI_IMPL(int, MPI_Get_elements_x, const MPI_Status *status,
           MPI_Datatype datatype, MPI_Count *count)
 PMPI_IMPL(int, MPI_Request_get_status, MPI_Request request, int* flag,
           MPI_Status *status)
-
+PMPI_IMPL(int, MPI_Cancel, MPI_Request *request)
+PMPI_IMPL(int, MPI_Request_free, MPI_Request *request)

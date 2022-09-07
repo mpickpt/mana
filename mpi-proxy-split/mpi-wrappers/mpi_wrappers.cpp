@@ -83,6 +83,7 @@ USER_DEFINED_WRAPPER(int, Init_thread, (int *) argc, (char ***) argv,
 // later in the file.
 // DEFINE_FNC(int, Finalize, (void))
 DEFINE_FNC(double, Wtime, (void))
+DEFINE_FNC(double, Wtick, (void))
 DEFINE_FNC(int, Finalized, (int *) flag)
 DEFINE_FNC(int, Get_processor_name, (char *) name, (int *) resultlen)
 DEFINE_FNC(int, Initialized, (int *) flag)
@@ -121,6 +122,7 @@ PMPI_IMPL(int, MPI_Finalize, void)
 PMPI_IMPL(int, MPI_Finalized, int *flag)
 PMPI_IMPL(int, MPI_Get_processor_name, char *name, int *resultlen)
 PMPI_IMPL(double, MPI_Wtime, void)
+PMPI_IMPL(double, MPI_Wtick, void)
 PMPI_IMPL(int, MPI_Initialized, int *flag)
 PMPI_IMPL(int, MPI_Init_thread, int *argc, char ***argv,
           int required, int *provided)

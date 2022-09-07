@@ -46,15 +46,63 @@ USER_DEFINED_WRAPPER(int, File_open, (MPI_Comm) comm, (const char *) filename,
   return retval;
 }
 
+USER_DEFINED_WRAPPER(int, File_set_view, (MPI_File) fh, (MPI_Offset) disp,
+                    (MPI_Datatype) etype, (MPI_Datatype) filetype,
+                    (const char*) datarep, (MPI_Info) info)
+{
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  MPI_Datatype real_etype = VIRTUAL_TO_REAL_TYPE(etype);
+  MPI_Datatype real_filetype = VIRTUAL_TO_REAL_TYPE(filetype);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  retval = NEXT_FUNC(File_set_view)(fh, disp, real_etype, real_filetype, datarep, info);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return retval;
+}
+
+USER_DEFINED_WRAPPER(int, File_write, (MPI_File) fh, (const void *) buf, (int) count,
+                     (MPI_Datatype) datatype, (MPI_Status *) status)
+{
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  MPI_Datatype real_datatype = VIRTUAL_TO_REAL_TYPE(datatype);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  retval = NEXT_FUNC(File_write)(fh, buf, count, real_datatype, status);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return retval;
+}
+
+USER_DEFINED_WRAPPER(int, File_write_all, (MPI_File) fh, (const void *) buf, (int) count,
+                     (MPI_Datatype) datatype, (MPI_Status *) status)
+{
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  MPI_Datatype real_datatype = VIRTUAL_TO_REAL_TYPE(datatype);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  retval = NEXT_FUNC(File_write_all)(fh, buf, count, real_datatype, status);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return retval;
+}
+
+
+
 DEFINE_FNC(int, File_close, (MPI_File *) fh);
 DEFINE_FNC(int, File_get_size, (MPI_File) fh, (MPI_Offset *) size);
 DEFINE_FNC(int, File_read_at, (MPI_File) fh, (MPI_Offset) offset, (void *) buf,
            (int) count, (MPI_Datatype) datatype, (MPI_Status *) status);
-
+ 
 PMPI_IMPL(int, MPI_File_open, MPI_Comm comm, const char *filename, int amode,
           MPI_Info info, MPI_File *fh)
 PMPI_IMPL(int, MPI_File_close, MPI_File *fh)
 PMPI_IMPL(int, MPI_File_get_size, MPI_File fh, MPI_Offset *size)
 PMPI_IMPL(int, MPI_File_read_at, MPI_File fh, MPI_Offset offset, void *buf,
           int count, MPI_Datatype datatype, MPI_Status *status)
-
+PMPI_IMPL(int, MPI_File_write, MPI_File fh, const void *buf, int count,                
+           MPI_Datatype datatype, MPI_Status *status)
+PMPI_IMPL(int, MPI_File_set_view, MPI_File fh, MPI_Offset disp, MPI_Datatype etype,
+                     MPI_Datatype filetype, const char* datarep, MPI_Info info);
+PMPI_IMPL(int, MPI_File_write_all, MPI_File fh, const void *buf, int count,
+                       MPI_Datatype datatype, MPI_Status *status)
