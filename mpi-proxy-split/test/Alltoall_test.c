@@ -65,7 +65,7 @@ main(int argc, char *argv[])
     sb[i] = rank + 1;
     rb[i] = 0;
   }
-  for (int i = 0; i < max_iterations; i++) {
+  for (int j = 0; j < max_iterations; j++) {
     status =
       MPI_Alltoall(sb, chunk, MPI_INT, rb, chunk, MPI_INT, MPI_COMM_WORLD);
 #ifdef DEBUG
