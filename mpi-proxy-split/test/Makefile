@@ -40,11 +40,11 @@ FILES=mpi_hello_world \
       Irecv_test Alloc_mem sendrecv_replace_test \
       f_ibarrier Type_hvector_test Type_vector_test \
       wave_mpi day1_mpi quad_mpi poisson_nonblock_mpi \
-	  send_recv_loop large_async_p2p \
-	  File_read_write_test File_characteristics_test File_size_test \
-	  File_read_write_all_test \
+	    send_recv_loop large_async_p2p \
+	    File_read_write_test File_characteristics_test File_size_test \
+	    File_read_write_all_test \
       Type_dup_test Type_create_hindexed_test \
-	  Type_create_resized_test Type_create_hindexed_block_test
+	    Type_create_resized_test Type_create_hindexed_block_test
 
 OBJS=$(addsuffix .o, ${FILES})
 
