@@ -37,6 +37,9 @@ using namespace dmtcp_mpi;
 
 std::unordered_map<MPI_File, OpenFileParameters> g_params_map;
 
+// It's possible that there could be a Fortran to C interface bug in the
+// passing of the filename. If there are ever any bugs related to MPI
+// opening a file with the wrong name, that's likely the cause
 USER_DEFINED_WRAPPER(int, File_open, (MPI_Comm) comm, (const char *) filename,
                      (int) amode, (MPI_Info) info, (MPI_File *) fh)
 {
@@ -174,7 +177,7 @@ USER_DEFINED_WRAPPER(int, File_read, (MPI_File) fh, (void*) buf, (int) count,
   MPI_File realFile = VIRTUAL_TO_REAL_FILE(fh);
   MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  retval = NEXT_FUNC(File_read)(realFile, buf, count, datatype, status);
+  retval = NEXT_FUNC(File_read)(realFile, buf, count, realType, status);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -189,7 +192,7 @@ USER_DEFINED_WRAPPER(int, File_read_at, (MPI_File) fh, (MPI_Offset) offset,
   MPI_File realFile = VIRTUAL_TO_REAL_FILE(fh);
   MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  retval = NEXT_FUNC(File_read_at)(realFile, offset, buf, count, datatype,
+  retval = NEXT_FUNC(File_read_at)(realFile, offset, buf, count, realType,
                                    status);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -210,7 +213,7 @@ USER_DEFINED_WRAPPER(int, File_read_at_all, (MPI_File) fh, (MPI_Offset) offset,
   MPI_File realFile = VIRTUAL_TO_REAL_FILE(fh);
   MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  retval = NEXT_FUNC(File_read_at_all)(realFile, offset, buf, count, datatype,
+  retval = NEXT_FUNC(File_read_at_all)(realFile, offset, buf, count, realType,
                                        status);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -225,7 +228,7 @@ USER_DEFINED_WRAPPER(int, File_write, (MPI_File) fh, (const void*) buf,
   MPI_File realFile = VIRTUAL_TO_REAL_FILE(fh);
   MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  retval = NEXT_FUNC(File_write)(realFile, buf, count, datatype, status);
+  retval = NEXT_FUNC(File_write)(realFile, buf, count, realType, status);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -240,7 +243,7 @@ USER_DEFINED_WRAPPER(int, File_write_at, (MPI_File) fh, (MPI_Offset) offset,
   MPI_File realFile = VIRTUAL_TO_REAL_FILE(fh);
   MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  retval = NEXT_FUNC(File_write_at)(realFile, offset, buf, count, datatype,
+  retval = NEXT_FUNC(File_write_at)(realFile, offset, buf, count, realType,
                                     status);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -258,7 +261,7 @@ USER_DEFINED_WRAPPER(int, File_write_at_all, (MPI_File) fh, (MPI_Offset) offset,
   MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(File_write_at_all)(realFile, offset, buf, count,
-                                        datatype, status);
+                                        realType, status);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
