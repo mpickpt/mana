@@ -136,8 +136,7 @@ USER_DEFINED_WRAPPER(int, Comm_create, (MPI_Comm) comm, (MPI_Group) group,
         seq_num.find(gid);
       if (it == seq_num.end()) {
         seq_num[gid] = 0;
-        target_start_triv_barrier[gid] = 0;
-        target_stop_triv_barrier[gid] = 0;
+        target[gid] = 0;
       }
       LOG_CALL(restoreComms, Comm_create, comm, group, virtComm);
     }
@@ -217,8 +216,6 @@ USER_DEFINED_WRAPPER(int, Comm_free, (MPI_Comm *) comm)
     unsigned int gid = VirtualGlobalCommId::instance().getGlobalId(*comm);
 #if 0 
     seq_num.erase(gid);
-    target_start_triv_barrier.erase(gid);
-    target_stop_triv_barrier.erase(gid);
 #endif
     LOG_CALL(restoreComms, Comm_free, *comm);
   }

@@ -453,65 +453,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       mana_state = CKPT_COLLECTIVE;
       // preSuspendBarrier() will send coord response and get worker state.
       // FIXME:  See commant at: dmtcpplugin.cpp:'case DMTCP_EVENT_PRESUSPEND'
-      {
-        query_t coord_response = INTENT;
-        int64_t round = 0;
-        while (1) {
-          // FIXME: see informCoordinator...() for the 2pc_data that we send
-          //       to the coordinator.  Now, return it and use it below.
-          rank_state_t data_to_coord = preSuspendBarrier(coord_response);
-          coord_response = Q_UNKNOWN;
-
-          string barrierId = "MANA-PRESUSPEND-" + jalib::XToString(round);
-          string csId = "MANA-PRESUSPEND-CS-" + jalib::XToString(round);
-          string commId = "MANA-PRESUSPEND-COMM-" + jalib::XToString(round);
-          string targetId = "MANA-PRESUSPEND-TARGET-" + jalib::XToString(round);
-          int64_t commKey = (int64_t) data_to_coord.comm;
-
-          int target_reached = check_seq_nums();
-          if (!target_reached) {
-            dmtcp_kvdb64(DMTCP_KVDB_OR, targetId.c_str(), 0, 1);
-            coord_response = WAIT_STRAGGLER;
-          }
-
-          if (data_to_coord.st == IN_CS) {
-            dmtcp_kvdb64(DMTCP_KVDB_INCRBY, csId.c_str(), 0, 1);
-            dmtcp_kvdb64(DMTCP_KVDB_OR, commId.c_str(), commKey, 1);
-            coord_response = WAIT_STRAGGLER;
-          }
-
-          dmtcp_global_barrier(barrierId.c_str());
-
-          int64_t counter;
-          // If the database name and key combination does not exist, the in-out
-          // parameter will not be changed. So we need to initialize the
-          // variable not_all_targets_reached.
-          int64_t not_all_targets_reached = 0;
-          dmtcp_kvdb64_get(targetId.c_str(), 0, &not_all_targets_reached);
-
-          if (not_all_targets_reached && data_to_coord.st == STOP_BEFORE_CS) {
-            coord_response = FREE_PASS;
-          }
-
-          // No rank published IN_CS state and all sequence numbers
-          // reached the target number.
-          if (dmtcp_kvdb64_get(csId.c_str(), 0, &counter) == -1 &&
-              !not_all_targets_reached) {
-            break;
-          }
-
-          if (coord_response == Q_UNKNOWN) {
-            int64_t commStatus = 0;
-            dmtcp_kvdb64_get(commId.c_str(), commKey, &commStatus);
-            if (commStatus == 1 && data_to_coord.st == STOP_BEFORE_CS) {
-              coord_response = FREE_PASS;
-            } else {
-              coord_response = WAIT_STRAGGLER;
-            }
-          }
-          round++;
-        }
-      }
+      drain_mpi_collective();
       break;
     }
 

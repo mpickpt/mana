@@ -1,6 +1,7 @@
 #include <mpi.h>
 
 #include <map>
+#include <string.h>
 #include <pthread.h>
 #include <semaphore.h>
 
@@ -16,10 +17,14 @@ using namespace dmtcp_mpi;
 
 extern int g_world_rank;
 extern int g_world_size;
+// Global communicator for MANA internal use
+MPI_Comm g_world_comm;
 extern int p2p_deterministic_skip_save_request;
 volatile bool ckpt_pending;
+int converged;
 volatile phase_t current_phase;
-unsigned int current_global_comm_id;
+unsigned int comm_gid;
+int num_converged;
 reset_type_t reset_type;
 
 pthread_mutex_t seq_num_lock;
@@ -46,19 +51,8 @@ sem_t freepass_sem;
 sem_t freepass_sync_sem;
 
 std::map<unsigned int, unsigned long> seq_num;
-std::map<unsigned int, unsigned long> target_start_triv_barrier;
-std::map<unsigned int, unsigned long> target_stop_triv_barrier;
+std::map<unsigned int, unsigned long> target;
 typedef std::pair<unsigned int, unsigned long> comm_seq_pair_t;
-
-int comm_ckpt_target_reached(unsigned int global_comm) {
-  return seq_num[global_comm] > target_start_triv_barrier[global_comm];
-}
-
-// For restart, we have a fresh lower half which does not have pending
-// MPI_Ibarrier's. So don't need to add trivial barriers after restart.
-int comm_resume_target_reached(unsigned int global_comm) {
-  return seq_num[global_comm] > target_stop_triv_barrier[global_comm];
-}
 
 void seq_num_init() {
   ckpt_pending = false;
@@ -72,27 +66,6 @@ void seq_num_init() {
 
 void seq_num_reset(reset_type_t type) {
   ckpt_pending = false;
-
-  // Reset freepass_sem to 0, like in sem_init()
-  while (sem_trywait(&freepass_sem) == 0);
-  // Reset freepass_sync_set to 1
-  // Must be reset to 1 to allow the commit_begin thread to enter
-  // the STOP_BEFORE_CS state for the first time
-  while (sem_trywait(&freepass_sync_sem) == 0);
-  sem_post(&freepass_sync_sem);
-
-  reset_type = type;
-  if (type == RESUME) {
-    share_seq_nums(target_stop_triv_barrier);
-#ifdef DEBUG_SEQ_NUM
-    printf("rank %d resumed\n",
-           g_world_rank);
-    fflush(stdout);
-  } else {
-    printf("rank %d restarted\n", g_world_rank);
-    fflush(stdout);
-#endif
-  }
 }
 
 void seq_num_destroy() {
@@ -103,16 +76,36 @@ void seq_num_destroy() {
   sem_destroy(&freepass_sync_sem);
 }
 
-int check_seq_nums() {
+int print_seq_nums() {
   unsigned int comm_id;
-  unsigned int seq;
+  unsigned long seq;
   int target_reached = 1;
   for (comm_seq_pair_t pair : seq_num) {
     comm_id = pair.first;
     seq = pair.second;
-    if (target_start_triv_barrier[comm_id] > seq_num[comm_id]) {
-      target_reached = 0;
-      break;
+    printf("%d, %u, %lu\n", g_world_rank, comm_id, seq);
+  }
+  fflush(stdout);
+  return target_reached;
+}
+
+int check_seq_nums(bool exclusive) {
+  unsigned int comm_id;
+  unsigned long seq;
+  int target_reached = 1;
+  for (comm_seq_pair_t pair : seq_num) {
+    comm_id = pair.first;
+    seq = pair.second;
+    if (exclusive) {
+      if (target[comm_id] + 1 > seq_num[comm_id]) {
+        target_reached = 0;
+        break;
+      }
+    } else {
+      if (target[comm_id] > seq_num[comm_id]) {
+        target_reached = 0;
+        break;
+      }
     }
   }
   return target_reached;
@@ -124,100 +117,126 @@ int twoPhaseCommit(MPI_Comm comm,
     return doRealCollectiveComm(); // lambda function: already captured args
   }
 
-  commit_begin(comm);
+  commit_begin(comm, false);
   int retval = doRealCollectiveComm();
-  commit_finish();
+  commit_finish(comm, false);
   return retval;
 }
 
-void commit_begin(MPI_Comm comm) {
+void seq_num_broadcast(MPI_Comm comm, unsigned long new_target) {
+  unsigned int comm_gid = VirtualGlobalCommId::instance().getGlobalId(comm);
+  unsigned long msg[2] = {comm_gid, new_target};
+  int comm_size;
+  int comm_rank;
+  int world_rank;
+  MPI_Comm_size(comm, &comm_size);
+  MPI_Comm_rank(comm, &comm_rank);
+  MPI_Group world_group, local_group;
+  MPI_Comm real_local_comm = VIRTUAL_TO_REAL_COMM(comm);
+  MPI_Comm real_world_comm = VIRTUAL_TO_REAL_COMM(g_world_comm);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  NEXT_FUNC(Comm_group)(real_world_comm, &world_group);
+  NEXT_FUNC(Comm_group)(real_local_comm, &local_group);
+  RETURN_TO_UPPER_HALF();
+  for (int i = 0; i < comm_size; i++) {
+    if (i != comm_rank) {
+      JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+      NEXT_FUNC(Group_translate_ranks)(local_group, 1, &i,
+                world_group, &world_rank);
+      NEXT_FUNC(Send)(&msg, 2, MPI_UNSIGNED_LONG, world_rank,
+                      0, real_world_comm);
+      RETURN_TO_UPPER_HALF();
+#ifdef DEBUG_SEQ_NUM
+      printf("rank %d sending to rank %d new target comm %u seq %lu target %lu\n",
+             g_world_rank, world_rank, comm_gid, seq_num[comm_gid], new_target);
+      fflush(stdout);
+#endif
+    }
+  }
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  NEXT_FUNC(Group_free)(&world_group);
+  NEXT_FUNC(Group_free)(&local_group);
+  RETURN_TO_UPPER_HALF();
+}
+
+void commit_begin(MPI_Comm comm, bool passthrough) {
   if (mana_state == RESTART_REPLAY || comm == MPI_COMM_NULL) {
     return;
   }
-  pthread_mutex_lock(&seq_num_lock);
-  current_global_comm_id = VirtualGlobalCommId::instance().getGlobalId(comm);
-  seq_num[current_global_comm_id]++;
-  pthread_mutex_unlock(&seq_num_lock);
-  // There are two cases we need to insert a trivial barrier:
-  // 1. If the sequence number of this communicator has passed the
-  //    target_start_triv_barrier
-  // 2. If it's in the resume mode, and the current sequence number is smaller
-  //    or equal to the target_stop_triv_barrier.
-  if ((ckpt_pending && comm_ckpt_target_reached(current_global_comm_id)) ||
-      (!comm_resume_target_reached(current_global_comm_id))) {
+  while (ckpt_pending && check_seq_nums(passthrough)) {
+    MPI_Status status;
+    int flag;
+    MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, g_world_comm, &flag, &status);
+    if (flag) {
+      unsigned long new_target[2];
+      MPI_Comm real_world_comm = VIRTUAL_TO_REAL_COMM(g_world_comm);
+      JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+      NEXT_FUNC(Recv)(&new_target, 2, MPI_UNSIGNED_LONG,
+          status.MPI_SOURCE, status.MPI_TAG, real_world_comm,
+          MPI_STATUS_IGNORE);
+      RETURN_TO_UPPER_HALF();
+      unsigned int updated_comm = (unsigned int) new_target[0];
+      unsigned long updated_target = new_target[1];
+      std::map<unsigned int, unsigned long>::iterator it =
+        target.find(updated_comm);
+      if (it != target.end() && it->second < updated_target) {
+        target[updated_comm] = updated_target;
 #ifdef DEBUG_SEQ_NUM
-    if (!comm_resume_target_reached(current_global_comm_id)) {
-      printf("rank %d starts trivial barrier with comm %u seq num %lu after resume.\n",
-            g_world_rank, current_global_comm_id,
-            seq_num[current_global_comm_id]);
-      fflush(stdout);
-    } else {
-      printf("rank %d starts trivial barrier with comm %u seq num %lu.\n",
-            g_world_rank, current_global_comm_id,
-            seq_num[current_global_comm_id]);
-      fflush(stdout);
-    }
-#endif
-    // Call the trivial barrier
-    DMTCP_PLUGIN_DISABLE_CKPT();
-    current_phase = IN_TRIVIAL_BARRIER;
-    // Set state again incase we returned from beforeTrivialBarrier
-    MPI_Request request;
-    MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-    int flag = 0;
-    JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-    NEXT_FUNC(Ibarrier)(realComm, &request);
-    RETURN_TO_UPPER_HALF();
-    DMTCP_PLUGIN_ENABLE_CKPT();
-
-    // Wait on the trivial barrier.
-    p2p_deterministic_skip_save_request = 1;
-    while (!flag) {
-      DMTCP_PLUGIN_DISABLE_CKPT();
-      // If ckpt_pending is false, and no communicator is in the trivial barrier
-      // mode, we are back from restart. In this case, re-enable ckpt and break
-      // from this test loop.
-      if (!ckpt_pending && reset_type == RESTART) {
-#ifdef DEBUG_SEQ_NUM
-        printf("rank %d returned from trivial barrier because of restart\n",
-               g_world_rank);
+        printf("rank %d received new target comm %u seq %lu target %lu\n",
+            g_world_rank, updated_comm, seq_num[updated_comm], updated_target);
         fflush(stdout);
 #endif
-        DMTCP_PLUGIN_ENABLE_CKPT();
-        break;
       }
-      JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-      NEXT_FUNC(Test)(&request, &flag, MPI_STATUS_IGNORE);
-      RETURN_TO_UPPER_HALF();
-      DMTCP_PLUGIN_ENABLE_CKPT();
-    }
-#ifdef DEBUG_SEQ_NUM
-    printf("rank %d finished trivial barrier\n", g_world_rank);
-    fflush(stdout);
-#endif
-    p2p_deterministic_skip_save_request = 0;
-
-    // Stop before the critical section during checkpoint time.
-    if (ckpt_pending && check_seq_nums()) {
-      // Wait until the freepass thread has checked our state
-      // before changing the state
-      while (ckpt_pending && sem_trywait(&freepass_sync_sem) != 0);
-      current_phase = STOP_BEFORE_CS;
-      while (ckpt_pending && sem_trywait(&freepass_sem) != 0);
-      current_phase = IN_CS;
     }
   }
+  pthread_mutex_lock(&seq_num_lock);
   current_phase = IN_CS;
+  unsigned int comm_gid = VirtualGlobalCommId::instance().getGlobalId(comm);
+  seq_num[comm_gid]++;
+  pthread_mutex_unlock(&seq_num_lock);
+#ifdef DEBUG_SEQ_NUM
+  // print_seq_nums();
+#endif
+  if (ckpt_pending && seq_num[comm_gid] > target[comm_gid]) {
+    target[comm_gid] = seq_num[comm_gid];
+    seq_num_broadcast(comm, seq_num[comm_gid]);
+  }
 }
 
-void commit_finish() {
+void commit_finish(MPI_Comm comm, bool passthrough) {
   if (mana_state == RESTART_REPLAY) {
     return;
   }
-  pthread_mutex_lock(&seq_num_lock);
   current_phase = IS_READY;
-  current_global_comm_id = MPI_COMM_NULL;
-  pthread_mutex_unlock(&seq_num_lock);
+  if (passthrough) {
+    return;
+  }
+  while (ckpt_pending && check_seq_nums(false)) {
+    MPI_Status status;
+    int flag;
+    MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, g_world_comm, &flag, &status);
+    if (flag) {
+      unsigned long new_target[2];
+      MPI_Comm real_world_comm = VIRTUAL_TO_REAL_COMM(g_world_comm);
+      JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+      NEXT_FUNC(Recv)(&new_target, 2, MPI_UNSIGNED_LONG,
+          status.MPI_SOURCE, status.MPI_TAG, real_world_comm,
+          MPI_STATUS_IGNORE);
+      RETURN_TO_UPPER_HALF();
+      unsigned int updated_comm = (unsigned int) new_target[0];
+      unsigned long updated_target = new_target[1];
+      std::map<unsigned int, unsigned long>::iterator it =
+        target.find(updated_comm);
+      if (it != target.end() && it->second < updated_target) {
+        target[updated_comm] = updated_target;
+#ifdef DEBUG_SEQ_NUM
+        printf("rank %d received new target comm %u seq %lu target %lu\n",
+            g_world_rank, updated_comm, seq_num[updated_comm], updated_target);
+        fflush(stdout);
+#endif
+      }
+    }
+  }
 }
 
 void upload_seq_num() {
@@ -242,48 +261,30 @@ void download_targets(std::map<unsigned int, unsigned long> &target) {
 
 void share_seq_nums(std::map<unsigned int, unsigned long> &target) {
   upload_seq_num();
-  dmtcp_global_barrier("mana/comm-seq-round");
+  dmtcp_global_barrier("mana/share-seq-num");
   download_targets(target);
 }
 
-
-rank_state_t preSuspendBarrier(query_t query) {
-  switch (query) {
-    case INTENT:
-      pthread_mutex_lock(&seq_num_lock);
-      share_seq_nums(target_start_triv_barrier);
-      // Set the ckpt_pending after sharing sequence numbers.
-      // Otherwise, the user thread can enter the trivial barrier
-      // before target_seq_num are properly updated.
-      ckpt_pending = true;
-      pthread_mutex_unlock(&seq_num_lock);
-      break;
-    case FREE_PASS:
-      sem_post(&freepass_sem);
-      while (current_phase == STOP_BEFORE_CS);
-      // Notify thread in commit_begin that we have checked its
-      // state, so it is safe to change it
-      sem_post(&freepass_sync_sem);
-      break;
-    case WAIT_STRAGGLER:
-      // Maybe some peers in critical section and some in PHASE_1 or
-      // IN_TRIVIAL_BARRIER. This may happen if a checkpoint pending is
-      // announced after some member already entered the critical
-      // section. Then the coordinator will send
-      // WAIT_STRAGGLER to those ranks in the critical section.
-      // In this case, we just report back the current state.
-      // But the user thread can continue running and enter IS_READY,
-      // IN_TRIVIAL_BARRIER for a different communication, etc.
-      break;
-    default:
-      JWARNING(false)(query).Text("Unknown query from coordinator");
-      break;
-  }
+void drain_mpi_collective() {
+  int round_num = 0;
+  int64_t num_converged = 0;
+  int64_t in_cs = 0;
   pthread_mutex_lock(&seq_num_lock);
-  // maintain consistent view for DMTCP coordinator
-  rank_state_t state = { .rank = g_world_rank,
-                         .comm = current_global_comm_id,
-                         .st = current_phase};
+  ckpt_pending = true;
+  share_seq_nums(target);
   pthread_mutex_unlock(&seq_num_lock);
-  return state;
+  while (1) {
+    dmtcp::string barrierId = "MANA-PRESUSPEND-" + jalib::XToString(round_num);
+    dmtcp::string csId = "MANA-CRITICAL-SECTION-" + jalib::XToString(round_num);
+    dmtcp::string convergeId = "MANA-CONVERGE-" + jalib::XToString(round_num);
+    dmtcp_kvdb64(DMTCP_KVDB_INCRBY, convergeId.c_str(), 0, check_seq_nums(false));
+    dmtcp_kvdb64(DMTCP_KVDB_OR, csId.c_str(), 0, current_phase == IN_CS);
+    dmtcp_global_barrier(barrierId.c_str());
+    dmtcp_kvdb64_get(convergeId.c_str(), 0, &num_converged);
+    dmtcp_kvdb64_get(csId.c_str(), 0, &in_cs);
+    if (in_cs == 0 && num_converged == g_world_size) {
+      break;
+    }
+    round_num++;
+  }
 }
