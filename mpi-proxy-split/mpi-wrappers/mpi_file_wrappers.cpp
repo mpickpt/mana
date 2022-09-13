@@ -1,6 +1,6 @@
 /****************************************************************************
- *   Copyright (C) 2019-2022 by Illio Suardi                                *
- *   illio@u.nus.edu                                                        *
+ *   Copyright (C) 2019-2022 by Illio Suardi, Chirag Singh, Twinkle Jain    *
+ *   illio@u.nus.edu, chirag.singh@memverge.com, jain.t@northeastern.edu    *
  *                                                                          *
  *  This file is part of DMTCP.                                             *
  *                                                                          *
@@ -207,7 +207,7 @@ USER_DEFINED_WRAPPER(int, File_read_at_all, (MPI_File) fh, (MPI_Offset) offset,
   // This function is both blocking and collective. However, we believe that
   // this function is both rarely called enough and fast enough to avoid
   // requiring the trivial barrier. If the app begins to hang at this call,
-  // add commit_begin() and commit_finish to the start/end of this wrapper
+  // add commit_begin() and commit_finish() to the start/end of this wrapper.
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_File realFile = VIRTUAL_TO_REAL_FILE(fh);
@@ -215,6 +215,25 @@ USER_DEFINED_WRAPPER(int, File_read_at_all, (MPI_File) fh, (MPI_Offset) offset,
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(File_read_at_all)(realFile, offset, buf, count, realType,
                                        status);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return retval;
+}
+
+USER_DEFINED_WRAPPER(int, File_read_all, (MPI_File) fh, (void*) buf,
+                    (int) count, (MPI_Datatype) datatype, (MPI_Status *) status)
+{
+  // FIXME:
+  // This function is both blocking and collective. However, we believe that
+  // this function is both rarely called enough and fast enough to avoid
+  // requiring the trivial barrier. If the app begins to hang at this call,
+  // add commit_begin() and commit_finish() to the start/end of this wrapper.
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  MPI_File realFile = VIRTUAL_TO_REAL_FILE(fh);
+  MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  retval = NEXT_FUNC(File_read_all)(realFile, buf, count, realType, status);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -262,6 +281,21 @@ USER_DEFINED_WRAPPER(int, File_write_at_all, (MPI_File) fh, (MPI_Offset) offset,
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(File_write_at_all)(realFile, offset, buf, count,
                                         realType, status);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return retval;
+}
+
+USER_DEFINED_WRAPPER(int, File_write_all, (MPI_File) fh, (const void*) buf,
+                     (int) count, (MPI_Datatype) datatype, (MPI_Status*) status)
+{
+  // FIXME: See File_read_all (the same applies here)
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  MPI_File realFile = VIRTUAL_TO_REAL_FILE(fh);
+  MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  retval = NEXT_FUNC(File_write_all)(realFile, buf, count, realType, status);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -325,6 +359,54 @@ USER_DEFINED_WRAPPER(int, File_close, (MPI_File*) fh)
   return retval;
 }
 
+USER_DEFINED_WRAPPER(int, File_delete, (const char *) filename, (MPI_Info) info)
+{
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  retval = NEXT_FUNC(File_delete)(filename, info);
+  RETURN_TO_UPPER_HALF();
+
+  // MPI_File_delete results in an error if the file is opened by any other
+  // process. So, it is fair to assume that the rank has already called
+  // MPI_File_close to close the file. Also, this function results in a
+  // MPI_ERR_NO_SUCH_FILE if the file doesn't exist. Therefore, we can safely
+  // skip erasing the file handle from the g_params_map.
+
+  // FIXME: if there are stale entries in the g_params_map then one can use find
+  // and erase the file handle key from the g_params_map here.
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return retval;
+}
+
+
+USER_DEFINED_WRAPPER(int, File_set_errhandler, (MPI_File) file,
+                     (MPI_Errhandler) errhandler)
+{
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  MPI_File realFile = VIRTUAL_TO_REAL_FILE(file);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  retval = NEXT_FUNC(File_set_errhandler)(realFile, errhandler);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return retval;
+}
+
+USER_DEFINED_WRAPPER(int, File_get_errhandler, (MPI_File) file,
+                     (MPI_Errhandler *) errhandler)
+{
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  MPI_File realFile = VIRTUAL_TO_REAL_FILE(file);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  retval = NEXT_FUNC(File_get_errhandler)(realFile, errhandler);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return retval;
+}
+
+
 PMPI_IMPL(int, MPI_File_open, MPI_Comm comm, const char *filename, int amode,
           MPI_Info info, MPI_File *fh)
 PMPI_IMPL(int, MPI_File_get_atomicity, MPI_File fh, int* flag)
@@ -338,11 +420,15 @@ PMPI_IMPL(int, MPI_File_get_view, MPI_File fh, MPI_Offset* disp,
           MPI_Datatype* etype, MPI_Datatype* filetype, char* datarep)
 PMPI_IMPL(int, MPI_File_read, MPI_File fh, void* buf, int count,
           MPI_Datatype datatype, MPI_Status* status)
+PMPI_IMPL(int, MPI_File_read_all, MPI_File fh, void* buf, int count,
+          MPI_Datatype datatype, MPI_Status* status)
 PMPI_IMPL(int, MPI_File_read_at, MPI_File fh, MPI_Offset offset, void* buf,
           int count, MPI_Datatype datatype, MPI_Status* status)
 PMPI_IMPL(int, MPI_File_read_at_all, MPI_File fh, MPI_Offset offset, void* buf,
           int count, MPI_Datatype datatype, MPI_Status* status)
 PMPI_IMPL(int, MPI_File_write, MPI_File fh, const void* buf, int count,
+          MPI_Datatype datatype, MPI_Status* status)
+PMPI_IMPL(int, MPI_File_write_all, MPI_File fh, const void* buf, int count,
           MPI_Datatype datatype, MPI_Status* status)
 PMPI_IMPL(int, MPI_File_write_at, MPI_File fh, MPI_Offset offset,
           const void* buf, int count, MPI_Datatype datatype, MPI_Status* status)
@@ -352,3 +438,8 @@ PMPI_IMPL(int, MPI_File_sync, MPI_File fh)
 PMPI_IMPL(int, MPI_File_get_position, MPI_File fh, MPI_Offset* offset)
 PMPI_IMPL(int, MPI_File_seek, MPI_File fh, MPI_Offset offset, int whence)
 PMPI_IMPL(int, MPI_File_close, MPI_File* fh)
+PMPI_IMPL(int, MPI_File_set_errhandler, MPI_File file,
+          MPI_Errhandler errhandler)
+PMPI_IMPL(int, MPI_File_get_errhandler, MPI_File file,
+          MPI_Errhandler *errhandler)
+PMPI_IMPL(int, MPI_File_delete, const char *filename, MPI_Info info)
