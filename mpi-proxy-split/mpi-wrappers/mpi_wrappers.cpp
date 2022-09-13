@@ -19,6 +19,7 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include "mpi.h"
 #include "mpi_plugin.h"  // lh_info declared via lower_half_api.h
 #include "config.h"
 #include "dmtcp.h"
@@ -26,10 +27,14 @@
 #include "jassert.h"
 #include "jfilesystem.h"
 #include "protectedfds.h"
+#include "record-replay.h"
 #include "mpi_nextfunc.h"
 #include "virtual-ids.h"
 #include "p2p_drain_send_recv.h"
 #include "mana_header.h"
+#include "seq_num.h"
+
+using namespace dmtcp_mpi;
 
 #if 0
 DEFINE_FNC(int, Init, (int *) argc, (char ***) argv)
@@ -58,7 +63,11 @@ USER_DEFINED_WRAPPER(int, Init, (int *) argc, (char ***) argv) {
   g_mana_header.init_flag = MPI_INIT_NO_THREAD;
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Init)(argc, argv);
+  // Create a duplicate of MPI_COMM_WORLD for internal use.
+  NEXT_FUNC(Comm_dup)(MPI_COMM_WORLD, &g_world_comm);
   RETURN_TO_UPPER_HALF();
+  g_world_comm = ADD_NEW_COMM(g_world_comm);
+  LOG_CALL(restoreComms, Comm_dup, MPI_COMM_WORLD, g_world_comm);
   initialize_drain_send_recv();
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -73,7 +82,11 @@ USER_DEFINED_WRAPPER(int, Init_thread, (int *) argc, (char ***) argv,
   g_mana_header.init_flag = required;
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Init_thread)(argc, argv, required, provided);
+  // Create a duplicate of MPI_COMM_WORLD for internal use.
+  NEXT_FUNC(Comm_dup)(MPI_COMM_WORLD, &g_world_comm);
   RETURN_TO_UPPER_HALF();
+  g_world_comm = ADD_NEW_COMM(g_world_comm);
+  LOG_CALL(restoreComms, Comm_dup, MPI_COMM_WORLD, g_world_comm);
   initialize_drain_send_recv();
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;

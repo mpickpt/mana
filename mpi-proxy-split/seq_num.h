@@ -10,6 +10,12 @@ typedef enum _reset_type_t {
   RESTART
 } reset_type_t;
 
+typedef enum _seq_num_msg_t {
+  UPDATE_TARGET,
+  CONVERGED,
+  CANCEL_CONVERGED
+} seq_num_msg_t;
+
 typedef enum _phase_t {
   IN_TRIVIAL_BARRIER,
   STOP_BEFORE_CS,
@@ -35,18 +41,21 @@ typedef struct __rank_state_t
   phase_t st;     // Checkpointing state of the MPI rank
 } rank_state_t;
 
+// Global communicator for MANA internal use
+extern MPI_Comm g_world_comm;
+
 extern std::map<unsigned int, unsigned long> seq_num;
-extern std::map<unsigned int, unsigned long> target_start_triv_barrier;
-extern std::map<unsigned int, unsigned long> target_stop_triv_barrier;
+extern std::map<unsigned int, unsigned long> target;
 
 // The main functions of the sequence number algorithm for MPI collectives
-void commit_begin(MPI_Comm comm);
-void commit_finish();
+void commit_begin(MPI_Comm comm, bool passthrough);
+void commit_finish(MPI_Comm comm, bool passthrough);
 
 int twoPhaseCommit(MPI_Comm comm, std::function<int(void)>doRealCollectiveComm);
-rank_state_t preSuspendBarrier(query_t query);
+void drain_mpi_collective();
 void share_seq_nums(std::map<unsigned int, unsigned long> &target);
-int check_seq_nums();
+int check_seq_nums(bool exclusive);
+int print_seq_nums();
 void seq_num_init();
 void seq_num_destroy();
 void seq_num_reset(reset_type_t reset_type);
