@@ -115,6 +115,29 @@ USER_DEFINED_WRAPPER(int, Get_count,
   return retval;
 }
 
+USER_DEFINED_WRAPPER(int, Get_library_version, (char *) version,
+                    (int *) resultlen)
+{
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  retval = NEXT_FUNC(Get_library_version)(version, resultlen);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return retval;
+}
+
+USER_DEFINED_WRAPPER(int, Get_address, (const void *) location,
+                    (MPI_Aint *) address)
+{
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  retval = NEXT_FUNC(Get_address)(location, address);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return retval;
+}
 
 PMPI_IMPL(int, MPI_Init, int *argc, char ***argv)
 PMPI_IMPL(int, MPI_Finalize, void)
@@ -126,3 +149,5 @@ PMPI_IMPL(int, MPI_Init_thread, int *argc, char ***argv,
           int required, int *provided)
 PMPI_IMPL(int, MPI_Get_count, const MPI_Status *status, MPI_Datatype datatype,
           int *count)
+PMPI_IMPL(int, MPI_Get_library_version, char *version, int *resultlen)
+PMPI_IMPL(int, MPI_Get_address, const void *location, MPI_Aint *address)
