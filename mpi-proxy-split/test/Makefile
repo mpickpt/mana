@@ -42,7 +42,9 @@ FILES=mpi_hello_world \
       wave_mpi day1_mpi quad_mpi poisson_nonblock_mpi \
       send_recv_loop large_async_p2p \
 	  File_read_write_test File_characteristics_test File_size_test \
-	  File_read_write_all_test
+	  File_read_write_all_test \
+      Type_dup_test Type_create_hindexed_test \
+	  Type_create_resized_test Type_create_hindexed_block_test
 
 OBJS=$(addsuffix .o, ${FILES})
 
