@@ -122,6 +122,13 @@ USER_DEFINED_WRAPPER(int, Type_hvector, (int) count, (int) blocklength,
   return retval;
 }
 
+USER_DEFINED_WRAPPER(int, Type_create_hvector, (int) count, (int) blocklength,
+                    (MPI_Aint) stride, (MPI_Datatype) oldtype,
+                    (MPI_Datatype*) newtype)
+{
+  return MPI_Type_hvector(count, blocklength, stride, oldtype, newtype);
+}
+
 USER_DEFINED_WRAPPER(int, Type_vector, (int) count, (int) blocklength,
                      (int) stride, (MPI_Datatype) oldtype,
                     (MPI_Datatype*) newtype)
@@ -187,6 +194,91 @@ USER_DEFINED_WRAPPER(int, Type_struct, (int) count,
                                 );
 }
 
+#ifdef CRAY_MPICH_VERSION
+USER_DEFINED_WRAPPER(int, Type_hindexed, (int) count,
+                     (const int*) array_of_blocklengths,
+                     (const MPI_Aint*) array_of_displacements,
+                     (MPI_Datatype) oldtype, (MPI_Datatype*) newtype)
+#else
+USER_DEFINED_WRAPPER(int, Type_hindexed, (int) count,
+                     (int*) array_of_blocklengths,
+                     (MPI_Aint*) array_of_displacements,
+                     (MPI_Datatype) oldtype, (MPI_Datatype*) newtype)
+#endif
+{
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(oldtype);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  retval = NEXT_FUNC(Type_hindexed)(count, array_of_blocklengths,
+                                   array_of_displacements,
+                                   realType, newtype);
+  RETURN_TO_UPPER_HALF();
+  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
+    MPI_Datatype virtType = ADD_NEW_TYPE(*newtype);
+    *newtype = virtType;
+    FncArg bs = CREATE_LOG_BUF(array_of_blocklengths, count * sizeof(int));
+    FncArg ds = CREATE_LOG_BUF(array_of_displacements,
+                               count * sizeof(MPI_Aint));
+    LOG_CALL(restoreTypes, Type_hindexed, count, bs, ds, oldtype, virtType);
+  }
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return retval;
+}
+
+USER_DEFINED_WRAPPER(int, Type_create_hindexed, (int) count,
+                     (const int*) array_of_blocklengths,
+                     (const MPI_Aint*) array_of_displacements,
+                     (MPI_Datatype) oldtype, (MPI_Datatype*) newtype)
+{
+#ifdef CRAY_MPICH_VERSION
+  return MPI_Type_hindexed(count, array_of_blocklengths, array_of_displacements,
+                           oldtype, newtype);
+#else
+  int* non_const_bl_arr = (int*) malloc(count * sizeof(int));
+  MPI_Aint* non_const_disp_arr = (MPI_Aint*) malloc(count * sizeof(MPI_Aint));
+  memcpy(non_const_bl_arr, array_of_blocklengths, count * sizeof(int));
+  memcpy(non_const_disp_arr, array_of_displacements, count * sizeof(MPI_Aint));
+  int ret = MPI_Type_hindexed(count, non_const_bl_arr, non_const_disp_arr,
+                              oldtype, newtype);
+  free(non_const_bl_arr);
+  free(non_const_disp_arr);
+  return ret;
+#endif
+}
+
+USER_DEFINED_WRAPPER(int, Type_create_hindexed_block, (int) count,
+                     (int) blocklength,
+                     (const MPI_Aint*) array_of_displacements,
+                     (MPI_Datatype) oldtype, (MPI_Datatype*) newtype)
+{
+  int array_of_blocklengths[count];
+  for (int i = 0; i < count; i++) {
+    array_of_blocklengths[i] = blocklength;
+  }
+#ifdef CRAY_MPICH_VERSION
+  return MPI_Type_hindexed(count, array_of_blocklengths, array_of_displacements,
+                           oldtype, newtype);
+#else
+  MPI_Aint* non_const_disp_arr = (MPI_Aint*) malloc(count * sizeof(MPI_Aint));
+  memcpy(non_const_disp_arr, array_of_displacements, count * sizeof(MPI_Aint));
+  int ret =  MPI_Type_hindexed(count, array_of_blocklengths, non_const_disp_arr,
+                           oldtype, newtype);
+  free(non_const_disp_arr);
+  return ret;
+#endif
+}
+
+USER_DEFINED_WRAPPER(int, Type_hindexed_block, (int) count,
+                     (int) blocklength,
+                     (const MPI_Aint*) array_of_displacements,
+                     (MPI_Datatype) oldtype, (MPI_Datatype*) newtype)
+{
+  return MPI_Type_create_hindexed_block(count, blocklength,
+                                        array_of_displacements, oldtype,
+                                        newtype);
+}
+
 USER_DEFINED_WRAPPER(int, Type_indexed, (int) count,
                      (const int*) array_of_blocklengths,
                      (const int*) array_of_displacements,
@@ -206,6 +298,42 @@ USER_DEFINED_WRAPPER(int, Type_indexed, (int) count,
     FncArg bs = CREATE_LOG_BUF(array_of_blocklengths, count * sizeof(int));
     FncArg ds = CREATE_LOG_BUF(array_of_displacements, count * sizeof(int));
     LOG_CALL(restoreTypes, Type_indexed, count, bs, ds, oldtype, virtType);
+  }
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return retval;
+}
+
+USER_DEFINED_WRAPPER(int, Type_dup, (MPI_Datatype) oldtype,
+                     (MPI_Datatype*) newtype)
+{
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(oldtype);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  retval = NEXT_FUNC(Type_dup)(realType, newtype);
+  RETURN_TO_UPPER_HALF();
+  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
+    MPI_Datatype virtType = ADD_NEW_TYPE(*newtype);
+    *newtype = virtType;
+    LOG_CALL(restoreTypes, Type_dup, oldtype, virtType);
+  }
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return retval;
+}
+
+USER_DEFINED_WRAPPER(int, Type_create_resized, (MPI_Datatype) oldtype,
+                     (MPI_Aint) lb, (MPI_Aint) extent, (MPI_Datatype*) newtype)
+{
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(oldtype);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  retval = NEXT_FUNC(Type_create_resized)(realType, lb, extent, newtype);
+  RETURN_TO_UPPER_HALF();
+  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
+    MPI_Datatype virtType = ADD_NEW_TYPE(*newtype);
+    *newtype = virtType;
+    LOG_CALL(restoreTypes, Type_create_resized, oldtype, lb, extent, virtType);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -266,6 +394,8 @@ PMPI_IMPL(int, MPI_Type_vector, int count, int blocklength,
           int stride, MPI_Datatype oldtype, MPI_Datatype *newtype)
 PMPI_IMPL(int, MPI_Type_hvector, int count, int blocklength,
           MPI_Aint stride, MPI_Datatype oldtype, MPI_Datatype *newtype)
+PMPI_IMPL(int, MPI_Type_create_hvector, int count, int blocklength,
+          MPI_Aint stride, MPI_Datatype oldtype, MPI_Datatype *newtype)
 PMPI_IMPL(int, MPI_Type_create_struct, int count, const int array_of_blocklengths[],
           const MPI_Aint array_of_displacements[], const MPI_Datatype array_of_types[],
           MPI_Datatype *newtype)
@@ -274,10 +404,16 @@ PMPI_IMPL(int, MPI_Type_create_struct, int count, const int array_of_blocklength
 PMPI_IMPL(int, MPI_Type_struct, int count, const int array_of_blocklengths[],
           const MPI_Aint array_of_displacements[], const MPI_Datatype array_of_types[],
           MPI_Datatype *newtype)
+PMPI_IMPL(int, MPI_Type_hindexed, int count, const int array_of_blocklengths[],
+          const MPI_Aint array_of_displacements[], MPI_Datatype oldtype,
+          MPI_Datatype *newtype);
 #else
 PMPI_IMPL(int, MPI_Type_struct, int count, int array_of_blocklengths[],
           MPI_Aint array_of_displacements[], MPI_Datatype array_of_types[],
           MPI_Datatype *newtype)
+PMPI_IMPL(int, MPI_Type_hindexed, int count, int array_of_blocklengths[],
+          MPI_Aint array_of_displacements[], MPI_Datatype oldtype,
+          MPI_Datatype *newtype);
 #endif
 
 PMPI_IMPL(int, MPI_Type_size_x, MPI_Datatype type, MPI_Count *size)
@@ -290,4 +426,14 @@ PMPI_IMPL(int, MPI_Pack_size, int incount, MPI_Datatype datatype,
           MPI_Comm comm, int *size)
 PMPI_IMPL(int, MPI_Pack, const void *inbuf, int incount, MPI_Datatype datatype,
           void *outbuf, int outsize, int *position, MPI_Comm comm)
+PMPI_IMPL(int, MPI_Type_create_resized, MPI_Datatype oldtype, MPI_Aint lb,
+          MPI_Aint extent, MPI_Datatype *newtype);
+PMPI_IMPL(int, MPI_Type_dup, MPI_Datatype type, MPI_Datatype *newtype);
 
+PMPI_IMPL(int, MPI_Type_create_hindexed, int count,
+          const int array_of_blocklengths[],
+          const MPI_Aint array_of_displacements[], MPI_Datatype oldtype,
+          MPI_Datatype *newtype);
+PMPI_IMPL(int, MPI_Type_create_hindexed_block, int count, int blocklength,
+          const MPI_Aint array_of_displacements[], MPI_Datatype oldtype,
+          MPI_Datatype *newtype);

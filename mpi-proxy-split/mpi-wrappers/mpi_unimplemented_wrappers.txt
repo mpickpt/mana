@@ -222,15 +222,10 @@ int MPI_Type_create_darray(int size, int rank, int ndims, const int gsize_array[
 int MPI_Type_create_f90_complex(int p, int r, MPI_Datatype *newtype);
 int MPI_Type_create_f90_integer(int r, MPI_Datatype *newtype);
 int MPI_Type_create_f90_real(int p, int r, MPI_Datatype *newtype);
-int MPI_Type_create_hindexed_block(int count, int blocklength, const MPI_Aint array_of_displacements[], MPI_Datatype oldtype, MPI_Datatype *newtype);
-int MPI_Type_create_hindexed(int count, const int array_of_blocklengths[], const MPI_Aint array_of_displacements[], MPI_Datatype oldtype, MPI_Datatype *newtype);
-int MPI_Type_create_hvector(int count, int blocklength, MPI_Aint stride, MPI_Datatype oldtype, MPI_Datatype *newtype);
 int MPI_Type_create_keyval(MPI_Type_copy_attr_function *type_copy_attr_fn, MPI_Type_delete_attr_function *type_delete_attr_fn, int *type_keyval, void *extra_state);
 int MPI_Type_create_indexed_block(int count, int blocklength, const int array_of_displacements[], MPI_Datatype oldtype, MPI_Datatype *newtype);
 int MPI_Type_create_subarray(int ndims, const int size_array[], const int subsize_array[], const int start_array[], int order, MPI_Datatype oldtype, MPI_Datatype *newtype);
-int MPI_Type_create_resized(MPI_Datatype oldtype, MPI_Aint lb, MPI_Aint extent, MPI_Datatype *newtype);
 int MPI_Type_delete_attr(MPI_Datatype type, int type_keyval);
-int MPI_Type_dup(MPI_Datatype type, MPI_Datatype *newtype);
 int MPI_Type_extent(MPI_Datatype type, MPI_Aint *extent);
 int MPI_Type_free_keyval(int *type_keyval);
 
@@ -241,7 +236,6 @@ int MPI_Type_get_extent_x(MPI_Datatype type, MPI_Count *lb, MPI_Count *extent);
 int MPI_Type_get_name(MPI_Datatype type, char *type_name, int *resultlen);
 int MPI_Type_get_true_extent(MPI_Datatype datatype, MPI_Aint *true_lb, MPI_Aint *true_extent);
 int MPI_Type_get_true_extent_x(MPI_Datatype datatype, MPI_Count *true_lb, MPI_Count *true_extent);
-int MPI_Type_hindexed(int count, const int array_of_blocklengths[], const MPI_Aint array_of_displacements[], MPI_Datatype oldtype, MPI_Datatype *newtype);
 int MPI_Type_lb(MPI_Datatype type, MPI_Aint *lb);
 int MPI_Type_match_size(int typeclass, int size, MPI_Datatype *type);
 int MPI_Type_set_attr(MPI_Datatype type, int type_keyval, void *attr_val);
