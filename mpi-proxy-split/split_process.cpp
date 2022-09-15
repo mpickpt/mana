@@ -41,6 +41,8 @@
 #include <sys/syscall.h>
 #include <sys/uio.h>
 #include <fcntl.h>
+#include <dlfcn.h>
+#include <link.h>
 
 
 #include "jassert.h"
@@ -261,10 +263,13 @@ read_lh_proxy_bits(pid_t childpid)
     ret = process_vm_readv(childpid, remote_iov + i, 1, remote_iov + i, 1, 0);
     JASSERT(ret != -1)(JASSERT_ERRNO).Text("Error reading data from lh_proxy");
     // Can remove PROT_WRITE now that we've populated the segment.
-    ret = mprotect(remote_iov[i].iov_base, remote_iov[i].iov_len,
-                  lh_regions_list[i].prot);
+    // Update: on perlmutter, we need to keep the PROT_WRITE permission as
+    // libc writes to a read-only region for some reason. Keeping PROT_WRITE is
+    // is harmless.
+    // ret = mprotect(remote_iov[i].iov_base, remote_iov[i].iov_len,
+    //              lh_regions_list[i].prot | PROT_WRITE);
   }
-  return ret;
+  return 0;
 }
 
 // gethostbyname_proxy is found in DMTCP bin directory.  Add to PATH.
@@ -343,21 +348,22 @@ startProxy()
       // Read from stdout of lh_proxy full lh_info struct, including orig memRange.
       close(pipefd_out[1]); // close write end of pipe
 
-      JWARNING(dmtcp::Util::readAll(pipefd_out[0], &lh_info, sizeof lh_info)
-                < (ssize_t)sizeof lh_info) (JASSERT_ERRNO)
-                .Text("Read fewer bytes than expected");
+      int ret = dmtcp::Util::readAll(pipefd_out[0], &lh_info, sizeof lh_info);
+      JWARNING(ret == (ssize_t)sizeof lh_info) (ret) ((ssize_t)sizeof lh_info)
+        (JASSERT_ERRNO).Text("Read fewer bytes than expected");
 
       int num_lh_core_regions = lh_info.numCoreRegions;
       JASSERT(num_lh_core_regions <= MAX_LH_REGIONS) (num_lh_core_regions)
         .Text("Invalid number of LH core regions");
 
       size_t total_bytes = num_lh_core_regions*sizeof(LhCoreRegions_t);
-      JWARNING(dmtcp::Util::readAll(pipefd_out[0], &lh_regions_list, total_bytes)
-                < (ssize_t)total_bytes)(JASSERT_ERRNO)
+      ret = dmtcp::Util::readAll(pipefd_out[0], &lh_regions_list, total_bytes);
+
+      JWARNING(ret == (ssize_t)total_bytes) (ret) (total_bytes) (JASSERT_ERRNO)
                 .Text("Read fewer bytes than expected for LH core regions");
       close(pipefd_out[0]);
       addPathFor_gethostbyname_proxy(); // used by statically linked lower half
-    } 
+    }
   }
   return childpid;
 }
@@ -390,7 +396,7 @@ findLHMemRange(MemRange_t *lh_mem_range)
     strncpy(next_path_name, area.name, PATH_MAX - 1);
     next_path_name[PATH_MAX - 1] = '\0';
 
-    // We add a 1GB buffer between the end of the heap or the start of the 
+    // We add a 1GB buffer between the end of the heap or the start of the
     // stack.
     if (strcmp(next_path_name, "[heap]") == 0) {
       next_addr_end += ONEGB;
@@ -408,7 +414,7 @@ findLHMemRange(MemRange_t *lh_mem_range)
       lh_mem_range->start = (VA)next_addr_start - (2 * ONEGB + PAGE_SIZE) ;
       lh_mem_range->end = (VA)next_addr_start - PAGE_SIZE;
       is_set = true;
-      break; 
+      break;
     }
     prev_addr_end = next_addr_end;
   }
@@ -444,6 +450,34 @@ setLhMemRange()
   return lh_mem_range;
 }
 
+void *
+getUhVdsoLdAddr()
+{
+  struct link_map *map;
+  void *uh_handle;
+  uh_handle = dlopen(NULL, RTLD_NOW);
+  JASSERT(uh_handle != NULL);
+  int ret = dlinfo(uh_handle, RTLD_DI_LINKMAP, (void **)&map);
+  JASSERT(ret == 0);
+  while (map) {
+    if (strstr(map->l_name, "vdso") != NULL) {
+      return map->l_ld;
+    }
+    map = map->l_next;
+  }
+  return NULL;
+}
+
+void
+updateVdsoLinkmapEntry(void * l_ld_addr)
+{
+  void *uh_l_ld_vdso = getUhVdsoLdAddr();
+  // now update it in the lower-half's linkmap
+  *(uint64_t *)l_ld_addr = (uint64_t)uh_l_ld_vdso;
+  // FIXME: dynamically find the address in lh_info instead of ad-hoc 0xa0
+  *(uint64_t *)((uint64_t)l_ld_addr + 0xa0) = (uint64_t)uh_l_ld_vdso;
+}
+
 // Initializes the libraries (libc, libmpi, etc.) of the lower half
 // FIXME: with optimization, lower half initialization segfaults on CentOS
 NO_OPTIMIZE
@@ -475,6 +509,8 @@ initializeLowerHalf()
     while (*evp++ != NULL);
     auxvec = (ElfW(auxv_t) *) evp;
   }
+  // update vDSO linkmap entry
+  updateVdsoLinkmapEntry(lh_info.vdsoLdAddrInLinkMap);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   // Clear any saved mappings in the lower half
   resetMmappedList_t resetMaps =

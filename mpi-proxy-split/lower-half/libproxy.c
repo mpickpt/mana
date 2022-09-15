@@ -21,11 +21,17 @@
 
 // This could be libmpi.a or libproxy.a, with code to translate
 //   between an MPI function and its address (similarly to dlsym()).
+#ifndef _GNU_SOURCE
+ #define _GNU_SOURCE
+#endif
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <dlfcn.h>
+#include <link.h>
+#include <assert.h>
 #include <sys/syscall.h>
 #include <asm/prctl.h>
 #include <sys/prctl.h>
@@ -217,6 +223,26 @@ getRank(int init_flag)
   return world_rank;
 }
 
+// Lower-half's linkmap points to current vDSO and that needs to be updated
+// with the parent's (upper-half) vDSO after doing copy-the-bits
+void *
+getVdsoPointerInLinkMap()
+{
+  struct link_map *map;
+  void *lh_handle;
+  lh_handle = dlopen(NULL, RTLD_NOW);
+  assert(lh_handle != NULL);
+  int ret = dlinfo(lh_handle, RTLD_DI_LINKMAP, (void **)&map);
+  assert(ret == 0);
+  while (map) {
+    if (strstr(map->l_name, "vdso") != NULL) {
+      return &(map->l_ld);
+    }
+    map = map->l_next;
+  }
+  return NULL;
+}
+
 #ifdef SINGLE_CART_REORDER
 // Prior to checkpoint we will use the normal variable names, and
 // after restart we will use the '_prime' suffix with variable names.
@@ -324,9 +350,9 @@ void first_constructor()
     lh_info.memRange = lh_memRange;
     lh_info.numCoreRegions = totalRegions;
     lh_info.getLhRegionsListFptr = (void*)&getLhRegionsList;
+    lh_info.vdsoLdAddrInLinkMap = getVdsoPointerInLinkMap();
     DLOG(INFO, "startText: %p, endText: %p, endOfHeap; %p\n",
         lh_info.startText, lh_info.endText, lh_info.endOfHeap);
-
     // Write lh_info to stdout, for mtcp_split_process.c to read.
     write(1, &lh_info, sizeof lh_info);
     // Write LH core regions list to stdout, for the parent process to read.
