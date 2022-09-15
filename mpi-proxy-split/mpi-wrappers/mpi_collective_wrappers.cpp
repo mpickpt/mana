@@ -102,7 +102,6 @@ USER_DEFINED_WRAPPER(int, Bcast,
   retval = NEXT_FUNC(Bcast)(buffer, count, realType, root, realComm);
   // Call lower-half Barrier in the critical section to wait until all rank in the
   // communictor finished.
-  NEXT_FUNC(Barrier)(realComm);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
   commit_finish(comm, passthrough);
@@ -194,7 +193,6 @@ USER_DEFINED_WRAPPER(int, Allreduce,
     retval = NEXT_FUNC(Allreduce)(sendbuf, recvbuf, count,
         realType, realOp, realComm);
   }
-  NEXT_FUNC(Barrier)(realComm);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
   commit_finish(comm, passthrough);
@@ -216,7 +214,6 @@ USER_DEFINED_WRAPPER(int, Reduce,
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Reduce)(sendbuf, recvbuf, count,
                              realType, realOp, root, realComm);
-  NEXT_FUNC(Barrier)(realComm);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
   commit_finish(comm, passthrough);
@@ -265,7 +262,6 @@ USER_DEFINED_WRAPPER(int, Reduce_scatter,
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Reduce_scatter)(sendbuf, recvbuf, recvcounts,
                                      realType, realOp, realComm);
-  NEXT_FUNC(Barrier)(realComm);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
   commit_finish(comm, passthrough);
@@ -293,7 +289,6 @@ MPI_Alltoall_internal(const void *sendbuf, int sendcount,
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Alltoall)(sendbuf, sendcount, realSendType, recvbuf,
       recvcount, realRecvType, realComm);
-  NEXT_FUNC(Barrier)(realComm);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -332,7 +327,6 @@ USER_DEFINED_WRAPPER(int, Alltoallv,
   retval = NEXT_FUNC(Alltoallv)(sendbuf, sendcounts, sdispls, realSendType,
                                 recvbuf, recvcounts, rdispls, realRecvType,
                                 realComm);
-  NEXT_FUNC(Barrier)(realComm);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
   commit_finish(comm, passthrough);
@@ -354,7 +348,6 @@ USER_DEFINED_WRAPPER(int, Gather, (const void *) sendbuf, (int) sendcount,
   retval = NEXT_FUNC(Gather)(sendbuf, sendcount, realSendType,
                              recvbuf, recvcount, realRecvType,
                              root, realComm);
-  NEXT_FUNC(Barrier)(realComm);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
   commit_finish(comm, passthrough);
@@ -377,7 +370,6 @@ USER_DEFINED_WRAPPER(int, Gatherv, (const void *) sendbuf, (int) sendcount,
   retval = NEXT_FUNC(Gatherv)(sendbuf, sendcount, realSendType,
                               recvbuf, recvcounts, displs, realRecvType,
                               root, realComm);
-  NEXT_FUNC(Barrier)(realComm);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
   commit_finish(comm, passthrough);
@@ -399,7 +391,6 @@ USER_DEFINED_WRAPPER(int, Scatter, (const void *) sendbuf, (int) sendcount,
   retval = NEXT_FUNC(Scatter)(sendbuf, sendcount, realSendType,
                               recvbuf, recvcount, realRecvType,
                               root, realComm);
-  NEXT_FUNC(Barrier)(realComm);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
   commit_finish(comm, passthrough);
@@ -422,7 +413,6 @@ USER_DEFINED_WRAPPER(int, Scatterv, (const void *) sendbuf,
   retval = NEXT_FUNC(Scatterv)(sendbuf, sendcounts, displs, realSendType,
                                recvbuf, recvcount, realRecvType,
                                root, realComm);
-  NEXT_FUNC(Barrier)(realComm);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
   commit_finish(comm, passthrough);
@@ -444,7 +434,6 @@ USER_DEFINED_WRAPPER(int, Allgather, (const void *) sendbuf, (int) sendcount,
   retval = NEXT_FUNC(Allgather)(sendbuf, sendcount, realSendType,
                                 recvbuf, recvcount, realRecvType,
                                 realComm);
-  NEXT_FUNC(Barrier)(realComm);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
   commit_finish(comm, passthrough);
@@ -467,7 +456,6 @@ USER_DEFINED_WRAPPER(int, Allgatherv, (const void *) sendbuf, (int) sendcount,
   retval = NEXT_FUNC(Allgatherv)(sendbuf, sendcount, realSendType,
                                  recvbuf, recvcounts, displs, realRecvType,
                                  realComm);
-  NEXT_FUNC(Barrier)(realComm);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
   commit_finish(comm, passthrough);
@@ -488,7 +476,6 @@ USER_DEFINED_WRAPPER(int, Scan, (const void *) sendbuf, (void *) recvbuf,
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Scan)(sendbuf, recvbuf, count,
                            realType, realOp, realComm);
-  NEXT_FUNC(Barrier)(realComm);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
   commit_finish(comm, passthrough);
