@@ -442,5 +442,6 @@ typedef LhCoreRegions_t* (*getLhRegionsList_t)(int *num);
 
 int splitProcess(RestoreInfo *rinfo);
 int getMappedArea(Area *area, char *name);
+void updateVdsoLinkmapEntry(void *, void *);
 
 #endif // ifndef MTCP_SPLIT_PROCESS_H

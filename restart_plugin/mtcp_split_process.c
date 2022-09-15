@@ -1,4 +1,7 @@
 // FIXME:  Why do we have all these libc headers if we're not using libc here?
+#ifndef _GNU_SOURCE
+ #define _GNU_SOURCE
+#endif
 #include <asm/prctl.h>
 #include <sys/prctl.h>
 #include <sys/personality.h>
@@ -146,11 +149,12 @@ read_lh_proxy_bits(RestoreInfo *rinfo, pid_t childpid, char *argv0)
     // If the next assert fails, then we had a partial read.
     MTCP_ASSERT(ret == remote_iov[i].iov_len);
     // Can remove PROT_WRITE now that we've populated the segment.
-    ret = mtcp_sys_mprotect(remote_iov[i].iov_base, remote_iov[i].iov_len,
-                            lh_regions_list[i].prot);
-    MTCP_ASSERT(ret != -1);
+    // Update: keep the write permission, it's harmless.
+    // ret = mtcp_sys_mprotect(remote_iov[i].iov_base, remote_iov[i].iov_len,
+    //                        lh_regions_list[i].prot | PROT_WRITE);
+    // MTCP_ASSERT(ret != -1);
   }
-  return ret;
+  return 0;
 }
 
 // Returns the PID of the proxy child process
@@ -296,6 +300,18 @@ setLhMemRange(RestoreInfo *rinfo)
   return lh_mem_range;
 }
 
+void
+updateVdsoLinkmapEntry(void * tempVdso, void * l_ld_addr)
+{
+  // FIXME: calculate the offset dynamically
+  void *uh_l_ld_vdso = tempVdso + 0x3a0;
+  // now update it in the lower-half's linkmap
+  *(uint64_t *)l_ld_addr = (uint64_t)uh_l_ld_vdso;
+  // FIXME: dynamically find the address in lh_info instead of ad-hoc 0xa0
+  *(uint64_t *)((uint64_t)l_ld_addr + 0xa0) = (uint64_t)uh_l_ld_vdso;
+}
+
+
 static int
 initializeLowerHalf(RestoreInfo *rinfo)
 {
@@ -321,6 +337,9 @@ initializeLowerHalf(RestoreInfo *rinfo)
     while (*evp++ != NULL);
     auxvec = (ElfW(auxv_t) *) evp;
   }
+  // update vDSO linkmap entry to the temporary address
+  updateVdsoLinkmapEntry(rinfo->currentVdsoStart,
+                         rinfo->pluginInfo.vdsoLdAddrInLinkMap);
   JUMP_TO_LOWER_HALF(rinfo->pluginInfo.fsaddr);
   resetMmaps();
   // Set the auxiliary vector to correspond to the values of the lower half

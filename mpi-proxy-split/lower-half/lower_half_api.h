@@ -102,6 +102,7 @@ typedef struct _LowerHalfInfo
   void *resetMmappedListFptr; // Pointer to resetMmapedList() function in the lower half
   int numCoreRegions; // total number of core regions in the lower half
   void *getLhRegionsListFptr; // Pointer to getLhRegionsList() function in the lower half
+  void *vdsoLdAddrInLinkMap; // vDSO's LD address in the lower half's linkmap
   MemRange_t memRange; // MemRange_t object in the lower half
 } LowerHalfInfo_t;
 

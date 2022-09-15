@@ -58,6 +58,7 @@ typedef struct LowerHalfInfo
   void *resetMmappedListFptr;
   int numCoreRegions;
   void *getLhRegionsListFptr;
+  void *vdsoLdAddrInLinkMap;
   MemRange_t memRange;
 } LowerHalfInfo_t;
 

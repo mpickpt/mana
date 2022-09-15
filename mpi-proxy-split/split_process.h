@@ -131,5 +131,7 @@ class SwitchContext
 // This function splits the process by initializing the lower half with the
 // lh_proxy code. It returns 0 on success.
 extern int splitProcess();
+extern void updateVdsoLinkmapEntry(void *);
+extern void *getUhVdsoLdAddr();
 
 #endif // ifndef _SPLIT_PROCESS_H
