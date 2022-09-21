@@ -126,10 +126,21 @@ dmtcp_skip_memory_region_ckpting(const ProcMapsArea *area)
   return 0;
 }
 
-EXTERNC int
-dmtcp_skip_truncate_file_at_restart(const char* path)
-{
-  if (strstr(path, "/some/path/to/log")) {
+ EXTERNC int
+ dmtcp_skip_truncate_file_at_restart(const char* path)
+ {
+  constexpr const char* P2P_LOG_MSG = "p2p_log_%d.txt";
+  constexpr const char* P2P_LOG_REQUEST = "p2p_log_request_%d.txt";
+  char p2p_log_name[100];
+  char p2p_log_request_name[100];
+  int rank;
+
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  snprintf(p2p_log_name, sizeof(p2p_log_name) - 1, P2P_LOG_MSG, rank);
+  snprintf(p2p_log_request_name, sizeof(p2p_log_request_name)-1, P2P_LOG_REQUEST, rank);
+
+  if (strstr(path, p2p_log_name) == NULL &&
+      strstr(path, p2p_log_request_name) == NULL) {
     // Do not truncate this file.
     return 1;
   }
