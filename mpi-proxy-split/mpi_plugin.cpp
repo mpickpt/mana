@@ -126,6 +126,18 @@ dmtcp_skip_memory_region_ckpting(const ProcMapsArea *area)
   return 0;
 }
 
+EXTERNC int
+dmtcp_skip_truncate_file_at_restart(const char* path)
+{
+  if (strstr(path, "/some/path/to/log")) {
+    // Do not truncate this file.
+    return 1;
+  }
+
+  // Defer to the next plugin.
+  return NEXT_FUNC(dmtcp_skip_truncate_file_at_restart)(path);
+}
+
 // Handler for SIGSEGV: forces the code into an infinite loop for attaching
 // GDB and debugging
 void
