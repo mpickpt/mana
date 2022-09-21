@@ -139,7 +139,7 @@ dmtcp_skip_memory_region_ckpting(const ProcMapsArea *area)
   snprintf(p2p_log_name, sizeof(p2p_log_name) - 1, P2P_LOG_MSG, rank);
   snprintf(p2p_log_request_name, sizeof(p2p_log_request_name)-1, P2P_LOG_REQUEST, rank);
 
-  if (strstr(path, p2p_log_name) &&
+  if (strstr(path, p2p_log_name) ||
       strstr(path, p2p_log_request_name)) {
     // Do not truncate this file.
     return 1;
