@@ -146,7 +146,7 @@ dmtcp_skip_memory_region_ckpting(const ProcMapsArea *area)
   }
 
   // Defer to the next plugin.
-  return NEXT_FUNC(dmtcp_skip_truncate_file_at_restart)(path);
+  return NEXT_FNC(dmtcp_skip_truncate_file_at_restart)(path);
 }
 
 // Handler for SIGSEGV: forces the code into an infinite loop for attaching
