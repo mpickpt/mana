@@ -67,6 +67,7 @@ fi
 AC_ARG_ENABLE([timing])
 AC_ARG_ENABLE([logging])
 AC_ARG_ENABLE([quiet])
+AC_ARG_ENABLE([fsgsbase-override])
 
 #check for pandoc
 AC_PATH_PROG(PANDOC, [pandoc], [no], [/usr/bin:/bin])

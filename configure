@@ -695,6 +695,7 @@ enable_debug
 enable_timing
 enable_logging
 enable_quiet
+enable_fsgsbase_override
 '
       ac_precious_vars='build_alias
 host_alias
@@ -4494,6 +4495,12 @@ fi
 if test ${enable_quiet+y}
 then :
   enableval=$enable_quiet;
+fi
+
+# Check whether --enable-fsgsbase-override was given.
+if test ${enable_fsgsbase_override+y}
+then :
+  enableval=$enable_fsgsbase_override;
 fi
 
 
