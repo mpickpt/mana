@@ -24,7 +24,6 @@
 #define MPI_VIRTUAL_IDS_H
 
 #include <mpi.h>
-#include <mutex>
 
 #include "virtualidtable.h"
 #include "jassert.h"
@@ -140,9 +139,6 @@ namespace dmtcp_mpi
   template<typename T>
   class MpiVirtualization
   {
-    using mutex_t = std::mutex;
-    using lock_t  = std::unique_lock<mutex_t>;
-
     public:
 #ifdef JALIB_ALLOCATOR
       static void* operator new(size_t nbytes, void* p) { return p; }
@@ -189,8 +185,8 @@ namespace dmtcp_mpi
         if (virt == _nullId) {
           return virt;
         }
-        // FIXME: Use more fine-grained locking (RW lock; C++17 for shared_lock)
-        lock_t lock(_mutex);
+        // DMTCP virtual id table already does the lock around the table.
+        // FIXME: Even with an empty map, we are seeing 1 microsecond overhead.
         return _vIdTable.virtualToReal(virt);
       }
 
@@ -200,8 +196,7 @@ namespace dmtcp_mpi
         if (real == _nullId) {
           return real;
         }
-        // FIXME: Use more fine-grained locking (RW lock; C++17 for shared_lock)
-        lock_t lock(_mutex);
+        // DMTCP virtual id table already does the lock around the table.
         return _vIdTable.realToVirtual(real);
       }
 
@@ -215,7 +210,7 @@ namespace dmtcp_mpi
         if (real == _nullId) {
           return vId;
         }
-        lock_t lock(_mutex);
+        // DMTCP virtual id table already does the lock around the table.
         if (_vIdTable.realIdExists(real)) {
           // Adding a existing real id is a legal operation and
           // we should not report warning/error.
@@ -248,7 +243,7 @@ namespace dmtcp_mpi
         if (virt == _nullId) {
           return realId;
         }
-        lock_t lock(_mutex);
+        // DMTCP virtual id table already does the lock around the table.
         if (_vIdTable.virtualIdExists(virt)) {
           realId = _vIdTable.virtualToReal(virt);
           _vIdTable.erase(virt);
@@ -268,7 +263,7 @@ namespace dmtcp_mpi
         if (virt == _nullId) {
           return _nullId;
         }
-        lock_t lock(_mutex);
+        // DMTCP virtual id table already does the lock around the table.
         if (!_vIdTable.virtualIdExists(virt)) {
           JWARNING(false)(virt)(real)(_vIdTable.getTypeStr())
                   (_vIdTable.realToVirtual(real))
@@ -283,15 +278,12 @@ namespace dmtcp_mpi
       // Pvt. constructor
       MpiVirtualization(const char *name, T nullId)
         : _vIdTable(name, (T)0, (size_t)999999),
-          _mutex(),
           _nullId(nullId)
       {
       }
 
       // Virtual Ids Table
       dmtcp::VirtualIdTable<T> _vIdTable;
-      // Lock on list
-      mutex_t _mutex;
       // Default "NULL" value for id
       T _nullId;
   }; // class MpiId
