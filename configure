@@ -616,8 +616,8 @@ enable_option_checking=no
 ac_subst_vars='LTLIBOBJS
 LIBOBJS
 PANDOC
-DEBUG
 subdirs
+DEBUG
 CPP
 ac_ct_CC
 CFLAGS
@@ -692,6 +692,7 @@ ac_user_opts='
 enable_option_checking
 enable_maintainer_mode
 enable_debug
+enable_fsgsbase_override
 enable_timing
 enable_logging
 enable_quiet
@@ -1335,6 +1336,10 @@ Optional Features:
                           sometimes confusing) to the casual installer
   --enable-debug          Use debugging flags "-Wall -g3 -O0" on DMTCP libs
                           (default is disabled); also, see --enable-logging
+  --enable-fsgsbase-override
+                          Defines HAS_FSGSBASE for cross-configure; The target
+                          computer must have the FSGSBASE kernel patch. By
+                          default, it tests locally for the patch.
 
 
 Some influential environment variables:
@@ -4434,13 +4439,6 @@ ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
-ac_configure_args="$ac_configure_args --with-mana-helper-dir=../restart_plugin"
-ac_configure_args="$ac_configure_args --disable-dlsym-wrapper"
-
-
-subdirs="$subdirs dmtcp"
-
-
 ac_config_files="$ac_config_files Makefile manpages/Makefile mpi-proxy-split/Makefile_config"
 
 
@@ -4462,7 +4460,6 @@ else $as_nop
   use_debug=no
 fi
 
-
 if test "$use_debug" = "yes"; then
   DEBUG=yes
 
@@ -4474,6 +4471,20 @@ printf "%s\n" "#define DEBUG 1" >>confdefs.h
   CXXFLAGS="$CXXFLAGS -Wall -g3 -O0 -DDEBUG"
 else
   DEBUG=no
+
+fi
+
+# Check whether --enable-fsgsbase-override was given.
+if test ${enable_fsgsbase_override+y}
+then :
+  enableval=$enable_fsgsbase_override; use_fsgsbase_override=$enableval
+else $as_nop
+  use_fsgsbase_override=no
+fi
+
+if test "$use_fsgsbase_override" = "yes"; then
+
+printf "%s\n" "#define ENABLE_FSGSBASE_OVERRIDE 1" >>confdefs.h
 
 fi
 
@@ -4495,6 +4506,16 @@ if test ${enable_quiet+y}
 then :
   enableval=$enable_quiet;
 fi
+
+
+ac_configure_args="$ac_configure_args --with-mana-helper-dir=../restart_plugin"
+ac_configure_args="$ac_configure_args --disable-dlsym-wrapper"
+if test "$use_fsgsbase_override" = "yes"; then
+  ac_configure_args="$ac_configure_args --enable-fsgsbase-override"
+fi
+
+
+subdirs="$subdirs dmtcp"
 
 
 #check for pandoc

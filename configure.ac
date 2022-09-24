@@ -24,10 +24,6 @@ AC_PROG_CXX
 AC_PROG_CC
 AC_PROG_CPP
 
-ac_configure_args="$ac_configure_args --with-mana-helper-dir=../restart_plugin"
-ac_configure_args="$ac_configure_args --disable-dlsym-wrapper"
-AC_CONFIG_SUBDIRS([dmtcp])
-
 AC_CONFIG_FILES([Makefile \
                  manpages/Makefile \
                  mpi-proxy-split/Makefile_config])
@@ -52,7 +48,6 @@ AC_ARG_ENABLE([debug],
                              disabled); also, see --enable-logging])],
             [use_debug=$enableval],
             [use_debug=no])
-
 if test "$use_debug" = "yes"; then
   AC_SUBST([DEBUG], [yes])
   AC_DEFINE([DEBUG],[1],[Use debugging flags "-Wall -g3 -O0"])
@@ -63,10 +58,30 @@ else
   AC_SUBST([DEBUG], [no])
 fi
 
+AC_ARG_ENABLE([fsgsbase-override],
+            [AS_HELP_STRING([--enable-fsgsbase-override],
+                            [Defines HAS_FSGSBASE for cross-configure; The
+                             target computer must have the FSGSBASE
+                             kernel patch.  By default, it tests locally
+                             for the patch.])],
+            [use_fsgsbase_override=$enableval],
+            [use_fsgsbase_override=no])
+if test "$use_fsgsbase_override" = "yes"; then
+  AC_DEFINE([ENABLE_FSGSBASE_OVERRIDE],[1],[Override to use FSGSBASE
+                                            kernel patch])
+fi
+
 # Keeping these DMTCP flags only for convenience.
 AC_ARG_ENABLE([timing])
 AC_ARG_ENABLE([logging])
 AC_ARG_ENABLE([quiet])
+
+ac_configure_args="$ac_configure_args --with-mana-helper-dir=../restart_plugin"
+ac_configure_args="$ac_configure_args --disable-dlsym-wrapper"
+if test "$use_fsgsbase_override" = "yes"; then
+  ac_configure_args="$ac_configure_args --enable-fsgsbase-override"
+fi
+AC_CONFIG_SUBDIRS([dmtcp])
 
 #check for pandoc
 AC_PATH_PROG(PANDOC, [pandoc], [no], [/usr/bin:/bin])
