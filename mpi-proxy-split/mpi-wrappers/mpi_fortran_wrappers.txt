@@ -128,3 +128,5 @@ int MPI_File_close(MPI_File* fh);
 int MPI_File_set_errhandler(MPI_File fh, MPI_Errhandler errhandler);
 int MPI_File_get_errhandler(MPI_File fh, MPI_Errhandler* errhandler);
 int MPI_File_delete(const char* filename, MPI_Info info);
+int MPI_Get_library_version(char* version, int* resultlen);
+int MPI_Get_address(const void* location, MPI_Aint* address);
