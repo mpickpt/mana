@@ -125,3 +125,6 @@ int MPI_File_sync(MPI_File fh);
 int MPI_File_get_position(MPI_File fh, MPI_Offset* offset);
 int MPI_File_seek(MPI_File fh, MPI_Offset offset, int whence);
 int MPI_File_close(MPI_File* fh);
+int MPI_File_set_errhandler(MPI_File fh, MPI_Errhandler errhandler);
+int MPI_File_get_errhandler(MPI_File fh, MPI_Errhandler* errhandler);
+int MPI_File_delete(const char* filename, MPI_Info info);
