@@ -65,6 +65,11 @@ extern CartesianProperties g_cartesian_properties;
 extern ManaHeader g_mana_header;
 extern std::unordered_map<MPI_File, OpenFileParameters> g_params_map;
 
+std::unordered_map<pid_t, unsigned long> *g_upper_half_fsbase = NULL;
+DmtcpMutex g_upper_half_fsbase_lock;
+
+EXTERNC pid_t dmtcp_get_real_tid() __attribute((weak));
+
 int g_numMmaps = 0;
 MmapInfo_t *g_list = NULL;
 mana_state_t mana_state = UNKNOWN_STATE;
@@ -147,6 +152,93 @@ dmtcp_skip_memory_region_ckpting(const ProcMapsArea *area)
 
   // Defer to the next plugin.
   return NEXT_FNC(dmtcp_skip_truncate_file_at_restart)(path);
+}
+
+constexpr int MaxSignals = 64;
+static struct sigaction userSignalHandlers[MaxSignals] = {0};
+
+void
+mana_signal_sa_handler_wrapper(int signum)
+{
+  unsigned long fsbase = getFS();
+
+  DmtcpMutexLock(&g_upper_half_fsbase_lock);
+  unsigned long uh_fsbase = g_upper_half_fsbase->at(dmtcp_get_real_tid());
+  DmtcpMutexUnlock(&g_upper_half_fsbase_lock);
+
+  if (fsbase != uh_fsbase) {
+    // We are in lower-half; switch to upper half.
+    setFS(uh_fsbase);
+  }
+
+  userSignalHandlers[signum].sa_handler(signum);
+
+  if (fsbase != uh_fsbase) {
+    // go back to lower-half.
+    setFS(fsbase);
+  }
+}
+
+void
+mana_signal_sa_sigaction_wrapper(int signum, siginfo_t *siginfo, void *context)
+{
+  unsigned long fsbase = getFS();
+  DmtcpMutexLock(&g_upper_half_fsbase_lock);
+  unsigned long uh_fsbase = g_upper_half_fsbase->at(dmtcp_get_real_tid());
+  DmtcpMutexUnlock(&g_upper_half_fsbase_lock);
+
+  if (fsbase != uh_fsbase) {
+    // We are in lower-half; switch to upper half.
+    setFS(uh_fsbase);
+  }
+
+  userSignalHandlers[signum].sa_sigaction(signum, siginfo, context);
+
+  if (fsbase != uh_fsbase) {
+    // go back to lower-half.
+    setFS(fsbase);
+  }
+}
+
+EXTERNC int
+sigaction(int signum, const struct sigaction *act, struct sigaction *oldAct)
+{
+  int ret;
+  if (signum == dmtcp_get_ckpt_signal() ||
+      signum >= MaxSignals) {
+    return NEXT_FNC(sigaction)(signum, act, oldAct);
+  }
+
+  if (act != NULL) {
+    struct sigaction newAct = *act;
+    if (newAct.sa_flags & SA_SIGINFO) {
+      newAct.sa_sigaction = mana_signal_sa_sigaction_wrapper;
+      ret = NEXT_FNC(sigaction)(signum, &newAct, oldAct);
+    } else {
+      newAct.sa_handler = mana_signal_sa_handler_wrapper;
+      ret = NEXT_FNC(sigaction)(signum, &newAct, oldAct);
+    }
+
+    if (ret == 0) {
+      userSignalHandlers[signum] = *act;
+    }
+  } else {
+    ret = NEXT_FNC(sigaction)(signum, act, oldAct);
+  }
+
+  if (oldAct != NULL && ret == 0) {
+    *oldAct = userSignalHandlers[signum];
+  }
+
+  return ret;
+}
+
+void
+initialize_signal_handlers()
+{
+  for (int i = 0; i < MaxSignals; i++) {
+    NEXT_FNC(sigaction)(i, NULL, &userSignalHandlers[i]);
+  }
 }
 
 // Handler for SIGSEGV: forces the code into an infinite loop for attaching
@@ -461,10 +553,21 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
   switch (event) {
     case DMTCP_EVENT_INIT: {
       JTRACE("*** DMTCP_EVENT_INIT");
+      JASSERT(dmtcp_get_real_tid != NULL);
+      initialize_signal_handlers();
       initialize_segv_handler();
-      JASSERT(!splitProcess()).Text("Failed to create, initialize lower haf");
+      JASSERT(!splitProcess()).Text("Failed to create, initialize lower half");
       seq_num_init();
       mana_state = RUNNING;
+
+      DmtcpMutexInit(&g_upper_half_fsbase_lock, DMTCP_MUTEX_LLL);
+      if (g_upper_half_fsbase != NULL) {
+        delete g_upper_half_fsbase;
+      }
+
+      g_upper_half_fsbase = new std::unordered_map<pid_t, unsigned long>();
+      g_upper_half_fsbase->insert(std::make_pair(dmtcp_get_real_tid(), getFS()));
+
       break;
     }
     case DMTCP_EVENT_EXIT: {
@@ -472,6 +575,24 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       seq_num_destroy();
       break;
     }
+
+    case DMTCP_EVENT_PTHREAD_START: {
+      // Do we need a mutex here?
+      DmtcpMutexLock(&g_upper_half_fsbase_lock);
+      g_upper_half_fsbase->insert(std::make_pair(dmtcp_get_real_tid(), getFS()));
+      DmtcpMutexUnlock(&g_upper_half_fsbase_lock);
+      break;
+    }
+
+    case DMTCP_EVENT_PTHREAD_RETURN:
+    case DMTCP_EVENT_PTHREAD_EXIT: {
+      // Do we need a mutex here?
+      DmtcpMutexLock(&g_upper_half_fsbase_lock);
+      g_upper_half_fsbase->erase(dmtcp_get_real_tid());
+      DmtcpMutexUnlock(&g_upper_half_fsbase_lock);
+      break;
+    }
+
     case DMTCP_EVENT_PRESUSPEND: {
       mana_state = CKPT_COLLECTIVE;
       // preSuspendBarrier() will send coord response and get worker state.
