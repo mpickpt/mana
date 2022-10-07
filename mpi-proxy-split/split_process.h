@@ -36,7 +36,7 @@
 static inline unsigned long getFS(void)
 {
   unsigned long fsbase;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,9,0) || defined(HAS_FSGSBASE)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,9,0) || defined(HAS_FSGSBASE) || defined(ENABLE_FSGSBASE_OVERRIDE)
   // This user-space variant is equivalent, but faster.
   // Optionally, this->upperHalfFs could be cached if MPI_THREAD_MULTIPLE
   //   was not specified, but this should already be fast.
@@ -53,7 +53,7 @@ static inline unsigned long getFS(void)
 
 static inline void setFS(unsigned long fsbase)
 {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,9,0) || defined(HAS_FSGSBASE)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,9,0) || defined(HAS_FSGSBASE) || defined(ENABLE_FSGSBASE_OVERRIDE)
   // This user-space variant is equivalent, but faster.
   // Optionally, this->upperHalfFs could be cached if MPI_THREAD_MULTIPLE
   //   was not specified, but this should already be fast.
