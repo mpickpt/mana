@@ -201,7 +201,7 @@ mana_signal_sa_sigaction_wrapper(int signum, siginfo_t *siginfo, void *context)
 }
 
 EXTERNC int
-sigaction(int signum, const struct sigaction *act, struct sigaction *oldAct)
+DISABLED_sigaction(int signum, const struct sigaction *act, struct sigaction *oldAct)
 {
   int ret;
   if (signum == dmtcp_get_ckpt_signal() ||
