@@ -23,9 +23,18 @@
 #define _SPLIT_PROCESS_H
 #include <asm/prctl.h>
 #include <linux/version.h>
+#include <sys/auxv.h>
 #include <sys/prctl.h>
 #include <sys/syscall.h>
 #include "jassert.h"
+
+/* Defined in asm/hwcap.h */
+#ifndef HWCAP2_FSGSBASE
+#define HWCAP2_FSGSBASE        (1 << 1)
+#endif
+
+extern bool FsGsBaseEnabled;
+bool CheckAndEnableFsGsBase();
 
 /* The support to set and get FS base register in user-space has been merged in
  * Linux kernel v5.3 (see https://elixir.bootlin.com/linux/v5.3/C/ident/rdfsbase
@@ -36,35 +45,36 @@
 static inline unsigned long getFS(void)
 {
   unsigned long fsbase;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,9,0) || defined(HAS_FSGSBASE) || defined(ENABLE_FSGSBASE_OVERRIDE)
-  // This user-space variant is equivalent, but faster.
-  // Optionally, this->upperHalfFs could be cached if MPI_THREAD_MULTIPLE
-  //   was not specified, but this should already be fast.
-  // #if:  Linux kernel 5.9 or higher guarantees that FSGSBASE is supported.
-  // For now, include "defined(HAS_FSGSBASE)" to see if FSGSBASE was backported.
 
-  // The prefix 'rex.W' is required or 'rdfsbase' will assume 32 bits.
-  asm volatile("rex.W\n rdfsbase %0" : "=r" (fsbase) :: "memory");
-#else
-  JWARNING(syscall(SYS_arch_prctl, ARCH_GET_FS, &fsbase) == 0) (JASSERT_ERRNO);
-#endif
+  if (FsGsBaseEnabled) {
+    // This user-space variant is equivalent, but faster.
+    // Optionally, this->upperHalfFs could be cached if MPI_THREAD_MULTIPLE
+    //   was not specified, but this should already be fast.
+    // #if:  Linux kernel 5.9 or higher guarantees that FSGSBASE is supported.
+    // For now, include "defined(HAS_FSGSBASE)" to see if FSGSBASE was backported.
+
+    // The prefix 'rex.W' is required or 'rdfsbase' will assume 32 bits.
+    asm volatile("rex.W\n rdfsbase %0" : "=r" (fsbase) :: "memory");
+  } else {
+    JWARNING(syscall(SYS_arch_prctl, ARCH_GET_FS, &fsbase) == 0) (JASSERT_ERRNO);
+  }
   return fsbase;
 }
 
 static inline void setFS(unsigned long fsbase)
 {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,9,0) || defined(HAS_FSGSBASE) || defined(ENABLE_FSGSBASE_OVERRIDE)
-  // This user-space variant is equivalent, but faster.
-  // Optionally, this->upperHalfFs could be cached if MPI_THREAD_MULTIPLE
-  //   was not specified, but this should already be fast.
-  // #if:  Linux kernel 5.9 or higher guarantees that FSGSBASE is supported.
-  // For now, include "defined(HAS_FSGSBASE)" to see if FSGSBASE was backported.
+  if (FsGsBaseEnabled) {
+    // This user-space variant is equivalent, but faster.
+    // Optionally, this->upperHalfFs could be cached if MPI_THREAD_MULTIPLE
+    //   was not specified, but this should already be fast.
+    // #if:  Linux kernel 5.9 or higher guarantees that FSGSBASE is supported.
+    // For now, include "defined(HAS_FSGSBASE)" to see if FSGSBASE was backported.
 
-  // The prefix 'rex.W' is required or 'rdfsbase' will assume 32 bits.
-  asm volatile("rex.W\n wrfsbase %0" :: "r" (fsbase) : "memory");
-#else
-  JWARNING(syscall(SYS_arch_prctl, ARCH_SET_FS, fsbase) == 0) (JASSERT_ERRNO);
-#endif
+    // The prefix 'rex.W' is required or 'rdfsbase' will assume 32 bits.
+    asm volatile("rex.W\n wrfsbase %0" :: "r" (fsbase) : "memory");
+  } else {
+    JWARNING(syscall(SYS_arch_prctl, ARCH_SET_FS, fsbase) == 0) (JASSERT_ERRNO);
+  }
 }
 
 // Helper class to save and restore context (in particular, the FS register),
