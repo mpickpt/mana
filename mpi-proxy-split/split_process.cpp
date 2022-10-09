@@ -73,6 +73,19 @@ static char* proxyAddrInApp();
 static void compileProxy();
 #endif
 
+bool FsGsBaseEnabled = false;
+
+bool CheckAndEnableFsGsBase()
+{
+  unsigned val = getauxval(AT_HWCAP2);
+
+  if (val & HWCAP2_FSGSBASE) {
+    FsGsBaseEnabled = true;
+  }
+
+  return FsGsBaseEnabled;
+}
+
 SwitchContext::SwitchContext(unsigned long lowerHalfFs)
 {
   this->lowerHalfFs = lowerHalfFs;
