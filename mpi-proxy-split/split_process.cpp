@@ -48,6 +48,7 @@
 #include "split_process.h"
 #include "procmapsutils.h"
 #include "config.h" // for HAS_FSGSBASE
+#include "constants.h"
 #include "util.h"
 #include "dmtcp.h"
 
@@ -77,9 +78,8 @@ bool FsGsBaseEnabled = false;
 
 bool CheckAndEnableFsGsBase()
 {
-  unsigned val = getauxval(AT_HWCAP2);
-
-  if (val & HWCAP2_FSGSBASE) {
+  const char *str = getenv(ENV_VAR_FSGSBASE_ENABLED);
+  if (str != NULL && str[0] == '1') {
     FsGsBaseEnabled = true;
   }
 
