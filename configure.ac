@@ -21,8 +21,15 @@ dnl is no CXX compiler and if AC_PROG_CXX is invoked _after_ AC_PROG_CC.
 dnl So, we are invoking AC_PROG_CXX _before_ AC_PROG_CC, to take advantage
 dnl of an undocumented autotools feature.
 AC_PROG_CXX
-AC_PROG_CC
 AC_PROG_CPP
+
+AX_CHECK_COMPILE_FLAG([-std=c11],
+  [CFLAGS+=" -std=c11"],
+  [ echo "C compiler cannot compile C11 code"; exit -1 ])
+
+
+AC_CONFIG_MACRO_DIR([m4])
+AX_CXX_COMPILE_STDCXX([11], [noext], [mandatory])
 
 ac_configure_args="$ac_configure_args --with-mana-helper-dir=../restart_plugin"
 ac_configure_args="$ac_configure_args --disable-dlsym-wrapper"
