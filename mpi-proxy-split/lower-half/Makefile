@@ -26,9 +26,9 @@ DMTCP_INCLUDE=${DMTCP_ROOT}/include
 JALIB_INCLUDE=${DMTCP_ROOT}/jalib
 PLUGIN_INCLUDE=${PLUGIN_ROOT}
 
-override CFLAGS += -fPIC -I${DMTCP_INCLUDE} -std=gnu11
+override CFLAGS += -fPIC -I${DMTCP_INCLUDE}
 override CXXFLAGS += -fPIC -I${DMTCP_INCLUDE} -I${JALIB_INCLUDE} \
-                     -I${DMTCP_ROOT}/src -std=c++11
+                     -I${DMTCP_ROOT}/src
 
 PROXY_LD_FLAGS=-static -Wl,--wrap -Wl,__munmap -Wl,--wrap -Wl,shmat -Wl,--wrap -Wl,shmget
 

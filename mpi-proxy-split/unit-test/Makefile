@@ -32,12 +32,12 @@ JALIB_INCLUDE=${DMTCP_ROOT}/jalib
 LOWER_HALF_INCLUDE=../lower-half
 MPI_WRAPPERS_INCLUDE=../mpi-wrappers
 
-override CFLAGS += -g3 -O0 -fPIC -I${DMTCP_INCLUDE} -I.. -std=gnu11
+override CFLAGS += -g3 -O0 -fPIC -I${DMTCP_INCLUDE} -I..
 override CXXFLAGS += -g3 -O0 -fPIC -I${DMTCP_INCLUDE} \
                      -I.. -I${JALIB_INCLUDE} \
                      -I${LOWER_HALF_INCLUDE} \
                      -I${MPI_WRAPPERS_INCLUDE} \
-                     -I${DMTCP_ROOT}/src -std=c++11 \
+                     -I${DMTCP_ROOT}/src \
                      -D'NEXT_FUNC(fnc)=MPI_\#\#fnc'
 
 TEST_LD_FLAGS=${DMTCP_ROOT}/src/libdmtcpinternal.a \
