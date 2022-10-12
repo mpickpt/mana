@@ -23,6 +23,12 @@ dnl of an undocumented autotools feature.
 AC_PROG_CXX
 AC_PROG_CC
 AC_PROG_CPP
+AC_CONFIG_MACRO_DIR([m4])
+AX_CXX_COMPILE_STDCXX([11], [noext], [mandatory])
+
+AX_CHECK_COMPILE_FLAG([-std=gnu11],
+                      [CFLAGS="${CFLAGS} -std=gnu11"],
+                      [echo "C compiler cannot compile gnu11 code"; exit -1])
 
 ac_configure_args="$ac_configure_args --with-mana-helper-dir=../restart_plugin"
 ac_configure_args="$ac_configure_args --disable-dlsym-wrapper"

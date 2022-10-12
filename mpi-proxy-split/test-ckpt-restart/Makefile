@@ -1,27 +1,9 @@
-PLATFORM=${shell echo $$HOST}
-ifeq ($(findstring cori,$(PLATFORM)),cori)
-IS_CORI = 1
-endif
-ifeq ($(findstring gert,$(PLATFORM)),gert)
-IS_GERTY = 1
-endif
-ifeq ($(or $(IS_CORI),$(IS_GERTY)), 1)
-  MPICC = cc
-  MPICXX = CC
-  CFLAGS?= -g3 -O0 -std=c99 -fPIC
-  CXXFLAGS?= -g3 -O0 -std=c99 -fPIC
-  LDFLAGS?= -dynamic
-else
-  MPICC = mpicc
-  MPICXX = mpic++
-  CFLAGS?= -g3 -O0 -std=c99 -fPIC
-  CXXFLAGS?= -g3 -O0 -std=c99 -fPIC
-  LDFLAGS?=
-endif
+include ../Makefile_config
 
 ifndef DMTCP_ROOT
   DMTCP_ROOT=../../dmtcp/
-  endif
+endif
+
 DMTCP_INCLUDE=${DMTCP_ROOT}/include
 LIBNAME=libdmtcp_mpi-proxy
 DEMO_PORT=7787

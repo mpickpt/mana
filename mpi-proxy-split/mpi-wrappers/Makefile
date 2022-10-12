@@ -34,10 +34,10 @@ JALIB_INCLUDE=${DMTCP_ROOT}/jalib
 
 # This inherits the CFLAGS/CXXFLAGS from './configure' (w/ optional --enable-debug)..
 override CFLAGS += -fPIC -I${DMTCP_INCLUDE} -I${PLUGIN_HALF_SRCDIR} \
-	                 -I${LOWER_HALF_SRCDIR} -std=gnu11
+	                 -I${LOWER_HALF_SRCDIR}
 override CXXFLAGS += -fPIC -I${DMTCP_INCLUDE} -I${JALIB_INCLUDE} \
                      -I${PLUGIN_HALF_SRCDIR} -I${DMTCP_ROOT}/src \
-                     -I${LOWER_HALF_SRCDIR} -std=c++11
+                     -I${LOWER_HALF_SRCDIR}
 
 # We don't build libmpiwrappers.a.  Instead, we use *.o to build libmana.so.
 default: ${LIBNAME}.a libmpistub.so
@@ -84,12 +84,12 @@ mpi_collective_wrappers.o: mpi_collective_wrappers.cpp ../virtual-ids.h \
 	  DEFINE_mpi_collective_p2p=""; \
 	fi && \
 	${MPICXX} ${CXXFLAGS} -Wall -DDEBUG -fPIC $$DEFINE_mpi_collective_p2p \
-          -I.. -I../lower-half -std=c++11 -c $<
+          -I.. -I../lower-half -c $<
 
 # Some of these functions are also collective; e.g., MPI_Win_allocate_shared
 mpi_win_wrappers.o: mpi_win_wrappers.cpp ../virtual-ids.h
 	${MPICXX} ${CXXFLAGS} -Wall -DDEBUG -fPIC \
-          -I.. -I../lower-half -std=c++11 -c $<
+          -I.. -I../lower-half -c $<
 
 # We need to write to mpi_stub_wrappers.c.tmp.$$ first, in case of 'make -j'.
 # The parallel make would generate mpi_stub_wrappers.c 3 times, and overwrite.
