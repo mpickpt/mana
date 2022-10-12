@@ -6,12 +6,15 @@
 #include <semaphore.h>
 
 #include "jassert.h"
+#include "kvdb.h"
 #include "seq_num.h"
 #include "mpi_nextfunc.h"
 #include "virtual-ids.h"
 #include "record-replay.h"
 
 using namespace dmtcp_mpi;
+using dmtcp::kvdb::KVDBRequest;
+using dmtcp::kvdb::KVDBResponse;
 
 // #define DEBUG_SEQ_NUM
 
@@ -54,6 +57,8 @@ std::map<unsigned int, unsigned long> seq_num;
 std::map<unsigned int, unsigned long> target;
 typedef std::pair<unsigned int, unsigned long> comm_seq_pair_t;
 
+constexpr const char *comm_seq_max_db = "/plugin/MANA/comm-seq-max";
+
 void seq_num_init() {
   ckpt_pending = false;
   pthread_mutex_init(&seq_num_lock, NULL);
@@ -91,11 +96,9 @@ int print_seq_nums() {
 
 int check_seq_nums(bool exclusive) {
   unsigned int comm_id;
-  unsigned long seq;
   int target_reached = 1;
   for (comm_seq_pair_t pair : seq_num) {
     comm_id = pair.first;
-    seq = pair.second;
     if (exclusive) {
       if (target[comm_id] + 1 > seq_num[comm_id]) {
         target_reached = 0;
@@ -240,12 +243,11 @@ void commit_finish(MPI_Comm comm, bool passthrough) {
 }
 
 void upload_seq_num() {
-  unsigned int comm_id;
-  unsigned int seq;
   for (comm_seq_pair_t pair : seq_num) {
-    comm_id = pair.first;
-    seq = pair.second;
-    dmtcp_kvdb64(DMTCP_KVDB_MAX, "/mana/comm-seq-max", comm_id, seq);
+    dmtcp::string comm_id_str(jalib::XToString(pair.first));
+    unsigned int seq = pair.second;
+    JASSERT(dmtcp::kvdb::request64(KVDBRequest::MAX, comm_seq_max_db,
+                                   comm_id_str, seq) == KVDBResponse::SUCCESS);
   }
 }
 
@@ -254,7 +256,9 @@ void download_targets(std::map<unsigned int, unsigned long> &target) {
   unsigned int comm_id;
   for (comm_seq_pair_t pair : seq_num) {
     comm_id = pair.first;
-    dmtcp_kvdb64_get("/mana/comm-seq-max", comm_id, &max_seq);
+    dmtcp::string comm_id_str(jalib::XToString(pair.first));
+    JASSERT(dmtcp::kvdb::get64(comm_seq_max_db, comm_id_str, &max_seq) ==
+            KVDBResponse::SUCCESS);
     target[comm_id] = max_seq;
   }
 }
@@ -274,14 +278,26 @@ void drain_mpi_collective() {
   share_seq_nums(target);
   pthread_mutex_unlock(&seq_num_lock);
   while (1) {
-    dmtcp::string barrierId = "MANA-PRESUSPEND-" + jalib::XToString(round_num);
-    dmtcp::string csId = "MANA-CRITICAL-SECTION-" + jalib::XToString(round_num);
-    dmtcp::string convergeId = "MANA-CONVERGE-" + jalib::XToString(round_num);
-    dmtcp_kvdb64(DMTCP_KVDB_INCRBY, convergeId.c_str(), 0, check_seq_nums(false));
-    dmtcp_kvdb64(DMTCP_KVDB_OR, csId.c_str(), 0, current_phase == IN_CS);
-    dmtcp_global_barrier(barrierId.c_str());
-    dmtcp_kvdb64_get(convergeId.c_str(), 0, &num_converged);
-    dmtcp_kvdb64_get(csId.c_str(), 0, &in_cs);
+    char key[32] = {0};
+    char barrier_id[32] = {0};
+    constexpr const char *cs_id = "/plugin/MANA/CRITICAL-SECTION";
+    constexpr const char *converge_id = "/plugin/MANA/CONVERGE";
+    sprintf(barrier_id, "MANA-PRESUSPEND-%06d", round_num);
+    sprintf(key, "round-%06d", round_num);
+
+    JASSERT(dmtcp::kvdb::request64(KVDBRequest::INCRBY, converge_id, key,
+                                   check_seq_nums(false)) ==
+            KVDBResponse::SUCCESS);
+    JASSERT(dmtcp::kvdb::request64(KVDBRequest::OR, cs_id, key,
+                                   current_phase == IN_CS) ==
+            KVDBResponse::SUCCESS);
+
+    dmtcp_global_barrier(barrier_id);
+
+    JASSERT(dmtcp::kvdb::get64(converge_id, key, &num_converged) ==
+            KVDBResponse::SUCCESS);
+    JASSERT(dmtcp::kvdb::get64(cs_id, key, &in_cs) == KVDBResponse::SUCCESS);
+
     if (in_cs == 0 && num_converged == g_world_size) {
       break;
     }
