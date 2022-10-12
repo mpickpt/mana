@@ -49,6 +49,7 @@
 
 #include "config.h"
 #include "dmtcp.h"
+#include "kvdb.h"
 #include "util.h"
 #include "jassert.h"
 #include "jfilesystem.h"
@@ -56,6 +57,8 @@
 #include "procselfmaps.h"
 
 using namespace dmtcp;
+using dmtcp::kvdb::KVDBRequest;
+using dmtcp::kvdb::KVDBResponse;
 
 /* Global variables */
 #ifdef SINGLE_CART_REORDER
@@ -361,16 +364,31 @@ computeUnionOfCkptImageAddresses()
   // Adjust libsStart to make 4GB space.
   libsStart = (void *)((uint64_t)libsStart - 4 * ONEGB);
 
-  string kvdb = "MANA_CKPT_UNION";
-  dmtcp_kvdb64(DMTCP_KVDB_MIN, kvdb.c_str(), 0, (int64_t) libsStart);
-  dmtcp_kvdb64(DMTCP_KVDB_MAX, kvdb.c_str(), 1, (int64_t) libsEnd);
-  dmtcp_kvdb64(DMTCP_KVDB_MIN, kvdb.c_str(), 2, (int64_t) highMemStart);
+  string workerPath("/worker/" + string(dmtcp_get_uniquepid_str()));
+  string libsStartStr = jalib::XToString(libsStart);
+  string libsEndStr = jalib::XToString(libsEnd);
+  string highMemStartStr = jalib::XToString(highMemStart);
 
-  dmtcp_global_barrier(kvdb.c_str());
+  kvdb::set(workerPath, "MANA_libsStart", libsStartStr);
+  kvdb::set(workerPath, "MANA_libsEnd", libsEndStr);
+  kvdb::set(workerPath, "MANA_highMemStart", highMemStartStr);
 
-  JASSERT(dmtcp_kvdb64_get(kvdb.c_str(), 0, (int64_t*) &minLibsStart) == 0);
-  JASSERT(dmtcp_kvdb64_get(kvdb.c_str(), 1, (int64_t*) &maxLibsEnd) == 0);
-  JASSERT(dmtcp_kvdb64_get(kvdb.c_str(), 2, (int64_t*) &minHighMemStart) == 0);
+  constexpr const char *kvdb = "/plugin/MANA/CKPT_UNION";
+  JASSERT(kvdb::request64(KVDBRequest::MIN, kvdb, "libsStart",
+                          (int64_t)libsStart) == KVDBResponse::SUCCESS);
+  JASSERT(kvdb::request64(KVDBRequest::MAX, kvdb, "libsEnd",
+                          (int64_t)libsEnd) == KVDBResponse::SUCCESS);
+  JASSERT(kvdb::request64(KVDBRequest::MIN, kvdb, "highMemStart",
+                          (int64_t)highMemStart) == KVDBResponse::SUCCESS);
+
+  dmtcp_global_barrier("MANA_CKPT_UNION");
+
+  JASSERT(kvdb::get64(kvdb, "libsStart", (int64_t *)&minLibsStart) ==
+          KVDBResponse::SUCCESS);
+  JASSERT(kvdb::get64(kvdb, "libsEnd", (int64_t *)&maxLibsEnd) ==
+          KVDBResponse::SUCCESS);
+  JASSERT(kvdb::get64(kvdb, "highMemStart", (int64_t *)&minHighMemStart) ==
+          KVDBResponse::SUCCESS);
 
   ostringstream o;
 

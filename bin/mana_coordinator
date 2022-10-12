@@ -53,7 +53,7 @@ if [ "$verbose" == 1 ]; then
 fi
 
 coordinator_found=0
-$dir/dmtcp_coordinator $options --exit-on-last -q --daemon --status-file $HOME/.mana && coordinator_found=1
+$dir/dmtcp_coordinator $options --write-kv-data --exit-on-last -q --daemon --status-file $HOME/.mana && coordinator_found=1
 set +x
 if [ $coordinator_found -eq 0 ]; then
   exit 3
