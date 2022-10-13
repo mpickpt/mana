@@ -234,6 +234,28 @@ sigaction(int signum, const struct sigaction *act, struct sigaction *oldAct)
   return ret;
 }
 
+EXTERNC sighandler_t
+signal(int signum, sighandler_t handler)
+{
+  sighandler_t ret;
+  if (signum == dmtcp_get_ckpt_signal() ||
+      signum >= MaxSignals) {
+    return NEXT_FNC(signal)(signum, handler);
+  }
+
+  if (handler == SIG_IGN || handler == SIG_DFL) {
+    ret = NEXT_FNC(signal)(signum, handler);
+  } else {
+    ret = NEXT_FNC(signal)(signum, mana_signal_sa_handler_wrapper);
+  }
+
+  if (ret != SIG_ERR) {
+    userSignalHandlers[signum].sa_handler = handler;
+  }
+
+  return ret;
+}
+
 void
 initialize_signal_handlers()
 {
