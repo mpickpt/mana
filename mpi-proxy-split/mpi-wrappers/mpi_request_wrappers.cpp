@@ -260,8 +260,10 @@ USER_DEFINED_WRAPPER(int, Waitany, (int) count,
         continue;
       }
       all_null = false;
+      DMTCP_PLUGIN_DISABLE_CKPT();
       retval = MPI_Test_internal(&local_array_of_requests[i], &flag,
                                  local_status, false);
+      DMTCP_PLUGIN_ENABLE_CKPT();
       if (retval != MPI_SUCCESS) {
         return retval;
       }
