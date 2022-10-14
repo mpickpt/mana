@@ -263,8 +263,8 @@ USER_DEFINED_WRAPPER(int, Waitany, (int) count,
       DMTCP_PLUGIN_DISABLE_CKPT();
       retval = MPI_Test_internal(&local_array_of_requests[i], &flag,
                                  local_status, false);
-      DMTCP_PLUGIN_ENABLE_CKPT();
       if (retval != MPI_SUCCESS) {
+        DMTCP_PLUGIN_ENABLE_CKPT();
         return retval;
       }
       if (flag) {
@@ -281,14 +281,20 @@ USER_DEFINED_WRAPPER(int, Waitany, (int) count,
             int worldRank = localRankToGlobalRank(local_status->MPI_SOURCE, comm);
             g_recvBytesByRank[worldRank] += count * size;
         }
+
         if (MPI_LOGGING()) {
           clearPendingRequestFromLog(local_array_of_requests[i]);
           REMOVE_OLD_REQUEST(local_array_of_requests[i]);
           local_array_of_requests[i] = MPI_REQUEST_NULL;
         }
+
         *local_index = i;
+
+        DMTCP_PLUGIN_ENABLE_CKPT();
         return retval;
       }
+
+      DMTCP_PLUGIN_ENABLE_CKPT();
     }
     if (all_null) {
       return retval;
