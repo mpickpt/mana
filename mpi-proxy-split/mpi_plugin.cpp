@@ -35,6 +35,8 @@
 #include <sys/personality.h>
 #include <sys/mman.h>
 
+#include <regex>
+
 #include "mpi_files.h"
 #include "mana_header.h"
 #include "mpi_plugin.h"
@@ -67,6 +69,12 @@ extern CartesianProperties g_cartesian_properties;
 
 extern ManaHeader g_mana_header;
 extern std::unordered_map<MPI_File, OpenFileParameters> g_params_map;
+
+constexpr const char *MANA_FILE_REGEX_ENV = "MANA_FILE_REGEX";
+static std::regex *file_regex = NULL;
+static map<string, int> *g_file_flags_map = NULL;
+static vector<int> ckpt_fds;
+static bool processingOpenCkpFileFds = false;
 
 std::unordered_map<pid_t, unsigned long> *g_upper_half_fsbase = NULL;
 DmtcpMutex g_upper_half_fsbase_lock;
@@ -125,6 +133,73 @@ void recordOpenFds()
 
   string workerPath("/worker/" + string(dmtcp_get_uniquepid_str()));
   kvdb::set(workerPath, "ProcSelfFds", o.str());
+}
+
+static void
+processFileOpen(const char *path, int flags)
+{
+  if (file_regex == NULL || processingOpenCkpFileFds) {
+    return;
+  }
+
+  if ((flags & O_APPEND) ||
+      ((flags & O_RDWR) || (flags & O_WRONLY))) {
+    if (std::regex_search(path, *file_regex)) {
+      g_file_flags_map->insert(std::make_pair(path, flags));
+    }
+  }
+}
+
+static void
+openCkptFileFds()
+{
+  ostringstream o;
+  ostringstream staleFilesStr;
+
+  processingOpenCkpFileFds = true;
+  ckpt_fds.clear();
+  ckpt_fds.reserve(g_file_flags_map->size());
+
+  vector<string> staleFiles;
+
+  for (auto i : *g_file_flags_map) {
+    string const& path = i.first;
+    off64_t flags = i.second;
+
+    struct stat statbuf;
+    if (stat(path.c_str(), &statbuf) == 0 && S_ISREG(statbuf.st_mode)) {
+      int fd = open(path.c_str(), O_APPEND | O_WRONLY);
+      JWARNING(fd != -1)(path)(flags)(JASSERT_ERRNO);
+
+      if (fd != -1) {
+        o << path << ":" << flags << "\n";
+        ckpt_fds.push_back(fd);
+      }
+    } else {
+      staleFilesStr << path << ":" << flags<< "\n";
+      staleFiles.push_back(path);
+    }
+  }
+
+  for (string const& stale : staleFiles) {
+    g_file_flags_map->erase(stale);
+  }
+
+  string workerPath("/worker/" + string(dmtcp_get_uniquepid_str()));
+  kvdb::set(workerPath, "Ckpt_Files", o.str());
+  kvdb::set(workerPath, "Ckpt_Files_Stale", staleFilesStr.str());
+}
+
+static void
+closeCkptFileFds()
+{
+  for (int fd : ckpt_fds) {
+    close(fd);
+  }
+
+  ckpt_fds.clear();
+
+  processingOpenCkpFileFds = false;
 }
 
 static inline int
@@ -653,6 +728,15 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       g_upper_half_fsbase = new std::unordered_map<pid_t, unsigned long>();
       g_upper_half_fsbase->insert(std::make_pair(dmtcp_get_real_tid(), getFS()));
 
+      if (g_file_flags_map != NULL) {
+        delete g_file_flags_map;
+      }
+      g_file_flags_map = new map<string, int>();
+
+      if (file_regex == NULL && getenv(MANA_FILE_REGEX_ENV) != NULL) {
+        file_regex = new std::regex(getenv(MANA_FILE_REGEX_ENV));
+      }
+
       if (CheckAndEnableFsGsBase()) {
         JTRACE("FSGSBASE enabled");
       }
@@ -662,6 +746,11 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     case DMTCP_EVENT_EXIT: {
       JTRACE("*** DMTCP_EVENT_EXIT");
       seq_num_destroy();
+      break;
+    }
+
+    case DMTCP_EVENT_OPEN_FD: {
+      processFileOpen(data->openFd.path, data->openFd.flags);
       break;
     }
 
@@ -693,6 +782,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     case DMTCP_EVENT_PRECHECKPOINT: {
       recordMpiInitMaps();
       recordOpenFds();
+      openCkptFileFds();
       dmtcp_local_barrier("MPI:GetLocalLhMmapList");
       getLhMmapList();
       dmtcp_local_barrier("MPI:GetLocalRankInfo");
@@ -719,6 +809,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     }
 
     case DMTCP_EVENT_RESUME: {
+      closeCkptFileFds();
       dmtcp_local_barrier("MPI:Reset-Drain-Send-Recv-Counters");
       resetDrainCounters(); // p2p_drain_send_recv.cpp
       seq_num_reset(RESUME);
@@ -728,6 +819,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     }
 
     case DMTCP_EVENT_RESTART: {
+      closeCkptFileFds();
       dmtcp_local_barrier("MPI:updateEnviron");
       updateLhEnviron(); // mpi-plugin.cpp
       dmtcp_local_barrier("MPI:Reset-Drain-Send-Recv-Counters");
