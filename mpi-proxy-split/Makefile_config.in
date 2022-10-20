@@ -17,7 +17,7 @@ IS_GERTY = 1
 endif
 ifeq ($(or $(IS_CORI),$(IS_GERTY)), 1)
   MPICC = cc
-  MPICXX = CC -std=c++11
+  MPICXX = CC -std=c++14
   MPIFORTRAN = ftn
   MPI_LD_FLAG = -lmpich
   MPIRUN = srun
@@ -34,7 +34,7 @@ default2: default
 #	${CXX} ${CXXFLAGS} `CC --cray-print-opts=cflags` -c -o $@ $<
 else
   MPICC = mpicc
-  MPICXX = mpic++ -std=c++11
+  MPICXX = mpic++ -std=c++14
   MPIFORTRAN = mpifort
   MPIRUN = mpirun
   MPI_LD_FLAG = -L$$HOME/mpich-static/usr/lib64 -lmpi -llzma -lz -lm -lxml2
