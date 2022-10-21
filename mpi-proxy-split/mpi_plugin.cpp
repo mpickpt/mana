@@ -733,6 +733,9 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       }
       g_file_flags_map = new map<string, int>();
 
+      // TODO(kapil): Remove from final commit.
+      setenv(MANA_FILE_REGEX_ENV, ".*", 1);
+
       if (file_regex == NULL && getenv(MANA_FILE_REGEX_ENV) != NULL) {
         file_regex = new std::regex(getenv(MANA_FILE_REGEX_ENV));
       }
