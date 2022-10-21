@@ -78,10 +78,54 @@ int g_numMmaps = 0;
 MmapInfo_t *g_list = NULL;
 mana_state_t mana_state = UNKNOWN_STATE;
 
+ProcSelfMaps *preMpiInitMaps = nullptr;
+ProcSelfMaps *postMpiInitMaps = nullptr;
 // #define DEBUG
 
 #undef dmtcp_skip_memory_region_ckpting
 const VA HIGH_ADDR_START = (VA)0x7fff00000000;
+
+void recordPreMpiInitMaps()
+{
+  if (preMpiInitMaps != nullptr) {
+    delete preMpiInitMaps;
+  }
+
+  preMpiInitMaps = new ProcSelfMaps();
+}
+
+void recordPostMpiInitMaps()
+{
+  if (postMpiInitMaps != nullptr) {
+    delete postMpiInitMaps;
+  }
+
+  postMpiInitMaps = new ProcSelfMaps();
+}
+
+void recordMpiInitMaps()
+{
+  string workerPath("/worker/" + string(dmtcp_get_uniquepid_str()));
+  kvdb::set(workerPath, "ProcSelfMaps_PreMpiInit", preMpiInitMaps->getData());
+  kvdb::set(workerPath, "ProcSelfMaps_PostMpiInit", postMpiInitMaps->getData());
+}
+
+void recordOpenFds()
+{
+  ostringstream o;
+  vector<int>fds = jalib::Filesystem::ListOpenFds();
+  for (int fd : fds) {
+    if (!Util::isValidFd(fd)) {
+      continue;
+    }
+
+    string device = jalib::Filesystem::GetDeviceName(fd);
+    o << fd << " -> " << device << "\n";
+  }
+
+  string workerPath("/worker/" + string(dmtcp_get_uniquepid_str()));
+  kvdb::set(workerPath, "ProcSelfFds", o.str());
+}
 
 static inline int
 regionContains(const void *haystackStart,
@@ -647,6 +691,8 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     }
 
     case DMTCP_EVENT_PRECHECKPOINT: {
+      recordMpiInitMaps();
+      recordOpenFds();
       dmtcp_local_barrier("MPI:GetLocalLhMmapList");
       getLhMmapList();
       dmtcp_local_barrier("MPI:GetLocalRankInfo");
