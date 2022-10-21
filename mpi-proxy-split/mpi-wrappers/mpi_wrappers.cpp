@@ -60,6 +60,7 @@ USER_DEFINED_WRAPPER(int, Init, (int *) argc, (char ***) argv) {
     fprintf(stderr, collective_p2p_string);
   }
   DMTCP_PLUGIN_DISABLE_CKPT();
+  recordPreMpiInitMaps();
   g_mana_header.init_flag = MPI_INIT_NO_THREAD;
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Init)(argc, argv);
@@ -69,6 +70,7 @@ USER_DEFINED_WRAPPER(int, Init, (int *) argc, (char ***) argv) {
   g_world_comm = ADD_NEW_COMM(g_world_comm);
   LOG_CALL(restoreComms, Comm_dup, MPI_COMM_WORLD, g_world_comm);
   initialize_drain_send_recv();
+  recordPostMpiInitMaps();
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -79,6 +81,7 @@ USER_DEFINED_WRAPPER(int, Init_thread, (int *) argc, (char ***) argv,
     fprintf(stderr, collective_p2p_string);
   }
   DMTCP_PLUGIN_DISABLE_CKPT();
+  recordPreMpiInitMaps();
   g_mana_header.init_flag = required;
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Init_thread)(argc, argv, required, provided);
@@ -88,6 +91,7 @@ USER_DEFINED_WRAPPER(int, Init_thread, (int *) argc, (char ***) argv,
   g_world_comm = ADD_NEW_COMM(g_world_comm);
   LOG_CALL(restoreComms, Comm_dup, MPI_COMM_WORLD, g_world_comm);
   initialize_drain_send_recv();
+  recordPostMpiInitMaps();
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
