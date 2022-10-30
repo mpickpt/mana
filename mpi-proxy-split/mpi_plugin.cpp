@@ -88,6 +88,8 @@ mana_state_t mana_state = UNKNOWN_STATE;
 
 ProcSelfMaps *preMpiInitMaps = nullptr;
 ProcSelfMaps *postMpiInitMaps = nullptr;
+map<void*, size_t> *mpiInitLhAreas = nullptr;
+
 // #define DEBUG
 
 #undef dmtcp_skip_memory_region_ckpting
@@ -99,16 +101,53 @@ void recordPreMpiInitMaps()
     delete preMpiInitMaps;
   }
 
+  if (mpiInitLhAreas) {
+    delete mpiInitLhAreas;
+  }
+
+  mpiInitLhAreas = new map<void*, size_t>();
+
   preMpiInitMaps = new ProcSelfMaps();
 }
 
 void recordPostMpiInitMaps()
 {
-  if (postMpiInitMaps != nullptr) {
-    delete postMpiInitMaps;
-  }
+  JASSERT(postMpiInitMaps == nullptr);
 
   postMpiInitMaps = new ProcSelfMaps();
+
+  ProcMapsArea area;
+
+  {
+    ostringstream o;
+
+    while (postMpiInitMaps->getNextArea(&area)) {
+      mpiInitLhAreas->insert(std::make_pair(area.addr, area.size));;
+    }
+
+    // Now remove those mappings that existed before Mpi_Init.
+    while (preMpiInitMaps->getNextArea(&area)) {
+      if (mpiInitLhAreas->find(area.addr) != mpiInitLhAreas->end()) {
+        JWARNING(mpiInitLhAreas->at(area.addr) == area.size)(area.addr)(area.size);
+        mpiInitLhAreas->erase(area.addr);
+      }
+    }
+  }
+
+  {
+    // For debugging only.
+    ProcSelfMaps maps;
+    ostringstream o;
+    while (maps.getNextArea(&area)) {
+      if (mpiInitLhAreas->find(area.addr) != mpiInitLhAreas->end()) {
+        o << std::hex << area.addr << "-" << area.endAddr;
+        if (area.name[0] != '\0') {
+          o << " " << area.name;
+        }
+        o << "\n";
+      }
+    }
+  }
 }
 
 void recordMpiInitMaps()
@@ -116,6 +155,45 @@ void recordMpiInitMaps()
   string workerPath("/worker/" + string(dmtcp_get_uniquepid_str()));
   kvdb::set(workerPath, "ProcSelfMaps_PreMpiInit", preMpiInitMaps->getData());
   kvdb::set(workerPath, "ProcSelfMaps_PostMpiInit", postMpiInitMaps->getData());
+
+  ProcMapsArea area;
+  ProcSelfMaps maps;
+  {
+    ostringstream o;
+    while (maps.getNextArea(&area)) {
+      if (mpiInitLhAreas->find(area.addr) != mpiInitLhAreas->end()) {
+        o << std::hex << area.addr << "-" << area.endAddr;
+        if (area.name[0] != '\0') {
+          o << "        " << area.name;
+        }
+        o << "\n";
+      }
+    }
+
+    kvdb::set(workerPath, "ProcSelfMaps_LhCoreRegionsMpiInit", o.str());
+  }
+
+  if (lh_info.numCoreRegions > 0) {
+    ostringstream o;
+    for (int i = 0; i < lh_info.numCoreRegions; i++) {
+      o << std::hex << lh_regions_list[i].start_addr << "-"
+        << lh_regions_list[i].start_addr << "\n";
+    }
+
+    kvdb::set(workerPath, "ProcSelfMaps_LhCoreRegions", o.str());
+  }
+
+  if (g_list) {
+    ostringstream o;
+    for (int i = 0; i < g_numMmaps; i++) {
+      void *lhMmapStart = g_list[i].addr;
+      void *lhMmapEnd = (VA)g_list[i].addr + g_list[i].len;
+      if (!g_list[i].unmapped) {
+        o << std::hex << lhMmapStart << "-" << lhMmapEnd << "\n";
+      }
+    }
+    kvdb::set(workerPath, "ProcSelfMaps_LhCoreRegionsGList", o.str());
+  }
 }
 
 void recordOpenFds()
@@ -225,7 +303,7 @@ dmtcp_skip_memory_region_ckpting(const ProcMapsArea *area)
     JTRACE("Ignoring region")(area->name)((void*)area->addr);
     return 1;
   }
-  if (!lh_regions_list) return 0;
+
   for (int i = 0; i < lh_info.numCoreRegions; i++) {
     void *lhStartAddr = lh_regions_list[i].start_addr;
     if (area->addr == lhStartAddr) {
@@ -233,6 +311,7 @@ dmtcp_skip_memory_region_ckpting(const ProcMapsArea *area)
       return 1;
     }
   }
+
   if (!g_list) return 0;
   for (int i = 0; i < g_numMmaps; i++) {
     void *lhMmapStart = g_list[i].addr;
@@ -251,6 +330,13 @@ dmtcp_skip_memory_region_ckpting(const ProcMapsArea *area)
            (lhMmapStart)(lhMmapEnd);
     }
   }
+
+  if (mpiInitLhAreas != NULL &&
+      mpiInitLhAreas->find(area->addr) != mpiInitLhAreas->end()) {
+    JTRACE("Ignoring MpiInit region")(area->name)((void*)area->addr);
+    return 1;
+  }
+
   return 0;
 }
 
