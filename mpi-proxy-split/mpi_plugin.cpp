@@ -112,7 +112,9 @@ void recordPreMpiInitMaps()
 
 void recordPostMpiInitMaps()
 {
-  JASSERT(postMpiInitMaps == nullptr);
+  if (postMpiInitMaps != nullptr) {
+    delete postMpiInitMaps;
+  }
 
   postMpiInitMaps = new ProcSelfMaps();
 
@@ -126,25 +128,11 @@ void recordPostMpiInitMaps()
     }
 
     // Now remove those mappings that existed before Mpi_Init.
+    JASSERT(preMpiInitMaps != nullptr);
     while (preMpiInitMaps->getNextArea(&area)) {
       if (mpiInitLhAreas->find(area.addr) != mpiInitLhAreas->end()) {
         JWARNING(mpiInitLhAreas->at(area.addr) == area.size)(area.addr)(area.size);
         mpiInitLhAreas->erase(area.addr);
-      }
-    }
-  }
-
-  {
-    // For debugging only.
-    ProcSelfMaps maps;
-    ostringstream o;
-    while (maps.getNextArea(&area)) {
-      if (mpiInitLhAreas->find(area.addr) != mpiInitLhAreas->end()) {
-        o << std::hex << area.addr << "-" << area.endAddr;
-        if (area.name[0] != '\0') {
-          o << " " << area.name;
-        }
-        o << "\n";
       }
     }
   }
