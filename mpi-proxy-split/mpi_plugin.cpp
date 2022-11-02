@@ -150,7 +150,7 @@ void recordMpiInitMaps()
     ostringstream o;
     while (maps.getNextArea(&area)) {
       if (mpiInitLhAreas->find(area.addr) != mpiInitLhAreas->end()) {
-        o << std::hex << area.addr << "-" << area.endAddr;
+        o << std::hex << (uint64_t) area.addr << "-" << (uint64_t) area.endAddr;
         if (area.name[0] != '\0') {
           o << "        " << area.name;
         }
@@ -164,8 +164,8 @@ void recordMpiInitMaps()
   if (lh_info.numCoreRegions > 0) {
     ostringstream o;
     for (int i = 0; i < lh_info.numCoreRegions; i++) {
-      o << std::hex << lh_regions_list[i].start_addr << "-"
-        << lh_regions_list[i].start_addr << "\n";
+      o << std::hex << (uint64_t) lh_regions_list[i].start_addr << "-"
+        << (uint64_t) lh_regions_list[i].start_addr << "\n";
     }
 
     kvdb::set(workerPath, "ProcSelfMaps_LhCoreRegions", o.str());
@@ -177,7 +177,7 @@ void recordMpiInitMaps()
       void *lhMmapStart = g_list[i].addr;
       void *lhMmapEnd = (VA)g_list[i].addr + g_list[i].len;
       if (!g_list[i].unmapped) {
-        o << std::hex << lhMmapStart << "-" << lhMmapEnd << "\n";
+        o << std::hex << (uint64_t) lhMmapStart << "-" << (uint64_t) lhMmapEnd << "\n";
       }
     }
     kvdb::set(workerPath, "ProcSelfMaps_LhCoreRegionsGList", o.str());
