@@ -95,6 +95,15 @@ map<void*, size_t> *mpiInitLhAreas = nullptr;
 #undef dmtcp_skip_memory_region_ckpting
 const VA HIGH_ADDR_START = (VA)0x7fff00000000;
 
+static inline int
+regionContains(const void *haystackStart,
+               const void *haystackEnd,
+               const void *needleStart,
+               const void *needleEnd)
+{
+  return needleStart >= haystackStart && needleEnd <= haystackEnd;
+}
+
 void recordPreMpiInitMaps()
 {
   if (preMpiInitMaps != nullptr) {
@@ -122,9 +131,12 @@ void recordPostMpiInitMaps()
 
   {
     ostringstream o;
+    const void *procSelfMapsData = postMpiInitMaps->getData();
 
     while (postMpiInitMaps->getNextArea(&area)) {
-      mpiInitLhAreas->insert(std::make_pair(area.addr, area.size));;
+      if (!regionContains(area.addr, area.endAddr, procSelfMapsData, procSelfMapsData)) {
+        mpiInitLhAreas->insert(std::make_pair(area.addr, area.size));;
+      }
     }
 
     // Now remove those mappings that existed before Mpi_Init.
@@ -133,6 +145,15 @@ void recordPostMpiInitMaps()
       if (mpiInitLhAreas->find(area.addr) != mpiInitLhAreas->end()) {
         JWARNING(mpiInitLhAreas->at(area.addr) == area.size)(area.addr)(area.size);
         mpiInitLhAreas->erase(area.addr);
+      } else {
+        // Check if a region has the same end addr. E.g., thread stack grew.
+        for (auto it : *mpiInitLhAreas) {
+          void *endAddr = (char*) it.first + it.second;
+          if (endAddr == area.endAddr) {
+            mpiInitLhAreas->erase(area.addr);
+            break;
+          }
+        }
       }
     }
   }
@@ -266,15 +287,6 @@ closeCkptFileFds()
   ckpt_fds.clear();
 
   processingOpenCkpFileFds = false;
-}
-
-static inline int
-regionContains(const void *haystackStart,
-               const void *haystackEnd,
-               const void *needleStart,
-               const void *needleEnd)
-{
-  return needleStart >= haystackStart && needleEnd <= haystackEnd;
 }
 
 EXTERNC int
