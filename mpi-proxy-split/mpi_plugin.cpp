@@ -88,16 +88,37 @@ mana_state_t mana_state = UNKNOWN_STATE;
 
 ProcSelfMaps *preMpiInitMaps = nullptr;
 ProcSelfMaps *postMpiInitMaps = nullptr;
+map<void*, size_t> *mpiInitLhAreas = nullptr;
+void *heapAddr = NULL;
+
 // #define DEBUG
 
 #undef dmtcp_skip_memory_region_ckpting
 const VA HIGH_ADDR_START = (VA)0x7fff00000000;
 
+static bool isLhDevice(const ProcMapsArea *area);
+static bool isLhCoreRegion(const ProcMapsArea *area);
+static bool isLhMmapRegion(const ProcMapsArea *area);
+static bool isLhMpiInitRegion(const ProcMapsArea *area);
+static bool isLhRegion(const ProcMapsArea *area);
+
+// Check if haystack region contains needle region.
+static inline int
+regionContains(const void *haystackStart,
+               const void *haystackEnd,
+               const void *needleStart,
+               const void *needleEnd)
+{
+  return needleStart >= haystackStart && needleEnd <= haystackEnd;
+}
+
 void recordPreMpiInitMaps()
 {
   if (preMpiInitMaps != nullptr) {
-    delete preMpiInitMaps;
+    return;
   }
+
+  mpiInitLhAreas = new map<void*, size_t>();
 
   preMpiInitMaps = new ProcSelfMaps();
 }
@@ -105,17 +126,88 @@ void recordPreMpiInitMaps()
 void recordPostMpiInitMaps()
 {
   if (postMpiInitMaps != nullptr) {
-    delete postMpiInitMaps;
+    return;
   }
 
   postMpiInitMaps = new ProcSelfMaps();
+
+  ProcMapsArea area;
+
+  {
+    ostringstream o;
+    const void *procSelfMapsData = postMpiInitMaps->getData();
+
+    while (postMpiInitMaps->getNextArea(&area)) {
+      if (!regionContains(area.addr, area.endAddr, procSelfMapsData, procSelfMapsData)) {
+        mpiInitLhAreas->insert(std::make_pair(area.addr, area.size));;
+      }
+    }
+
+    // Now remove those mappings that existed before Mpi_Init.
+    JASSERT(preMpiInitMaps != nullptr);
+    while (preMpiInitMaps->getNextArea(&area)) {
+      if (mpiInitLhAreas->find(area.addr) != mpiInitLhAreas->end()) {
+        JWARNING(mpiInitLhAreas->at(area.addr) == area.size)(area.addr)(area.size);
+        mpiInitLhAreas->erase(area.addr);
+      } else {
+        // Check if a region has the same end addr. E.g., thread stack grew.
+        for (auto it : *mpiInitLhAreas) {
+          void *endAddr = (char*) it.first + it.second;
+          if (endAddr == area.endAddr) {
+            mpiInitLhAreas->erase(area.addr);
+            break;
+          }
+        }
+      }
+    }
+  }
 }
 
 void recordMpiInitMaps()
 {
   string workerPath("/worker/" + string(dmtcp_get_uniquepid_str()));
-  kvdb::set(workerPath, "ProcSelfMaps_PreMpiInit", preMpiInitMaps->getData());
-  kvdb::set(workerPath, "ProcSelfMaps_PostMpiInit", postMpiInitMaps->getData());
+  //kvdb::set(workerPath, "ProcSelfMaps_PreMpiInit", preMpiInitMaps->getData());
+  //kvdb::set(workerPath, "ProcSelfMaps_PostMpiInit", postMpiInitMaps->getData());
+
+  ProcMapsArea area;
+  ProcSelfMaps maps;
+  if (mpiInitLhAreas->size() > 0)
+  {
+    ostringstream o;
+    while (maps.getNextArea(&area)) {
+      if (mpiInitLhAreas->find(area.addr) != mpiInitLhAreas->end()) {
+        o << std::hex << (uint64_t) area.addr << "-" << (uint64_t) area.endAddr;
+        if (area.name[0] != '\0') {
+          o << "        " << area.name;
+        }
+        o << "\n";
+      }
+    }
+
+    kvdb::set(workerPath, "ProcSelfMaps_LhCoreRegionsMpiInit", o.str());
+  }
+
+  if (lh_info.numCoreRegions > 0) {
+    ostringstream o;
+    for (int i = 0; i < lh_info.numCoreRegions; i++) {
+      o << std::hex << (uint64_t) lh_regions_list[i].start_addr << "-"
+        << (uint64_t) lh_regions_list[i].start_addr << "\n";
+    }
+
+    kvdb::set(workerPath, "ProcSelfMaps_LhCoreRegions", o.str());
+  }
+
+  if (g_list) {
+    ostringstream o;
+    for (int i = 0; i < g_numMmaps; i++) {
+      void *lhMmapStart = g_list[i].addr;
+      void *lhMmapEnd = (VA)g_list[i].addr + g_list[i].len;
+      if (!g_list[i].unmapped) {
+        o << std::hex << (uint64_t) lhMmapStart << "-" << (uint64_t) lhMmapEnd << "\n";
+      }
+    }
+    kvdb::set(workerPath, "ProcSelfMaps_LhCoreRegionsGList", o.str());
+  }
 }
 
 void recordOpenFds()
@@ -202,30 +294,26 @@ closeCkptFileFds()
   processingOpenCkpFileFds = false;
 }
 
-static inline int
-regionContains(const void *haystackStart,
-               const void *haystackEnd,
-               const void *needleStart,
-               const void *needleEnd)
-{
-  return needleStart >= haystackStart && needleEnd <= haystackEnd;
-}
-
-EXTERNC int
-dmtcp_skip_memory_region_ckpting(const ProcMapsArea *area)
+static bool
+isLhDevice(const ProcMapsArea *area)
 {
   if (strstr(area->name, "/dev/zero") ||
       strstr(area->name, "/dev/kgni") ||
       /* DMTCP SysVIPC plugin should be able to C/R this correctly */
-//      strstr(area->name, "/SYSV") ||
+      // strstr(area->name, "/SYSV") ||
       strstr(area->name, "/dev/xpmem") ||
       // strstr(area->name, "xpmem") ||
       // strstr(area->name, "hugetlbfs") ||
       strstr(area->name, "/dev/shm")) {
-    JTRACE("Ignoring region")(area->name)((void*)area->addr);
-    return 1;
+    return true;
   }
-  if (!lh_regions_list) return 0;
+
+  return false;
+}
+
+static bool
+isLhCoreRegion(const ProcMapsArea *area)
+{
   for (int i = 0; i < lh_info.numCoreRegions; i++) {
     void *lhStartAddr = lh_regions_list[i].start_addr;
     if (area->addr == lhStartAddr) {
@@ -233,24 +321,76 @@ dmtcp_skip_memory_region_ckpting(const ProcMapsArea *area)
       return 1;
     }
   }
-  if (!g_list) return 0;
+  return false;
+}
+
+static bool
+isLhMmapRegion(const ProcMapsArea *area)
+{
+  if (!g_list) {
+    return false;
+  }
+
   for (int i = 0; i < g_numMmaps; i++) {
     void *lhMmapStart = g_list[i].addr;
     void *lhMmapEnd = (VA)g_list[i].addr + g_list[i].len;
     if (!g_list[i].unmapped &&
-        regionContains(lhMmapStart, lhMmapEnd, area->addr, area->endAddr)) {
-      JTRACE("Ignoring region")
-           (area->name)((void*)area->addr)(area->size)
-           (lhMmapStart)(lhMmapEnd);
-      return 1;
-    } else if (!g_list[i].unmapped &&
-               regionContains(area->addr, area->endAddr,
-                              lhMmapStart, lhMmapEnd)) {
-      JTRACE("Unhandled case")
-           (area->name)((void*)area->addr)(area->size)
-           (lhMmapStart)(lhMmapEnd);
+        regionContains(lhMmapStart, (void*) ROUND_UP(lhMmapEnd), area->addr, area->endAddr)) {
+      return true;
     }
   }
+
+  return false;
+}
+
+static bool
+isLhMpiInitRegion(const ProcMapsArea *area)
+{
+  if (mpiInitLhAreas != NULL &&
+      mpiInitLhAreas->find(area->addr) != mpiInitLhAreas->end()) {
+    JTRACE("Ignoring MpiInit region")(area->name)((void*)area->addr);
+    return true;
+  }
+
+  return false;
+}
+
+static bool
+isLhRegion(const ProcMapsArea *area)
+{
+  if (isLhDevice(area) ||
+      isLhCoreRegion(area) ||
+      isLhMmapRegion(area) ||
+      isLhMpiInitRegion(area)) {
+    return true;
+  }
+  return false;
+}
+
+EXTERNC int
+dmtcp_skip_memory_region_ckpting(const ProcMapsArea *area)
+{
+  if (isLhDevice(area)) {
+    JTRACE("Ignoring region")(area->name)((void*)area->addr);
+    return 1;
+  }
+
+  if (isLhCoreRegion(area)) {
+    JTRACE ("Ignoring LH core region") ((void*)area->addr);
+    return 1;
+  }
+
+  if (isLhMmapRegion(area)) {
+    JTRACE("Ignoring LH mmap region")
+    (area->name)((void *)area->addr)(area->size);
+    return 1;
+  }
+
+  if (isLhMpiInitRegion(area)) {
+    JTRACE("Ignoring MpiInit region")(area->name)((void*)area->addr);
+    return 1;
+  }
+
   return 0;
 }
 
@@ -454,6 +594,8 @@ computeUnionOfCkptImageAddresses()
   void *maxLibsEnd = NULL;
   void *highMemStart = NULL;
   void *minHighMemStart = NULL;
+  void *minAddrBeyondHeap = NULL;
+  void *maxAddrBeyondHeap = NULL;
 
   // We discover the last address that the kernel had mapped:
   // ASSUMPTIONS:  Target app is not using mmap
@@ -466,7 +608,7 @@ computeUnionOfCkptImageAddresses()
 
   // Preprocess memory regions as needed.
   while (procSelfMaps.getNextArea(&area)) {
-    if (Util::strEndsWith(area.name, ".so")) {
+    if (strstr(area.name, ".so") != NULL) {
       if (libsStart > area.addr) {
         libsStart = area.addr;
       }
@@ -478,19 +620,43 @@ computeUnionOfCkptImageAddresses()
     if (highMemStart == NULL && area.addr > HIGH_ADDR_START) {
       highMemStart = area.addr;
     }
+
+    if (heapAddr == NULL && strcmp(area.name, "[heap]") == 0) {
+      heapAddr = area.addr;
+    }
+
+    if (heapAddr != NULL && area.addr > heapAddr && !isLhRegion(&area)) {
+      if (minAddrBeyondHeap == nullptr) {
+        minAddrBeyondHeap = area.addr;
+      }
+
+      if (strcmp(area.name, "[vsyscall]") != NULL) {
+        maxAddrBeyondHeap = area.endAddr;
+      }
+    }
   }
 
   // Adjust libsStart to make 4GB space.
+  void *origLibsStart = libsStart;
+  libsStart = MIN(libsStart, minAddrBeyondHeap);
   libsStart = (void *)((uint64_t)libsStart - 4 * ONEGB);
 
   string workerPath("/worker/" + string(dmtcp_get_uniquepid_str()));
+  string origLibsStartStr = jalib::XToString(origLibsStart);
+  string heapAddrStr = jalib::XToString(heapAddr);
   string libsStartStr = jalib::XToString(libsStart);
   string libsEndStr = jalib::XToString(libsEnd);
+  string minAddrBeyondHeapStr = jalib::XToString(minAddrBeyondHeap);
+  string maxAddrBeyondHeapStr = jalib::XToString(maxAddrBeyondHeap);
   string highMemStartStr = jalib::XToString(highMemStart);
 
+  kvdb::set(workerPath, "MANA_heapAddr", heapAddrStr);
+  kvdb::set(workerPath, "MANA_libsStart_Orig", origLibsStartStr);
   kvdb::set(workerPath, "MANA_libsStart", libsStartStr);
   kvdb::set(workerPath, "MANA_libsEnd", libsEndStr);
   kvdb::set(workerPath, "MANA_highMemStart", highMemStartStr);
+  kvdb::set(workerPath, "MANA_minAddrBeyondHeap", minAddrBeyondHeapStr);
+  kvdb::set(workerPath, "MANA_maxAddrBeyondHeap", maxAddrBeyondHeapStr);
 
   constexpr const char *kvdb = "/plugin/MANA/CKPT_UNION";
   JASSERT(kvdb::request64(KVDBRequest::MIN, kvdb, "libsStart",
@@ -823,6 +989,11 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 
     case DMTCP_EVENT_RESTART: {
       closeCkptFileFds();
+      mpiInitLhAreas->clear();
+
+      g_upper_half_fsbase->clear();
+      g_upper_half_fsbase->insert(std::make_pair(dmtcp_get_real_tid(), getFS()));
+
       dmtcp_local_barrier("MPI:updateEnviron");
       updateLhEnviron(); // mpi-plugin.cpp
       dmtcp_local_barrier("MPI:Reset-Drain-Send-Recv-Counters");
@@ -846,6 +1017,14 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       mana_state = RUNNING;
       break;
     }
+
+    case DMTCP_EVENT_THREAD_RESUME: {
+      DmtcpMutexLock(&g_upper_half_fsbase_lock);
+      g_upper_half_fsbase->insert(std::make_pair(dmtcp_get_real_tid(), getFS()));
+      DmtcpMutexUnlock(&g_upper_half_fsbase_lock);
+      break;
+    }
+
     default: {
       break;
     }

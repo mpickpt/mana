@@ -221,7 +221,7 @@ __mmap64 (void *addr, size_t len, int prot, int flags, int fd, __off_t offset)
   if (ret != MAP_FAILED) {
     int idx = getMmapIdx(ret);
     if (idx != -1) {
-      mmaps[idx].len = len;
+      mmaps[idx].len = ROUND_UP(len);
       mmaps[idx].unmapped = 0;
     } else {
       int idx2 = extendExistingMmap(ret);
@@ -232,7 +232,7 @@ __mmap64 (void *addr, size_t len, int prot, int flags, int fd, __off_t offset)
         idx = idx2;
       } else {
         mmaps[numRegions].addr = ret;
-        mmaps[numRegions].len = len;
+        mmaps[numRegions].len = ROUND_UP(len);
         mmaps[numRegions].unmapped = 0;
         idx = numRegions;
         numRegions = (numRegions + 1) % MAX_TRACK;
