@@ -89,7 +89,7 @@ mana_state_t mana_state = UNKNOWN_STATE;
 ProcSelfMaps *preMpiInitMaps = nullptr;
 ProcSelfMaps *postMpiInitMaps = nullptr;
 map<void*, size_t> *mpiInitLhAreas = nullptr;
-void *heapAddr = NULL;
+void *heapAddr = nullptr;
 
 // #define DEBUG
 
@@ -639,11 +639,7 @@ computeUnionOfCkptImageAddresses()
       highMemStart = area.addr;
     }
 
-    if (heapAddr == NULL && strcmp(area.name, "[heap]") == 0) {
-      heapAddr = area.addr;
-    }
-
-    if (heapAddr != NULL && area.addr > heapAddr && !isLhRegion(&area)) {
+    if (area.addr > heapAddr && !isLhRegion(&area)) {
       if (minAddrBeyondHeap == nullptr) {
         minAddrBeyondHeap = area.addr;
       }
@@ -927,6 +923,9 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       if (CheckAndEnableFsGsBase()) {
         JTRACE("FSGSBASE enabled");
       }
+
+      heapAddr = sbrk(0);
+      JASSERT(heapAddr != nullptr);
 
       break;
     }
