@@ -492,10 +492,15 @@ sigaction(int signum, const struct sigaction *act, struct sigaction *oldAct)
 
   if (act != NULL) {
     struct sigaction newAct = *act;
+
     if (newAct.sa_flags & SA_SIGINFO) {
       newAct.sa_sigaction = mana_signal_sa_sigaction_wrapper;
       ret = NEXT_FNC(sigaction)(signum, &newAct, oldAct);
     } else {
+      if (newAct.sa_handler == SIG_IGN || newAct.sa_handler == SIG_DFL) {
+        return NEXT_FNC(sigaction)(signum, act, oldAct);
+      }
+
       newAct.sa_handler = mana_signal_sa_handler_wrapper;
       ret = NEXT_FNC(sigaction)(signum, &newAct, oldAct);
     }
