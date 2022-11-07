@@ -230,7 +230,10 @@ void recordOpenFds()
 static void
 processFileOpen(const char *path, int flags)
 {
-  if (file_regex == NULL || processingOpenCkpFileFds) {
+  if (file_regex == NULL ||
+      processingOpenCkpFileFds ||
+      Util::strStartsWith(path, "/proc") ||
+      Util::strStartsWith(path, "/sys")) {
     return;
   }
 
@@ -264,7 +267,7 @@ openCkptFileFds()
       JWARNING(fd != -1)(path)(flags)(JASSERT_ERRNO);
 
       if (fd != -1) {
-        o << path << ":" << flags << "\n";
+        o << path << ";size:" << statbuf.st_size << ";flags:" << std::oct << flags << std::dec << "\n";
         ckpt_fds.push_back(fd);
       }
     } else {
@@ -290,8 +293,23 @@ closeCkptFileFds()
   }
 
   ckpt_fds.clear();
+}
 
-  processingOpenCkpFileFds = false;
+static void
+logCkptFileFds()
+{
+  ostringstream o;
+  struct stat statbuf;
+  string workerPath("/worker/" + string(dmtcp_get_uniquepid_str()));
+
+  for (int fd : ckpt_fds) {
+    JASSERT(fstat(fd, &statbuf) == 0);
+    o << jalib::Filesystem::GetDeviceName(fd) << ";size:" << statbuf.st_size << "\n";
+  }
+
+  if (ckpt_fds.size() > 0) {
+    kvdb::set(workerPath, "Ckpt_Files_Restart", o.str());
+  }
 }
 
 static bool
@@ -945,13 +963,13 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       // preSuspendBarrier() will send coord response and get worker state.
       // FIXME:  See commant at: dmtcpplugin.cpp:'case DMTCP_EVENT_PRESUSPEND'
       drain_mpi_collective();
+      openCkptFileFds();
       break;
     }
 
     case DMTCP_EVENT_PRECHECKPOINT: {
       recordMpiInitMaps();
       recordOpenFds();
-      openCkptFileFds();
       dmtcp_local_barrier("MPI:GetLocalLhMmapList");
       getLhMmapList();
       dmtcp_local_barrier("MPI:GetLocalRankInfo");
@@ -978,7 +996,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     }
 
     case DMTCP_EVENT_RESUME: {
-      closeCkptFileFds();
+      processingOpenCkpFileFds = false;
       dmtcp_local_barrier("MPI:Reset-Drain-Send-Recv-Counters");
       resetDrainCounters(); // p2p_drain_send_recv.cpp
       seq_num_reset(RESUME);
@@ -988,7 +1006,9 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     }
 
     case DMTCP_EVENT_RESTART: {
-      closeCkptFileFds();
+      processingOpenCkpFileFds = false;
+      logCkptFileFds();
+
       mpiInitLhAreas->clear();
 
       g_upper_half_fsbase->clear();
@@ -1015,6 +1035,11 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       restore_mpi_files(file);
       dmtcp_local_barrier("MPI:Restore-MPI-Files");
       mana_state = RUNNING;
+      break;
+    }
+
+    case DMTCP_EVENT_RUNNING: {
+      closeCkptFileFds();
       break;
     }
 
