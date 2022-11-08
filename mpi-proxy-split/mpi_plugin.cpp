@@ -644,7 +644,14 @@ computeUnionOfCkptImageAddresses()
       highMemStart = area.addr;
     }
 
-    if (area.addr > heapAddr && !isLhRegion(&area)) {
+    if (area.addr > heapAddr &&
+        !isLhRegion(&area) &&
+        // /anon_hugepage regions are in the range 0x10000000000. We don't know
+        // for sure where these regions are  coming from. For now, we don't want
+        // to include them in libs-start addr calculations because libs are in
+        // the addr range 0x155000000000 and we can't possibly resserve huge
+        // memory chunks including both.
+        !strstr(area.name, "/anon_hugepage")) {
       if (minAddrBeyondHeap == nullptr) {
         minAddrBeyondHeap = area.addr;
       }
