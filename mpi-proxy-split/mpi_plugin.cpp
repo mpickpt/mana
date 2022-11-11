@@ -631,7 +631,9 @@ computeUnionOfCkptImageAddresses()
 
   // Preprocess memory regions as needed.
   while (procSelfMaps.getNextArea(&area)) {
-    if (strstr(area.name, ".so") != NULL) {
+    if (Util::strEndsWith(area.name, ".so") ||
+        ((strstr(area.name, ".so.") != NULL) &&
+          !Util::strStartsWith(area.name, "/var/lib"))) {
       if (libsStart > area.addr) {
         libsStart = area.addr;
       }
@@ -664,8 +666,14 @@ computeUnionOfCkptImageAddresses()
 
   // Adjust libsStart to make 4GB space.
   void *origLibsStart = libsStart;
-  libsStart = MIN(libsStart, minAddrBeyondHeap);
-  libsStart = (void *)((uint64_t)libsStart - 4 * ONEGB);
+  if (minAddrBeyondHeap != nullptr) {
+    libsStart = MIN(libsStart, minAddrBeyondHeap);
+  }
+
+  // Avoid making libsStart negative.
+  if ((int64_t) libsStart > 4 * ONEGB) {
+    libsStart = (void *)((uint64_t)libsStart - 4 * ONEGB);
+  }
 
   string workerPath("/worker/" + string(dmtcp_get_uniquepid_str()));
   string origLibsStartStr = jalib::XToString(origLibsStart);
