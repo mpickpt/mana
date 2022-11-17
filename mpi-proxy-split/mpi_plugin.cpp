@@ -71,6 +71,7 @@ extern ManaHeader g_mana_header;
 extern std::unordered_map<MPI_File, OpenFileParameters> g_params_map;
 
 constexpr const char *MANA_FILE_REGEX_ENV = "MANA_FILE_REGEX";
+constexpr const char *MANA_SEGV_DEBUG_LOOP = "MANA_SEGV_DEBUG_LOOP";
 static std::regex *file_regex = NULL;
 static map<string, int> *g_file_flags_map = NULL;
 static vector<int> ckpt_fds;
@@ -563,6 +564,11 @@ segvfault_handler(int signum, siginfo_t *siginfo, void *context)
 void
 initialize_segv_handler()
 {
+  const char* segvLoop = getenv(MANA_SEGV_DEBUG_LOOP);
+  if (!segvLoop || segvLoop[0] != '1') {
+    return;
+  }
+
   static struct sigaction action;
   memset(&action, 0, sizeof(action));
   action.sa_flags = SA_SIGINFO;
