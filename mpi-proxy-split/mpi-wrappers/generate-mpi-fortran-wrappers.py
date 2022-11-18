@@ -158,7 +158,9 @@ def emit_wrapper(decl, ret_type, fnc, args, arg_vars):
           warnings.warn("'int* index' found in {fnc} - likely to cause erroneous behavior".format(fnc=fnc))
         # We need this line because Fortran arrays start from 1, and *index
         # refers to the index of the first request that completes in an array.
-        print("  *local_index = *local_index + 1;")
+        print("  if (*ierr == MPI_SUCCESS && *local_index != MPI_UNDEFINED) {")
+        print("    *local_index = *local_index + 1;")
+        print("  }")
       print("  return *ierr;")
   print("}")
   # print(ret_type + " " + fnc.lower() + "_ (" + args + ") __attribute__ ((weak, alias (\"" + fnc + "\")));")
