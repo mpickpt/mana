@@ -29,6 +29,8 @@
 #include "cartesian.h"
 #endif
 
+#include <cxxabi.h>  /* For backtrace() */
+#include <execinfo.h>  /* For backtrace() */
 #include <fcntl.h>
 
 #include <signal.h>
@@ -436,6 +438,39 @@ dmtcp_skip_memory_region_ckpting(const ProcMapsArea *area)
   return NEXT_FNC(dmtcp_skip_truncate_file_at_restart)(path);
 }
 
+// TODO(kapil): Replace with Jassert::PrintBackrace.
+string GetBacktrace()
+{
+  ostringstream ss;
+  void *buffer[BT_SIZE];
+  int nptrs = backtrace(buffer, BT_SIZE);
+
+  ss << "Backtrace:\n";
+  char buf[1024];
+
+  for (int i = 1; i < nptrs; i++) {
+    Dl_info info;
+    ss << "   " << i << ' ' ;
+    if (dladdr1(buffer[i], &info, NULL, 0)) {
+      int status;
+      size_t buflen = sizeof(buf);
+      buf[0] = '\0';
+      if (info.dli_sname) {
+        char *demangled =
+          abi::__cxa_demangle(info.dli_sname, buf, &buflen, &status);
+        if (status != 0) {
+          strncpy(buf, info.dli_sname, sizeof(buf) - 1);
+        }
+      }
+
+      ss << (buf[0] ? buf : "") << " in " << info.dli_fname << " ";
+    }
+    ss << jalib::XToHexString(buffer[i]) << "\n";
+  }
+
+  return ss.str();
+}
+
 constexpr int MaxSignals = 64;
 static struct sigaction userSignalHandlers[MaxSignals] = {0};
 
@@ -472,6 +507,11 @@ mana_signal_sa_sigaction_wrapper(int signum, siginfo_t *siginfo, void *context)
   if (fsbase != uh_fsbase) {
     // We are in lower-half; switch to upper half.
     setFS(uh_fsbase);
+  }
+
+  if (signum == SIGTERM) {
+    JNOTE("SIGTERM received. Exiting.")(GetBacktrace());
+    exit(1);
   }
 
   userSignalHandlers[signum].sa_sigaction(signum, siginfo, context);
