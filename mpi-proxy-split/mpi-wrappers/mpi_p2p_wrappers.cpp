@@ -178,7 +178,31 @@ USER_DEFINED_WRAPPER(int, Irecv,
       isBufferedPacket(source, tag, comm, &flag, &status)) {
     consumeBufferedPacket(buf, count, datatype, source, tag, comm,
                           &status, size);
-    *request = MPI_REQUEST_NULL;
+    // Use (MPI_REQUEST_NULL+1) as a fake non-null real request to create
+    // a new non-null virtual request and map the virtual request to the
+    // real request MPI_REQUEST_NULL.
+    // A bug can occur in the following situation:
+    // MPI_Irecv(..., &request, ...);
+    // array_of_requests[0] = &request;
+    // # ckpt-request or ckpt-resume occurs here
+    // MPI_Waitany(1, array_of_requests, index, ...);
+    // The bug occurs when MANA drains the network of messages during ckpt.
+    // MANA calls MPI_Wait to receive the network MPI message, and MPI_Wait
+    // then sets the corresponding request to MPI_REQUEST_NULL.
+    // But the application doesn't know that MANA "stole" the message.
+    // The application is calling MPI_Waitany for the first time,
+    // and then crashes when it gets an invalid index set to MPI_UNDEFINED.
+    // And same occurs for MPI_Waitsome, with outcount set to MPI_UNDEFINED.
+    // And the same issue occurs for MPI_Testany and MPI_Testsome.
+    // FIXME:  We should do in some include file:
+    // MPI_REQUEST_FAKE_NULL is needed by the MPI_Waitany wrapper.
+    //   #define MPI_REQUEST_FAKE_NULL MPI_REQUEST_NULL + 1
+    // FIXME:  In the wrappers for MPI_Waitany/Waitsome/Testany/Testsome
+    //    We should add a comment that MPI_REQUEST_FAKE_NULL can occr,
+    //    and that the details are in the comments for the MPI_Irecv wrapper.
+    MPI_Request virtRequest = ADD_NEW_REQUEST(MPI_REQUEST_NULL+1);
+    UPDATE_REQUEST_MAP(virtRequest, MPI_REQUEST_NULL);
+    *request = virtRequest;
     retval = MPI_SUCCESS;
     DMTCP_PLUGIN_ENABLE_CKPT();
     return retval;
