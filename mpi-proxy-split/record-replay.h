@@ -383,16 +383,17 @@ namespace dmtcp_mpi
         MpiRecord *rec = new MpiRecord(cb, type, (void*)fPtr);
         if (rec) {
           rec->addArgs(args...);
-          MPI_Request req = MPI_REQUEST_NULL;
 	  // All collective calls are translated in MANA to the async calls Ibarrier/Ireduce/Ibcast.
 	  // If MANA uses other async calls, we need other cases.
 	  switch (type) {
             case GENERATE_ENUM(Ibarrier):
-              req = rec->args(1);
+              MPI_Request req = rec->args(1);
+	      if (req != MPI_REQUEST_NULL)
+	        _recordsMap[req] = 0;
 	      break;
 	    case GENERATE_ENUM(Ireduce):
 	    {
-              req = rec->args(7);
+              MPI_Request req = rec->args(7);
 	      MPI_Comm comm = rec->args(6);
 	      int rank;
 	      MPI_Comm_rank(comm, &rank);
@@ -409,11 +410,13 @@ namespace dmtcp_mpi
 	        memcpy(newbuf, sendbuf, count * size);
 	        rec->setBuf(newbuf);
 	      }
+	      if (req != MPI_REQUEST_NULL)
+	        _recordsMap[req] = 0;
 	      break;
 	    }
 	    case GENERATE_ENUM(Ibcast):
 	    {
-	      req = rec->args(5);
+	      MPI_Request req = rec->args(5);
 	      MPI_Comm comm = rec->args(4);
 	      int rank;
 	      MPI_Comm_rank(comm, &rank);
@@ -428,15 +431,14 @@ namespace dmtcp_mpi
 		memcpy(newbuf, buf, count * size);
 		rec->setBuf(newbuf);
               }
+	      if (req != MPI_REQUEST_NULL)
+	        _recordsMap[req] = 0;
 	      break;
 	    }
 	    default: break;
           }
 	  {
             lock_t lock(_mutex);
-	    if (req != MPI_REQUEST_NULL) {
-	      _recordsMap[req] = 0;
-	    }
             _records.push_back(rec);
 	  }
         }
