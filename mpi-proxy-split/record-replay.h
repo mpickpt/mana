@@ -387,10 +387,12 @@ namespace dmtcp_mpi
 	  // If MANA uses other async calls, we need other cases.
 	  switch (type) {
             case GENERATE_ENUM(Ibarrier):
+            {
               MPI_Request req = rec->args(1);
 	      if (req != MPI_REQUEST_NULL)
 	        _recordsMap[req] = 0;
 	      break;
+	    }
 	    case GENERATE_ENUM(Ireduce):
 	    {
               MPI_Request req = rec->args(7);
@@ -435,6 +437,24 @@ namespace dmtcp_mpi
 	        _recordsMap[req] = 0;
 	      break;
 	    }
+	    case GENERATE_ENUM(Type_hvector):
+	    {
+              MPI_Datatype newtype = rec->args(4);
+	      MPI_Datatype oldtype = rec->args(3);
+	      datatype_create(newtype);
+	      datatype_incRef(1, &oldtype);
+	      break;
+            }
+	    case GENERATE_ENUM(Type_commit):
+	      // No need to increase ref count so Type_free can
+	      // free the MPI_Type_ records that creates the new type
+	      break;
+	    case GENERATE_ENUM(Type_free):
+	    {
+              MPI_Datatype type = rec->args(0);
+	      datatype_free(type);
+	      break;
+            }
 	    default: break;
           }
 	  {
@@ -695,9 +715,112 @@ namespace dmtcp_mpi
       {
       }
 
+      void datatype_create(MPI_Datatype datatype)
+      {
+        _datatypeMap[datatype] = 1;
+      }
+
+      void datatype_incRef(int count, MPI_Datatype *datatypes)
+      {
+        MPI_Datatype type;
+        lock_t lock(_mutex);
+	if (count == 1) {
+	  type = *datatypes;
+	  if (_datatypeMap.find(type) != _datatypeMap.end()) {
+            _datatypeMap[type]++;
+	  }
+	} else {
+	  for (int i = 0; i < count; i++) {
+            type = datatypes[i];
+	    if (_datatypeMap.find(type) != _datatypeMap.end()) {
+	      _datatypeMap[type]++;
+	    }
+	  }
+	}
+      }
+
+      int datatype_decRef(MPI_Datatype datatype) {
+        return --_datatypeMap[datatype];
+      }
+
+      void datatype_get_stale_types(MPI_Datatype type,
+	     dmtcp::set<MPI_Datatype> &staleTypes)
+      {
+	std::function<bool(const MpiRecord*)> isStaleType =
+	  [this, type, &staleTypes](const MpiRecord *rec) {
+            switch (rec->getType()) {
+              case GENERATE_ENUM(Type_hvector):
+	      {
+		MPI_Datatype newtype = rec->args(4);
+		if (newtype == type) {
+		  if (this->datatype_decRef(type) == 0) {
+		    MPI_Datatype oldtype = rec->args(3);
+		    // The oldtype could be stale if its ref count drops to zero
+		    datatype_get_stale_types(oldtype, staleTypes);
+		  }
+		  return true;
+		} else {
+		  return false;
+		}
+	      }
+	      case GENERATE_ENUM(Type_commit):
+	      {
+	        // Skip commit because the stale type is collected by
+		// the creator of the type
+		return false;
+              }
+	      default:
+	        return false;
+	    }
+	};
+
+        for (MpiRecord* rec : _records) {
+	  if (isStaleType(rec)) {
+            staleTypes.insert(type);
+	  }
+	}
+      }
+
+      void datatype_free(MPI_Datatype datatype)
+      {
+	dmtcp::set<MPI_Datatype> staleTypes;
+        lock_t lock(_mutex);
+	datatype_get_stale_types(datatype, staleTypes);
+	std::function<bool(const MpiRecord*)> isEqualType =
+	  [&staleTypes](const MpiRecord *rec) {
+            switch (rec->getType()) {
+              case GENERATE_ENUM(Type_hvector):
+	      {
+	        MPI_Datatype newtype = rec->args(4);
+		return staleTypes.count(newtype) > 0;
+	      }
+	      case GENERATE_ENUM(Type_commit):
+	      {
+                MPI_Datatype newtype = rec->args(0);
+		return staleTypes.count(newtype) > 0;
+              }
+              case GENERATE_ENUM(Type_free):
+	      {
+		MPI_Datatype type = rec->args(0);
+		return staleTypes.count(type) > 0;
+              }
+              default:
+		return false;
+	    }
+	};
+        mpi_record_vector_iterator_t it =
+          remove_if(_records.begin(), _records.end(), isEqualType);
+        _records.erase(it, _records.end());
+	for (MPI_Datatype type : staleTypes) {
+          _datatypeMap.erase(type);
+	}
+      }
+
+
       // Virtual Ids Table
       dmtcp::vector<MpiRecord*> _records;
-      std::unordered_map<MPI_Request, int> _recordsMap;
+      std::unordered_map<MPI_Request, int> _recordsMap; //map<key=request, val=is_the_request_complete>
+      std::unordered_map<MPI_Datatype, int> _datatypeMap; //map<key=datatype, val=ref_cnt_from_creating_newtype>
       // True on restart, false otherwise
       bool _replayOn;
       // Lock on list
