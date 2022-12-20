@@ -755,8 +755,10 @@ namespace dmtcp_mpi
 		if (newtype == type) {
 		  if (this->datatype_decRef(type) == 0) {
 		    MPI_Datatype oldtype = rec->args(3);
-		    // The oldtype could be stale if its ref count drops to zero
-		    datatype_get_stale_types(oldtype, staleTypes);
+		    if (_datatypeMap.find(oldtype) != _datatypeMap.end()) {
+		      // The oldtype could be stale if its ref count drops to zero
+		      datatype_get_stale_types(oldtype, staleTypes);
+		    }
 		  }
 		  return true;
 		} else {
@@ -774,9 +776,10 @@ namespace dmtcp_mpi
 	    }
 	};
 
-        for (MpiRecord* rec : _records) {
-	  if (isStaleType(rec)) {
+        for (auto it = _records.rbegin(); it != _records.rend(); it++) {
+	  if (isStaleType(*it)) {
             staleTypes.insert(type);
+	    break;
 	  }
 	}
       }
@@ -784,15 +787,21 @@ namespace dmtcp_mpi
       void datatype_free(MPI_Datatype datatype)
       {
 	dmtcp::set<MPI_Datatype> staleTypes;
+	bool creator = false;
         lock_t lock(_mutex);
 	datatype_get_stale_types(datatype, staleTypes);
 	std::function<bool(const MpiRecord*)> isEqualType =
-	  [&staleTypes](const MpiRecord *rec) {
+	  [&staleTypes, &creator](const MpiRecord *rec) {
             switch (rec->getType()) {
               case GENERATE_ENUM(Type_hvector):
 	      {
 	        MPI_Datatype newtype = rec->args(4);
-		return staleTypes.count(newtype) > 0;
+		if (staleTypes.count(newtype) > 0) {
+		  creator = true;
+		  return true;
+		} else {
+		  return false;
+		}
 	      }
 	      case GENERATE_ENUM(Type_commit):
 	      {
@@ -808,14 +817,20 @@ namespace dmtcp_mpi
 		return false;
 	    }
 	};
-        mpi_record_vector_iterator_t it =
-          remove_if(_records.begin(), _records.end(), isEqualType);
-        _records.erase(it, _records.end());
+	// Traverse the log in the reverse order as the latest MPI record
+	// is added at the end.
+	auto it = _records.end();
+	while (it != _records.begin()) {
+          it--;
+	  if (isEqualType(*it)) {
+            it = _records.erase(it);
+	    if (creator) break;
+          }
+	}
 	for (MPI_Datatype type : staleTypes) {
           _datatypeMap.erase(type);
 	}
       }
-
 
       // Virtual Ids Table
       dmtcp::vector<MpiRecord*> _records;
