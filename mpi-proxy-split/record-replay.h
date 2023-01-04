@@ -445,6 +445,23 @@ namespace dmtcp_mpi
 	      datatype_incRef(1, &oldtype);
 	      break;
             }
+	    case GENERATE_ENUM(Type_create_struct):
+	    {
+              MPI_Datatype newtype = rec->args(4);
+              int count = rec->args(0);
+              MPI_Datatype *oldtypes = rec->args(3);
+              datatype_create(newtype);
+              datatype_incRef(count, oldtypes);
+              break;
+	    }
+	    case GENERATE_ENUM(Type_indexed):
+	    {
+              MPI_Datatype newtype = rec->args(4);
+	      MPI_Datatype oldtype = rec->args(3);
+	      datatype_create(newtype);
+	      datatype_incRef(1, &oldtype);
+	      break;
+            }
 	    case GENERATE_ENUM(Type_commit):
 	      // No need to increase ref count so Type_free can
 	      // free the MPI_Type_ records that creates the new type
@@ -453,9 +470,16 @@ namespace dmtcp_mpi
 	    {
               MPI_Datatype type = rec->args(0);
 	      datatype_free(type);
-	      break;
+	      delete rec;
+	      return NULL;
             }
-	    default: break;
+	    default:
+	      // The 'default' cases include record types like
+              //     comm_create, comm_group, group_incl, etc.
+	      // Those known types only need to be recorded.  So they don't
+              //     have any case label to pre-process their record info
+              //     before they are recorded.
+	      break;
           }
 	  {
             lock_t lock(_mutex);
@@ -740,10 +764,14 @@ namespace dmtcp_mpi
       }
 
       int datatype_decRef(MPI_Datatype datatype) {
-        return --_datatypeMap[datatype];
+	if (_datatypeMap.find(datatype) == _datatypeMap.end()) {
+          return -1;
+	} else {
+          return --_datatypeMap[datatype];
+	}
       }
 
-      void datatype_get_stale_types(MPI_Datatype type,
+      void datatype_find_stale_types(MPI_Datatype type,
 	     dmtcp::set<MPI_Datatype> &staleTypes)
       {
 	std::function<bool(const MpiRecord*)> isStaleType =
@@ -753,17 +781,50 @@ namespace dmtcp_mpi
 	      {
 		MPI_Datatype newtype = rec->args(4);
 		if (newtype == type) {
+		  // The oldtype could be stale if its ref count drops to zero
 		  if (this->datatype_decRef(type) == 0) {
 		    MPI_Datatype oldtype = rec->args(3);
+		    // Skip pre-defined MPI constants like MPI_INT, etc.
 		    if (_datatypeMap.find(oldtype) != _datatypeMap.end()) {
-		      // The oldtype could be stale if its ref count drops to zero
-		      datatype_get_stale_types(oldtype, staleTypes);
+		      datatype_find_stale_types(oldtype, staleTypes);
 		    }
-		  }
+                  }
 		  return true;
-		} else {
-		  return false;
 		}
+		return false;
+	      }
+              case GENERATE_ENUM(Type_create_struct):
+              {
+                MPI_Datatype newtype = rec->args(4);
+		if (newtype == type) {
+                  if (this->datatype_decRef(type) == 0) {
+		    int count = rec->args(0);
+                    MPI_Datatype *oldtypes = rec->args(3);
+		    for (int i = 0; i < count; i++) {
+		      if (_datatypeMap.find(oldtypes[i]) != _datatypeMap.end()) {
+                        datatype_find_stale_types(oldtypes[i], staleTypes);
+		      }
+                    }
+		    return true;
+		  }
+                }
+		return false;
+              }
+	      case GENERATE_ENUM(Type_indexed):
+	      {
+		MPI_Datatype newtype = rec->args(4);
+		if (newtype == type) {
+		  // The oldtype could be stale if its ref count drops to zero
+		  if (this->datatype_decRef(type) == 0) {
+		    MPI_Datatype oldtype = rec->args(3);
+		    // Skip pre-defined MPI constants like MPI_INT, etc.
+		    if (_datatypeMap.find(oldtype) != _datatypeMap.end()) {
+		      datatype_find_stale_types(oldtype, staleTypes);
+		    }
+                  }
+		  return true;
+		}
+		return false;
 	      }
 	      case GENERATE_ENUM(Type_commit):
 	      {
@@ -789,7 +850,7 @@ namespace dmtcp_mpi
 	dmtcp::set<MPI_Datatype> staleTypes;
 	bool creator = false;
         lock_t lock(_mutex);
-	datatype_get_stale_types(datatype, staleTypes);
+	datatype_find_stale_types(datatype, staleTypes);
 	std::function<bool(const MpiRecord*)> isEqualType =
 	  [&staleTypes, &creator](const MpiRecord *rec) {
             switch (rec->getType()) {
@@ -799,10 +860,27 @@ namespace dmtcp_mpi
 		if (staleTypes.count(newtype) > 0) {
 		  creator = true;
 		  return true;
-		} else {
-		  return false;
 		}
+		return false;
 	      }
+              case GENERATE_ENUM(Type_create_struct):
+              {
+                MPI_Datatype newtype = rec->args(4);
+		if (staleTypes.count(newtype) > 0) {
+		  creator = true;
+		  return true;
+		}
+		return false;
+              }
+              case GENERATE_ENUM(Type_indexed):
+	      {
+		MPI_Datatype newtype = rec->args(4);
+		if (staleTypes.count(newtype) > 0) {
+		  creator = true;
+		  return true;
+		}
+		return false;
+              }
 	      case GENERATE_ENUM(Type_commit):
 	      {
                 MPI_Datatype newtype = rec->args(0);
@@ -822,8 +900,10 @@ namespace dmtcp_mpi
 	auto it = _records.end();
 	while (it != _records.begin()) {
           it--;
-	  if (isEqualType(*it)) {
+	  MpiRecord *rec = *it;
+	  if (isEqualType(rec)) {
             it = _records.erase(it);
+	    delete rec;
 	    if (creator) break;
           }
 	}
