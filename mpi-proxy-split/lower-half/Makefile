@@ -1,5 +1,6 @@
 # MPI compiler according to the platform
 PLATFORM=${shell echo $$HOST}
+UNAME_RELEASE=${shell uname -r}
 include ../Makefile_config
 
 PROXY_BIN = lh_proxy
@@ -50,6 +51,12 @@ ${STATIC_GETHOSTBYNAME}: gethostbyname-static/gethostbyname_static.c \
 	cp -f gethostbyname-static/gethostbyname_proxy ${MANA_ROOT}/bin/
 endif
 
+ifeq ($(findstring cray,$(UNAME_RELEASE)), cray)
+  STATIC_LIBS=true
+else
+  STATIC_LIBS=false
+endif
+
 .c.o:
 	${MPICC} ${CFLAGS} -c -o $@ $<
 
@@ -72,9 +79,12 @@ ${PROXY_BIN}: ${PROXY_OBJS} ${LIBPROXY}.a ${STATIC_GETHOSTBYNAME}
 	    sed -e 's^-lunwind ^ ^'> tmp.sh; \
 	  sh tmp.sh; \
 	  rm -f tmp.sh; \
-	else \
+	elif ${STATIC_LIBS}; then \
 	  ${MPICC} ${PROXY_LD_FLAGS} ${TEXTSEG_ADDR_FLAG} -o $@ -Wl,-start-group \
             $^ ${MPI_LD_FLAG} `cat static_libs.txt` ; \
+	else \
+	  ${MPICC} ${PROXY_LD_FLAGS} ${TEXTSEG_ADDR_FLAG} -o $@ -Wl,-start-group \
+            $^ ${MPI_LD_FLAG} -lrt -lpthread -lc -Wl,-end-group; \
 	fi
 
 ${PROXY_BIN_DEFADDR}: ${PROXY_OBJS} ${LIBPROXY}.a ${STATIC_GETHOSTBYNAME}
@@ -85,9 +95,12 @@ ${PROXY_BIN_DEFADDR}: ${PROXY_OBJS} ${LIBPROXY}.a ${STATIC_GETHOSTBYNAME}
 	    sed -e 's^-lunwind ^ ^'> tmp.sh; \
 	  sh tmp.sh; \
 	  rm -f tmp.sh; \
-	else \
+	elif ${STATIC_LIBS}; then \
 	  ${MPICC} ${PROXY_LD_FLAGS} -o $@ -Wl,-start-group \
             $^ ${MPI_LD_FLAG} `cat static_libs.txt` ; \
+	else \
+	  ${MPICC} ${PROXY_LD_FLAGS} -o $@ -Wl,-start-group \
+            $^ ${MPI_LD_FLAG} -lrt -lpthread -lc -Wl,-end-group; \
 	fi
 
 ${LIBPROXY}.a: ${LIBPROXY_OBJS}
