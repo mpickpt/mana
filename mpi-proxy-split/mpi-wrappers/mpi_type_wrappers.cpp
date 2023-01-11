@@ -194,7 +194,7 @@ USER_DEFINED_WRAPPER(int, Type_struct, (int) count,
                                 );
 }
 
-#ifdef CRAY_MPICH_VERSION
+#if MPICH_NUMVERSION < MPICH_CALC_VERSION(3,4,0,0,2) && defined(CRAY_MPICH_VERSION)
 USER_DEFINED_WRAPPER(int, Type_hindexed, (int) count,
                      (const int*) array_of_blocklengths,
                      (const MPI_Aint*) array_of_displacements,
@@ -231,7 +231,7 @@ USER_DEFINED_WRAPPER(int, Type_create_hindexed, (int) count,
                      (const MPI_Aint*) array_of_displacements,
                      (MPI_Datatype) oldtype, (MPI_Datatype*) newtype)
 {
-#ifdef CRAY_MPICH_VERSION
+#if MPICH_NUMVERSION < MPICH_CALC_VERSION(3,4,0,0,2) && defined(CRAY_MPICH_VERSION)
   return MPI_Type_hindexed(count, array_of_blocklengths, array_of_displacements,
                            oldtype, newtype);
 #else
@@ -256,7 +256,7 @@ USER_DEFINED_WRAPPER(int, Type_create_hindexed_block, (int) count,
   for (int i = 0; i < count; i++) {
     array_of_blocklengths[i] = blocklength;
   }
-#ifdef CRAY_MPICH_VERSION
+#if MPICH_NUMVERSION < MPICH_CALC_VERSION(3,4,0,0,2) && defined(CRAY_MPICH_VERSION)
   return MPI_Type_hindexed(count, array_of_blocklengths, array_of_displacements,
                            oldtype, newtype);
 #else
