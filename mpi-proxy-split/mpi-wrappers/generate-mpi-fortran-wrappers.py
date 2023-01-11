@@ -25,7 +25,7 @@ declarations = declarations_file.read().split(';')[:-1]  # Each decl ends in ';'
 declarations_file.close()
 
 def print_mpi_type_struct():
-  print("#if MPICH_NUMVERSION >= MPICH_CALC_VERSION(3,4,0,0,2) && defined(CRAY_MPICH_VERSION)")
+  print("#if MPICH_NUMVERSION < MPICH_CALC_VERSION(3,4,0,0,2) && defined(CRAY_MPICH_VERSION)")
   print("""EXTERNC int mpi_type_struct_ (int* count,
             const int* array_of_blocklengths,
             const MPI_Aint* array_of_displacements,
@@ -44,7 +44,7 @@ def print_mpi_type_struct():
   print("}")
 
 def print_mpi_type_hindexed():
-  print("#ifdef CRAY_MPICH_VERSION")
+  print("#if MPICH_NUMVERSION < MPICH_CALC_VERSION(3,4,0,0,2) && defined(CRAY_MPICH_VERSION)")
   print("""EXTERNC int mpi_type_hindexed_ (int* count,
             const int* array_of_blocklengths,
             const MPI_Aint* array_of_displacements,
@@ -60,7 +60,7 @@ def print_mpi_type_hindexed():
   print("}")
 
 def print_mpi_type_create_hindexed():
-  print("#ifdef CRAY_MPICH_VERSION")
+  print("#if MPICH_NUMVERSION < MPICH_CALC_VERSION(3,4,0,0,2) && defined(CRAY_MPICH_VERSION)")
   print("""EXTERNC int mpi_type_create_hindexed_ (int* count,
             const int* array_of_blocklengths,
             const MPI_Aint* array_of_displacements,  MPI_Datatype* oldtype,
