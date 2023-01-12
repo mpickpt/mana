@@ -263,9 +263,9 @@ read_lh_proxy_bits(pid_t childpid)
     ret = process_vm_readv(childpid, remote_iov + i, 1, remote_iov + i, 1, 0);
     JASSERT(ret != -1)(JASSERT_ERRNO).Text("Error reading data from lh_proxy");
     // Can remove PROT_WRITE now that we've populated the segment.
-    // Update: on perlmutter, we need to keep the PROT_WRITE permission as
+    // Update: on Perlmutter, we need to keep the PROT_WRITE permission as
     // libc writes to a read-only region for some reason. Keeping PROT_WRITE is
-    // is harmless.
+    // harmless.
     // ret = mprotect(remote_iov[i].iov_base, remote_iov[i].iov_len,
     //              lh_regions_list[i].prot | PROT_WRITE);
   }
