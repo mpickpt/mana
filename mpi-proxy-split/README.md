@@ -48,10 +48,18 @@ See `man mana` or `nroff -man MANA_ROOT_DIR/manpages/mana.1` for the MANA man pa
 
 ## 2. Building MANA
 
-   The following Cori-specific modules are currently incompatible with MANA.
-
+   On Cori, the following Cori-specific modules are currently incompatible with MANA.
    ```bash
    $ module unload altd darshan craype-hugepages2M
+   ```
+   On Perlmutter, unload a few modules which are incompatible with MANA. We need to 
+load PMI module. 
+   ```bash
+   $module unload darshan Nsight-Compute Nsight-Systems cudatoolkit craype-accel-nvidia80 gpu
+   $module load cray-pmi
+   ```
+   Run the following to update submodules, configure and build.
+   ```bash
    $ git submodule update --init
    $ ./configure
    $ make -j mana
