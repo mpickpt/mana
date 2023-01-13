@@ -177,6 +177,10 @@ USER_DEFINED_WRAPPER(int, Type_create_struct, (int) count,
   return retval;
 }
 
+// Perlmutter cray_mpich both implement MPI 3.1. However, they use different 
+// APIs. We use MPICH_NUMVERSION (3.4a2) to differentiate the cray-mpich on Cori
+// and Perlmuttter. This ad-hoc workaround should be removed once the cray-mpich
+// on Perlmutter is fixed to use the right API.
 #if MPICH_NUMVERSION < MPICH_CALC_VERSION(3,4,0,0,2) && defined(CRAY_MPICH_VERSION)
 USER_DEFINED_WRAPPER(int, Type_struct, (int) count,
                      (const int*) array_of_blocklengths,
