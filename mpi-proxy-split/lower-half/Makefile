@@ -84,7 +84,7 @@ ${PROXY_BIN}: ${PROXY_OBJS} ${LIBPROXY}.a ${STATIC_GETHOSTBYNAME}
             $^ ${MPI_LD_FLAG} `cat static_libs.txt` -Wl,--end-group; \
 	else \
 	  ${MPICC} ${PROXY_LD_FLAGS} ${TEXTSEG_ADDR_FLAG} -o $@ -Wl,-start-group \
-            $^ ${MPI_LD_FLAG} -lrt -lpthread -lc -Wl,-end-group; \
+            $^ ${MPI_LD_FLAG} -lrt -lpthread -lc -ldl -Wl,-end-group; \
 	fi
 
 ${PROXY_BIN_DEFADDR}: ${PROXY_OBJS} ${LIBPROXY}.a ${STATIC_GETHOSTBYNAME}
@@ -100,7 +100,7 @@ ${PROXY_BIN_DEFADDR}: ${PROXY_OBJS} ${LIBPROXY}.a ${STATIC_GETHOSTBYNAME}
             $^ ${MPI_LD_FLAG} `cat static_libs.txt` -Wl,--end-group; \
 	else \
 	  ${MPICC} ${PROXY_LD_FLAGS} -o $@ -Wl,-start-group \
-            $^ ${MPI_LD_FLAG} -lrt -lpthread -lc -Wl,-end-group; \
+	  $^ ${MPI_LD_FLAG} -lrt -lpthread -lc -ldl -Wl,-end-group; \
 	fi
 
 ${LIBPROXY}.a: ${LIBPROXY_OBJS}
