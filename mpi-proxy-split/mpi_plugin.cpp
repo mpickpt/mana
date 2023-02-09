@@ -50,6 +50,7 @@
 #include "seq_num.h"
 #include "mpi_nextfunc.h"
 #include "virtual-ids.h"
+#include "logger.h"
 
 #include "config.h"
 #include "dmtcp.h"
@@ -993,6 +994,8 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       heapAddr = sbrk(0);
       JASSERT(heapAddr != nullptr);
 
+      Logger::init();
+
       break;
     }
     case DMTCP_EVENT_EXIT: {
@@ -1024,6 +1027,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     }
 
     case DMTCP_EVENT_PRESUSPEND: {
+      Logger::publishLogToCoordinator();
       mana_state = CKPT_COLLECTIVE;
       // preSuspendBarrier() will send coord response and get worker state.
       // FIXME:  See commant at: dmtcpplugin.cpp:'case DMTCP_EVENT_PRESUSPEND'

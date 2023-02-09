@@ -25,6 +25,7 @@
 #include "lower_half_api.h"
 #include "split_process.h"
 #include "mpi_plugin.h"
+#include "logger.h"
 
 #define EAT(x)
 #define REM(x) x
@@ -78,6 +79,7 @@
     if (_real_MPI_ ## func == (__typeof__(&MPI_##func)) - 1) {                 \
       _real_MPI_ ## func = (__typeof__(&MPI_##func))pdlsym(MPI_Fnc_##func);    \
     }                                                                          \
+    Logger::record(#func);                                                     \
     _real_MPI_ ## func;                                                        \
   })
 #endif // ifndef NEXT_FUNC
