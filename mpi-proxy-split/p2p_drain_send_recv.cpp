@@ -204,8 +204,13 @@ removePendingSendRequests()
     mpi_async_call_t *call = it->second;
     int flag = 0;
     if (call->type == ISEND_REQUEST) {
-      UPDATE_REQUEST_MAP(request, MPI_REQUEST_NULL);
-      // FIXME: We should free `call' to avoid memory leak
+      // At this point, all pending MPI_Isend should complete.
+      // Otherwise, we will lost data from MPI_Isend.
+      MPI_Test(&request, &flag, MPI_STATUS_IGNORE);
+      if (!flag) {
+        MPI_Abort(MPI_COMM_WORLD, 1);
+      }
+      JALLOC_HELPER_FREE(call);
       it = g_async_calls.erase(it);
     } else {
       it++;
@@ -224,7 +229,7 @@ allDrained()
       return false;
     }
   }
-  // Returns false if no MPI_Isend request is found.
+  // Returns false if MPI_Isend request is found.
   dmtcp::map<MPI_Request, mpi_async_call_t*>::iterator it;
   for (it = g_async_calls.begin(); it != g_async_calls.end();) {
     MPI_Request request = it->first;
@@ -252,9 +257,11 @@ drainSendRecv()
 #if 1
     // if we finished many rounds and we are not receiving more,
     // print a warning message with fprintf(stderr).
+    // A timeout means that some messages is lost, we should abort
+    // the program to ensure the correctness of the program.
     if (timeout_counter > 20) {
       fprintf(stderr, "Draining send/recv timeout, will perform checkpoint\n");
-      break;
+      MPI_Abort(MPI_COMM_WORLD, 1);
     }
     timeout_counter++;
 #endif
