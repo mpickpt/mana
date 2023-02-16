@@ -1033,6 +1033,12 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     }
 
     case DMTCP_EVENT_PRECHECKPOINT: {
+      // int rank;
+      // MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+      // printf("[Rank-%d] Sleeping for 300 seconds...", rank);
+      // sleep(300);
+      // printf("[Rank-%d] Awake", rank);
+
       recordMpiInitMaps();
       recordOpenFds();
       dmtcp_local_barrier("MPI:GetLocalLhMmapList");

@@ -28,6 +28,8 @@
 #include "lower_half_api.h"
 #include "dmtcp_dlsym.h"
 
+extern int Allreduce_counter;
+
 #define   _real_fork      NEXT_FNC_DEFAULT(fork)
 
 #define NOT_IMPLEMENTED(op)                                         \

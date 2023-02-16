@@ -37,11 +37,244 @@
 
 extern int p2p_deterministic_skip_save_request;
 
+#define B4B_SEND_RECV 0
+
+#if defined B4B_SEND_RECV && B4B_SEND_RECV == 1
+
+extern int g_world_rank;
+extern int g_world_size;
+
+void
+get_datatype_string(MPI_Datatype datatype, char *buf)
+{
+  switch (datatype) {
+    case MPI_CHAR:
+      sprintf(buf, "MPI_CHAR\0");
+      break;
+    case MPI_SIGNED_CHAR:
+      sprintf(buf, "MPI_SIGNED_CHAR\0");
+      break;
+    case MPI_UNSIGNED_CHAR:
+      sprintf(buf, "MPI_UNSIGNED_CHAR\0");
+      break;
+    case MPI_BYTE:
+      sprintf(buf, "MPI_BYTE\0");
+      break;
+    case MPI_WCHAR:
+      sprintf(buf, "MPI_WCHAR\0");
+      break;
+    case MPI_SHORT:
+      sprintf(buf, "MPI_SHORT\0");
+      break;
+    case MPI_UNSIGNED_SHORT:
+      sprintf(buf, "MPI_UNSIGNED_SHORT\0");
+      break;
+    case MPI_INT:
+      sprintf(buf, "MPI_INT\0");
+      break;
+    case MPI_UNSIGNED:
+      sprintf(buf, "MPI_UNSIGNED\0");
+      break;
+    case MPI_LONG:
+      sprintf(buf, "MPI_LONG\0");
+      break;
+    case MPI_UNSIGNED_LONG:
+      sprintf(buf, "MPI_UNSIGNED_LONG\0");
+      break;
+    case MPI_FLOAT:
+      sprintf(buf, "MPI_FLOAT\0");
+      break;
+    case MPI_DOUBLE:
+      sprintf(buf, "MPI_DOUBLE\0");
+      break;
+    case MPI_LONG_DOUBLE:
+      sprintf(buf, "MPI_LONG_DOUBLE\0");
+      break;
+    case MPI_LONG_LONG_INT:
+      sprintf(buf, "MPI_LONG_LONG_INT or MPI_LONG_LONG\0");
+      break;
+    case MPI_UNSIGNED_LONG_LONG:
+      sprintf(buf, "MPI_UNSIGNED_LONG_LONG\0");
+      break;
+    default:
+      sprintf(buf, "UNKNOWN\0");
+      break;
+  }
+}
+
+int
+write_wrapper(char *filename,
+              void *buffer,
+              unsigned long int total_bytes_to_copied)
+{
+  int fd;
+  unsigned long int bytes_copied = 0, bytes_copied_so_far = 0;
+
+  fd = open(filename, O_WRONLY | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR);
+
+  // Validate file descriptor
+  if (fd == -1) {
+    perror("\nInvalid file descriptor!");
+    return 0;
+  }
+
+  // Seek the cursor to the end
+  lseek(fd, 0, SEEK_END);
+
+#if 0
+  fprintf(stdout, "\nwrite_wrapper() - Cursor position before writing: %d", (int) lseek(fd, 0, SEEK_CUR));
+#endif
+
+  bytes_copied = write(fd, (char *)buffer, total_bytes_to_copied);
+  // Check whether we are able to write into file properly or not
+  if (bytes_copied == -1) {
+    perror("\nUnable to write into file!");
+    return 0;
+  }
+  bytes_copied_so_far += bytes_copied;
+
+  while (bytes_copied_so_far < total_bytes_to_copied) {
+    bytes_copied = write(fd, (char *)buffer + bytes_copied_so_far,
+                         total_bytes_to_copied - bytes_copied_so_far);
+    if (bytes_copied == -1)
+      break;
+
+    bytes_copied_so_far += bytes_copied;
+  }
+
+#if 0
+  fprintf(stdout, "\nwrite_wrapper() - Cursor position after writing: %d", (int) lseek(fd, 0, SEEK_CUR));
+  fprintf(stdout, "\nwrite_wrapper() - %lu bytes out of %lu bytes copied.", bytes_copied_so_far, total_bytes_to_copied);
+#endif
+
+  close(fd);
+
+  return (bytes_copied_so_far == total_bytes_to_copied);
+}
+
+void
+dump_Send_Recv_trace(int api,
+                     int counter,
+                     const void *buf,
+                     int count,
+                     MPI_Datatype datatype,
+                     int src_dest,
+                     int tag,
+                     MPI_Comm comm,
+                     MPI_Request *request,
+                     MPI_Status *status)
+{
+  char filename[30];
+  char *delimiter = "$**$";
+  sprintf(filename, "rank-%d-send-recv.trace", g_world_rank);
+
+  int dummy = 0;
+  while (dummy)
+    ;
+
+  int rc = 0;
+  rc += write_wrapper(filename, &api, sizeof(int));
+  rc += write_wrapper(filename, &counter, sizeof(int));
+  rc += write_wrapper(filename, &datatype, sizeof(MPI_Datatype));
+  rc += write_wrapper(filename, &src_dest, sizeof(int));
+  rc += write_wrapper(filename, &tag, sizeof(int));
+  rc += write_wrapper(filename, &comm, sizeof(MPI_Comm));
+  int comm_size = -1;
+  MPI_Comm_size(comm, &comm_size);
+  rc += write_wrapper(filename, &comm_size, sizeof(int));
+
+  int comm_rank = -1;
+  MPI_Comm_rank(comm, &comm_rank);
+  rc += write_wrapper(filename, &comm_rank, sizeof(int));
+
+  rc += write_wrapper(filename, &count, sizeof(int));
+
+  int ds = 0;
+  MPI_Type_size(datatype, &ds);
+  int buf_size = count * ds;
+  rc += write_wrapper(filename, &buf_size, sizeof(int));
+  rc += write_wrapper(filename, (void *)buf, buf_size);
+  rc += write_wrapper(filename, delimiter, 4 * sizeof(char));
+
+  /*  MPI_Request r = MPI_REQUEST_NULL;
+    if (request != NULL)
+      r = *request;
+    rc += write_wrapper(filename, &r, sizeof(MPI_Request));
+
+    MPI_Status *s = MPI_STATUS_IGNORE;
+    if (status != NULL)
+      s = status;
+    rc += write_wrapper(filename, s, sizeof(MPI_Status));
+  */
+
+  time_t my_time = time(NULL);
+  char *time_str = ctime(&my_time);
+  time_str[strlen(time_str) - 1] = '\0';
+
+  if (rc != 12) {
+    fprintf(
+      stdout,
+      "\n%s [%d]  -->  Failed to save the api %d record for the counter: %d",
+      time_str, g_world_rank, api, counter);
+    fflush(stdout);
+  }
+}
+
+static int Send_counter = 0;
+#endif
+
+static bool send_called_me = false;
+static bool recv_called_me = false;
+
 USER_DEFINED_WRAPPER(int, Send,
                      (const void *) buf, (int) count, (MPI_Datatype) datatype,
                      (int) dest, (int) tag, (MPI_Comm) comm)
 {
-  int retval;
+#if defined B4B_SEND_RECV && B4B_SEND_RECV == 1
+  Send_counter++;
+
+  int dummy = 0;
+  while (dummy)
+    ;
+
+  char *s = getenv("DUMP_SEND_RECV_TRACE");
+  int dump_trace = (s != NULL) ? atoi(s) : -1;
+
+  s = getenv("DUMP_TRACE_FROM_ALLREDUCE_COUNTER");
+  int dump_trace_from = (s != NULL) ? atoi(s) : -1;
+
+  if (dump_trace == 1 && Allreduce_counter > dump_trace_from)
+    dump_Send_Recv_trace(10, Send_counter, buf, count, datatype, dest, tag,
+                         comm, NULL, NULL);
+
+  time_t my_time = time(NULL);
+  char *time_str = ctime(&my_time);
+
+  if (Allreduce_counter > dump_trace_from) {
+    my_time = time(NULL);
+    time_str = ctime(&my_time);
+    time_str[strlen(time_str) - 1] = '\0';
+
+    int comm_size = -1;
+    MPI_Comm_size(comm, &comm_size);
+
+    int ds = 0;
+    MPI_Type_size(datatype, &ds);
+    int buf_size = count * ds;
+
+    char dtstr[30];
+    get_datatype_string(datatype, dtstr);
+
+    fprintf(stdout,
+            "\n%s [Rank-%d]  -->  Comm: %d & Comm Size: %d & Datatype: %s & "
+            "Buffer Size: %d & Dest: %d & Tag: %d & Send Counter: %d",
+            time_str, g_world_rank, comm, comm_size, dtstr, buf_size, dest, tag,
+            Send_counter);
+    fflush(stdout);
+  }
+#endif
+
+int retval;
 #if 0
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
@@ -54,6 +287,7 @@ USER_DEFINED_WRAPPER(int, Send,
 #else
   MPI_Request req;
   MPI_Status st;
+  send_called_me = true;
   retval = MPI_Isend(buf, count, datatype, dest, tag, comm, &req);
   if (retval != MPI_SUCCESS) {
     return retval;
@@ -65,11 +299,63 @@ USER_DEFINED_WRAPPER(int, Send,
   return retval;
 }
 
+#if defined B4B_SEND_RECV && B4B_SEND_RECV == 1
+static int Isend_counter = 0;
+#endif
+
 USER_DEFINED_WRAPPER(int, Isend,
                      (const void *) buf, (int) count, (MPI_Datatype) datatype,
                      (int) dest, (int) tag,
                      (MPI_Comm) comm, (MPI_Request *) request)
 {
+  if (send_called_me == true) {
+    send_called_me = false;
+  } else {
+#if defined B4B_SEND_RECV && B4B_SEND_RECV == 1
+    Isend_counter++;
+
+    int dummy = 0;
+    while (dummy)
+      ;
+
+    char *s = getenv("DUMP_SEND_RECV_TRACE");
+    int dump_trace = (s != NULL) ? atoi(s) : -1;
+
+    s = getenv("DUMP_TRACE_FROM_ALLREDUCE_COUNTER");
+    int dump_trace_from = (s != NULL) ? atoi(s) : -1;
+
+    if (dump_trace == 1 && Allreduce_counter > dump_trace_from)
+      dump_Send_Recv_trace(11, Isend_counter, buf, count, datatype, dest, tag,
+                           comm, request, NULL);
+
+    time_t my_time = time(NULL);
+    char *time_str = ctime(&my_time);
+
+    if (Allreduce_counter > dump_trace_from) {
+      my_time = time(NULL);
+      time_str = ctime(&my_time);
+      time_str[strlen(time_str) - 1] = '\0';
+
+      int comm_size = -1;
+      MPI_Comm_size(comm, &comm_size);
+
+      int ds = 0;
+      MPI_Type_size(datatype, &ds);
+      int buf_size = count * ds;
+
+      char dtstr[30];
+      get_datatype_string(datatype, dtstr);
+
+      fprintf(stdout,
+              "\n%s [Rank-%d]  -->  Comm: %d & Comm Size: %d & Datatype: %s & "
+              "Buffer Size: %d & Dest: %d & Tag: %d & Isend Counter: %d",
+              time_str, g_world_rank, comm, comm_size, dtstr, buf_size, dest,
+              tag, Isend_counter);
+      fflush(stdout);
+    }
+#endif
+  }
+
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
@@ -77,6 +363,7 @@ USER_DEFINED_WRAPPER(int, Isend,
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Isend)(buf, count, realType, dest, tag, realComm, request);
   RETURN_TO_UPPER_HALF();
+
   if (retval == MPI_SUCCESS) {
     // Updating global counter of send bytes
     int size;
@@ -130,11 +417,59 @@ USER_DEFINED_WRAPPER(int, Rsend, (const void*) ibuf, (int) count,
   return retval;
 }
 
+#if defined B4B_SEND_RECV && B4B_SEND_RECV == 1
+static int Recv_counter = 0;
+#endif
+
 USER_DEFINED_WRAPPER(int, Recv,
                      (void *) buf, (int) count, (MPI_Datatype) datatype,
                      (int) source, (int) tag,
                      (MPI_Comm) comm, (MPI_Status *) status)
 {
+#if defined B4B_SEND_RECV && B4B_SEND_RECV == 1
+  Recv_counter++;
+
+  int dummy = 0;
+  while (dummy)
+    ;
+
+  char *s = getenv("DUMP_SEND_RECV_TRACE");
+  int dump_trace = (s != NULL) ? atoi(s) : -1;
+
+  s = getenv("DUMP_TRACE_FROM_ALLREDUCE_COUNTER");
+  int dump_trace_from = (s != NULL) ? atoi(s) : -1;
+
+  if (dump_trace == 1 && Allreduce_counter > dump_trace_from)
+    dump_Send_Recv_trace(20, Recv_counter, buf, count, datatype, source, tag,
+                         comm, NULL, status);
+
+  time_t my_time = time(NULL);
+  char *time_str = ctime(&my_time);
+
+  if (Allreduce_counter > dump_trace_from) {
+    my_time = time(NULL);
+    time_str = ctime(&my_time);
+    time_str[strlen(time_str) - 1] = '\0';
+
+    int comm_size = -1;
+    MPI_Comm_size(comm, &comm_size);
+
+    int ds = 0;
+    MPI_Type_size(datatype, &ds);
+    int buf_size = count * ds;
+
+    char dtstr[30];
+    get_datatype_string(datatype, dtstr);
+
+    fprintf(stdout,
+            "\n%s [Rank-%d]  -->  Comm: %d & Comm Size: %d & Datatype: %s & "
+            "Buffer Size: %d & Source: %d & Tag: %d & Recv Counter: %d",
+            time_str, g_world_rank, comm, comm_size, dtstr, buf_size, source,
+            tag, Recv_counter);
+    fflush(stdout);
+  }
+#endif
+
   int retval;
 #if 0
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -145,6 +480,7 @@ USER_DEFINED_WRAPPER(int, Recv,
   RETURN_TO_UPPER_HALF();
 #else
   MPI_Request req;
+  recv_called_me=true;
   retval = MPI_Irecv(buf, count, datatype, source, tag, comm, &req);
   if (retval != MPI_SUCCESS) {
     return retval;
@@ -159,11 +495,66 @@ USER_DEFINED_WRAPPER(int, Recv,
   return retval;
 }
 
+#if defined B4B_SEND_RECV && B4B_SEND_RECV == 1
+static int Irecv_counter = 0;
+#endif
+
 USER_DEFINED_WRAPPER(int, Irecv,
                      (void *) buf, (int) count, (MPI_Datatype) datatype,
                      (int) source, (int) tag,
                      (MPI_Comm) comm, (MPI_Request *) request)
 {
+  if (recv_called_me == true) {
+    recv_called_me = false;
+  } else {
+#if defined B4B_SEND_RECV && B4B_SEND_RECV == 1
+    Irecv_counter++;
+
+    int dummy = 0;
+    while (dummy)
+      ;
+
+    char *s = getenv("DUMP_SEND_RECV_TRACE");
+    int dump_trace = (s != NULL) ? atoi(s) : -1;
+
+    s = getenv("DUMP_TRACE_FROM_ALLREDUCE_COUNTER");
+    int dump_trace_from = (s != NULL) ? atoi(s) : -1;
+
+    if (dump_trace == 1 && Allreduce_counter > dump_trace_from)
+      dump_Send_Recv_trace(21, Irecv_counter, buf, count, datatype, source, tag,
+                           comm, request, NULL);
+
+    time_t my_time = time(NULL);
+    char *time_str = ctime(&my_time);
+
+    int comm_size = -1;
+    MPI_Comm_size(comm, &comm_size);
+
+    if (Allreduce_counter > dump_trace_from) {
+      my_time = time(NULL);
+      time_str = ctime(&my_time);
+      time_str[strlen(time_str) - 1] = '\0';
+
+      int comm_size = -1;
+      MPI_Comm_size(comm, &comm_size);
+
+      int ds = 0;
+      MPI_Type_size(datatype, &ds);
+      int buf_size = count * ds;
+
+      char dtstr[30];
+      get_datatype_string(datatype, dtstr);
+
+      fprintf(stdout,
+              "\n%s [Rank-%d]  -->  Comm: %d & Comm Size: %d & Datatype: %s & "
+              "Buffer Size: %d & Source: %d & Tag: %d & Irecv Counter: %d",
+              time_str, g_world_rank, comm, comm_size, dtstr, buf_size, source,
+              tag, Irecv_counter);
+      fflush(stdout);
+    }
+#endif
+  }
+
   int retval;
   int flag = 0;
   int size = 0;
@@ -192,6 +583,7 @@ USER_DEFINED_WRAPPER(int, Irecv,
   retval = NEXT_FUNC(Irecv)(buf, count, realType,
                             source, tag, realComm, request);
   RETURN_TO_UPPER_HALF();
+
   if (retval == MPI_SUCCESS) {
     MPI_Request virtRequest = ADD_NEW_REQUEST(*request);
     *request = virtRequest;

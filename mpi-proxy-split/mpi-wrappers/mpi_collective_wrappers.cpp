@@ -15,10 +15,14 @@
  *  GNU Lesser General Public License for more details.                     *
  *                                                                          *
  *  You should have received a copy of the GNU Lesser General Public        *
- *  License in the files COPYING and COPYING.LESSER.  If not, see           *
+ *  License in the files COPYING and COPYING.LESSER.  If not, getsee           *
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
-
+#include <time.h>
+#include <string.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <fcntl.h>
 #include "config.h"
 #include "dmtcp.h"
 #include "util.h"
@@ -170,11 +174,164 @@ USER_DEFINED_WRAPPER(int, Ibarrier, (MPI_Comm) comm, (MPI_Request *) request)
   return retval;
 }
 
+#define B4B_ALLREDUCE 0
+
+int Allreduce_counter = 0;
+
+#if defined B4B_ALLREDUCE && B4B_ALLREDUCE == 1
+extern int g_world_rank;
+extern int g_world_size;
+
+int
+is_file_exists(char *fname)
+{
+  return access(fname, F_OK) == 0;
+}
+
+int
+touch(const char *filename)
+{
+  int fd = open(filename, O_CREAT | S_IRUSR | S_IWUSR);
+
+  if (fd == -1) {
+    perror("Unable to touch file");
+    return 0;
+  }
+
+  close(fd);
+  return 1;
+}
+
+extern int write_wrapper(char *filename,
+                         void *buffer,
+                         unsigned long int total_bytes_to_copied);
+
+void
+dump_Allreduce_trace(int event,
+                     MPI_Datatype datatype,
+                     MPI_Op op,
+                     MPI_Comm comm,
+                     int count,
+                     const void *sendbuf,
+                     void *recvbuf)
+{
+  char filename[30];
+  char *delimiter = "$**$";
+  sprintf(filename, "%d-allreduce.trace", g_world_rank);
+
+  int rc = 0;
+  rc += write_wrapper(filename, &Allreduce_counter, sizeof(int));
+  rc += write_wrapper(filename, &event, sizeof(int));
+  rc += write_wrapper(filename, &datatype, sizeof(MPI_Datatype));
+  rc += write_wrapper(filename, &op, sizeof(MPI_Op));
+  rc += write_wrapper(filename, &comm, sizeof(MPI_Comm));
+
+  int comm_size = -1;
+  MPI_Comm_size(comm, &comm_size);
+  rc += write_wrapper(filename, &comm_size, sizeof(int));
+  int comm_rank = -1;
+  MPI_Comm_rank(comm, &comm_rank);
+  rc += write_wrapper(filename, &comm_rank, sizeof(int));
+
+  rc += write_wrapper(filename, &count, sizeof(int));
+
+  int s = 0;
+  MPI_Type_size(datatype, &s);
+  int bufs = count * s;
+  rc += write_wrapper(filename, &bufs, sizeof(int));
+  rc += write_wrapper(filename, (void *)sendbuf, bufs);
+  rc += write_wrapper(filename, recvbuf, bufs);
+  rc += write_wrapper(filename, delimiter, 4 * sizeof(char));
+
+  time_t my_time = time(NULL);
+  char *time_str = ctime(&my_time);
+  time_str[strlen(time_str) - 1] = '\0';
+
+  if (rc != 12) {
+    fprintf(
+      stdout,
+      "\n%s [%d]  -->  Failed to save the record for the Allreduce_counter: %d",
+      time_str, g_world_rank, Allreduce_counter);
+    fflush(stdout);
+  }
+}
+
+#endif
+
 USER_DEFINED_WRAPPER(int, Allreduce,
                      (const void *) sendbuf, (void *) recvbuf,
                      (int) count, (MPI_Datatype) datatype,
                      (MPI_Op) op, (MPI_Comm) comm)
 {
+  Allreduce_counter++;
+#if defined B4B_ALLREDUCE && B4B_ALLREDUCE == 1
+  int dummy = 0;
+  while (dummy)
+    ;
+
+  char *s = getenv("DUMP_ALLREDUCE_TRACE");
+  int dump_trace = (s != NULL) ? atoi(s) : -1;
+
+  s = getenv("DUMP_TRACE_FROM_ALLREDUCE_COUNTER");
+  int dump_trace_from = (s != NULL) ? atoi(s) : -1;
+
+  if (dump_trace == 1 && Allreduce_counter > dump_trace_from)
+    dump_Allreduce_trace(1, datatype, op, comm, count, sendbuf, recvbuf);
+
+
+  time_t my_time = time(NULL);
+  char *time_str = ctime(&my_time);
+
+  int comm_size = -1;
+  MPI_Comm_size(comm, &comm_size);
+
+  if (g_world_rank == 0) {
+    my_time = time(NULL);
+    time_str = ctime(&my_time);
+    time_str[strlen(time_str) - 1] = '\0';
+
+    fprintf(stdout, "\n%s [%d]  -->  Comm Size: %d & Allreduce_counter: %d",
+            time_str, g_world_rank, comm_size, Allreduce_counter);
+    fflush(stdout);
+  }
+
+  s = getenv("STOP_AT_ALLREDUCE_COUNTER");
+  int stop_at = (s != NULL) ? atoi(s) : -1;
+  if (Allreduce_counter == stop_at && comm_size == g_world_size) {
+    my_time = time(NULL);
+    time_str = ctime(&my_time);
+    time_str[strlen(time_str) - 1] = '\0';
+
+    fprintf(stdout, "\n%s [%d]  -->  Inside \"Allreduce_counter == %d\" block",
+            time_str, g_world_rank, stop_at);
+    fprintf(stdout, "\n%s [%d]  -->  Executing while() loop...", time_str,
+            g_world_rank);
+    fflush(stdout);
+
+    MPI_Barrier(comm);
+
+    if (g_world_rank == 0)
+      touch("/global/cfs/cdirs/cr/malviyat/exp-setup/do_checkpoint");
+
+    while (
+      is_file_exists("/global/cfs/cdirs/cr/malviyat/exp-setup/wait_in_while")) {
+      sleep(1);
+    }
+
+    if (g_world_rank == 0)
+      remove("/global/cfs/cdirs/cr/malviyat/exp-setup/do_checkpoint");
+
+    time_str = ctime(&my_time);
+    time_str[strlen(time_str) - 1] = '\0';
+
+    fprintf(stdout, "\n%s [%d]  -->  stop_at: %d", time_str, g_world_rank,
+            stop_at);
+    fprintf(stdout, "\n%s [%d]  -->  while() loop terminated", time_str,
+            g_world_rank);
+    fflush(stdout);
+  }
+#endif
+
   bool passthrough = false;
   commit_begin(comm, passthrough);
   int retval;
@@ -196,6 +353,7 @@ USER_DEFINED_WRAPPER(int, Allreduce,
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
   commit_finish(comm, passthrough);
+
   return retval;
 }
 
@@ -220,11 +378,33 @@ USER_DEFINED_WRAPPER(int, Reduce,
   return retval;
 }
 
+static int Ireduce_counter = 0;
+
 USER_DEFINED_WRAPPER(int, Ireduce,
                      (const void *) sendbuf, (void *) recvbuf, (int) count,
                      (MPI_Datatype) datatype, (MPI_Op) op,
                      (int) root, (MPI_Comm) comm, (MPI_Request *) request)
 {
+  Ireduce_counter++;
+
+  int dummy = 0;
+  while (dummy);
+
+  time_t my_time = time(NULL);
+  char* time_str = ctime(&my_time);
+
+  int comm_size = -1;
+  MPI_Comm_size(comm, &comm_size);
+
+  if (g_world_rank == 0) {
+    my_time = time(NULL);
+    time_str = ctime(&my_time);
+    time_str[strlen(time_str) - 1] = '\0';
+
+    fprintf(stdout, "\n%s [%d]  -->  Comm Size: %d & Ireduce_counter: %d", time_str, g_world_rank, comm_size, Ireduce_counter);
+    fflush(stdout);
+  }
+
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
@@ -234,6 +414,21 @@ USER_DEFINED_WRAPPER(int, Ireduce,
   retval = NEXT_FUNC(Ireduce)(sendbuf, recvbuf, count,
       realType, realOp, root, realComm, request);
   RETURN_TO_UPPER_HALF();
+  
+  //MPI_Status s;
+  MPI_Wait(request, MPI_STATUS_IGNORE);
+
+  /*
+  if (s == MPI_ERR_REQUEST || s == MPI_ERR_ARG) {
+    my_time = time(NULL);
+    time_str = ctime(&my_time);
+    time_str[strlen(time_str) - 1] = '\0';
+
+    fprintf(stdout, "\n%s [%d]  -->  Comm Size: %d & Ireduce_counter: %d & Got error from the MPI_Wait() API", time_str, g_world_rank, comm_size, Ireduce_counter);
+    fflush(stdout);
+  }
+  */
+
   if (retval == MPI_SUCCESS && MPI_LOGGING()) {
     MPI_Request virtRequest = ADD_NEW_REQUEST(*request);
     *request = virtRequest;

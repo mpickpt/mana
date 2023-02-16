@@ -145,7 +145,7 @@ completePendingP2pRequests()
       UPDATE_REQUEST_MAP(request, MPI_REQUEST_NULL);
       it = g_async_calls.erase(it);
     } else {
-      /*  We update the iterator even if the MPI_Test fails.
+      /* We update the iterator even if the MPI_Test fails.
        * Otherwise, the message we are waiting for will be sent
        * after the checkpoint. This can result in an infinite loop.
        *
@@ -185,10 +185,14 @@ recvFromAllComms()
     int flag = 1;
     while (flag) {
       MPI_Status status;
-      int retval = MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, *comm, &flag, &status);
+      int retval =
+        MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, *comm, &flag, &status);
       JASSERT(retval == MPI_SUCCESS);
       if (flag) {
-        bytesReceived += recvMsgIntoInternalBuffer(status, *comm);
+        completePendingP2pRequests();
+        MPI_Iprobe(status.MPI_SOURCE, status.MPI_TAG, *comm, &flag, &status);
+        if (flag)
+          bytesReceived += recvMsgIntoInternalBuffer(status, *comm);
       }
     }
   }
@@ -241,10 +245,19 @@ allDrained()
 void
 drainSendRecv()
 {
+/*
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  printf("\n[Rank-%d] drainSendRecv() -> Sleeping for 300 seconds...", rank);
+  sleep(300);
+  printf("\n[Rank-%d] drainSendRecv() -> Awake", rank);
+*/
+
+/*
   int timeout_counter = 0;
+  int numReceived = completePendingP2pRequests();
   while (!allDrained()) {
     sleep(1);
-    int numReceived = 0;
     // If pending MPI_Irecv or MPI_Isend, use MPI_Test to try to complete it.
     numReceived += completePendingP2pRequests();
     // If MPI_Irecv not posted but msg was sent, use MPI_Iprobe to drain msg 
@@ -259,6 +272,33 @@ drainSendRecv()
     timeout_counter++;
 #endif
   }
+*/
+
+  int timeout_counter = 0;
+  int numReceived = completePendingP2pRequests();
+  while (!allDrained()) {
+    sleep(1);
+    // If pending MPI_Irecv or MPI_Isend, use MPI_Test to try to complete it.
+    numReceived += completePendingP2pRequests();
+    if (timeout_counter > 20) {
+      fprintf(stderr, "Draining send/recv timeout, will perform checkpoint\n");
+      break;
+    }
+    timeout_counter++;
+  }
+
+  timeout_counter = 0;
+  while (!allDrained()) {
+    sleep(1);
+    // If MPI_Irecv not posted but msg was sent, use MPI_Iprobe to drain msg 
+    numReceived += recvFromAllComms();
+    if (timeout_counter > 20) {
+      fprintf(stderr, "Draining send/recv timeout, will perform checkpoint\n");
+      break;
+    }
+    timeout_counter++;
+  }
+
   removePendingSendRequests();
 }
 
