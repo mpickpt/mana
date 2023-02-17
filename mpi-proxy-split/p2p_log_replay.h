@@ -43,8 +43,8 @@ typedef enum __mpi_req
   IBARRIER_REQUEST,
 } mpi_req_t;
 
-// Struct to store the metadata of an async MPI send/recv call
-typedef struct __mpi_async_call
+// Struct to store the metadata of an nonblocking MPI send/recv call
+typedef struct __mpi_nonblocking_call
 {
   // control data
   mpi_req_t type;  // See enum __mpi_req
@@ -56,7 +56,7 @@ typedef struct __mpi_async_call
   MPI_Comm comm;    // MPI communicator
   int remote_node;  // Can be dest or source depending on the call type
   int tag;          // MPI message tag
-} mpi_async_call_t;
+} mpi_nonblocking_call_t;
 
 // Struct to store and return the MPI message (data) during draining and
 // resuming, also used by p2p_drain_send_recv.h
@@ -95,8 +95,8 @@ extern void updateCkptDirByRank();
 // MPI_Isend and MPI_Irecv requests post restart
 extern void replayMpiP2pOnRestart();
 
-// Saves the async send/recv call of the given type and params to a global map
-// indexed by the MPI_Request 'req'
+// Saves the nonblocking send/recv call of the given type and params to a global
+// map indexed by the MPI_Request 'req'
 extern void addPendingRequestToLog(mpi_req_t , const void* , void* , int ,
                                    MPI_Datatype , int , int ,
                                    MPI_Comm, MPI_Request);
@@ -110,5 +110,5 @@ extern void logRequestInfo(MPI_Request request, mpi_req_t req_type);
 // Lookup a request's info in the request_log
 extern request_info_t* lookupRequestInfo(MPI_Request request);
 
-extern dmtcp::map<MPI_Request, mpi_async_call_t*> g_async_calls;
+extern dmtcp::map<MPI_Request, mpi_nonblocking_call_t*> g_nonblocking_calls;
 #endif // ifndef _P2P_LOG_REPLAY_H

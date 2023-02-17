@@ -92,14 +92,14 @@ USER_DEFINED_WRAPPER(int, Test, (MPI_Request*) request,
   // FIXME: This if statement should be merged into
   // clearPendingRequestFromLog()
   if (*flag && *request != MPI_REQUEST_NULL
-      && g_async_calls.find(*request) != g_async_calls.end()
-      && g_async_calls[*request]->type == IRECV_REQUEST) {
+      && g_nonblocking_calls.find(*request) != g_nonblocking_calls.end()
+      && g_nonblocking_calls[*request]->type == IRECV_REQUEST) {
     int count = 0;
     int size = 0;
     MPI_Get_count(statusPtr, MPI_BYTE, &count);
     MPI_Type_size(MPI_BYTE, &size);
     JASSERT(size == 1)(size);
-    MPI_Comm comm = g_async_calls[*request]->comm;
+    MPI_Comm comm = g_nonblocking_calls[*request]->comm;
     int worldRank = localRankToGlobalRank(statusPtr->MPI_SOURCE, comm);
     g_recvBytesByRank[worldRank] += count * size;
     // For debugging
@@ -270,14 +270,14 @@ USER_DEFINED_WRAPPER(int, Waitany, (int) count,
       if (flag) {
         MPI_Request *request = &local_array_of_requests[i];
         if (*request != MPI_REQUEST_NULL
-          && g_async_calls.find(*request) != g_async_calls.end()
-          && g_async_calls[*request]->type == IRECV_REQUEST) {
+          && g_nonblocking_calls.find(*request) != g_nonblocking_calls.end()
+          && g_nonblocking_calls[*request]->type == IRECV_REQUEST) {
             int count = 0;
             int size = 0;
             MPI_Get_count(local_status, MPI_BYTE, &count);
             MPI_Type_size(MPI_BYTE, &size);
             JASSERT(size == 1)(size);
-            MPI_Comm comm = g_async_calls[*request]->comm;
+            MPI_Comm comm = g_nonblocking_calls[*request]->comm;
             int worldRank = localRankToGlobalRank(local_status->MPI_SOURCE, comm);
             g_recvBytesByRank[worldRank] += count * size;
         }
@@ -330,14 +330,14 @@ USER_DEFINED_WRAPPER(int, Wait, (MPI_Request*) request, (MPI_Status*) status)
     // FIXME: This if statement should be merged into
     // clearPendingRequestFromLog()
     if (flag && *request != MPI_REQUEST_NULL
-        && g_async_calls.find(*request) != g_async_calls.end()
-        && g_async_calls[*request]->type == IRECV_REQUEST) {
+        && g_nonblocking_calls.find(*request) != g_nonblocking_calls.end()
+        && g_nonblocking_calls[*request]->type == IRECV_REQUEST) {
       int count = 0;
       int size = 0;
       MPI_Get_count(statusPtr, MPI_BYTE, &count);
       MPI_Type_size(MPI_BYTE, &size);
       JASSERT(size == 1)(size);
-      MPI_Comm comm = g_async_calls[*request]->comm;
+      MPI_Comm comm = g_nonblocking_calls[*request]->comm;
       int worldRank = localRankToGlobalRank(statusPtr->MPI_SOURCE, comm);
       g_recvBytesByRank[worldRank] += count * size;
     // For debugging
@@ -350,7 +350,7 @@ USER_DEFINED_WRAPPER(int, Wait, (MPI_Request*) request, (MPI_Status*) status)
       if (flag) LOG_POST_Wait(request, statusPtr);
     }
     if (flag && MPI_LOGGING()) {
-      clearPendingRequestFromLog(*request); // Remove from g_async_calls
+      clearPendingRequestFromLog(*request); // Remove from g_nonblocking_calls
       REMOVE_OLD_REQUEST(*request); // Remove from virtual id
       LOG_REMOVE_REQUEST(*request); // Remove from record-replay log
       *request = MPI_REQUEST_NULL;

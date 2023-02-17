@@ -41,11 +41,11 @@
 
 using namespace dmtcp;
 
-dmtcp::map<MPI_Request, mpi_async_call_t*> g_async_calls;
+dmtcp::map<MPI_Request, mpi_nonblocking_call_t*> g_nonblocking_calls;
 std::unordered_map<MPI_Request, request_info_t*> request_log;
 int g_world_rank = -1; // Global rank of the current process
 int g_world_size = -1; // Total number of ranks in the current computation
-// Mutex protecting g_async_calls
+// Mutex protecting g_nonblocking_calls
 static pthread_mutex_t logMutex = PTHREAD_MUTEX_INITIALIZER;
 
 void
@@ -143,8 +143,9 @@ addPendingRequestToLog(mpi_req_t req, const void* sbuf, void* rbuf, int cnt,
                        MPI_Datatype type, int remote, int tag,
                        MPI_Comm comm, MPI_Request rq)
 {
-  mpi_async_call_t *call =
-        (mpi_async_call_t*)JALLOC_HELPER_MALLOC(sizeof(mpi_async_call_t));
+  mpi_nonblocking_call_t *call =
+        (mpi_nonblocking_call_t*)
+        JALLOC_HELPER_MALLOC(sizeof(mpi_nonblocking_call_t));
   call->type = req;
   call->sendbuf = sbuf;
   call->recvbuf = rbuf;
@@ -154,7 +155,7 @@ addPendingRequestToLog(mpi_req_t req, const void* sbuf, void* rbuf, int cnt,
   call->tag = tag;
   call->comm = comm;
   pthread_mutex_lock(&logMutex);
-  g_async_calls[rq] = call;
+  g_nonblocking_calls[rq] = call;
   pthread_mutex_unlock(&logMutex);
 }
 
@@ -162,12 +163,12 @@ void
 clearPendingRequestFromLog(MPI_Request req)
 {
   pthread_mutex_lock(&logMutex);
-  if (g_async_calls.find(req) != g_async_calls.end()) {
-    mpi_async_call_t *call = g_async_calls[req];
+  if (g_nonblocking_calls.find(req) != g_nonblocking_calls.end()) {
+    mpi_nonblocking_call_t *call = g_nonblocking_calls[req];
     if (call) {
       JALLOC_HELPER_FREE(call);
     }
-    g_async_calls.erase(req);
+    g_nonblocking_calls.erase(req);
   }
   pthread_mutex_unlock(&logMutex);
 }
@@ -176,10 +177,11 @@ void
 replayMpiP2pOnRestart()
 {
   MPI_Request request;
-  mpi_async_call_t *call = NULL;
+  mpi_nonblocking_call_t *call = NULL;
   JTRACE("Replaying unserviced isend/irecv calls");
 
-  for (std::pair<MPI_Request, mpi_async_call_t*> it : g_async_calls) {
+  for (std::pair<MPI_Request, mpi_nonblocking_call_t*> it :
+       g_nonblocking_calls) {
     int retval = 0;
     request = it.first;
     call = it.second;

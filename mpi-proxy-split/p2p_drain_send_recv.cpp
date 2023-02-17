@@ -115,16 +115,16 @@ recvMsgIntoInternalBuffer(MPI_Status status, MPI_Comm comm)
   return count;
 }
 
-// Go through each MPI_Irecv in the g_async_calls map and try to complete
+// Go through each MPI_Irecv in the g_nonblocking_calls map and try to complete
 // the MPI_Irecv and MPI_Isend before checkpointing.
 int
 completePendingP2pRequests()
 {
   int bytesReceived = 0;
-  dmtcp::map<MPI_Request, mpi_async_call_t*>::iterator it;
-  for (it = g_async_calls.begin(); it != g_async_calls.end();) {
+  dmtcp::map<MPI_Request, mpi_nonblocking_call_t*>::iterator it;
+  for (it = g_nonblocking_calls.begin(); it != g_nonblocking_calls.end();) {
     MPI_Request request = it->first;
-    mpi_async_call_t *call = it->second;
+    mpi_nonblocking_call_t *call = it->second;
     int flag = 0;
     MPI_Status status;
     // This is needed if an MPI_Isend was called earlier.  Without this,
@@ -143,7 +143,7 @@ completePendingP2pRequests()
         bytesReceived += call->count * size;
       }
       UPDATE_REQUEST_MAP(request, MPI_REQUEST_NULL);
-      it = g_async_calls.erase(it);
+      it = g_nonblocking_calls.erase(it);
     } else {
       /*  We update the iterator even if the MPI_Test fails.
        * Otherwise, the message we are waiting for will be sent
@@ -168,7 +168,7 @@ completePendingP2pRequests()
 }
 
 int
-recvFromAllComms()
+drainRemainingP2pMsgs()
 {
   int bytesReceived = 0;
   std::unordered_set<MPI_Comm>::iterator comm;
@@ -188,34 +188,35 @@ recvFromAllComms()
       int retval = MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, *comm, &flag, &status);
       JASSERT(retval == MPI_SUCCESS);
       if (flag) {
-        bytesReceived += recvMsgIntoInternalBuffer(status, *comm);
+        MPI_Request matched_request = MPI_REQUEST_NULL;
+        std::map<MPI_Request, mpi_nonblocking_call_t*>::iterator it;
+        // Check if there are pending MPI_Irecv's that matches the envelope of the
+        // probed message.
+        for (it = g_nonblocking_calls.begin(); it != g_nonblocking_calls.end(); it++) {
+          MPI_Request req = it->first;
+          mpi_nonblocking_call_t *call = it->second;
+          if (call->type == IRECV_REQUEST &&
+              call->comm == *comm &&
+              (call->tag == status.MPI_TAG || call->tag == MPI_ANY_TAG) &&
+              (call->remote_node == status.MPI_SOURCE ||
+               call->remote_node == MPI_ANY_SOURCE)) {
+            matched_request = req;
+            break;
+          }
+        }
+        if (matched_request != MPI_REQUEST_NULL) {
+          // If there are matched pending MPI_Irecv's, wait
+          // on the request to complete the communication.
+          // Otherwise, the message will be drained to the MANA internal buffer,
+          // and then be received out of order, after restart.
+          MPI_Wait(&matched_request, MPI_STATUS_IGNORE);
+        } else {
+          bytesReceived += recvMsgIntoInternalBuffer(status, *comm);
+        }
       }
     }
   }
   return bytesReceived;
-}
-
-void
-removePendingSendRequests()
-{
-  dmtcp::map<MPI_Request, mpi_async_call_t*>::iterator it;
-  for (it = g_async_calls.begin(); it != g_async_calls.end();) {
-    MPI_Request request = it->first;
-    mpi_async_call_t *call = it->second;
-    int flag = 0;
-    if (call->type == ISEND_REQUEST) {
-      // At this point, all pending MPI_Isend should complete.
-      // Otherwise, we will lost data from MPI_Isend.
-      MPI_Test(&request, &flag, MPI_STATUS_IGNORE);
-      if (!flag) {
-        MPI_Abort(MPI_COMM_WORLD, 1);
-      }
-      JALLOC_HELPER_FREE(call);
-      it = g_async_calls.erase(it);
-    } else {
-      it++;
-    }
-  }
 }
 
 bool
@@ -230,10 +231,10 @@ allDrained()
     }
   }
   // Returns false if MPI_Isend request is found.
-  dmtcp::map<MPI_Request, mpi_async_call_t*>::iterator it;
-  for (it = g_async_calls.begin(); it != g_async_calls.end();) {
+  dmtcp::map<MPI_Request, mpi_nonblocking_call_t*>::iterator it;
+  for (it = g_nonblocking_calls.begin(); it != g_nonblocking_calls.end();) {
     MPI_Request request = it->first;
-    mpi_async_call_t *call = it->second;
+    mpi_nonblocking_call_t *call = it->second;
     if (call->type == ISEND_REQUEST) {
       return false;
     } else {
@@ -246,27 +247,20 @@ allDrained()
 void
 drainSendRecv()
 {
-  int timeout_counter = 0;
-  while (!allDrained()) {
-    sleep(1);
-    int numReceived = 0;
-    // If pending MPI_Irecv or MPI_Isend, use MPI_Test to try to complete it.
-    numReceived += completePendingP2pRequests();
-    // If MPI_Irecv not posted but msg was sent, use MPI_Iprobe to drain msg 
-    numReceived += recvFromAllComms();
-#if 1
-    // if we finished many rounds and we are not receiving more,
-    // print a warning message with fprintf(stderr).
-    // A timeout means that some messages is lost, we should abort
-    // the program to ensure the correctness of the program.
-    if (timeout_counter > 20) {
-      fprintf(stderr, "Draining send/recv timeout, will perform checkpoint\n");
-      MPI_Abort(MPI_COMM_WORLD, 1);
+  int numReceived = -1;
+  while (numReceived != 0) {
+    while (!allDrained()) {
+      // If pending MPI_Irecv or MPI_Isend, use MPI_Test to try to complete it.
+      completePendingP2pRequests();
+      // If MPI_Irecv not posted but msg was sent, use MPI_Iprobe to drain msg 
+      drainRemainingP2pMsgs();
     }
-    timeout_counter++;
-#endif
+    sleep(5);
+    numReceived = 0;
+    numReceived = completePendingP2pRequests();
+    // If any messages are completed aftera  5 seconds sleep,
+    // go back to the loop.
   }
-  removePendingSendRequests();
 }
 
 // FIXME: isBufferedPacket and consumeBufferedPacket both search
