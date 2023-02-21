@@ -44,7 +44,8 @@ FILES=mpi_hello_world \
 	  File_read_write_test File_characteristics_test File_size_test \
 	  File_read_write_all_test \
       Type_dup_test Type_create_hindexed_test \
-	  Type_create_resized_test Type_create_hindexed_block_test
+	  Type_create_resized_test Type_create_hindexed_block_test \
+      overtake
 
 OBJS=$(addsuffix .o, ${FILES})
 
