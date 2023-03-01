@@ -45,7 +45,7 @@
 #endif // ifdef MAIN_AUXVEC_ARG
 
 #define ROUND_UP(addr)  \
-    ((unsigned long)(addr + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1))
+    (((unsigned long)addr + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1))
 
 #define ROUND_DOWN(addr) ((unsigned long)addr & ~(PAGE_SIZE - 1))
 
