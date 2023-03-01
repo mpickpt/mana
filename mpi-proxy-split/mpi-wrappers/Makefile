@@ -71,8 +71,8 @@ mpi_p2p_wrappers.o: mpi_p2p_wrappers.cpp p2p-deterministic.h
 mpi_request_wrappers.o: mpi_request_wrappers.cpp p2p-deterministic.h
 	${MPICXX} ${CXXFLAGS} -c -o $@ $<
 
-# FIXME:  This assumes that the 'CFLAGS' are compatible with the FORTRAN.
-#         But MANA does not define 'FFLAGS'.
+# FIXME:  This assumes 'CFLAGS' is compatible with FORTRAN, since MANA does not
+#         define 'FFLAGS'.  But Fortran doesn't use '-std=gnu11' from CFLAGS.
 fortran_constants.o: fortran_constants.f90
 	${MPIFORTRAN} ${CFLAGS} -fPIC -c -o $@ $<
 
