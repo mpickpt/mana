@@ -1029,6 +1029,38 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       // FIXME:  See commant at: dmtcpplugin.cpp:'case DMTCP_EVENT_PRESUSPEND'
       drain_mpi_collective();
       openCkptFileFds();
+
+      fprintf(stdout, "\n[Rank-%d] Setting SUSPEND_P2P_COMMUNICATION = 1",
+              g_world_rank);
+      fflush(stdout);
+
+      SUSPEND_P2P_COMMUNICATION = 1;
+      sleep(10); // Wait for user thread to get stuck in the P2P API
+
+      fprintf(stdout, "\n[Rank-%d] MPI:Register-local-sends-and-receives\n",
+              g_world_rank);
+      fflush(stdout);
+      dmtcp_global_barrier("MPI:Register-local-sends-and-receives");
+
+      fprintf(stdout, "\n[Rank-%d] mana_state = CKPT_P2P\n", g_world_rank);
+      fflush(stdout);
+      mana_state = CKPT_P2P;
+
+      fprintf(stdout, "\n[Rank-%d] registerLocalSendsAndRecvs()\n", g_world_rank);
+      fflush(stdout);
+      registerLocalSendsAndRecvs(); // p2p_drain_send_recv.cpp
+
+      fprintf(stdout, "\n[Rank-%d] MPI:Drain-Send-Recv\n", g_world_rank);
+      fflush(stdout);
+      dmtcp_global_barrier("MPI:Drain-Send-Recv");
+
+      fprintf(stdout, "\n[Rank-%d] drainSendRecv()\n", g_world_rank);
+      fflush(stdout);
+      drainSendRecv(); // p2p_drain_send_recv.cpp
+
+      fprintf(stdout, "\n[Rank-%d] Exiting DMTCP_EVENT_PRESUSPEND\n",
+              g_world_rank);
+      fflush(stdout);
       break;
     }
 
@@ -1043,9 +1075,10 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       updateCkptDirByRank(); // mpi_plugin.cpp
       dmtcp_global_barrier("MPI:Register-local-sends-and-receives");
       mana_state = CKPT_P2P;
-      registerLocalSendsAndRecvs(); // p2p_drain_send_recv.cpp
+      SUSPEND_P2P_COMMUNICATION = 0;
+      // registerLocalSendsAndRecvs(); // p2p_drain_send_recv.cpp
       dmtcp_global_barrier("MPI:Drain-Send-Recv");
-      drainSendRecv(); // p2p_drain_send_recv.cpp
+      // drainSendRecv(); // p2p_drain_send_recv.cpp
       computeUnionOfCkptImageAddresses();
       dmtcp_global_barrier("MPI:save-mana-header-and-mpi-files");
       const char *file = get_mana_header_file_name();
@@ -1061,6 +1094,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     }
 
     case DMTCP_EVENT_RESUME: {
+      SUSPEND_P2P_COMMUNICATION = 0;
       processingOpenCkpFileFds = false;
       dmtcp_local_barrier("MPI:Reset-Drain-Send-Recv-Counters");
       resetDrainCounters(); // p2p_drain_send_recv.cpp
@@ -1071,6 +1105,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     }
 
     case DMTCP_EVENT_RESTART: {
+      SUSPEND_P2P_COMMUNICATION = 0;
       processingOpenCkpFileFds = false;
       logCkptFileFds();
 
@@ -1133,3 +1168,33 @@ DmtcpPluginDescriptor_t mpi_plugin = {
 };
 
 DMTCP_DECL_PLUGIN(mpi_plugin);
+
+void
+suspend_p2p_communication()
+{
+  if (!SUSPEND_P2P_COMMUNICATION ||
+      (SUSPEND_P2P_COMMUNICATION && ALLOW_P2P_COMMUNICATION))
+    return;
+
+  time_t my_time = time(NULL);
+  char *time_str = ctime(&my_time);
+
+  my_time = time(NULL);
+  time_str = ctime(&my_time);
+  time_str[strlen(time_str) - 1] = '\0';
+
+  fprintf(stdout, "\n%s [Rank-%d] P2P Communication Suspended.", time_str,
+          g_world_rank);
+  fflush(stdout);
+
+  while (SUSPEND_P2P_COMMUNICATION) {
+  }
+
+  my_time = time(NULL);
+  time_str = ctime(&my_time);
+  time_str[strlen(time_str) - 1] = '\0';
+
+  fprintf(stdout, "\n%s [Rank-%d] P2P Communication Resumed.", time_str,
+          g_world_rank);
+  fflush(stdout);
+}

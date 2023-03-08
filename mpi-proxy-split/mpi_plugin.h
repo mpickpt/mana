@@ -67,4 +67,9 @@ enum mana_state_t {
 
 extern mana_state_t mana_state;
 
+static int SUSPEND_P2P_COMMUNICATION = 0;
+static int ALLOW_P2P_COMMUNICATION = 0;
+
+void suspend_p2p_communication();
+
 #endif // ifndef _MPI_PLUGIN_H

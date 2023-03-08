@@ -61,6 +61,8 @@ EXTERNC
 USER_DEFINED_WRAPPER(int, Test, (MPI_Request*) request,
                      (int*) flag, (MPI_Status*) status)
 {
+  suspend_p2p_communication();
+
   int retval;
   if (*request == MPI_REQUEST_NULL) {
     // *request might be in read-only memory. So we can't overwrite it with
@@ -123,6 +125,8 @@ USER_DEFINED_WRAPPER(int, Testall, (int) count,
                      (MPI_Request *) array_of_requests, (int *) flag,
                      (MPI_Status *) array_of_statuses)
 {
+  suspend_p2p_communication();
+
   // NOTE: See MPI_Testany below for the rationale for these variables.
   int local_count = count;
   MPI_Request *local_array_of_requests = array_of_requests;
@@ -162,6 +166,8 @@ USER_DEFINED_WRAPPER(int, Testany, (int) count,
                      (MPI_Request *) array_of_requests, (int *) index,
                      (int *) flag, (MPI_Status *) status)
 {
+  suspend_p2p_communication();
+
   // FIXME:  Revise this note if definition if FORTRAM_MPI_STATUS_IGNORE
   //         fixes the problem.
   // NOTE: We're seeing a weird bug with the Fortran-to-C interface when Nimrod
@@ -200,6 +206,8 @@ USER_DEFINED_WRAPPER(int, Waitall, (int) count,
                      (MPI_Request *) array_of_requests,
                      (MPI_Status *) array_of_statuses)
 {
+  suspend_p2p_communication();
+
   // FIXME: Revisit this wrapper - call VIRTUAL_TO_REAL_REQUEST on array
   int retval = MPI_SUCCESS;
 #if 0
@@ -244,6 +252,8 @@ USER_DEFINED_WRAPPER(int, Waitany, (int) count,
                      (MPI_Request *) array_of_requests, (int *) index,
                      (MPI_Status *) status)
 {
+  suspend_p2p_communication();
+
   // NOTE: See MPI_Testany above for the rationale for these variables.
   int local_count = count;
   MPI_Request *local_array_of_requests = array_of_requests;
@@ -304,6 +314,8 @@ USER_DEFINED_WRAPPER(int, Waitany, (int) count,
 
 USER_DEFINED_WRAPPER(int, Wait, (MPI_Request*) request, (MPI_Status*) status)
 {
+  suspend_p2p_communication();
+
   int retval;
   if (*request == MPI_REQUEST_NULL) {
     // *request might be in read-only memory. So we can't overwrite it with
@@ -363,6 +375,8 @@ USER_DEFINED_WRAPPER(int, Wait, (MPI_Request*) request, (MPI_Status*) status)
 USER_DEFINED_WRAPPER(int, Probe, (int) source, (int) tag,
                      (MPI_Comm) comm, (MPI_Status *) status)
 {
+  suspend_p2p_communication();
+
   int retval;
   int flag = 0;
   while (!flag) {
@@ -374,6 +388,8 @@ USER_DEFINED_WRAPPER(int, Probe, (int) source, (int) tag,
 USER_DEFINED_WRAPPER(int, Iprobe, (int) source, (int) tag, (MPI_Comm) comm,
                      (int *) flag, (MPI_Status *) status)
 {
+  suspend_p2p_communication();
+
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   // LOG_PRE_Iprobe(status);
@@ -391,6 +407,8 @@ USER_DEFINED_WRAPPER(int, Iprobe, (int) source, (int) tag, (MPI_Comm) comm,
 USER_DEFINED_WRAPPER(int, Request_get_status, (MPI_Request) request,
                      (int *) flag, (MPI_Status *) status)
 {
+  suspend_p2p_communication();
+
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Request realRequest = VIRTUAL_TO_REAL_REQUEST(request);

@@ -97,8 +97,10 @@ recvMsgIntoInternalBuffer(MPI_Status status, MPI_Comm comm)
   MPI_Type_size(MPI_BYTE, &size);
   JASSERT(size == 1);
   void *buf = JALLOC_HELPER_MALLOC(count);
+  ALLOW_P2P_COMMUNICATION = 1;
   int retval = MPI_Recv(buf, count, MPI_BYTE, status.MPI_SOURCE, status.MPI_TAG,
            comm, MPI_STATUS_IGNORE);
+  ALLOW_P2P_COMMUNICATION = 0;
   JASSERT(retval == MPI_SUCCESS);
 
   mpi_message_t *message = (mpi_message_t *)JALLOC_HELPER_MALLOC(sizeof(mpi_message_t));
@@ -185,7 +187,9 @@ drainRemainingP2pMsgs()
     int flag = 1;
     while (flag) {
       MPI_Status status;
+      ALLOW_P2P_COMMUNICATION = 1;
       int retval = MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, *comm, &flag, &status);
+      ALLOW_P2P_COMMUNICATION = 0;
       JASSERT(retval == MPI_SUCCESS);
       if (flag) {
         MPI_Request matched_request = MPI_REQUEST_NULL;
