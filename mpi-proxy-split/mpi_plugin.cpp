@@ -704,7 +704,7 @@ computeUnionOfCkptImageAddresses()
         minAddrBeyondHeap = area.addr;
       }
 
-      if (strcmp(area.name, "[vsyscall]") != NULL) {
+      if (strcmp(area.name, "[vsyscall]") != 0) {
         maxAddrBeyondHeap = area.endAddr;
       }
     }
