@@ -70,6 +70,9 @@ extern mana_state_t mana_state;
 static int SUSPEND_P2P_COMMUNICATION = 0;
 static int ALLOW_P2P_COMMUNICATION = 0;
 
+int get_buffer_checksum(int*, int);
 void suspend_p2p_communication();
+void get_datatype_string(MPI_Datatype, char *);
+void get_op_string(MPI_Op, char *);
 
 #endif // ifndef _MPI_PLUGIN_H

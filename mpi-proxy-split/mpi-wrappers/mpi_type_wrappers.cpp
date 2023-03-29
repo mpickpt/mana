@@ -32,6 +32,15 @@
 
 using namespace dmtcp_mpi;
 
+extern int g_world_rank;
+extern int g_world_size;
+
+#define B4B_PRINT 1
+
+#if defined B4B_PRINT && B4B_PRINT == 1
+extern int Allreduce_counter; 
+#endif
+
 USER_DEFINED_WRAPPER(int, Type_size, (MPI_Datatype) datatype, (int *) size)
 {
   int retval;
@@ -322,6 +331,21 @@ USER_DEFINED_WRAPPER(int, Type_dup, (MPI_Datatype) oldtype,
     LOG_CALL(restoreTypes, Type_dup, oldtype, virtType);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
+
+#if defined B4B_PRINT && B4B_PRINT == 1
+  // char *s = getenv("DUMP_TRACE_FROM_ALLREDUCE_COUNTER");
+  // int dump_trace_from = (s != NULL) ? atoi(s) : -1;
+
+  // if (Allreduce_counter > dump_trace_from) {
+    char dtstr[30];
+    get_datatype_string(oldtype, dtstr);
+    fprintf(
+      stdout,
+      "\n[WorldRank-%d] -> %lu -> Type_dup -> Old Type: %s-%d & New Type: %d",
+      g_world_rank, (unsigned long)time(NULL), dtstr, oldtype, *newtype);
+  // }
+#endif
+
   return retval;
 }
 
@@ -433,7 +457,6 @@ PMPI_IMPL(int, MPI_Pack, const void *inbuf, int incount, MPI_Datatype datatype,
 PMPI_IMPL(int, MPI_Type_create_resized, MPI_Datatype oldtype, MPI_Aint lb,
           MPI_Aint extent, MPI_Datatype *newtype);
 PMPI_IMPL(int, MPI_Type_dup, MPI_Datatype type, MPI_Datatype *newtype);
-
 PMPI_IMPL(int, MPI_Type_create_hindexed, int count,
           const int array_of_blocklengths[],
           const MPI_Aint array_of_displacements[], MPI_Datatype oldtype,

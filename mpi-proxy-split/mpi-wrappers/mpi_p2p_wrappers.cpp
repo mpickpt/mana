@@ -37,70 +37,20 @@
 
 extern int p2p_deterministic_skip_save_request;
 
+extern int Allreduce_counter; 
+extern int DO_BUFFER_XOR;
+
+int Send_counter = 0;
+int Isend_counter = 0;
+int Recv_counter = 0;
+int Irecv_counter = 0;
+
 #define B4B_SEND_RECV 0
 
 #if defined B4B_SEND_RECV && B4B_SEND_RECV == 1
 
 extern int g_world_rank;
 extern int g_world_size;
-
-void
-get_datatype_string(MPI_Datatype datatype, char *buf)
-{
-  switch (datatype) {
-    case MPI_CHAR:
-      sprintf(buf, "MPI_CHAR\0");
-      break;
-    case MPI_SIGNED_CHAR:
-      sprintf(buf, "MPI_SIGNED_CHAR\0");
-      break;
-    case MPI_UNSIGNED_CHAR:
-      sprintf(buf, "MPI_UNSIGNED_CHAR\0");
-      break;
-    case MPI_BYTE:
-      sprintf(buf, "MPI_BYTE\0");
-      break;
-    case MPI_WCHAR:
-      sprintf(buf, "MPI_WCHAR\0");
-      break;
-    case MPI_SHORT:
-      sprintf(buf, "MPI_SHORT\0");
-      break;
-    case MPI_UNSIGNED_SHORT:
-      sprintf(buf, "MPI_UNSIGNED_SHORT\0");
-      break;
-    case MPI_INT:
-      sprintf(buf, "MPI_INT\0");
-      break;
-    case MPI_UNSIGNED:
-      sprintf(buf, "MPI_UNSIGNED\0");
-      break;
-    case MPI_LONG:
-      sprintf(buf, "MPI_LONG\0");
-      break;
-    case MPI_UNSIGNED_LONG:
-      sprintf(buf, "MPI_UNSIGNED_LONG\0");
-      break;
-    case MPI_FLOAT:
-      sprintf(buf, "MPI_FLOAT\0");
-      break;
-    case MPI_DOUBLE:
-      sprintf(buf, "MPI_DOUBLE\0");
-      break;
-    case MPI_LONG_DOUBLE:
-      sprintf(buf, "MPI_LONG_DOUBLE\0");
-      break;
-    case MPI_LONG_LONG_INT:
-      sprintf(buf, "MPI_LONG_LONG_INT or MPI_LONG_LONG\0");
-      break;
-    case MPI_UNSIGNED_LONG_LONG:
-      sprintf(buf, "MPI_UNSIGNED_LONG_LONG\0");
-      break;
-    default:
-      sprintf(buf, "USER_DEFINED\0");
-      break;
-  }
-}
 
 int
 write_wrapper(char *filename,
@@ -219,8 +169,6 @@ dump_Send_Recv_trace(int api,
     fflush(stdout);
   }
 }
-
-static int Send_counter = 0;
 #endif
 
 static bool send_called_me = false;
@@ -231,13 +179,15 @@ USER_DEFINED_WRAPPER(int, Send,
                      (int) dest, (int) tag, (MPI_Comm) comm)
 {
   suspend_p2p_communication();
+  void *dup_buf;
+  int dup_count = count;
+  MPI_Datatype dup_datatype = datatype;
+  int dup_dest = dest;
+  int dup_tag = tag;
+  MPI_Comm dup_comm = comm;
 
 #if defined B4B_SEND_RECV && B4B_SEND_RECV == 1
   Send_counter++;
-
-  int dummy = 0;
-  while (dummy)
-    ;
 
   char *s = getenv("DUMP_SEND_RECV_TRACE");
   int dump_trace = (s != NULL) ? atoi(s) : -1;
@@ -249,33 +199,37 @@ USER_DEFINED_WRAPPER(int, Send,
     dump_Send_Recv_trace(10, Send_counter, buf, count, datatype, dest, tag,
                          comm, NULL, NULL);
 
-  time_t my_time = time(NULL);
-  char *time_str = ctime(&my_time);
-
+  int comm_rank = -1;
   int comm_size = -1;
   int ds = 0;
   int buf_size = 0;
+  int checksum = -1;
   char dtstr[30];
 
   if (Allreduce_counter > dump_trace_from) {
-    my_time = time(NULL);
-    time_str = ctime(&my_time);
-    time_str[strlen(time_str) - 1] = '\0';
-
+    MPI_Comm_rank(comm, &comm_rank);
     MPI_Comm_size(comm, &comm_size);
     MPI_Type_size(datatype, &ds);
     buf_size = count * ds;
+    // dup_buf = malloc(buf_size);
+    // memcpy (dup_buf, buf, buf_size);
+
     get_datatype_string(datatype, dtstr);
 
-    fprintf(stdout,
-            "\n%s [Rank-%d]  -->  Before  -->  Comm: %d & Comm Size: %d & "
-            "Datatype: %s & Buffer Size: %d Buffer: %x %x %x %x %x %x & Dest: "
-            "%d & Tag: %d & Send Counter: %d",
-            time_str, g_world_rank, comm, comm_size, dtstr, buf_size,
-            *((char *)buf), *((char *)buf + 1), *((char *)buf + 2),
-            *((char *)buf + 3), *((char *)buf + 4), *((char *)buf + 5), dest,
-            tag, Send_counter);
-    fflush(stdout);
+    if (DO_BUFFER_XOR == 0 && buf_size > 8)
+      checksum = get_buffer_checksum((int *) buf, buf_size);
+
+    fprintf(
+      stdout,
+      "\n[WorldRank-%d] -> %lu -> Send-Before -> Comm: %d & Comm Rank: %d & "
+      "Comm Size: %d & Datatype: %s-%d & Buffer Size: %d & Buffer Address: %p & Buffer: %02x %02x %02x "
+      "%02x %02x %02x %02x %02x & Dest: %d & Tag: %d & Send Counter: %d & Checksum: %d",
+      g_world_rank, (unsigned long)time(NULL), dmtcp_mpi::VirtualGlobalCommId::instance().getGlobalId(comm), comm_rank, comm_size,
+      dtstr, datatype, buf_size, buf, *((unsigned char *)buf), *((unsigned char *)buf + 1),
+      *((unsigned char *)buf + 2), *((unsigned char *)buf + 3),
+      *((unsigned char *)buf + 4), *((unsigned char *)buf + 5),
+      *((unsigned char *)buf + 6), *((unsigned char *)buf + 7), dest, tag,
+      Send_counter, checksum);
   }
 #endif
 
@@ -300,6 +254,28 @@ int retval;
   retval = MPI_Wait(&req, &st);
   p2p_deterministic_skip_save_request = 0;
 #endif
+
+#if defined B4B_SEND_RECV && B4B_SEND_RECV == 1
+  if (Allreduce_counter > dump_trace_from) {
+    if (DO_BUFFER_XOR == 0 && buf_size > 8) {
+      checksum = get_buffer_checksum((int *) buf, buf_size);
+      fprintf(stdout, "\n[WorldRank-%d] -> %lu -> Send-After -> %d",
+              g_world_rank, (unsigned long)time(NULL), DO_BUFFER_XOR);
+    }
+
+    fprintf(
+      stdout,
+      "\n[WorldRank-%d] -> %lu -> Send-After -> Comm: %d & Comm Rank: %d & "
+      "Comm Size: %d & Datatype: %s-%d & Buffer Size: %d & Buffer Address: %p & Buffer: %02x %02x %02x "
+      "%02x %02x %02x %02x %02x & Dest: %d & Tag: %d & Send Counter: %d & Checksum: %d",
+      g_world_rank, (unsigned long)time(NULL), dmtcp_mpi::VirtualGlobalCommId::instance().getGlobalId(comm), comm_rank, comm_size,
+      dtstr, datatype, buf_size, buf, *((unsigned char *)buf), *((unsigned char *)buf + 1),
+      *((unsigned char *)buf + 2), *((unsigned char *)buf + 3),
+      *((unsigned char *)buf + 4), *((unsigned char *)buf + 5),
+      *((unsigned char *)buf + 6), *((unsigned char *)buf + 7), dest, tag,
+      Send_counter, checksum);
+  }
+#endif
   return retval;
 }
 
@@ -314,12 +290,16 @@ USER_DEFINED_WRAPPER(int, Isend,
     goto skip_Isend;
   }
 
+  void *dup_buf;
+  int dup_count = count;
+  MPI_Datatype dup_datatype = datatype;
+  int dup_dest = dest;
+  int dup_tag = tag;
+  MPI_Comm dup_comm = comm; 
+  MPI_Request *dup_request = request;
+
 #if defined B4B_SEND_RECV && B4B_SEND_RECV == 1
   Isend_counter++;
-
-  int dummy = 0;
-  while (dummy)
-    ;
 
   char *s = getenv("DUMP_SEND_RECV_TRACE");
   int dump_trace = (s != NULL) ? atoi(s) : -1;
@@ -330,35 +310,34 @@ USER_DEFINED_WRAPPER(int, Isend,
   if (dump_trace == 1 && Allreduce_counter > dump_trace_from)
     dump_Send_Recv_trace(11, Isend_counter, buf, count, datatype, dest, tag,
                           comm, request, NULL);
-
-  time_t my_time = time(NULL);
-  char *time_str = ctime(&my_time);
-
+ 
+  int comm_rank = -1;
   int comm_size = -1;
   int ds = 0;
   int buf_size = 0;
   char dtstr[30];
 
   if (Allreduce_counter > dump_trace_from) {
-    my_time = time(NULL);
-    time_str = ctime(&my_time);
-    time_str[strlen(time_str) - 1] = '\0';
-
+    MPI_Comm_rank(comm, &comm_rank);
     MPI_Comm_size(comm, &comm_size);
     MPI_Type_size(datatype, &ds);
     buf_size = count * ds;
+    // dup_buf = malloc(buf_size);
+    // memcpy (dup_buf, buf, buf_size);
+
     get_datatype_string(datatype, dtstr);
 
     fprintf(
       stdout,
-      "\n%s [Rank-%d]  -->  Before  -->  Comm: %d & Comm Size: %d & "
-      "Datatype: %s & Buffer Size: %d Buffer: %x %x %x %x %x %x & Dest: "
-      "%d & Tag: %d & Isend Counter: %d",
-      time_str, g_world_rank, comm, comm_size, dtstr, buf_size,
-      *((char *)buf), *((char *)buf + 1), *((char *)buf + 2),
-      *((char *)buf + 3), *((char *)buf + 4), *((char *)buf + 5), dest, tag,
+      "\n[WorldRank-%d] -> %lu -> Isend-Before -> Comm: %d & Comm Rank: %d & "
+      "Comm Size: %d & Datatype: %s-%d & Buffer Size: %d & Buffer Address: %p & Buffer: %02x %02x %02x "
+      "%02x %02x %02x %02x %02x & Dest: %d & Tag: %d & Isend Counter: %d",
+      g_world_rank, (unsigned long)time(NULL), dmtcp_mpi::VirtualGlobalCommId::instance().getGlobalId(comm), comm_rank, comm_size,
+      dtstr, datatype, buf_size, buf, *((unsigned char *)buf), *((unsigned char *)buf + 1),
+      *((unsigned char *)buf + 2), *((unsigned char *)buf + 3),
+      *((unsigned char *)buf + 4), *((unsigned char *)buf + 5),
+      *((unsigned char *)buf + 6), *((unsigned char *)buf + 7), dest, tag,
       Isend_counter);
-    fflush(stdout);
   }
 #endif
   
@@ -395,6 +374,25 @@ USER_DEFINED_WRAPPER(int, Isend,
 #endif
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
+
+#if defined B4B_SEND_RECV && B4B_SEND_RECV == 1
+  if (Allreduce_counter > dump_trace_from) {
+    // int aa = memcmp(buf, dup_buf, buf_size);
+    int aa = -1;
+
+    fprintf(
+      stdout,
+      "\n[WorldRank-%d] -> %lu -> Isend-After -> Comm: %d & Comm Rank: %d & "
+      "Comm Size: %d & Datatype: %s-%d & Buffer Size: %d & Buffer Address: %p & Buffer: %02x %02x %02x "
+      "%02x %02x %02x %02x %02x & Dest: %d & Tag: %d & Isend Counter: %d & Assert: %d",
+      g_world_rank, (unsigned long)time(NULL), dmtcp_mpi::VirtualGlobalCommId::instance().getGlobalId(comm), comm_rank, comm_size,
+      dtstr, datatype, buf_size, buf, *((unsigned char *)buf), *((unsigned char *)buf + 1),
+      *((unsigned char *)buf + 2), *((unsigned char *)buf + 3),
+      *((unsigned char *)buf + 4), *((unsigned char *)buf + 5),
+      *((unsigned char *)buf + 6), *((unsigned char *)buf + 7), dest, tag,
+      Isend_counter, aa);
+  }
+#endif
   return retval;
 }
 
@@ -436,12 +434,15 @@ USER_DEFINED_WRAPPER(int, Recv,
 {
   suspend_p2p_communication();
 
+  int dup_count = count;
+  MPI_Datatype dup_datatype = datatype;
+  int dup_source = source;
+  int dup_tag = tag;
+  MPI_Comm dup_comm = comm; 
+  MPI_Status *dup_status = status;
+
 #if defined B4B_SEND_RECV && B4B_SEND_RECV == 1
   Recv_counter++;
-
-  int dummy = 0;
-  while (dummy)
-    ;
 
   char *s = getenv("DUMP_SEND_RECV_TRACE");
   int dump_trace = (s != NULL) ? atoi(s) : -1;
@@ -453,31 +454,34 @@ USER_DEFINED_WRAPPER(int, Recv,
     dump_Send_Recv_trace(20, Recv_counter, buf, count, datatype, source, tag,
                          comm, NULL, status);
 
-  time_t my_time = time(NULL);
-  char *time_str = ctime(&my_time);
-
+  int comm_rank = -1;
   int comm_size = -1;
   int ds = 0;
   int buf_size = 0;
+  int checksum = -1;
   char dtstr[30];
 
   if (Allreduce_counter > dump_trace_from) {
-    my_time = time(NULL);
-    time_str = ctime(&my_time);
-    time_str[strlen(time_str) - 1] = '\0';
-
+    MPI_Comm_rank(comm, &comm_rank);
     MPI_Comm_size(comm, &comm_size);
     MPI_Type_size(datatype, &ds);
     buf_size = count * ds;
     get_datatype_string(datatype, dtstr);
 
-    fprintf(stdout,
-            "\n%s [Rank-%d]  -->  Before  -->  Comm: %d & Comm Size: %d & Datatype: %s & Buffer Size: %d Buffer: %x %x %x %x %x %x & Source: %d & Tag: %d & Recv Counter: %d",
-            time_str, g_world_rank, comm, comm_size, dtstr, buf_size,
-            *((char *)buf), *((char *)buf + 1), *((char *)buf + 2),
-            *((char *)buf + 3), *((char *)buf + 4), *((char *)buf + 5), source,
-            tag, Recv_counter);
-    fflush(stdout);
+    if (DO_BUFFER_XOR == 0 && buf_size > 8)
+      checksum = get_buffer_checksum((int *) buf, buf_size);
+    
+    fprintf(
+      stdout,
+      "\n[WorldRank-%d] -> %lu -> Recv-Before -> Comm: %d & Comm Rank: %d & "
+      "Comm Size: %d & Datatype: %s-%d & Buffer Size: %d & Buffer Address: %p & Buffer: %02x %02x %02x "
+      "%02x %02x %02x %02x %02x & Source: %d & Tag: %d & Recv Counter: %d & Checksum: %d",
+      g_world_rank, (unsigned long)time(NULL), dmtcp_mpi::VirtualGlobalCommId::instance().getGlobalId(comm), comm_rank, comm_size,
+      dtstr, datatype, buf_size, buf, *((unsigned char *)buf), *((unsigned char *)buf + 1),
+      *((unsigned char *)buf + 2), *((unsigned char *)buf + 3),
+      *((unsigned char *)buf + 4), *((unsigned char *)buf + 5),
+      *((unsigned char *)buf + 6), *((unsigned char *)buf + 7), source, tag,
+      Recv_counter, checksum);
   }
 #endif
 
@@ -490,6 +494,7 @@ USER_DEFINED_WRAPPER(int, Recv,
   retval = NEXT_FUNC(Recv)(buf, count, realType, source, tag, realComm, status);
   RETURN_TO_UPPER_HALF();
 #else
+  DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Request req;
   retval = MPI_Irecv(buf, count, datatype, source, tag, comm, &req);
   if (retval != MPI_SUCCESS) {
@@ -497,10 +502,33 @@ USER_DEFINED_WRAPPER(int, Recv,
   }
   p2p_deterministic_skip_save_request = 0;
   retval = MPI_Wait(&req, status);
+  DMTCP_PLUGIN_ENABLE_CKPT();
 #endif
   // updateLocalRecvs();
 #if 0
   DMTCP_PLUGIN_ENABLE_CKPT();
+#endif
+
+#if defined B4B_SEND_RECV && B4B_SEND_RECV == 1
+  if (Allreduce_counter > dump_trace_from) {
+    if (DO_BUFFER_XOR == 0 && buf_size > 8) {
+      checksum = get_buffer_checksum((int *) buf, buf_size);
+      fprintf(stdout, "\n[WorldRank-%d] -> %lu -> Recv-After -> %d",
+              g_world_rank, (unsigned long)time(NULL), DO_BUFFER_XOR);
+    }
+
+    fprintf(
+      stdout,
+      "\n[WorldRank-%d] -> %lu -> Recv-After -> Comm: %d & Comm Rank: %d & "
+      "Comm Size: %d & Datatype: %s-%d & Buffer Size: %d & Buffer Address: %p & Buffer: %02x %02x %02x "
+      "%02x %02x %02x %02x %02x & Source: %d & Tag: %d & Recv Counter: %d & Checksum: %d",
+      g_world_rank, (unsigned long)time(NULL), dmtcp_mpi::VirtualGlobalCommId::instance().getGlobalId(comm), comm_rank, comm_size,
+      dtstr, datatype, buf_size, buf, *((unsigned char *)buf), *((unsigned char *)buf + 1),
+      *((unsigned char *)buf + 2), *((unsigned char *)buf + 3),
+      *((unsigned char *)buf + 4), *((unsigned char *)buf + 5),
+      *((unsigned char *)buf + 6), *((unsigned char *)buf + 7), source, tag,
+      Recv_counter, checksum);
+  }
 #endif
   return retval;
 }
@@ -516,12 +544,16 @@ USER_DEFINED_WRAPPER(int, Irecv,
     recv_called_me = false;
     goto skip_Irecv;
   }
+
+  int dup_count = count;
+  MPI_Datatype dup_datatype = datatype;
+  int dup_source = source;
+  int dup_tag = tag;
+  MPI_Comm dup_comm = comm; 
+  MPI_Request *dup_request = request;
+
 #if defined B4B_SEND_RECV && B4B_SEND_RECV == 1
   Irecv_counter++;
-
-  int dummy = 0;
-  while (dummy)
-    ;
 
   char *s = getenv("DUMP_SEND_RECV_TRACE");
   int dump_trace = (s != NULL) ? atoi(s) : -1;
@@ -533,31 +565,30 @@ USER_DEFINED_WRAPPER(int, Irecv,
     dump_Send_Recv_trace(21, Irecv_counter, buf, count, datatype, source, tag,
                           comm, request, NULL);
 
-  time_t my_time = time(NULL);
-  char *time_str = ctime(&my_time);
-
+  int comm_rank = -1;
   int comm_size = -1;
   int ds = 0;
   int buf_size = 0;
   char dtstr[30];
-  
-  if (Allreduce_counter > dump_trace_from) {
-    my_time = time(NULL);
-    time_str = ctime(&my_time);
-    time_str[strlen(time_str) - 1] = '\0';
 
+  if (Allreduce_counter > dump_trace_from) {
+    MPI_Comm_rank(comm, &comm_rank);
     MPI_Comm_size(comm, &comm_size);
     MPI_Type_size(datatype, &ds);
     buf_size = count * ds;
     get_datatype_string(datatype, dtstr);
 
-    fprintf(stdout,
-            "\n%s [Rank-%d]  -->  Before  -->  Comm: %d & Comm Size: %d & Datatype: %s & Buffer Size: %d Buffer: %x %x %x %x %x %x & Source: %d & Tag: %d & Irecv Counter: %d",
-            time_str, g_world_rank, comm, comm_size, dtstr, buf_size,
-            *((char *)buf), *((char *)buf + 1), *((char *)buf + 2),
-            *((char *)buf + 3), *((char *)buf + 4), *((char *)buf + 5), source,
-            tag, Irecv_counter);
-    fflush(stdout);
+    fprintf(
+      stdout,
+      "\n[WorldRank-%d] -> %lu -> Irecv-Before -> Comm: %d & Comm Rank: %d & "
+      "Comm Size: %d & Datatype: %s-%d & Buffer Size: %d & Buffer Address: %p & Buffer: %02x %02x %02x "
+      "%02x %02x %02x %02x %02x & Source: %d & Tag: %d & Irecv Counter: %d",
+      g_world_rank, (unsigned long)time(NULL), dmtcp_mpi::VirtualGlobalCommId::instance().getGlobalId(comm), comm_rank, comm_size,
+      dtstr, datatype, buf_size, buf, *((unsigned char *)buf), *((unsigned char *)buf + 1),
+      *((unsigned char *)buf + 2), *((unsigned char *)buf + 3),
+      *((unsigned char *)buf + 4), *((unsigned char *)buf + 5),
+      *((unsigned char *)buf + 6), *((unsigned char *)buf + 7), source, tag,
+      Irecv_counter);
   }
 #endif
   int print_after = 1;
@@ -631,6 +662,22 @@ USER_DEFINED_WRAPPER(int, Irecv,
   }
   LOG_POST_Irecv(source,tag,comm,&status,request,buf);
   DMTCP_PLUGIN_ENABLE_CKPT();
+
+#if defined B4B_SEND_RECV && B4B_SEND_RECV == 1
+  if (Allreduce_counter > dump_trace_from) {
+    fprintf(
+      stdout,
+      "\n[WorldRank-%d] -> %lu -> Irecv-After -> Comm: %d & Comm Rank: %d & "
+      "Comm Size: %d & Datatype: %s-%d & Buffer Size: %d & Buffer Address: %p & Buffer: %02x %02x %02x "
+      "%02x %02x %02x %02x %02x & Source: %d & Tag: %d & Irecv Counter: %d",
+      g_world_rank, (unsigned long)time(NULL), dmtcp_mpi::VirtualGlobalCommId::instance().getGlobalId(comm), comm_rank, comm_size,
+      dtstr, datatype, buf_size, buf, *((unsigned char *)buf), *((unsigned char *)buf + 1),
+      *((unsigned char *)buf + 2), *((unsigned char *)buf + 3),
+      *((unsigned char *)buf + 4), *((unsigned char *)buf + 5),
+      *((unsigned char *)buf + 6), *((unsigned char *)buf + 7), source, tag,
+      Irecv_counter);
+  }
+#endif
   return retval;
 }
 

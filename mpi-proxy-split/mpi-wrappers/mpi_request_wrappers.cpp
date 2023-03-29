@@ -39,6 +39,20 @@
 
 extern int p2p_deterministic_skip_save_request;
 
+extern int g_world_rank;
+extern int g_world_size;
+
+#define B4B_PRINT 0
+
+#if defined B4B_PRINT && B4B_PRINT == 1
+extern int Allreduce_counter; 
+
+int Wait_counter = 0;
+int Waitall_counter = 0;
+int Waitany_counter = 0;
+
+#endif
+
 int MPI_Test_internal(MPI_Request *request, int *flag, MPI_Status *status,
                       bool isRealRequest)
 {
@@ -208,6 +222,23 @@ USER_DEFINED_WRAPPER(int, Waitall, (int) count,
 {
   suspend_p2p_communication();
 
+#if defined B4B_PRINT && B4B_PRINT == 1
+  Waitall_counter++;
+
+  char *s = getenv("DUMP_SEND_RECV_TRACE");
+  int dump_trace = (s != NULL) ? atoi(s) : -1;
+
+  s = getenv("DUMP_TRACE_FROM_ALLREDUCE_COUNTER");
+  int dump_trace_from = (s != NULL) ? atoi(s) : -1;
+
+  if (Allreduce_counter > dump_trace_from) {
+    fprintf(stdout,
+            "\n[WorldRank-%d] -> %lu -> Waitall-Before -> Count: %d & Waitall "
+            "Counter: %d",
+            g_world_rank, (unsigned long)time(NULL), count, Waitall_counter);
+  }
+#endif
+
   // FIXME: Revisit this wrapper - call VIRTUAL_TO_REAL_REQUEST on array
   int retval = MPI_SUCCESS;
 #if 0
@@ -245,6 +276,15 @@ USER_DEFINED_WRAPPER(int, Waitall, (int) count,
     }
   }
 #endif
+
+#if defined B4B_PRINT && B4B_PRINT == 1
+  if (Allreduce_counter > dump_trace_from) {
+    fprintf(stdout,
+            "\n[WorldRank-%d] -> %lu -> Waitall-After -> Count: %d & Waitall "
+            "Counter: %d",
+            g_world_rank, (unsigned long)time(NULL), count, Waitall_counter);
+  }
+#endif
   return retval;
 }
 
@@ -253,6 +293,10 @@ USER_DEFINED_WRAPPER(int, Waitany, (int) count,
                      (MPI_Status *) status)
 {
   suspend_p2p_communication();
+
+#if defined B4B_PRINT && B4B_PRINT == 1
+  Waitany_counter++;
+#endif
 
   // NOTE: See MPI_Testany above for the rationale for these variables.
   int local_count = count;
@@ -316,6 +360,24 @@ USER_DEFINED_WRAPPER(int, Wait, (MPI_Request*) request, (MPI_Status*) status)
 {
   suspend_p2p_communication();
 
+#if defined B4B_PRINT && B4B_PRINT == 1
+  Wait_counter++;
+
+  char *s = getenv("DUMP_SEND_RECV_TRACE");
+  int dump_trace = (s != NULL) ? atoi(s) : -1;
+
+  s = getenv("DUMP_TRACE_FROM_ALLREDUCE_COUNTER");
+  int dump_trace_from = (s != NULL) ? atoi(s) : -1;
+
+  if (Allreduce_counter > dump_trace_from) {
+    fprintf(stdout,
+            "\n[WorldRank-%d] -> %lu -> Wait-Before -> MPI_Request*: %p & "
+            "MPI_Request: %d & Wait Counter: %d",
+            g_world_rank, (unsigned long)time(NULL), request, (int)*request,
+            Wait_counter);
+  }
+#endif
+
   int retval;
   if (*request == MPI_REQUEST_NULL) {
     // *request might be in read-only memory. So we can't overwrite it with
@@ -369,6 +431,17 @@ USER_DEFINED_WRAPPER(int, Wait, (MPI_Request*) request, (MPI_Status*) status)
     }
     DMTCP_PLUGIN_ENABLE_CKPT();
   }
+
+#if defined B4B_PRINT && B4B_PRINT == 1
+  if (Allreduce_counter > dump_trace_from) {
+    fprintf(stdout,
+            "\n[WorldRank-%d] -> %lu -> Wait-After -> MPI_Request*: %p & "
+            "MPI_Request: %d & Wait Counter: %d",
+            g_world_rank, (unsigned long)time(NULL), request, (int)*request,
+            Wait_counter);
+  }
+#endif
+
   return retval;
 }
 

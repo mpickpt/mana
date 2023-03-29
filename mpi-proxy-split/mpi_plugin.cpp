@@ -65,6 +65,8 @@ using dmtcp::kvdb::KVDBRequest;
 using dmtcp::kvdb::KVDBResponse;
 
 /* Global variables */
+extern int DO_BUFFER_XOR;
+
 #ifdef SINGLE_CART_REORDER
 extern CartesianProperties g_cartesian_properties;
 #endif
@@ -1030,41 +1032,47 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       drain_mpi_collective();
       openCkptFileFds();
 
-      fprintf(stdout, "\n[Rank-%d] Setting SUSPEND_P2P_COMMUNICATION = 1",
-              g_world_rank);
-      fflush(stdout);
+      // fprintf(stdout, "\n[Rank-%d] Setting SUSPEND_P2P_COMMUNICATION = 1",
+      //         g_world_rank);
+      // fflush(stdout);
 
-      SUSPEND_P2P_COMMUNICATION = 1;
-      sleep(10); // Wait for user thread to get stuck in the P2P API
+      // SUSPEND_P2P_COMMUNICATION = 1;
+      // sleep(10); // Wait for user thread to get stuck in the P2P API
 
-      fprintf(stdout, "\n[Rank-%d] MPI:Register-local-sends-and-receives\n",
-              g_world_rank);
-      fflush(stdout);
-      dmtcp_global_barrier("MPI:Register-local-sends-and-receives");
+      // fprintf(stdout, "\n[Rank-%d] MPI:Register-local-sends-and-receives\n",
+      //         g_world_rank);
+      // fflush(stdout);
+      // dmtcp_global_barrier("MPI:Register-local-sends-and-receives");
 
-      fprintf(stdout, "\n[Rank-%d] mana_state = CKPT_P2P\n", g_world_rank);
-      fflush(stdout);
-      mana_state = CKPT_P2P;
+      // fprintf(stdout, "\n[Rank-%d] mana_state = CKPT_P2P\n", g_world_rank);
+      // fflush(stdout);
+      // mana_state = CKPT_P2P;
 
-      fprintf(stdout, "\n[Rank-%d] registerLocalSendsAndRecvs()\n", g_world_rank);
-      fflush(stdout);
-      registerLocalSendsAndRecvs(); // p2p_drain_send_recv.cpp
+      // fprintf(stdout, "\n[Rank-%d] registerLocalSendsAndRecvs()\n", g_world_rank);
+      // fflush(stdout);
+      // registerLocalSendsAndRecvs(); // p2p_drain_send_recv.cpp
 
-      fprintf(stdout, "\n[Rank-%d] MPI:Drain-Send-Recv\n", g_world_rank);
-      fflush(stdout);
-      dmtcp_global_barrier("MPI:Drain-Send-Recv");
+      // fprintf(stdout, "\n[Rank-%d] MPI:Drain-Send-Recv\n", g_world_rank);
+      // fflush(stdout);
+      // dmtcp_global_barrier("MPI:Drain-Send-Recv");
 
-      fprintf(stdout, "\n[Rank-%d] drainSendRecv()\n", g_world_rank);
-      fflush(stdout);
-      drainSendRecv(); // p2p_drain_send_recv.cpp
+      // fprintf(stdout, "\n[Rank-%d] drainSendRecv()\n", g_world_rank);
+      // fflush(stdout);
+      // drainSendRecv(); // p2p_drain_send_recv.cpp
 
-      fprintf(stdout, "\n[Rank-%d] Exiting DMTCP_EVENT_PRESUSPEND\n",
-              g_world_rank);
-      fflush(stdout);
+      // fprintf(stdout, "\n[Rank-%d] Exiting DMTCP_EVENT_PRESUSPEND\n",
+      //         g_world_rank);
+      // fflush(stdout);
       break;
     }
 
     case DMTCP_EVENT_PRECHECKPOINT: {
+      DO_BUFFER_XOR = 0;
+      fprintf(stdout, "\n\n\n****************************************");
+      fprintf(stdout, "\n[WorldRank-%d] Checkpointing... %d\n", g_world_rank, DO_BUFFER_XOR);
+      fprintf(stdout, "****************************************\n\n\n");
+      fflush(stdout);
+      
       recordMpiInitMaps();
       recordOpenFds();
       dmtcp_local_barrier("MPI:GetLocalLhMmapList");
@@ -1076,9 +1084,9 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       dmtcp_global_barrier("MPI:Register-local-sends-and-receives");
       mana_state = CKPT_P2P;
       SUSPEND_P2P_COMMUNICATION = 0;
-      // registerLocalSendsAndRecvs(); // p2p_drain_send_recv.cpp
+      registerLocalSendsAndRecvs(); // p2p_drain_send_recv.cpp
       dmtcp_global_barrier("MPI:Drain-Send-Recv");
-      // drainSendRecv(); // p2p_drain_send_recv.cpp
+      drainSendRecv(); // p2p_drain_send_recv.cpp
       computeUnionOfCkptImageAddresses();
       dmtcp_global_barrier("MPI:save-mana-header-and-mpi-files");
       const char *file = get_mana_header_file_name();
@@ -1094,6 +1102,12 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     }
 
     case DMTCP_EVENT_RESUME: {
+      DO_BUFFER_XOR = 0;
+      fprintf(stdout, "\n\n\n****************************************");
+      fprintf(stdout, "\n[WorldRank-%d] Resuming... %d\n", g_world_rank, DO_BUFFER_XOR);
+      fprintf(stdout, "****************************************\n\n\n");
+      fflush(stdout);
+
       SUSPEND_P2P_COMMUNICATION = 0;
       processingOpenCkpFileFds = false;
       dmtcp_local_barrier("MPI:Reset-Drain-Send-Recv-Counters");
@@ -1105,6 +1119,12 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     }
 
     case DMTCP_EVENT_RESTART: {
+      DO_BUFFER_XOR = 0;
+      fprintf(stdout, "\n\n\n****************************************");
+      fprintf(stdout, "\n[WorldRank-%d] Restarting... %d\n", g_world_rank, DO_BUFFER_XOR);
+      fprintf(stdout, "****************************************\n\n\n");
+      fflush(stdout);
+
       SUSPEND_P2P_COMMUNICATION = 0;
       processingOpenCkpFileFds = false;
       logCkptFileFds();
@@ -1197,4 +1217,114 @@ suspend_p2p_communication()
   fprintf(stdout, "\n%s [Rank-%d] P2P Communication Resumed.", time_str,
           g_world_rank);
   fflush(stdout);
+}
+
+
+void
+get_datatype_string(MPI_Datatype datatype, char *buf)
+{
+  switch (datatype) {
+    case MPI_CHAR:
+      sprintf(buf, "MPI_CHAR\0");
+      break;
+    case MPI_SIGNED_CHAR:
+      sprintf(buf, "MPI_SIGNED_CHAR\0");
+      break;
+    case MPI_UNSIGNED_CHAR:
+      sprintf(buf, "MPI_UNSIGNED_CHAR\0");
+      break;
+    case MPI_BYTE:
+      sprintf(buf, "MPI_BYTE\0");
+      break;
+    case MPI_WCHAR:
+      sprintf(buf, "MPI_WCHAR\0");
+      break;
+    case MPI_SHORT:
+      sprintf(buf, "MPI_SHORT\0");
+      break;
+    case MPI_UNSIGNED_SHORT:
+      sprintf(buf, "MPI_UNSIGNED_SHORT\0");
+      break;
+    case MPI_INT:
+      sprintf(buf, "MPI_INT\0");
+      break;
+    case MPI_UNSIGNED:
+      sprintf(buf, "MPI_UNSIGNED\0");
+      break;
+    case MPI_LONG:
+      sprintf(buf, "MPI_LONG\0");
+      break;
+    case MPI_UNSIGNED_LONG:
+      sprintf(buf, "MPI_UNSIGNED_LONG\0");
+      break;
+    case MPI_FLOAT:
+      sprintf(buf, "MPI_FLOAT\0");
+      break;
+    case MPI_DOUBLE:
+      sprintf(buf, "MPI_DOUBLE\0");
+      break;
+    case MPI_LONG_DOUBLE:
+      sprintf(buf, "MPI_LONG_DOUBLE\0");
+      break;
+    case MPI_LONG_LONG_INT:
+      sprintf(buf, "MPI_LONG_LONG_INT or MPI_LONG_LONG\0");
+      break;
+    case MPI_UNSIGNED_LONG_LONG:
+      sprintf(buf, "MPI_UNSIGNED_LONG_LONG\0");
+      break;
+    default:
+      sprintf(buf, "USER_DEFINED\0");
+      break;
+  }
+}
+
+void get_op_string(MPI_Op op, char *buf)
+{
+  switch (op) {
+    case MPI_MAX:
+      sprintf(buf, "MPI_MAX\0");
+      break;
+    case MPI_MIN:
+      sprintf(buf, "MPI_MIN\0");
+      break;
+    case MPI_SUM:
+      sprintf(buf, "MPI_SUM\0");
+      break;
+    case MPI_PROD:
+      sprintf(buf, "MPI_PROD\0");
+      break;
+    case MPI_LAND:
+      sprintf(buf, "MPI_LAND\0");
+      break;
+    case MPI_LOR:
+      sprintf(buf, "MPI_LOR\0");
+      break;
+    case MPI_BAND:
+      sprintf(buf, "MPI_BAND\0");
+      break;
+    case MPI_BOR:
+      sprintf(buf, "MPI_BOR\0");
+      break;
+    case MPI_MAXLOC:
+      sprintf(buf, "MPI_MAXLOC\0");
+      break;
+    case MPI_MINLOC:
+      sprintf(buf, "MPI_MINLOC\0");
+      break;
+    default:
+      sprintf(buf, "USER_DEFINED\0");
+      break;
+  }
+}
+
+int get_buffer_checksum(int* buffer, int size) { 
+  int words = size / 4;
+  int checksum = 0;
+
+  int i = 0;
+  for (i = 0; i < words; i++) {
+    checksum = checksum ^ *(buffer + i);
+  }
+
+  return checksum;
 }

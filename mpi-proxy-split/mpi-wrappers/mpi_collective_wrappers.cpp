@@ -50,7 +50,25 @@ isUsingCollectiveToP2p() {
 #endif
 }
 
+#define B4B_PRINT 0
+
 using namespace dmtcp_mpi;
+
+extern int g_world_rank;
+extern int g_world_size;
+
+int DO_BUFFER_XOR = 9999;
+
+int Gatherv_counter = 0;
+int Allgather_counter = 0; 
+int Allgatherv_counter = 0; 
+int Reduce_counter = 0; 
+int Ireduce_counter = 0; 
+int Alltoall_counter = 0;
+int Alltoallv_counter = 0;
+int Bcast_counter = 0;
+int Ibcast_counter = 0;
+int Allreduce_counter = 0; 
 
 #ifndef MPI_COLLECTIVE_P2P
 #ifdef NO_BARRIER_BCAST
@@ -86,6 +104,45 @@ USER_DEFINED_WRAPPER(int, Bcast,
                      (void *) buffer, (int) count, (MPI_Datatype) datatype,
                      (int) root, (MPI_Comm) comm)
 {
+  Bcast_counter++;
+
+#if defined B4B_PRINT && B4B_PRINT == 1
+  char *s = getenv("DUMP_TRACE_FROM_ALLREDUCE_COUNTER");
+  int dump_trace_from = (s != NULL) ? atoi(s) : -1;
+
+  int comm_rank = -1;
+  int comm_size = -1;
+  int ds = 0;
+  int buf_size = 0;
+  int checksum = -1;
+  char dtstr[30];
+
+  if (Allreduce_counter > dump_trace_from) {
+    MPI_Comm_rank(comm, &comm_rank);
+    MPI_Comm_size(comm, &comm_size);
+    MPI_Type_size(datatype, &ds);
+    buf_size = count * ds;
+    get_datatype_string(datatype, dtstr);
+
+    if (DO_BUFFER_XOR == 0 && buf_size > 8)
+      checksum = get_buffer_checksum((int *) buffer, buf_size);
+
+    fprintf(
+      stdout,
+      "\n[WorldRank-%d] -> %lu -> Bcast-Before -> Comm: %d & Comm Rank: %d "
+      "& Comm Size: %d & Root: %d & Datatype: %s-%d & Count: %d & Buffer Size: %d & Buffer Address: %p "
+      "& Buffer: %02x %02x %02x %02x %02x %02x %02x %02x & Bcast Counter: "
+      "%d & Checksum: %d",
+      g_world_rank, (unsigned long)time(NULL), VirtualGlobalCommId::instance().getGlobalId(comm), comm_rank, comm_size, root,
+      dtstr, datatype, count, buf_size, buffer, *((unsigned char *)buffer),
+      *((unsigned char *)buffer + 1), *((unsigned char *)buffer + 2),
+      *((unsigned char *)buffer + 3), *((unsigned char *)buffer + 4),
+      *((unsigned char *)buffer + 5), *((unsigned char *)buffer + 6),
+      *((unsigned char *)buffer + 7), Bcast_counter, checksum);
+  }
+#endif
+  /* ************************************************* */
+
   bool passthrough = true;
   commit_begin(comm, passthrough);
   int retval;
@@ -105,6 +162,30 @@ USER_DEFINED_WRAPPER(int, Bcast,
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
   commit_finish(comm, passthrough);
+
+  /* ************************************************* */
+#if defined B4B_PRINT && B4B_PRINT == 1
+  if (Allreduce_counter > dump_trace_from) {
+    if (DO_BUFFER_XOR == 0 && buf_size > 8) {
+      checksum = get_buffer_checksum((int *) buffer, buf_size);
+      fprintf(stdout, "\n[WorldRank-%d] -> %lu -> Bcast-After -> %d",
+              g_world_rank, (unsigned long)time(NULL), DO_BUFFER_XOR);
+    }
+
+    fprintf(
+      stdout,
+      "\n[WorldRank-%d] -> %lu -> Bcast-After -> Comm: %d & Comm Rank: %d "
+      "& Comm Size: %d & Root: %d & Datatype: %s-%d & Count: %d & Buffer Size: %d & Buffer Address: %p "
+      "& Buffer: %02x %02x %02x %02x %02x %02x %02x %02x & Bcast Counter: "
+      "%d & Checksum: %d",
+      g_world_rank, (unsigned long)time(NULL), VirtualGlobalCommId::instance().getGlobalId(comm), comm_rank, comm_size, root,
+      dtstr, datatype, count, buf_size, buffer, *((unsigned char *)buffer),
+      *((unsigned char *)buffer + 1), *((unsigned char *)buffer + 2),
+      *((unsigned char *)buffer + 3), *((unsigned char *)buffer + 4),
+      *((unsigned char *)buffer + 5), *((unsigned char *)buffer + 6),
+      *((unsigned char *)buffer + 7), Bcast_counter, checksum);
+  }
+#endif
   return retval;
 }
 #endif
@@ -113,6 +194,44 @@ USER_DEFINED_WRAPPER(int, Ibcast,
                      (void *) buffer, (int) count, (MPI_Datatype) datatype,
                      (int) root, (MPI_Comm) comm, (MPI_Request *) request)
 {
+  Ibcast_counter++;
+#if defined B4B_PRINT && B4B_PRINT == 1
+  char *s = getenv("DUMP_TRACE_FROM_ALLREDUCE_COUNTER");
+  int dump_trace_from = (s != NULL) ? atoi(s) : -1;
+
+  int comm_rank = -1;
+  int comm_size = -1;
+  int ds = 0;
+  int buf_size = 0;
+  int checksum = -1;
+  char dtstr[30];
+
+  if (Allreduce_counter > dump_trace_from) {
+    MPI_Comm_rank(comm, &comm_rank);
+    MPI_Comm_size(comm, &comm_size);
+    MPI_Type_size(datatype, &ds);
+    buf_size = count * ds;
+    get_datatype_string(datatype, dtstr);
+
+    if (DO_BUFFER_XOR == 0 && buf_size > 8)
+      checksum = get_buffer_checksum((int *) buffer, buf_size);
+
+    fprintf(
+      stdout,
+      "\n[WorldRank-%d] -> %lu -> Ibcast-Before -> Comm: %d & Comm Rank: %d "
+      "& Comm Size: %d & Root: %d & Datatype: %s-%d & Count: %d & Buffer Size: %d & Buffer Address: %p "
+      "& Buffer: %02x %02x %02x %02x %02x %02x %02x %02x & Ibcast Counter: "
+      "%d & Checksum: %d",
+      g_world_rank, (unsigned long)time(NULL), VirtualGlobalCommId::instance().getGlobalId(comm), comm_rank, comm_size, root,
+      dtstr, datatype, count, buf_size, buffer, *((unsigned char *)buffer),
+      *((unsigned char *)buffer + 1), *((unsigned char *)buffer + 2),
+      *((unsigned char *)buffer + 3), *((unsigned char *)buffer + 4),
+      *((unsigned char *)buffer + 5), *((unsigned char *)buffer + 6),
+      *((unsigned char *)buffer + 7), Ibcast_counter, checksum);
+  }
+#endif
+  /* ************************************************* */
+
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
@@ -131,6 +250,30 @@ USER_DEFINED_WRAPPER(int, Ibcast,
 #endif
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
+
+/* ************************************************* */
+#if defined B4B_PRINT && B4B_PRINT == 1
+  if (Allreduce_counter > dump_trace_from) {
+    if (DO_BUFFER_XOR == 0 && buf_size > 8) {
+      checksum = get_buffer_checksum((int *) buffer, buf_size);
+      fprintf(stdout, "\n[WorldRank-%d] -> %lu -> Ibcast-After -> %d",
+              g_world_rank, (unsigned long)time(NULL), DO_BUFFER_XOR);
+    }
+
+    fprintf(
+      stdout,
+      "\n[WorldRank-%d] -> %lu -> Ibcast-After -> Comm: %d & Comm Rank: %d "
+      "& Comm Size: %d & Root: %d & Datatype: %s-%d & Count: %d & Buffer Size: %d & Buffer Address: %p "
+      "& Buffer: %02x %02x %02x %02x %02x %02x %02x %02x & Ibcast Counter: "
+      "%d & Checksum: %d",
+      g_world_rank, (unsigned long)time(NULL), VirtualGlobalCommId::instance().getGlobalId(comm), comm_rank, comm_size, root,
+      dtstr, datatype, count, buf_size, buffer, *((unsigned char *)buffer),
+      *((unsigned char *)buffer + 1), *((unsigned char *)buffer + 2),
+      *((unsigned char *)buffer + 3), *((unsigned char *)buffer + 4),
+      *((unsigned char *)buffer + 5), *((unsigned char *)buffer + 6),
+      *((unsigned char *)buffer + 7), Ibcast_counter, checksum);
+  }
+#endif
   return retval;
 }
 
@@ -170,11 +313,159 @@ USER_DEFINED_WRAPPER(int, Ibarrier, (MPI_Comm) comm, (MPI_Request *) request)
   return retval;
 }
 
+#if 0
+/*
+This version, MPI_Allreduce_reproducible, can be called from
+the MPI_Allreduce wrapper and returned.  If desired, it could be
+called selectively on certain sizes or certain types or certain op's.
+
+Use MPI_Type_get_envelope and MPI_Type_get_contents
+  to discover if this is a dup of MPI_DOUBLE
+
+https://www.mcs.anl.gov/papers/P4093-0713_1.pdf
+  On the Reproducibility of MPI Reduction Operations
+
+https://www.sciencedirect.com/science/article/pii/S0167819121000612
+  An optimisation of allreduce communication in message-passing systems
+
+MPI standard:
+Advice to users. Some applications may not be able to ignore the
+non-associative nature of floating-point operations or may use
+user-defined operations (see Section 5.9.5) that require a special
+reduction order and cannot be treated as associative. Such applications
+should enforce the order of evaluation explicitly. For example, in the
+case of operations that require a strict left-to-right (or right-to-left)
+evaluation order, this could be done by gathering all operands at a single
+process (e.g., with MPI_GATHER), applying the reduction operation in the
+desired order (e.g., with MPI_REDUCE_LOCAL), and if needed, broadcast or
+scatter the result to the other processes (e.g., with MPI_BCAST). (End
+of advice to users.)
+
+And note that MPI_Waitany can receive messages non-determistically.
+*/
+#endif
+
+int MPI_Allreduce_reproducible(const void *sendbuf, void *recvbuf, int count,
+                  MPI_Datatype datatype, MPI_Op op, MPI_Comm comm) {
+fprintf(stdout, "\nMPI_Allreduce_reproducible called\n");
+# define MAX_ALL_SENDBUF_SIZE (1024*1024*16) /* 15 MB */
+  // We use 'static' becuase we don't want the overhead of the compiler
+  //   initializing these to zero each time the function is called.
+  static unsigned char tmpbuf[MAX_ALL_SENDBUF_SIZE];
+  int root = 0;
+  int comm_rank;
+  int comm_size;
+  int type_size;
+
+  MPI_Comm_rank(comm, &comm_rank);
+  fprintf(stdout, "\nMPI_Allreduce_reproducible here 1\n");
+  MPI_Comm_size(comm, &comm_size);
+  fprintf(stdout, "\nMPI_Allreduce_reproducible here 2\n");
+  MPI_Type_size(datatype, &type_size);
+  fprintf(stdout, "\nMPI_Allreduce_reproducible here 3\n");
+
+  JASSERT(count * comm_size * type_size <= MAX_ALL_SENDBUF_SIZE);
+fprintf(stdout, "\nMPI_Allreduce_reproducible here 4\n");
+  MPI_Gather(sendbuf, count, datatype, tmpbuf, count * comm_size,
+             datatype, root, comm);
+             fprintf(stdout, "\nMPI_Allreduce_reproducible here 5\n");
+  if (comm_rank == root) {
+    fprintf(stdout, "\nMPI_Allreduce_reproducible here 6\n");
+    MPI_Reduce_local(tmpbuf, recvbuf, count, datatype, op);
+    fprintf(stdout, "\nMPI_Allreduce_reproducible here 7\n");
+  }
+  MPI_Barrier(comm);
+  fprintf(stdout, "\nMPI_Allreduce_reproducible here 8\n");
+  return MPI_Bcast(recvbuf, count, datatype, root, comm);
+}
+
+/*
+int MPI_Allreduce_custom(const void* sendbuf, void* recvbuf, int count,
+                         MPI_Datatype datatype, MPI_Op op, MPI_Comm comm) {
+    int rank, size;
+    MPI_Comm_rank(comm, &rank);
+    MPI_Comm_size(comm, &size);
+    int type_size;
+    MPI_Type_size(datatype, &type_size);
+
+    // Allocate temporary buffer
+    void* tempbuf = malloc(count * type_size * size);
+
+    // Gather data from all processes
+    MPI_Gather(sendbuf, count, datatype, tempbuf, count, datatype, 0, comm);
+
+    // Reduce data on root process
+    if (rank == 0) {
+        MPI_Reduce_local(tempbuf, recvbuf, count * size, datatype, op);
+    }
+
+    // Broadcast result to all processes
+    MPI_Bcast(recvbuf, count, datatype, 0, comm);
+
+    free(tempbuf);
+    return MPI_SUCCESS;
+}*/
+
 USER_DEFINED_WRAPPER(int, Allreduce,
                      (const void *) sendbuf, (void *) recvbuf,
                      (int) count, (MPI_Datatype) datatype,
                      (MPI_Op) op, (MPI_Comm) comm)
 {
+  int cs = -1;
+  int wcs = -2;
+  MPI_Comm_size(comm, &cs);
+  MPI_Comm_size(MPI_COMM_WORLD, &wcs);
+
+  if (cs == wcs)
+      return MPI_Allreduce_reproducible(sendbuf, recvbuf, count, datatype, op,
+                                  comm);
+
+  Allreduce_counter++;
+#if defined B4B_PRINT && B4B_PRINT == 1
+  char *s = getenv("DUMP_TRACE_FROM_ALLREDUCE_COUNTER");
+  int dump_trace_from = (s != NULL) ? atoi(s) : -1;
+
+  int comm_rank = -1;
+  int comm_size = -1;
+  int ds = 0;
+  int buf_size = 0;
+  int schecksum = -1;
+  int rchecksum = -1;
+  char dtstr[30], opstr[30];
+
+  if (Allreduce_counter > dump_trace_from) {
+    MPI_Comm_rank(comm, &comm_rank);
+    MPI_Comm_size(comm, &comm_size);
+    MPI_Type_size(datatype, &ds);
+    buf_size = count * ds;
+    get_datatype_string(datatype, dtstr);
+    get_op_string(op, opstr);
+
+    if (DO_BUFFER_XOR == 0 && buf_size > 8) {
+      schecksum = get_buffer_checksum((int *) sendbuf, buf_size);
+      rchecksum = get_buffer_checksum((int *) recvbuf, buf_size);
+    }
+
+    fprintf(
+      stdout,
+      "\n[WorldRank-%d] -> %lu -> Allreduce-Before -> Comm: %d & Comm Rank: %d "
+      "& Comm Size: %d & Operation: %s & Datatype: %s-%d & Count: %d & Buffer "
+      "Size: %d & Send Buffer Address: %p & Send Buffer: %02x %02x %02x %02x %02x %02x %02x %02x & Recv Buffer Address: %p & Recv "
+      "Buffer: %02x %02x %02x %02x %02x %02x %02x %02x & Allreduce Counter: %d & Send Checksum: %d & Recv Checksum: %d",
+      g_world_rank, (unsigned long)time(NULL), VirtualGlobalCommId::instance().getGlobalId(comm), comm_rank, comm_size,
+      opstr, dtstr, datatype, count, buf_size, sendbuf, *((unsigned char *)sendbuf),
+      *((unsigned char *)sendbuf + 1), *((unsigned char *)sendbuf + 2),
+      *((unsigned char *)sendbuf + 3), *((unsigned char *)sendbuf + 4),
+      *((unsigned char *)sendbuf + 5), *((unsigned char *)sendbuf + 6),
+      *((unsigned char *)sendbuf + 7), recvbuf, *((unsigned char *)recvbuf),
+      *((unsigned char *)recvbuf + 1), *((unsigned char *)recvbuf + 2),
+      *((unsigned char *)recvbuf + 3), *((unsigned char *)recvbuf + 4),
+      *((unsigned char *)recvbuf + 5), *((unsigned char *)recvbuf + 6),
+      *((unsigned char *)recvbuf + 7), Allreduce_counter, schecksum, rchecksum);
+  }
+#endif
+  /* ************************************************* */
+
   bool passthrough = false;
   commit_begin(comm, passthrough);
   int retval;
@@ -196,6 +487,35 @@ USER_DEFINED_WRAPPER(int, Allreduce,
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
   commit_finish(comm, passthrough);
+
+  /* ************************************************* */
+#if defined B4B_PRINT && B4B_PRINT == 1
+  if (Allreduce_counter > dump_trace_from) {
+    if (DO_BUFFER_XOR == 0 && buf_size > 8) {
+      schecksum = get_buffer_checksum((int *) sendbuf, buf_size);
+      rchecksum = get_buffer_checksum((int *) recvbuf, buf_size);
+      fprintf(stdout, "\n[WorldRank-%d] -> %lu -> Allreduce-After -> %d",
+              g_world_rank, (unsigned long)time(NULL), DO_BUFFER_XOR);
+    }
+
+    fprintf(
+      stdout,
+      "\n[WorldRank-%d] -> %lu -> Allreduce-After -> Comm: %d & Comm Rank: %d "
+      "& Comm Size: %d & Operation: %s & Datatype: %s-%d & Count: %d & Buffer "
+      "Size: %d & Send Buffer Address: %p & Send Buffer: %02x %02x %02x %02x %02x %02x %02x %02x & Recv Buffer Address: %p & Recv "
+      "Buffer: %02x %02x %02x %02x %02x %02x %02x %02x & Allreduce Counter: %d & Send Checksum: %d & Recv Checksum: %d",
+      g_world_rank, (unsigned long)time(NULL), VirtualGlobalCommId::instance().getGlobalId(comm), comm_rank, comm_size,
+      opstr, dtstr, datatype, count, buf_size, sendbuf, *((unsigned char *)sendbuf),
+      *((unsigned char *)sendbuf + 1), *((unsigned char *)sendbuf + 2),
+      *((unsigned char *)sendbuf + 3), *((unsigned char *)sendbuf + 4),
+      *((unsigned char *)sendbuf + 5), *((unsigned char *)sendbuf + 6),
+      *((unsigned char *)sendbuf + 7), recvbuf, *((unsigned char *)recvbuf),
+      *((unsigned char *)recvbuf + 1), *((unsigned char *)recvbuf + 2),
+      *((unsigned char *)recvbuf + 3), *((unsigned char *)recvbuf + 4),
+      *((unsigned char *)recvbuf + 5), *((unsigned char *)recvbuf + 6),
+      *((unsigned char *)recvbuf + 7), Allreduce_counter, schecksum, rchecksum);
+  }
+#endif
   return retval;
 }
 
@@ -204,6 +524,53 @@ USER_DEFINED_WRAPPER(int, Reduce,
                      (MPI_Datatype) datatype, (MPI_Op) op,
                      (int) root, (MPI_Comm) comm)
 {
+  Reduce_counter++;
+#if defined B4B_PRINT && B4B_PRINT == 1
+  char *s = getenv("DUMP_TRACE_FROM_ALLREDUCE_COUNTER");
+  int dump_trace_from = (s != NULL) ? atoi(s) : -1;
+
+  int comm_rank = -1;
+  int comm_size = -1;
+  int ds = 0;
+  int buf_size = 0;
+  int schecksum = -1;
+  int rchecksum = -1;
+  char dtstr[30], opstr[30];
+
+  if (Allreduce_counter > dump_trace_from) {
+    MPI_Comm_rank(comm, &comm_rank);
+    MPI_Comm_size(comm, &comm_size);
+    MPI_Type_size(datatype, &ds);
+    buf_size = count * ds;
+    get_datatype_string(datatype, dtstr);
+    get_op_string(op, opstr);
+    
+    if (DO_BUFFER_XOR == 0 && buf_size > 8) {
+      schecksum = get_buffer_checksum((int *) sendbuf, buf_size);
+      rchecksum = get_buffer_checksum((int *) recvbuf, buf_size);
+    }
+
+    fprintf(
+      stdout,
+      "\n[WorldRank-%d] -> %lu -> Reduce-Before -> Comm: %d & Comm Rank: %d "
+      "& Comm Size: %d & Root: %d & Operation: %s & Datatype: %s-%d & Count: %d & "
+      "Buffer Size: %d & Send Buffer Address: %p & Send Buffer: %02x %02x %02x %02x %02x %02x %02x %02x & Recv Buffer Address: %p "
+      "& Recv Buffer: %02x %02x %02x %02x %02x %02x %02x %02x & Reduce "
+      "Counter: %d & Send Checksum: %d & Recv Checksum: %d",
+      g_world_rank, (unsigned long)time(NULL), VirtualGlobalCommId::instance().getGlobalId(comm), comm_rank, comm_size, root,
+      opstr, dtstr, datatype, count, buf_size, sendbuf, *((unsigned char *)sendbuf),
+      *((unsigned char *)sendbuf + 1), *((unsigned char *)sendbuf + 2),
+      *((unsigned char *)sendbuf + 3), *((unsigned char *)sendbuf + 4),
+      *((unsigned char *)sendbuf + 5), *((unsigned char *)sendbuf + 6),
+      *((unsigned char *)sendbuf + 7), recvbuf, *((unsigned char *)recvbuf),
+      *((unsigned char *)recvbuf + 1), *((unsigned char *)recvbuf + 2),
+      *((unsigned char *)recvbuf + 3), *((unsigned char *)recvbuf + 4),
+      *((unsigned char *)recvbuf + 5), *((unsigned char *)recvbuf + 6),
+      *((unsigned char *)recvbuf + 7), Reduce_counter, schecksum, rchecksum);
+  }
+#endif
+  /* ************************************************* */
+
   bool passthrough = true;
   commit_begin(comm, passthrough);
   int retval;
@@ -217,6 +584,35 @@ USER_DEFINED_WRAPPER(int, Reduce,
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
   commit_finish(comm, passthrough);
+#if defined B4B_PRINT && B4B_PRINT == 1
+  /* ************************************************* */
+  if (Allreduce_counter > dump_trace_from) {
+    if (DO_BUFFER_XOR == 0 && buf_size > 8) {
+      schecksum = get_buffer_checksum((int *) sendbuf, buf_size);
+      rchecksum = get_buffer_checksum((int *) recvbuf, buf_size);
+      fprintf(stdout, "\n[WorldRank-%d] -> %lu -> Reduce-After -> %d",
+              g_world_rank, (unsigned long)time(NULL), DO_BUFFER_XOR);
+    }
+
+    fprintf(
+      stdout,
+      "\n[WorldRank-%d] -> %lu -> Reduce-After -> Comm: %d & Comm Rank: %d "
+      "& Comm Size: %d & Root: %d & Operation: %s & Datatype: %s-%d & Count: %d & "
+      "Buffer Size: %d & Send Buffer Address: %p & Send Buffer: %02x %02x %02x %02x %02x %02x %02x %02x & Recv Buffer Address: %p "
+      "& Recv Buffer: %02x %02x %02x %02x %02x %02x %02x %02x & Reduce "
+      "Counter: %d & Send Checksum: %d & Recv Checksum: %d",
+      g_world_rank, (unsigned long)time(NULL), VirtualGlobalCommId::instance().getGlobalId(comm), comm_rank, comm_size, root,
+      opstr, dtstr, datatype, count, buf_size, sendbuf, *((unsigned char *)sendbuf),
+      *((unsigned char *)sendbuf + 1), *((unsigned char *)sendbuf + 2),
+      *((unsigned char *)sendbuf + 3), *((unsigned char *)sendbuf + 4),
+      *((unsigned char *)sendbuf + 5), *((unsigned char *)sendbuf + 6),
+      *((unsigned char *)sendbuf + 7), recvbuf, *((unsigned char *)recvbuf),
+      *((unsigned char *)recvbuf + 1), *((unsigned char *)recvbuf + 2),
+      *((unsigned char *)recvbuf + 3), *((unsigned char *)recvbuf + 4),
+      *((unsigned char *)recvbuf + 5), *((unsigned char *)recvbuf + 6),
+      *((unsigned char *)recvbuf + 7), Reduce_counter, schecksum, rchecksum);
+  }
+#endif
   return retval;
 }
 
@@ -225,6 +621,46 @@ USER_DEFINED_WRAPPER(int, Ireduce,
                      (MPI_Datatype) datatype, (MPI_Op) op,
                      (int) root, (MPI_Comm) comm, (MPI_Request *) request)
 {
+  Ireduce_counter++;
+#if defined B4B_PRINT && B4B_PRINT == 1
+  char *s = getenv("DUMP_TRACE_FROM_ALLREDUCE_COUNTER");
+  int dump_trace_from = (s != NULL) ? atoi(s) : -1;
+
+  int comm_rank = -1;
+  int comm_size = -1;
+  int ds = 0;
+  int buf_size = 0;
+  char dtstr[30], opstr[30];
+
+  if (Allreduce_counter > dump_trace_from) {
+    MPI_Comm_rank(comm, &comm_rank);
+    MPI_Comm_size(comm, &comm_size);
+    MPI_Type_size(datatype, &ds);
+    buf_size = count * ds;
+    get_datatype_string(datatype, dtstr);
+    get_op_string(op, opstr);
+
+    fprintf(
+      stdout,
+      "\n[WorldRank-%d] -> %lu -> Ireduce-Before -> Comm: %d & Comm Rank: %d "
+      "& Comm Size: %d & Root: %d & Operation: %s & Datatype: %s-%d & Count: %d & "
+      "Buffer Size: %d & Send Buffer Address: %p & Send Buffer: %02x %02x %02x %02x %02x %02x %02x %02x & Recv Buffer Address: %p "
+      "& Recv Buffer: %02x %02x %02x %02x %02x %02x %02x %02x & Ireduce "
+      "Counter: %d",
+      g_world_rank, (unsigned long)time(NULL), VirtualGlobalCommId::instance().getGlobalId(comm), comm_rank, comm_size, root,
+      opstr, dtstr, datatype, count, buf_size, sendbuf, *((unsigned char *)sendbuf),
+      *((unsigned char *)sendbuf + 1), *((unsigned char *)sendbuf + 2),
+      *((unsigned char *)sendbuf + 3), *((unsigned char *)sendbuf + 4),
+      *((unsigned char *)sendbuf + 5), *((unsigned char *)sendbuf + 6),
+      *((unsigned char *)sendbuf + 7), recvbuf, *((unsigned char *)recvbuf),
+      *((unsigned char *)recvbuf + 1), *((unsigned char *)recvbuf + 2),
+      *((unsigned char *)recvbuf + 3), *((unsigned char *)recvbuf + 4),
+      *((unsigned char *)recvbuf + 5), *((unsigned char *)recvbuf + 6),
+      *((unsigned char *)recvbuf + 7), Ireduce_counter);
+  }
+#endif
+  /* ************************************************* */
+
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
@@ -244,6 +680,29 @@ USER_DEFINED_WRAPPER(int, Ireduce,
 #endif
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
+
+  /* ************************************************* */
+#if defined B4B_PRINT && B4B_PRINT == 1
+  if (Allreduce_counter > dump_trace_from) {
+    fprintf(
+      stdout,
+      "\n[WorldRank-%d] -> %lu -> Ireduce-After -> Comm: %d & Comm Rank: %d "
+      "& Comm Size: %d & Root: %d & Operation: %s & Datatype: %s-%d & Count: %d & "
+      "Buffer Size: %d & Send Buffer Address: %p & Send Buffer: %02x %02x %02x %02x %02x %02x %02x %02x & Recv Buffer Address: %p "
+      "& Recv Buffer: %02x %02x %02x %02x %02x %02x %02x %02x & Ireduce "
+      "Counter: %d",
+      g_world_rank, (unsigned long)time(NULL), VirtualGlobalCommId::instance().getGlobalId(comm), comm_rank, comm_size, root,
+      opstr, dtstr, datatype, count, buf_size, sendbuf, *((unsigned char *)sendbuf),
+      *((unsigned char *)sendbuf + 1), *((unsigned char *)sendbuf + 2),
+      *((unsigned char *)sendbuf + 3), *((unsigned char *)sendbuf + 4),
+      *((unsigned char *)sendbuf + 5), *((unsigned char *)sendbuf + 6),
+      *((unsigned char *)sendbuf + 7), recvbuf, *((unsigned char *)recvbuf),
+      *((unsigned char *)recvbuf + 1), *((unsigned char *)recvbuf + 2),
+      *((unsigned char *)recvbuf + 3), *((unsigned char *)recvbuf + 4),
+      *((unsigned char *)recvbuf + 5), *((unsigned char *)recvbuf + 6),
+      *((unsigned char *)recvbuf + 7), Ireduce_counter);
+  }
+#endif
   return retval;
 }
 
@@ -300,12 +759,97 @@ USER_DEFINED_WRAPPER(int, Alltoall,
                      (MPI_Datatype) sendtype, (void *) recvbuf, (int) recvcount,
                      (MPI_Datatype) recvtype, (MPI_Comm) comm)
 {
+  Alltoall_counter++;
+#if defined B4B_PRINT && B4B_PRINT == 1
+  char *s = getenv("DUMP_TRACE_FROM_ALLREDUCE_COUNTER");
+  int dump_trace_from = (s != NULL) ? atoi(s) : -1;
+
+  int comm_rank = -1;
+  int comm_size = -1;
+  int ds = 0;
+  int sbuf_size = 0;
+  int rbuf_size = 0;
+  int schecksum = -1;
+  int rchecksum = -1;
+  char sdtstr[30], rdtstr[30];
+
+  if (Allreduce_counter > dump_trace_from) {
+    MPI_Comm_rank(comm, &comm_rank);
+    MPI_Comm_size(comm, &comm_size);
+    MPI_Type_size(sendtype, &ds);
+    sbuf_size = sendcount * ds;
+    get_datatype_string(sendtype, sdtstr);
+
+    MPI_Type_size(recvtype, &ds);
+    rbuf_size = recvcount * ds;
+    get_datatype_string(recvtype, rdtstr);
+
+    if (DO_BUFFER_XOR < 1000 && sbuf_size > 0) {
+      schecksum = get_buffer_checksum((int *) sendbuf, sbuf_size);
+      rchecksum = get_buffer_checksum((int *) recvbuf, rbuf_size);
+    }
+
+    fprintf(
+      stdout,
+      "\n[WorldRank-%d] -> %lu -> Alltoall-Before -> Comm: %d & Comm Rank: %d "
+      "& Comm Size: %d & Send Datatype: %s-%d & Send Count: %d & Send Buffer "
+      "Size: %d & Send Buffer Address: %p & Send Buffer: %02x %02x %02x %02x %02x %02x %02x %02x & Recv "
+      "Datatype: %s-%d & Recv Count: %d & Recv Buffer Size: %d & Recv Buffer Address: %p & Recv Buffer: "
+      "%02x %02x %02x %02x %02x %02x %02x %02x & Alltoall Counter: %d & Send Checksum: %d & Recv Checksum: %d",
+      g_world_rank, (unsigned long)time(NULL), VirtualGlobalCommId::instance().getGlobalId(comm), comm_rank, comm_size,
+      sdtstr, sendtype, sendcount, sbuf_size, sendbuf, *((unsigned char *)sendbuf),
+      *((unsigned char *)sendbuf + 1), *((unsigned char *)sendbuf + 2),
+      *((unsigned char *)sendbuf + 3), *((unsigned char *)sendbuf + 4),
+      *((unsigned char *)sendbuf + 5), *((unsigned char *)sendbuf + 6),
+      *((unsigned char *)sendbuf + 7), rdtstr, recvtype, recvcount, rbuf_size, recvbuf,
+      *((unsigned char *)recvbuf), *((unsigned char *)recvbuf + 1),
+      *((unsigned char *)recvbuf + 2), *((unsigned char *)recvbuf + 3),
+      *((unsigned char *)recvbuf + 4), *((unsigned char *)recvbuf + 5),
+      *((unsigned char *)recvbuf + 6), *((unsigned char *)recvbuf + 7),
+      Alltoall_counter, schecksum, rchecksum);
+  }
+#endif
+  /* ************************************************* */
+
   bool passthrough = false;
   commit_begin(comm, passthrough);
   int retval;
   retval = MPI_Alltoall_internal(sendbuf, sendcount, sendtype,
                                  recvbuf, recvcount, recvtype, comm);
   commit_finish(comm, passthrough);
+
+  /* ************************************************* */
+#if defined B4B_PRINT && B4B_PRINT == 1
+  if (Allreduce_counter > dump_trace_from) {
+
+    if (DO_BUFFER_XOR < 1000 && sbuf_size > 0) {
+      schecksum = get_buffer_checksum((int *) sendbuf, sbuf_size);
+      rchecksum = get_buffer_checksum((int *) recvbuf, rbuf_size);
+      DO_BUFFER_XOR++;
+      fprintf(stdout, "\n[WorldRank-%d] -> %lu -> Alltoall-After -> %d",
+              g_world_rank, (unsigned long)time(NULL), DO_BUFFER_XOR);
+    }
+
+    fprintf(
+      stdout,
+      "\n[WorldRank-%d] -> %lu -> Alltoall-After -> Comm: %d & Comm Rank: %d "
+      "& Comm Size: %d & Send Datatype: %s-%d & Send Count: %d & Send Buffer "
+      "Size: %d & Send Buffer Address: %p & Send Buffer: %02x %02x %02x %02x %02x %02x %02x %02x & Recv "
+      "Datatype: %s-%d & Recv Count: %d & Recv Buffer Size: %d & Recv Buffer Address: %p & Recv Buffer: "
+      "%02x %02x %02x %02x %02x %02x %02x %02x & Alltoall Counter: %d & Send Checksum: %d & Recv Checksum: %d",
+      g_world_rank, (unsigned long)time(NULL), VirtualGlobalCommId::instance().getGlobalId(comm), comm_rank, comm_size,
+      sdtstr, sendtype, sendcount, sbuf_size, sendbuf, *((unsigned char *)sendbuf),
+      *((unsigned char *)sendbuf + 1), *((unsigned char *)sendbuf + 2),
+      *((unsigned char *)sendbuf + 3), *((unsigned char *)sendbuf + 4),
+      *((unsigned char *)sendbuf + 5), *((unsigned char *)sendbuf + 6),
+      *((unsigned char *)sendbuf + 7), rdtstr, recvtype, recvcount, rbuf_size, recvbuf,
+      *((unsigned char *)recvbuf), *((unsigned char *)recvbuf + 1),
+      *((unsigned char *)recvbuf + 2), *((unsigned char *)recvbuf + 3),
+      *((unsigned char *)recvbuf + 4), *((unsigned char *)recvbuf + 5),
+      *((unsigned char *)recvbuf + 6), *((unsigned char *)recvbuf + 7),
+      Alltoall_counter, schecksum, rchecksum);
+  }
+#endif
   return retval;
 }
 
@@ -316,6 +860,58 @@ USER_DEFINED_WRAPPER(int, Alltoallv,
                      (const int *) rdispls, (MPI_Datatype) recvtype,
                      (MPI_Comm) comm)
 {
+  Alltoallv_counter++;
+#if defined B4B_PRINT && B4B_PRINT == 1
+  char *s = getenv("DUMP_TRACE_FROM_ALLREDUCE_COUNTER");
+  int dump_trace_from = (s != NULL) ? atoi(s) : -1;
+
+  int comm_rank = -1;
+  int comm_size = -1;
+  int ds = 0;
+  int sbuf_size = 0;
+  int rbuf_size = 0;
+  int schecksum = -1;
+  int rchecksum = -1;
+  char sdtstr[30], rdtstr[30];
+
+  if (Allreduce_counter > dump_trace_from) {
+    MPI_Comm_rank(comm, &comm_rank);
+    MPI_Comm_size(comm, &comm_size);
+    MPI_Type_size(sendtype, &ds);
+    sbuf_size = (*sendcounts) * ds;
+    get_datatype_string(sendtype, sdtstr);
+
+    MPI_Type_size(recvtype, &ds);
+    rbuf_size = *recvcounts * ds;
+    get_datatype_string(recvtype, rdtstr);
+
+    if (DO_BUFFER_XOR < 1000 && sbuf_size > 0) {
+      schecksum = get_buffer_checksum((int *) sendbuf, sbuf_size);
+      rchecksum = get_buffer_checksum((int *) recvbuf, rbuf_size);
+    }
+
+    fprintf(
+      stdout,
+      "\n[WorldRank-%d] -> %lu -> Alltoallv-Before -> Comm: %d & Comm Rank: %d "
+      "& Comm Size: %d & Send Datatype: %s-%d & Send Count: %d & Send Buffer "
+      "Size: %d & Send Buffer Address: %p & Send Buffer: %02x %02x %02x %02x %02x %02x %02x %02x & Recv "
+      "Datatype: %s-%d & Recv Count: %d & Recv Buffer Size: %d & Recv Buffer Address: %p & Recv Buffer: "
+      "%02x %02x %02x %02x %02x %02x %02x %02x & Alltoallv Counter: %d & Send Checksum: %d & Recv Checksum: %d",
+      g_world_rank, (unsigned long)time(NULL), VirtualGlobalCommId::instance().getGlobalId(comm), comm_rank, comm_size,
+      sdtstr, sendtype, (*sendcounts), sbuf_size, sendbuf, *((unsigned char *)sendbuf),
+      *((unsigned char *)sendbuf + 1), *((unsigned char *)sendbuf + 2),
+      *((unsigned char *)sendbuf + 3), *((unsigned char *)sendbuf + 4),
+      *((unsigned char *)sendbuf + 5), *((unsigned char *)sendbuf + 6),
+      *((unsigned char *)sendbuf + 7), rdtstr, recvtype, *recvcounts, rbuf_size, recvbuf, 
+      *((unsigned char *)recvbuf), *((unsigned char *)recvbuf + 1),
+      *((unsigned char *)recvbuf + 2), *((unsigned char *)recvbuf + 3),
+      *((unsigned char *)recvbuf + 4), *((unsigned char *)recvbuf + 5),
+      *((unsigned char *)recvbuf + 6), *((unsigned char *)recvbuf + 7),
+      Alltoallv_counter, schecksum, rchecksum);
+  }
+#endif
+  /* ************************************************* */
+
   bool passthrough = false;
   commit_begin(comm, passthrough);
   int retval;
@@ -330,6 +926,39 @@ USER_DEFINED_WRAPPER(int, Alltoallv,
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
   commit_finish(comm, passthrough);
+
+  /* ************************************************* */
+#if defined B4B_PRINT && B4B_PRINT == 1
+  if (Allreduce_counter > dump_trace_from) {
+
+    if (DO_BUFFER_XOR < 1000 && sbuf_size > 0) {
+      schecksum = get_buffer_checksum((int *) sendbuf, sbuf_size);
+      rchecksum = get_buffer_checksum((int *) recvbuf, rbuf_size);
+      DO_BUFFER_XOR++;
+      fprintf(stdout, "\n[WorldRank-%d] -> %lu -> Alltoallv-After -> %d",
+              g_world_rank, (unsigned long)time(NULL), DO_BUFFER_XOR);
+    }
+
+    fprintf(
+      stdout,
+      "\n[WorldRank-%d] -> %lu -> Alltoallv-Before -> Comm: %d & Comm Rank: %d "
+      "& Comm Size: %d & Send Datatype: %s-%d & Send Count: %d & Send Buffer "
+      "Size: %d & Send Buffer Address: %p & Send Buffer: %02x %02x %02x %02x %02x %02x %02x %02x & Recv "
+      "Datatype: %s-%d & Recv Count: %d & Recv Buffer Size: %d & Recv Buffer Address: %p & Recv Buffer: "
+      "%02x %02x %02x %02x %02x %02x %02x %02x & Alltoallv Counter: %d & Send Checksum: %d & Recv Checksum: %d",
+      g_world_rank, (unsigned long)time(NULL), VirtualGlobalCommId::instance().getGlobalId(comm), comm_rank, comm_size,
+      sdtstr, sendtype, *sendcounts, sbuf_size, sendbuf, *((unsigned char *)sendbuf),
+      *((unsigned char *)sendbuf + 1), *((unsigned char *)sendbuf + 2),
+      *((unsigned char *)sendbuf + 3), *((unsigned char *)sendbuf + 4),
+      *((unsigned char *)sendbuf + 5), *((unsigned char *)sendbuf + 6),
+      *((unsigned char *)sendbuf + 7), rdtstr, recvtype, *recvcounts, rbuf_size, recvbuf,
+      *((unsigned char *)recvbuf), *((unsigned char *)recvbuf + 1),
+      *((unsigned char *)recvbuf + 2), *((unsigned char *)recvbuf + 3),
+      *((unsigned char *)recvbuf + 4), *((unsigned char *)recvbuf + 5),
+      *((unsigned char *)recvbuf + 6), *((unsigned char *)recvbuf + 7),
+      Alltoallv_counter, schecksum, rchecksum);
+  }
+#endif
   return retval;
 }
 
@@ -359,6 +988,55 @@ USER_DEFINED_WRAPPER(int, Gatherv, (const void *) sendbuf, (int) sendcount,
                      (const int*) recvcounts, (const int*) displs,
                      (MPI_Datatype) recvtype, (int) root, (MPI_Comm) comm)
 {
+  Gatherv_counter++;
+#if defined B4B_PRINT && B4B_PRINT == 1
+  char *s = getenv("DUMP_TRACE_FROM_ALLREDUCE_COUNTER");
+  int dump_trace_from = (s != NULL) ? atoi(s) : -1;
+
+  int comm_rank = -1;
+  int comm_size = -1;
+  int ds = 0;
+  int sbuf_size = 0;
+  int rbuf_size = 0;
+  int schecksum = -1;
+  int rchecksum = -1;
+  char sdtstr[30], rdtstr[30];
+
+  if (Allreduce_counter > dump_trace_from) {
+    MPI_Comm_rank(comm, &comm_rank);
+    MPI_Comm_size(comm, &comm_size);
+    MPI_Type_size(sendtype, &ds);
+    sbuf_size = sendcount * ds;
+    get_datatype_string(sendtype, sdtstr);
+
+    MPI_Type_size(recvtype, &ds);
+    rbuf_size = *recvcounts * ds;
+    get_datatype_string(recvtype, rdtstr);
+
+    if (DO_BUFFER_XOR < 1000 && sbuf_size > 0) {
+      schecksum = get_buffer_checksum((int *) sendbuf, sbuf_size);
+      rchecksum = get_buffer_checksum((int *) recvbuf, rbuf_size);
+    }
+
+    fprintf(
+      stdout,
+      "\n[WorldRank-%d] -> %lu -> Gatherv-Before -> Comm: %d & Comm Rank: %d "
+      "& Comm Size: %d & Root: %d & Send Datatype: %s-%d & Send Count: %d & Send Buffer Size: %d & Send Buffer Address: %p & Send Buffer: %02x %02x %02x %02x %02x %02x %02x %02x & Recv Datatype: %s-%d & Recv Count: %d & Recv Buffer Size: %d & Recv Buffer Address: %p & Recv Buffer: %02x %02x %02x %02x %02x %02x %02x %02x & Gatherv Counter: %d & Send Checksum: %d & Recv Checksum: %d",
+      g_world_rank, (unsigned long)time(NULL), VirtualGlobalCommId::instance().getGlobalId(comm), comm_rank, comm_size,root,
+      sdtstr, sendtype, sendcount, sbuf_size, sendbuf, *((unsigned char *)sendbuf),
+      *((unsigned char *)sendbuf + 1), *((unsigned char *)sendbuf + 2),
+      *((unsigned char *)sendbuf + 3), *((unsigned char *)sendbuf + 4),
+      *((unsigned char *)sendbuf + 5), *((unsigned char *)sendbuf + 6),
+      *((unsigned char *)sendbuf + 7), rdtstr, recvtype, *recvcounts, rbuf_size,recvbuf,
+      *((unsigned char *)recvbuf), *((unsigned char *)recvbuf + 1),
+      *((unsigned char *)recvbuf + 2), *((unsigned char *)recvbuf + 3),
+      *((unsigned char *)recvbuf + 4), *((unsigned char *)recvbuf + 5),
+      *((unsigned char *)recvbuf + 6), *((unsigned char *)recvbuf + 7),
+      Gatherv_counter, schecksum, rchecksum);
+  }
+#endif
+  /* ************************************************* */
+
   bool passthrough = true;
   commit_begin(comm, passthrough);
   int retval;
@@ -373,6 +1051,36 @@ USER_DEFINED_WRAPPER(int, Gatherv, (const void *) sendbuf, (int) sendcount,
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
   commit_finish(comm, passthrough);
+
+  /* ************************************************* */
+#if defined B4B_PRINT && B4B_PRINT == 1
+  if (Allreduce_counter > dump_trace_from) {
+
+    if (DO_BUFFER_XOR < 1000 && sbuf_size > 0) {
+      schecksum = get_buffer_checksum((int *) sendbuf, sbuf_size);
+      rchecksum = get_buffer_checksum((int *) recvbuf, rbuf_size);
+      DO_BUFFER_XOR++;
+      fprintf(stdout, "\n[WorldRank-%d] -> %lu -> Gatherv-After -> %d",
+              g_world_rank, (unsigned long)time(NULL), DO_BUFFER_XOR);
+    }
+
+    fprintf(
+      stdout,
+      "\n[WorldRank-%d] -> %lu -> Gatherv-After -> Comm: %d & Comm Rank: %d "
+      "& Comm Size: %d & Root: %d & Send Datatype: %s-%d & Send Count: %d & Send Buffer Size: %d & Send Buffer Address: %p & Send Buffer: %02x %02x %02x %02x %02x %02x %02x %02x & Recv Datatype: %s-%d & Recv Count: %d & Recv Buffer Size: %d & Recv Buffer Address: %p & Recv Buffer: %02x %02x %02x %02x %02x %02x %02x %02x & Gatherv Counter: %d & Send Checksum: %d & Recv Checksum: %d",
+      g_world_rank, (unsigned long)time(NULL), VirtualGlobalCommId::instance().getGlobalId(comm), comm_rank, comm_size,root,
+      sdtstr, sendtype, sendcount, sbuf_size, sendbuf, *((unsigned char *)sendbuf),
+      *((unsigned char *)sendbuf + 1), *((unsigned char *)sendbuf + 2),
+      *((unsigned char *)sendbuf + 3), *((unsigned char *)sendbuf + 4),
+      *((unsigned char *)sendbuf + 5), *((unsigned char *)sendbuf + 6),
+      *((unsigned char *)sendbuf + 7), rdtstr, recvtype, *recvcounts, rbuf_size, recvbuf,
+      *((unsigned char *)recvbuf), *((unsigned char *)recvbuf + 1),
+      *((unsigned char *)recvbuf + 2), *((unsigned char *)recvbuf + 3),
+      *((unsigned char *)recvbuf + 4), *((unsigned char *)recvbuf + 5),
+      *((unsigned char *)recvbuf + 6), *((unsigned char *)recvbuf + 7),
+      Gatherv_counter, schecksum, rchecksum);
+  }
+#endif
   return retval;
 }
 
@@ -423,6 +1131,58 @@ USER_DEFINED_WRAPPER(int, Allgather, (const void *) sendbuf, (int) sendcount,
                      (MPI_Datatype) sendtype, (void *) recvbuf, (int) recvcount,
                      (MPI_Datatype) recvtype, (MPI_Comm) comm)
 {
+  Allgather_counter++;
+#if defined B4B_PRINT && B4B_PRINT == 1
+  char *s = getenv("DUMP_TRACE_FROM_ALLREDUCE_COUNTER");
+  int dump_trace_from = (s != NULL) ? atoi(s) : -1;
+
+  int comm_rank = -1;
+  int comm_size = -1;
+  int ds = 0;
+  int sbuf_size = 0;
+  int rbuf_size = 0;
+  int schecksum = -1;
+  int rchecksum = -1;
+  char sdtstr[30], rdtstr[30];
+
+  if (Allreduce_counter > dump_trace_from) {
+    MPI_Comm_rank(comm, &comm_rank);
+    MPI_Comm_size(comm, &comm_size);
+    MPI_Type_size(sendtype, &ds);
+    sbuf_size = sendcount * ds;
+    get_datatype_string(sendtype, sdtstr);
+
+    MPI_Type_size(recvtype, &ds);
+    rbuf_size = recvcount * ds;
+    get_datatype_string(recvtype, rdtstr);
+
+    if (DO_BUFFER_XOR < 1000 && sbuf_size > 0) {
+      schecksum = get_buffer_checksum((int *) sendbuf, sbuf_size);
+      rchecksum = get_buffer_checksum((int *) recvbuf, rbuf_size);
+    }
+
+    fprintf(
+      stdout,
+      "\n[WorldRank-%d] -> %lu -> Allgather-Before -> Comm: %d & Comm Rank: %d "
+      "& Comm Size: %d & Send Datatype: %s-%d & Send Count: %d & Send Buffer "
+      "Size: %d & Send Buffer Address: %p & Send Buffer: %02x %02x %02x %02x %02x %02x %02x %02x & Recv "
+      "Datatype: %s-%d & Recv Count: %d & Recv Buffer Size: %d & Recv Buffer Address: %p & Recv Buffer: "
+      "%02x %02x %02x %02x %02x %02x %02x %02x & Allgather Counter: %d & Send Checksum: %d & Recv Checksum: %d",
+      g_world_rank, (unsigned long)time(NULL), VirtualGlobalCommId::instance().getGlobalId(comm), comm_rank, comm_size,
+      sdtstr, sendtype, sendcount, sbuf_size, sendbuf, *((unsigned char *)sendbuf),
+      *((unsigned char *)sendbuf + 1), *((unsigned char *)sendbuf + 2),
+      *((unsigned char *)sendbuf + 3), *((unsigned char *)sendbuf + 4),
+      *((unsigned char *)sendbuf + 5), *((unsigned char *)sendbuf + 6),
+      *((unsigned char *)sendbuf + 7), rdtstr, recvtype, recvcount, rbuf_size, recvbuf,
+      *((unsigned char *)recvbuf), *((unsigned char *)recvbuf + 1),
+      *((unsigned char *)recvbuf + 2), *((unsigned char *)recvbuf + 3),
+      *((unsigned char *)recvbuf + 4), *((unsigned char *)recvbuf + 5),
+      *((unsigned char *)recvbuf + 6), *((unsigned char *)recvbuf + 7),
+      Allgather_counter, schecksum, rchecksum);
+  }
+#endif
+  /* ************************************************* */
+
   bool passthrough = false;
   commit_begin(comm, passthrough);
   int retval;
@@ -437,6 +1197,38 @@ USER_DEFINED_WRAPPER(int, Allgather, (const void *) sendbuf, (int) sendcount,
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
   commit_finish(comm, passthrough);
+#if defined B4B_PRINT && B4B_PRINT == 1
+  /* ************************************************* */
+  if (Allreduce_counter > dump_trace_from) {
+
+    if (DO_BUFFER_XOR < 1000 && sbuf_size > 0) {
+      schecksum = get_buffer_checksum((int *) sendbuf, sbuf_size);
+      rchecksum = get_buffer_checksum((int *) recvbuf, rbuf_size);
+      DO_BUFFER_XOR++;
+      fprintf(stdout, "\n[WorldRank-%d] -> %lu -> Allgather-After -> %d",
+              g_world_rank, (unsigned long)time(NULL), DO_BUFFER_XOR);
+    }
+
+    fprintf(
+      stdout,
+      "\n[WorldRank-%d] -> %lu -> Allgather-After -> Comm: %d & Comm Rank: %d "
+      "& Comm Size: %d & Send Datatype: %s-%d & Send Count: %d & Send Buffer "
+      "Size: %d & Send Buffer Address: %p & Send Buffer: %02x %02x %02x %02x %02x %02x %02x %02x & Recv "
+      "Datatype: %s-%d & Recv Count: %d & Recv Buffer Size: %d & Recv Buffer Address: %p & Recv Buffer: "
+      "%02x %02x %02x %02x %02x %02x %02x %02x & Allgather Counter: %d & Send Checksum: %d & Recv Checksum: %d",
+      g_world_rank, (unsigned long)time(NULL), VirtualGlobalCommId::instance().getGlobalId(comm), comm_rank, comm_size,
+      sdtstr, sendtype, sendcount, sbuf_size, sendbuf, *((unsigned char *)sendbuf),
+      *((unsigned char *)sendbuf + 1), *((unsigned char *)sendbuf + 2),
+      *((unsigned char *)sendbuf + 3), *((unsigned char *)sendbuf + 4),
+      *((unsigned char *)sendbuf + 5), *((unsigned char *)sendbuf + 6),
+      *((unsigned char *)sendbuf + 7), rdtstr, recvtype, recvcount, rbuf_size, recvbuf, 
+      *((unsigned char *)recvbuf), *((unsigned char *)recvbuf + 1),
+      *((unsigned char *)recvbuf + 2), *((unsigned char *)recvbuf + 3),
+      *((unsigned char *)recvbuf + 4), *((unsigned char *)recvbuf + 5),
+      *((unsigned char *)recvbuf + 6), *((unsigned char *)recvbuf + 7),
+      Allgather_counter, schecksum, rchecksum);
+  }
+#endif
   return retval;
 }
 
@@ -445,6 +1237,58 @@ USER_DEFINED_WRAPPER(int, Allgatherv, (const void *) sendbuf, (int) sendcount,
                      (const int*) recvcounts, (const int *) displs,
                      (MPI_Datatype) recvtype, (MPI_Comm) comm)
 {
+  Allgatherv_counter++;
+#if defined B4B_PRINT && B4B_PRINT == 1
+  char *s = getenv("DUMP_TRACE_FROM_ALLREDUCE_COUNTER");
+  int dump_trace_from = (s != NULL) ? atoi(s) : -1;
+
+  int comm_rank = -1;
+  int comm_size = -1;
+  int ds = 0;
+  int sbuf_size = 0;
+  int rbuf_size = 0;
+  int schecksum = -1;
+  int rchecksum = -1;
+  char sdtstr[30], rdtstr[30];
+
+  if (Allreduce_counter > dump_trace_from) {
+    MPI_Comm_rank(comm, &comm_rank);
+    MPI_Comm_size(comm, &comm_size);
+    MPI_Type_size(sendtype, &ds);
+    sbuf_size = sendcount * ds;
+    get_datatype_string(sendtype, sdtstr);
+
+    MPI_Type_size(recvtype, &ds);
+    rbuf_size = *recvcounts * ds;
+    get_datatype_string(recvtype, rdtstr);
+
+    if (DO_BUFFER_XOR < 1000 && sbuf_size > 0) {
+      schecksum = get_buffer_checksum((int *) sendbuf, sbuf_size);
+      rchecksum = get_buffer_checksum((int *) recvbuf, rbuf_size);
+    }
+
+    fprintf(
+      stdout,
+      "\n[WorldRank-%d] -> %lu -> Allgatherv-Before -> Comm: %d & Comm Rank: %d "
+      "& Comm Size: %d & Send Datatype: %s-%d & Send Count: %d & Send Buffer "
+      "Size: %d & Send Buffer Address: %p & Send Buffer: %02x %02x %02x %02x %02x %02x %02x %02x & Recv "
+      "Datatype: %s-%d & Recv Count: %d & Recv Buffer Size: %d & Recv Buffer Address: %p & Recv Buffer: "
+      "%02x %02x %02x %02x %02x %02x %02x %02x & Allgatherv Counter: %d & Send Checksum: %d & Recv Checksum: %d",
+      g_world_rank, (unsigned long)time(NULL), VirtualGlobalCommId::instance().getGlobalId(comm), comm_rank, comm_size,
+      sdtstr, sendtype, sendcount, sbuf_size, sendbuf, *((unsigned char *)sendbuf),
+      *((unsigned char *)sendbuf + 1), *((unsigned char *)sendbuf + 2),
+      *((unsigned char *)sendbuf + 3), *((unsigned char *)sendbuf + 4),
+      *((unsigned char *)sendbuf + 5), *((unsigned char *)sendbuf + 6),
+      *((unsigned char *)sendbuf + 7), rdtstr, recvtype, *recvcounts, rbuf_size, recvbuf,
+      *((unsigned char *)recvbuf), *((unsigned char *)recvbuf + 1),
+      *((unsigned char *)recvbuf + 2), *((unsigned char *)recvbuf + 3),
+      *((unsigned char *)recvbuf + 4), *((unsigned char *)recvbuf + 5),
+      *((unsigned char *)recvbuf + 6), *((unsigned char *)recvbuf + 7),
+      Allgatherv_counter, schecksum, rchecksum);
+  }
+#endif
+  /* ************************************************* */
+
   bool passthrough = false;
   commit_begin(comm, passthrough);
   int retval;
@@ -459,6 +1303,38 @@ USER_DEFINED_WRAPPER(int, Allgatherv, (const void *) sendbuf, (int) sendcount,
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
   commit_finish(comm, passthrough);
+#if defined B4B_PRINT && B4B_PRINT == 1
+  /* ************************************************* */
+  if (Allreduce_counter > dump_trace_from) {
+
+    if (DO_BUFFER_XOR < 1000 && sbuf_size > 0) {
+      schecksum = get_buffer_checksum((int *) sendbuf, sbuf_size);
+      rchecksum = get_buffer_checksum((int *) recvbuf, rbuf_size);
+      DO_BUFFER_XOR++;
+      fprintf(stdout, "\n[WorldRank-%d] -> %lu -> Allgatherv-After -> %d",
+              g_world_rank, (unsigned long)time(NULL), DO_BUFFER_XOR);
+    }
+
+    fprintf(
+      stdout,
+      "\n[WorldRank-%d] -> %lu -> Allgatherv-After -> Comm: %d & Comm Rank: %d "
+      "& Comm Size: %d & Send Datatype: %s-%d & Send Count: %d & Send Buffer "
+      "Size: %d & Send Buffer Address: %p & Send Buffer: %02x %02x %02x %02x %02x %02x %02x %02x & Recv "
+      "Datatype: %s-%d & Recv Count: %d & Recv Buffer Size: %d & Recv Buffer Address: %p & Recv Buffer: "
+      "%02x %02x %02x %02x %02x %02x %02x %02x & Allgatherv Counter: %d & Send Checksum: %d & Recv Checksum: %d",
+      g_world_rank, (unsigned long)time(NULL), VirtualGlobalCommId::instance().getGlobalId(comm), comm_rank, comm_size,
+      sdtstr, sendtype, sendcount, sbuf_size, sendbuf, *((unsigned char *)sendbuf),
+      *((unsigned char *)sendbuf + 1), *((unsigned char *)sendbuf + 2),
+      *((unsigned char *)sendbuf + 3), *((unsigned char *)sendbuf + 4),
+      *((unsigned char *)sendbuf + 5), *((unsigned char *)sendbuf + 6),
+      *((unsigned char *)sendbuf + 7), rdtstr, recvtype, *recvcounts, rbuf_size, recvbuf, 
+      *((unsigned char *)recvbuf), *((unsigned char *)recvbuf + 1),
+      *((unsigned char *)recvbuf + 2), *((unsigned char *)recvbuf + 3),
+      *((unsigned char *)recvbuf + 4), *((unsigned char *)recvbuf + 5),
+      *((unsigned char *)recvbuf + 6), *((unsigned char *)recvbuf + 7),
+      Allgatherv_counter, schecksum, rchecksum);
+  }
+#endif
   return retval;
 }
 
