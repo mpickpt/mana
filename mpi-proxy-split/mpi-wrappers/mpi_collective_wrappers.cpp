@@ -313,113 +313,11 @@ USER_DEFINED_WRAPPER(int, Ibarrier, (MPI_Comm) comm, (MPI_Request *) request)
   return retval;
 }
 
-#if 0
-/*
-This version, MPI_Allreduce_reproducible, can be called from
-the MPI_Allreduce wrapper and returned.  If desired, it could be
-called selectively on certain sizes or certain types or certain op's.
-
-Use MPI_Type_get_envelope and MPI_Type_get_contents
-  to discover if this is a dup of MPI_DOUBLE
-
-https://www.mcs.anl.gov/papers/P4093-0713_1.pdf
-  On the Reproducibility of MPI Reduction Operations
-
-https://www.sciencedirect.com/science/article/pii/S0167819121000612
-  An optimisation of allreduce communication in message-passing systems
-
-MPI standard:
-Advice to users. Some applications may not be able to ignore the
-non-associative nature of floating-point operations or may use
-user-defined operations (see Section 5.9.5) that require a special
-reduction order and cannot be treated as associative. Such applications
-should enforce the order of evaluation explicitly. For example, in the
-case of operations that require a strict left-to-right (or right-to-left)
-evaluation order, this could be done by gathering all operands at a single
-process (e.g., with MPI_GATHER), applying the reduction operation in the
-desired order (e.g., with MPI_REDUCE_LOCAL), and if needed, broadcast or
-scatter the result to the other processes (e.g., with MPI_BCAST). (End
-of advice to users.)
-
-And note that MPI_Waitany can receive messages non-determistically.
-*/
-#endif
-
-int MPI_Allreduce_reproducible(const void *sendbuf, void *recvbuf, int count,
-                  MPI_Datatype datatype, MPI_Op op, MPI_Comm comm) {
-fprintf(stdout, "\nMPI_Allreduce_reproducible called\n");
-# define MAX_ALL_SENDBUF_SIZE (1024*1024*16) /* 15 MB */
-  // We use 'static' becuase we don't want the overhead of the compiler
-  //   initializing these to zero each time the function is called.
-  static unsigned char tmpbuf[MAX_ALL_SENDBUF_SIZE];
-  int root = 0;
-  int comm_rank;
-  int comm_size;
-  int type_size;
-
-  MPI_Comm_rank(comm, &comm_rank);
-  fprintf(stdout, "\nMPI_Allreduce_reproducible here 1\n");
-  MPI_Comm_size(comm, &comm_size);
-  fprintf(stdout, "\nMPI_Allreduce_reproducible here 2\n");
-  MPI_Type_size(datatype, &type_size);
-  fprintf(stdout, "\nMPI_Allreduce_reproducible here 3\n");
-
-  JASSERT(count * comm_size * type_size <= MAX_ALL_SENDBUF_SIZE);
-fprintf(stdout, "\nMPI_Allreduce_reproducible here 4\n");
-  MPI_Gather(sendbuf, count, datatype, tmpbuf, count * comm_size,
-             datatype, root, comm);
-             fprintf(stdout, "\nMPI_Allreduce_reproducible here 5\n");
-  if (comm_rank == root) {
-    fprintf(stdout, "\nMPI_Allreduce_reproducible here 6\n");
-    MPI_Reduce_local(tmpbuf, recvbuf, count, datatype, op);
-    fprintf(stdout, "\nMPI_Allreduce_reproducible here 7\n");
-  }
-  MPI_Barrier(comm);
-  fprintf(stdout, "\nMPI_Allreduce_reproducible here 8\n");
-  return MPI_Bcast(recvbuf, count, datatype, root, comm);
-}
-
-/*
-int MPI_Allreduce_custom(const void* sendbuf, void* recvbuf, int count,
-                         MPI_Datatype datatype, MPI_Op op, MPI_Comm comm) {
-    int rank, size;
-    MPI_Comm_rank(comm, &rank);
-    MPI_Comm_size(comm, &size);
-    int type_size;
-    MPI_Type_size(datatype, &type_size);
-
-    // Allocate temporary buffer
-    void* tempbuf = malloc(count * type_size * size);
-
-    // Gather data from all processes
-    MPI_Gather(sendbuf, count, datatype, tempbuf, count, datatype, 0, comm);
-
-    // Reduce data on root process
-    if (rank == 0) {
-        MPI_Reduce_local(tempbuf, recvbuf, count * size, datatype, op);
-    }
-
-    // Broadcast result to all processes
-    MPI_Bcast(recvbuf, count, datatype, 0, comm);
-
-    free(tempbuf);
-    return MPI_SUCCESS;
-}*/
-
 USER_DEFINED_WRAPPER(int, Allreduce,
                      (const void *) sendbuf, (void *) recvbuf,
                      (int) count, (MPI_Datatype) datatype,
                      (MPI_Op) op, (MPI_Comm) comm)
 {
-  int cs = -1;
-  int wcs = -2;
-  MPI_Comm_size(comm, &cs);
-  MPI_Comm_size(MPI_COMM_WORLD, &wcs);
-
-  if (cs == wcs)
-      return MPI_Allreduce_reproducible(sendbuf, recvbuf, count, datatype, op,
-                                  comm);
-
   Allreduce_counter++;
 #if defined B4B_PRINT && B4B_PRINT == 1
   char *s = getenv("DUMP_TRACE_FROM_ALLREDUCE_COUNTER");
