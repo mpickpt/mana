@@ -79,7 +79,7 @@
     if (_real_MPI_ ## func == (__typeof__(&MPI_##func)) - 1) {                 \
       _real_MPI_ ## func = (__typeof__(&MPI_##func))pdlsym(MPI_Fnc_##func);    \
     }                                                                          \
-    Logger::record(#func);                                                     \
+    Logger::record(#func, (void*)&_real_MPI_##func);                           \
     _real_MPI_ ## func;                                                        \
   })
 #endif // ifndef NEXT_FUNC

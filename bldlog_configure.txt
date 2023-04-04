@@ -1,0 +1,131 @@
+checking whether to enable maintainer-specific portions of Makefiles... no
+checking build system type... x86_64-pc-linux-gnu
+checking host system type... x86_64-pc-linux-gnu
+checking for a BSD-compatible install... /usr/bin/install -c
+checking for ranlib... ranlib
+checking whether make sets $(MAKE)... yes
+checking whether ln -s works... yes
+checking for a race-free mkdir -p... /usr/bin/mkdir -p
+checking for g++... g++
+checking whether the C++ compiler works... yes
+checking for C++ compiler default output file name... a.out
+checking for suffix of executables... 
+checking whether we are cross compiling... no
+checking for suffix of object files... o
+checking whether the compiler supports GNU C++... yes
+checking whether g++ accepts -g... yes
+checking for g++ option to enable C++11 features... none needed
+checking for gcc... gcc
+checking whether the compiler supports GNU C... yes
+checking whether gcc accepts -g... yes
+checking for gcc option to enable C11 features... none needed
+checking how to run the C preprocessor... gcc -E
+checking whether g++ supports C++14 features with -std=c++14... yes
+checking whether C compiler accepts -std=gnu11... yes
+checking for pandoc... no
+configure: creating ./config.status
+config.status: creating Makefile
+config.status: creating manpages/Makefile
+config.status: WARNING:  'manpages/Makefile.in' seems to ignore the --datarootdir setting
+config.status: creating mpi-proxy-split/Makefile_config
+=== configuring in dmtcp (/global/cfs/cdirs/cr/jiamingz/git/jiamingLog/dmtcp)
+configure: running /bin/sh ./configure --disable-option-checking '--prefix=/global/cfs/cdirs/cr/mvm/mana/main-jiamingz.0-jiamingLog-intel/intel'  '--enable-timing' '--enable-debug' '--with-mana-helper-dir=../restart_plugin' '--disable-dlsym-wrapper' --cache-file=/dev/null --srcdir=.
+checking for a BSD-compatible install... /usr/bin/install -c
+checking whether build environment is sane... yes
+checking for a race-free mkdir -p... /usr/bin/mkdir -p
+checking for gawk... gawk
+checking whether make sets $(MAKE)... yes
+checking whether make supports nested variables... yes
+checking whether to enable maintainer-specific portions of Makefiles... no
+checking build system type... x86_64-suse-linux-gnu
+checking host system type... x86_64-suse-linux-gnu
+checking for ranlib... ranlib
+checking whether make sets $(MAKE)... (cached) yes
+checking whether ln -s works... yes
+checking for g++... g++
+checking whether the C++ compiler works... yes
+checking for C++ compiler default output file name... a.out
+checking for suffix of executables... 
+checking whether we are cross compiling... no
+checking for suffix of object files... o
+checking whether the compiler supports GNU C++... yes
+checking whether g++ accepts -g... yes
+checking for g++ option to enable C++11 features... none needed
+checking whether make supports the include directive... yes (GNU style)
+checking dependency style of g++... gcc3
+checking for gcc... gcc
+checking whether the compiler supports GNU C... yes
+checking whether gcc accepts -g... yes
+checking for gcc option to enable C11 features... none needed
+checking whether gcc understands -c and -o together... yes
+checking dependency style of gcc... gcc3
+checking how to run the C preprocessor... gcc -E
+checking whether g++ supports C++14 features with -std=c++14... yes
+checking for gcc option to support OpenMP... -fopenmp
+checking for g++ -std=c++14 option to support OpenMP... -fopenmp
+checking whether posix mq_open works... yes
+checking if this is WSL (Windows Subystem for Linux)... no
+checking whether GNU_HASH is supported for ELF... (DT_GNU_HASH: 1879047925) yes
+checking whether PR_SET_PTRACER is an option for prctl()... yes
+checking if process_vm_readv/process_vm_writev (CMA) available... yes
+checking if FSGSBASE for x86_64 (setting fs in user space) is available... no
+checking if epoll_create1 available... checking for epoll_create1... yes
+checking for readline in -lreadline... no
+checking for readline/readline.h... yes
+checking for readline/history.h... yes
+checking for ps... yes
+checking for python... yes
+checking for python3... yes
+checking for dash... no
+checking for tcsh... yes
+checking for zsh... yes
+checking for vim... yes
+checking for vim... /usr/bin/vim
+checking for emacs... yes
+checking for emacs-nox... no
+checking for script... yes
+checking for screen... yes
+checking for screen... /usr/bin/screen
+checking for strace... yes
+checking for gdb... yes
+checking for java... yes
+checking for javac... yes
+checking for cilkc... no
+checking for cilkc... no
+checking for gcl... no
+checking for gcl... no
+checking for matlab... no
+checking for matlab... no
+checking for linux/version.h... yes
+checking for gzip... yes
+Checking for password-less 'ssh localhost'... no
+checking for mpicc... no
+checking for mpirun... no
+checking for mpiexec... no
+checking for mpicc.openmpi... no
+checking for mpicc... no
+checking for mpirun.openmpi... no
+checking for mpirun... /usr/lib64/mpi/gcc/openmpi/bin/mpirun
+checking for sys/epoll.h... yes
+checking for sys/eventfd.h... yes
+checking for sys/signalfd.h... yes
+checking for sys/inotify.h... yes
+checking for gcc atomic builtins... yes
+checking for __WAIT_STATUS type... no
+checking that generated files are newer than configure... done
+configure: creating ./config.status
+config.status: creating Makefile
+config.status: creating contrib/Makefile
+config.status: creating contrib/ckptfile/Makefile
+config.status: creating contrib/infiniband/Makefile
+config.status: creating plugin/Makefile
+config.status: creating src/Makefile
+config.status: creating src/mtcp/Makefile
+config.status: creating src/plugin/Makefile
+config.status: creating include/dmtcp/version.h
+config.status: creating test/Makefile
+config.status: creating test/autotest_config.py
+config.status: creating test/plugin/Makefile
+config.status: creating include/config.h
+config.status: include/config.h is unchanged
+config.status: executing depfiles commands

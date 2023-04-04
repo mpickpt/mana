@@ -7,7 +7,7 @@
 namespace Logger
 {
     void init();
-    void record(dmtcp::string const& str);
+    void record(dmtcp::string const& str, void* func_ptr);
     dmtcp::string getLogStr();
     void publishLogToCoordinator();
 };

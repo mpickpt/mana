@@ -11,7 +11,8 @@ namespace Logger
 {
 size_t LoggerRingBufferSize = 100;
 
-std::atomic<uint64_t> loggerRingBufferIdx(0);
+// std::atomic<uint64_t> loggerRingBufferIdx(0);
+static volatile int loggerRingBufferIdx = 0;
 
 static dmtcp::vector<dmtcp::string> loggerRingBuffer(LoggerRingBufferSize);
 static bool enableLogging = true;
@@ -33,12 +34,14 @@ void init()
     }
 }
 
-void record(dmtcp::string const& str)
+void record(dmtcp::string const& str, void* func_ptr)
 {
     if (enableLogging) {
         uint64_t idx = loggerRingBufferIdx++;
         loggerRingBuffer[idx % LoggerRingBufferSize] = str;
     }
+    std::cout<<"func name: "<<str<<std::endl;
+    std::cout<<"func pointer: "<<func_ptr<<std::endl;
 }
 
 string getLogStr()

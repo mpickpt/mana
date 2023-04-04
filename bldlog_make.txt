@@ -1,0 +1,593 @@
+DMTCP version: nersc-alpha-3
+Date built:    Tue Apr 4 11:39:33 PDT 2023
+config.log: Description:	SUSE Linux Enterprise Server 15 SP2
+   ./configure --prefix=/global/cfs/cdirs/cr/mvm/mana/main-jiamingz.0-jiamingLog-intel/intel --enable-timing --enable-debug
+Codename:	n/a
+Linux cori03 5.3.18-150200.24.139-default #1 SMP Fri Dec 9 15:20:04 UTC 2022 (e87bf3a) x86_64 x86_64 x86_64 GNU/Linux
+libc version: ldd (GNU libc) 2.26
+Compiler:  gcc
+Using built-in specs.
+COLLECT_GCC=/opt/gcc/11.2.0/bin/../snos/bin/gcc
+COLLECT_LTO_WRAPPER=/opt/gcc/11.2.0/snos/libexec/gcc/x86_64-suse-linux/11.2.0/lto-wrapper
+Target: x86_64-suse-linux
+Configured with: ../cray-gcc-11.2.0-202108140355.9bf1fd589a5c1/configure --prefix=/opt/gcc/11.2.0/snos --disable-nls --libdir=/opt/gcc/11.2.0/snos/lib --enable-languages=c,c++,fortran --with-gxx-include-dir=/opt/gcc/11.2.0/snos/include/g++ --with-slibdir=/opt/gcc/11.2.0/snos/lib --with-system-zlib --enable-shared --enable-__cxa_atexit --build=x86_64-suse-linux --with-ppl --with-cloog --disable-multilib
+Thread model: posix
+Supported LTO compression algorithms: zlib
+gcc version 11.2.0 20210728 (Cray Inc.) (GCC) 
+CFLAGS: -g -O2 -std=gnu11 -Wall -g3 -O0 -DDEBUG
+CXXFLAGS: -g -O2 -Wall -g3 -O0 -DDEBUG
+CPPFLAGS: -Wall -g3 -O0 -DDEBUG
+LDFLAGS: 
+
+make mana
+make[1]: Entering directory '/global/cfs/cdirs/cr/jiamingz/git/jiamingLog'
+cd dmtcp && make
+make[2]: Entering directory '/global/cfs/cdirs/cr/jiamingz/git/jiamingLog/dmtcp'
+if test -d .git/hooks; then \
+  cd .git/hooks && ln -s ../../util/hooks/pre-commit . ; \
+fi
+DMTCP version: 3.0.0
+if test -d .git/hooks; then \
+  cd .git/hooks && ln -s ../../util/hooks/post-rewrite . ; \
+fi
+Date built:    Tue Apr 4 11:39:33 PDT 2023
+config.log: Description:	SUSE Linux Enterprise Server 15 SP2
+   ./configure --disable-option-checking --prefix=/global/cfs/cdirs/cr/mvm/mana/main-jiamingz.0-jiamingLog-intel/intel --enable-timing --enable-debug --with-mana-helper-dir=../restart_plugin --disable-dlsym-wrapper --cache-file=/dev/null --srcdir=.
+Codename:	n/a
+32-bit build:  gcc -m32
+Linux cori03 5.3.18-150200.24.139-default #1 SMP Fri Dec 9 15:20:04 UTC 2022 (e87bf3a) x86_64 x86_64 x86_64 GNU/Linux
+libc version: ldd (GNU libc) 2.26
+Compiler:  gcc
+Using built-in specs.
+COLLECT_GCC=/opt/gcc/11.2.0/bin/../snos/bin/gcc
+COLLECT_LTO_WRAPPER=/opt/gcc/11.2.0/snos/libexec/gcc/x86_64-suse-linux/11.2.0/lto-wrapper
+Target: x86_64-suse-linux
+Configured with: ../cray-gcc-11.2.0-202108140355.9bf1fd589a5c1/configure --prefix=/opt/gcc/11.2.0/snos --disable-nls --libdir=/opt/gcc/11.2.0/snos/lib --enable-languages=c,c++,fortran --with-gxx-include-dir=/opt/gcc/11.2.0/snos/include/g++ --with-slibdir=/opt/gcc/11.2.0/snos/lib --with-system-zlib --enable-shared --enable-__cxa_atexit --build=x86_64-suse-linux --with-ppl --with-cloog --disable-multilib
+Thread model: posix
+Supported LTO compression algorithms: zlib
+gcc version 11.2.0 20210728 (Cray Inc.) (GCC) 
+CFLAGS: -g -O2 -Wall -g3 -O0 -DDEBUG
+CXXFLAGS: -g -O2 -Wall -g3 -O0 -DDEBUG
+CPPFLAGS: -Wall -g3 -O0 -DDEBUG
+LDFLAGS: 
+openjdk version "11.0.17" 2022-10-18
+OpenJDK Runtime Environment (build 11.0.17+0-suse-150000.3.86.2-x8664)
+OpenJDK 64-Bit Server VM (build 11.0.17+0-suse-150000.3.86.2-x8664, mixed mode)
+javac 11.0.17
+-rw------- 1 root root 217032 Mar 15 13:13 /var/lib/nscd/group
+-rw------- 1 root root 217032 Mar 15 13:13 /var/lib/nscd/netgroup
+-rw------- 1 root root 217032 Mar 15 13:13 /var/lib/nscd/passwd
+-rw------- 1 root root 217032 Mar 15 13:13 /var/lib/nscd/services
+-rw-r--r-- 1 root root      6 Mar 15 13:14 /var/run/nscd/nscd.pid
+srw-rw-rw- 1 root root      0 Mar 15 13:14 /var/run/nscd/socket
+
+/usr/bin/mkdir -p ./bin
+/usr/bin/mkdir -p ./lib/dmtcp
+rm -f src/config.h
+cd src && make
+make[3]: Entering directory '/global/cfs/cdirs/cr/jiamingz/git/jiamingLog/dmtcp/src'
+Making all in mtcp
+make[4]: Entering directory '/global/cfs/cdirs/cr/jiamingz/git/jiamingLog/dmtcp/src/mtcp'
+gcc -I../../include -I. -I/global/cfs/cdirs/cr/jiamingz/git/jiamingLog/restart_plugin -Wall -g3 -O0 -DDEBUG -g -O2 -Wall -g3 -O0 -DDEBUG -DMTCP_PLUGIN_H="<mtcp_restart_plugin.h>" -c -o mtcp_restart.o -DPIC -fPIC -fno-stack-protector -g -O0 mtcp_restart.c
+gcc -I../../include -I. -I/global/cfs/cdirs/cr/jiamingz/git/jiamingLog/restart_plugin -Wall -g3 -O0 -DDEBUG -g -O2 -Wall -g3 -O0 -DDEBUG -DMTCP_PLUGIN_H="<mtcp_restart_plugin.h>" -c -o stdlibfnc.o -DPIC -fPIC -fno-stack-protector -g -O0 stdlibfnc.c
+gcc -I../../include -I. -I/global/cfs/cdirs/cr/jiamingz/git/jiamingLog/restart_plugin -Wall -g3 -O0 -DDEBUG -g -O2 -Wall -g3 -O0 -DDEBUG -DMTCP_PLUGIN_H="<mtcp_restart_plugin.h>" -c -o mtcp_util.o -DPIC -fPIC -fno-stack-protector -g -O0 mtcp_util.c
+gcc -I../../include -I. -I/global/cfs/cdirs/cr/jiamingz/git/jiamingLog/restart_plugin -Wall -g3 -O0 -DDEBUG -g -O2 -Wall -g3 -O0 -DDEBUG -DMTCP_PLUGIN_H="<mtcp_restart_plugin.h>" -c -o mtcp_check_vdso.o -DPIC -fPIC -fno-stack-protector -g -O0 mtcp_check_vdso.c
+gcc -I../../include -I. -I/global/cfs/cdirs/cr/jiamingz/git/jiamingLog/restart_plugin -Wall -g3 -O0 -DDEBUG -g -O2 -Wall -g3 -O0 -DDEBUG -DMTCP_PLUGIN_H="<mtcp_restart_plugin.h>" -c -o mtcp_restart_plugin.o -DPIC -fPIC -fno-stack-protector -g -O0 /global/cfs/cdirs/cr/jiamingz/git/jiamingLog/restart_plugin/mtcp_restart_plugin.c
+gcc -I../../include -I. -I/global/cfs/cdirs/cr/jiamingz/git/jiamingLog/restart_plugin -Wall -g3 -O0 -DDEBUG -g -O2 -Wall -g3 -O0 -DDEBUG -DMTCP_PLUGIN_H="<mtcp_restart_plugin.h>" -c -o mtcp_split_process.o -DPIC -fPIC -fno-stack-protector -g -O0 /global/cfs/cdirs/cr/jiamingz/git/jiamingLog/restart_plugin/mtcp_split_process.c
+gcc -I../../include -I. -I/global/cfs/cdirs/cr/jiamingz/git/jiamingLog/restart_plugin -Wall -g3 -O0 -DDEBUG -g -O2 -Wall -g3 -O0 -DDEBUG -DMTCP_PLUGIN_H="<mtcp_restart_plugin.h>" -c -o getcontext.o /global/cfs/cdirs/cr/jiamingz/git/jiamingLog/restart_plugin/getcontext.S
+mtcp_restart.c: In function 'mtcp_simulateread':
+mtcp_restart.c:488:7: warning: variable 'mtcp_sys_errno' set but not used [-Wunused-but-set-variable]
+  488 |   int mtcp_sys_errno;
+      |       ^~~~~~~~~~~~~~
+gcc -g -O2 -Wall -g3 -O0 -DDEBUG -DMTCP_PLUGIN_H="<mtcp_restart_plugin.h>"  -o ../../bin/mtcp_restart -fPIC -g -O0 -nodefaultlibs -static -Wl,-Ttext-segment=11200000  mtcp_restart.o stdlibfnc.o mtcp_util.o mtcp_check_vdso.o mtcp_restart_plugin.o mtcp_split_process.o getcontext.o
+make[4]: Leaving directory '/global/cfs/cdirs/cr/jiamingz/git/jiamingLog/dmtcp/src/mtcp'
+Making all in plugin
+make[4]: Entering directory '/global/cfs/cdirs/cr/jiamingz/git/jiamingLog/dmtcp/src/plugin'
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../../include  -I../../include -I../../jalib -I./ipc -Wall -g3 -O0 -DDEBUG -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -MT i-dmtcp_ssh.o -MD -MP -MF .deps/i-dmtcp_ssh.Tpo -c -o i-dmtcp_ssh.o `test -f 'ipc/ssh/dmtcp_ssh.cpp' || echo './'`ipc/ssh/dmtcp_ssh.cpp
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../../include  -I../../include -I../../jalib -I./ipc -Wall -g3 -O0 -DDEBUG -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -MT i-util_ssh.o -MD -MP -MF .deps/i-util_ssh.Tpo -c -o i-util_ssh.o `test -f 'ipc/ssh/util_ssh.cpp' || echo './'`ipc/ssh/util_ssh.cpp
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../../include  -I../../include -I../../jalib -I./ipc -Wall -g3 -O0 -DDEBUG -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -MT i-dmtcp_sshd.o -MD -MP -MF .deps/i-dmtcp_sshd.Tpo -c -o i-dmtcp_sshd.o `test -f 'ipc/ssh/dmtcp_sshd.cpp' || echo './'`ipc/ssh/dmtcp_sshd.cpp
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../../include  -I../../include -I../../jalib -Wall -g3 -O0 -DDEBUG -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -MT mallocwrappers.o -MD -MP -MF .deps/mallocwrappers.Tpo -c -o mallocwrappers.o `test -f 'alloc/mallocwrappers.cpp' || echo './'`alloc/mallocwrappers.cpp
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../../include  -I../../include -I../../jalib -Wall -g3 -O0 -DDEBUG -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -MT mmapwrappers.o -MD -MP -MF .deps/mmapwrappers.Tpo -c -o mmapwrappers.o `test -f 'alloc/mmapwrappers.cpp' || echo './'`alloc/mmapwrappers.cpp
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../../include  -I../../include -I../../jalib -Wall -g3 -O0 -DDEBUG -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -MT dlwrappers.o -MD -MP -MF .deps/dlwrappers.Tpo -c -o dlwrappers.o `test -f 'dl/dlwrappers.cpp' || echo './'`dl/dlwrappers.cpp
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../../include  -I../../include -I../../jalib -I./ipc -Wall -g3 -O0 -DDEBUG -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -MT i-connection.o -MD -MP -MF .deps/i-connection.Tpo -c -o i-connection.o `test -f 'ipc/connection.cpp' || echo './'`ipc/connection.cpp
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../../include  -I../../include -I../../jalib -I./ipc -Wall -g3 -O0 -DDEBUG -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -MT i-connectionidentifier.o -MD -MP -MF .deps/i-connectionidentifier.Tpo -c -o i-connectionidentifier.o `test -f 'ipc/connectionidentifier.cpp' || echo './'`ipc/connectionidentifier.cpp
+mv -f .deps/mmapwrappers.Tpo .deps/mmapwrappers.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../../include  -I../../include -I../../jalib -I./ipc -Wall -g3 -O0 -DDEBUG -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -MT i-connectionlist.o -MD -MP -MF .deps/i-connectionlist.Tpo -c -o i-connectionlist.o `test -f 'ipc/connectionlist.cpp' || echo './'`ipc/connectionlist.cpp
+mv -f .deps/mallocwrappers.Tpo .deps/mallocwrappers.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../../include  -I../../include -I../../jalib -I./ipc -Wall -g3 -O0 -DDEBUG -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -MT i-ipc.o -MD -MP -MF .deps/i-ipc.Tpo -c -o i-ipc.o `test -f 'ipc/ipc.cpp' || echo './'`ipc/ipc.cpp
+mv -f .deps/i-dmtcp_ssh.Tpo .deps/i-dmtcp_ssh.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../../include  -I../../include -I../../jalib -I./ipc -Wall -g3 -O0 -DDEBUG -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -MT i-eventconnection.o -MD -MP -MF .deps/i-eventconnection.Tpo -c -o i-eventconnection.o `test -f 'ipc/event/eventconnection.cpp' || echo './'`ipc/event/eventconnection.cpp
+mv -f .deps/i-util_ssh.Tpo .deps/i-util_ssh.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../../include  -I../../include -I../../jalib -I./ipc -Wall -g3 -O0 -DDEBUG -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -MT i-eventconnlist.o -MD -MP -MF .deps/i-eventconnlist.Tpo -c -o i-eventconnlist.o `test -f 'ipc/event/eventconnlist.cpp' || echo './'`ipc/event/eventconnlist.cpp
+mv -f .deps/i-dmtcp_sshd.Tpo .deps/i-dmtcp_sshd.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../../include  -I../../include -I../../jalib -I./ipc -Wall -g3 -O0 -DDEBUG -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -MT i-eventwrappers.o -MD -MP -MF .deps/i-eventwrappers.Tpo -c -o i-eventwrappers.o `test -f 'ipc/event/eventwrappers.cpp' || echo './'`ipc/event/eventwrappers.cpp
+mv -f .deps/dlwrappers.Tpo .deps/dlwrappers.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../../include  -I../../include -I../../jalib -I./ipc -Wall -g3 -O0 -DDEBUG -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -MT i-util_descriptor.o -MD -MP -MF .deps/i-util_descriptor.Tpo -c -o i-util_descriptor.o `test -f 'ipc/event/util_descriptor.cpp' || echo './'`ipc/event/util_descriptor.cpp
+mv -f .deps/i-connection.Tpo .deps/i-connection.Po
+mv -f .deps/i-connectionidentifier.Tpo .deps/i-connectionidentifier.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../../include  -I../../include -I../../jalib -I./ipc -Wall -g3 -O0 -DDEBUG -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -MT i-fileconnection.o -MD -MP -MF .deps/i-fileconnection.Tpo -c -o i-fileconnection.o `test -f 'ipc/file/fileconnection.cpp' || echo './'`ipc/file/fileconnection.cpp
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../../include  -I../../include -I../../jalib -I./ipc -Wall -g3 -O0 -DDEBUG -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -MT i-fileconnlist.o -MD -MP -MF .deps/i-fileconnlist.Tpo -c -o i-fileconnlist.o `test -f 'ipc/file/fileconnlist.cpp' || echo './'`ipc/file/fileconnlist.cpp
+mv -f .deps/i-ipc.Tpo .deps/i-ipc.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../../include  -I../../include -I../../jalib -I./ipc -Wall -g3 -O0 -DDEBUG -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -MT i-filewrappers.o -MD -MP -MF .deps/i-filewrappers.Tpo -c -o i-filewrappers.o `test -f 'ipc/file/filewrappers.cpp' || echo './'`ipc/file/filewrappers.cpp
+mv -f .deps/i-eventconnlist.Tpo .deps/i-eventconnlist.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../../include  -I../../include -I../../jalib -I./ipc -Wall -g3 -O0 -DDEBUG -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -MT i-openwrappers.o -MD -MP -MF .deps/i-openwrappers.Tpo -c -o i-openwrappers.o `test -f 'ipc/file/openwrappers.cpp' || echo './'`ipc/file/openwrappers.cpp
+mv -f .deps/i-openwrappers.Tpo .deps/i-openwrappers.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../../include  -I../../include -I../../jalib -I./ipc -Wall -g3 -O0 -DDEBUG -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -MT i-posixipcwrappers.o -MD -MP -MF .deps/i-posixipcwrappers.Tpo -c -o i-posixipcwrappers.o `test -f 'ipc/file/posixipcwrappers.cpp' || echo './'`ipc/file/posixipcwrappers.cpp
+mv -f .deps/i-eventconnection.Tpo .deps/i-eventconnection.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../../include  -I../../include -I../../jalib -I./ipc -Wall -g3 -O0 -DDEBUG -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -MT i-ptyconnection.o -MD -MP -MF .deps/i-ptyconnection.Tpo -c -o i-ptyconnection.o `test -f 'ipc/file/ptyconnection.cpp' || echo './'`ipc/file/ptyconnection.cpp
+mv -f .deps/i-util_descriptor.Tpo .deps/i-util_descriptor.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../../include  -I../../include -I../../jalib -I./ipc -Wall -g3 -O0 -DDEBUG -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -MT i-ptyconnlist.o -MD -MP -MF .deps/i-ptyconnlist.Tpo -c -o i-ptyconnlist.o `test -f 'ipc/file/ptyconnlist.cpp' || echo './'`ipc/file/ptyconnlist.cpp
+mv -f .deps/i-eventwrappers.Tpo .deps/i-eventwrappers.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../../include  -I../../include -I../../jalib -I./ipc -Wall -g3 -O0 -DDEBUG -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -MT i-ptywrappers.o -MD -MP -MF .deps/i-ptywrappers.Tpo -c -o i-ptywrappers.o `test -f 'ipc/file/ptywrappers.cpp' || echo './'`ipc/file/ptywrappers.cpp
+mv -f .deps/i-ptywrappers.Tpo .deps/i-ptywrappers.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../../include  -I../../include -I../../jalib -I./ipc -Wall -g3 -O0 -DDEBUG -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -MT i-connectionrewirer.o -MD -MP -MF .deps/i-connectionrewirer.Tpo -c -o i-connectionrewirer.o `test -f 'ipc/socket/connectionrewirer.cpp' || echo './'`ipc/socket/connectionrewirer.cpp
+mv -f .deps/i-connectionlist.Tpo .deps/i-connectionlist.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../../include  -I../../include -I../../jalib -I./ipc -Wall -g3 -O0 -DDEBUG -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -MT i-kernelbufferdrainer.o -MD -MP -MF .deps/i-kernelbufferdrainer.Tpo -c -o i-kernelbufferdrainer.o `test -f 'ipc/socket/kernelbufferdrainer.cpp' || echo './'`ipc/socket/kernelbufferdrainer.cpp
+mv -f .deps/i-filewrappers.Tpo .deps/i-filewrappers.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../../include  -I../../include -I../../jalib -I./ipc -Wall -g3 -O0 -DDEBUG -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -MT i-socketconnection.o -MD -MP -MF .deps/i-socketconnection.Tpo -c -o i-socketconnection.o `test -f 'ipc/socket/socketconnection.cpp' || echo './'`ipc/socket/socketconnection.cpp
+mv -f .deps/i-posixipcwrappers.Tpo .deps/i-posixipcwrappers.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../../include  -I../../include -I../../jalib -I./ipc -Wall -g3 -O0 -DDEBUG -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -MT i-socketconnlist.o -MD -MP -MF .deps/i-socketconnlist.Tpo -c -o i-socketconnlist.o `test -f 'ipc/socket/socketconnlist.cpp' || echo './'`ipc/socket/socketconnlist.cpp
+mv -f .deps/i-ptyconnection.Tpo .deps/i-ptyconnection.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../../include  -I../../include -I../../jalib -I./ipc -Wall -g3 -O0 -DDEBUG -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -MT i-socketwrappers.o -MD -MP -MF .deps/i-socketwrappers.Tpo -c -o i-socketwrappers.o `test -f 'ipc/socket/socketwrappers.cpp' || echo './'`ipc/socket/socketwrappers.cpp
+mv -f .deps/i-fileconnlist.Tpo .deps/i-fileconnlist.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../../include  -I../../include -I../../jalib -I./ipc -Wall -g3 -O0 -DDEBUG -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -MT i-ssh.o -MD -MP -MF .deps/i-ssh.Tpo -c -o i-ssh.o `test -f 'ipc/ssh/ssh.cpp' || echo './'`ipc/ssh/ssh.cpp
+mv -f .deps/i-ptyconnlist.Tpo .deps/i-ptyconnlist.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../../include  -I../../include -I../../jalib -I./ipc -Wall -g3 -O0 -DDEBUG -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -MT i-sshdrainer.o -MD -MP -MF .deps/i-sshdrainer.Tpo -c -o i-sshdrainer.o `test -f 'ipc/ssh/sshdrainer.cpp' || echo './'`ipc/ssh/sshdrainer.cpp
+mv -f .deps/i-fileconnection.Tpo .deps/i-fileconnection.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../../include  -I../../include -I../../jalib -Wall -g3 -O0 -DDEBUG -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -MT pid.o -MD -MP -MF .deps/pid.Tpo -c -o pid.o `test -f 'pid/pid.cpp' || echo './'`pid/pid.cpp
+mv -f .deps/i-connectionrewirer.Tpo .deps/i-connectionrewirer.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../../include  -I../../include -I../../jalib -Wall -g3 -O0 -DDEBUG -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -MT pid_filewrappers.o -MD -MP -MF .deps/pid_filewrappers.Tpo -c -o pid_filewrappers.o `test -f 'pid/pid_filewrappers.cpp' || echo './'`pid/pid_filewrappers.cpp
+mv -f .deps/i-kernelbufferdrainer.Tpo .deps/i-kernelbufferdrainer.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../../include  -I../../include -I../../jalib -Wall -g3 -O0 -DDEBUG -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -MT pid_miscwrappers.o -MD -MP -MF .deps/pid_miscwrappers.Tpo -c -o pid_miscwrappers.o `test -f 'pid/pid_miscwrappers.cpp' || echo './'`pid/pid_miscwrappers.cpp
+mv -f .deps/i-socketwrappers.Tpo .deps/i-socketwrappers.Po
+gcc -DHAVE_CONFIG_H -I. -I../../include  -I../../include -I../../jalib -Wall -g3 -O0 -DDEBUG -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -MT pid_syscallsreal.o -MD -MP -MF .deps/pid_syscallsreal.Tpo -c -o pid_syscallsreal.o `test -f 'pid/pid_syscallsreal.c' || echo './'`pid/pid_syscallsreal.c
+pid/pid.cpp: In function 'void pidVirt_ProcessProcSelfTask(DmtcpEventData_t*)':
+pid/pid.cpp:159:37: warning: 'snprintf' output may be truncated before the last format character [-Wformat-truncation=]
+  159 |     snprintf(tidStr, PATH_MAX, "%d%s", realTid, buf);
+      |                                     ^
+pid/pid.cpp:159:13: note: 'snprintf' output between 2 and 4107 bytes into a destination of size 4096
+  159 |     snprintf(tidStr, PATH_MAX, "%d%s", realTid, buf);
+      |     ~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+mv -f .deps/i-socketconnlist.Tpo .deps/i-socketconnlist.Po
+mv -f .deps/pid_syscallsreal.Tpo .deps/pid_syscallsreal.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../../include  -I../../include -I../../jalib -Wall -g3 -O0 -DDEBUG -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -MT pidwrappers.o -MD -MP -MF .deps/pidwrappers.Tpo -c -o pidwrappers.o `test -f 'pid/pidwrappers.cpp' || echo './'`pid/pidwrappers.cpp
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../../include  -I../../include -I../../jalib -Wall -g3 -O0 -DDEBUG -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -MT sched_wrappers.o -MD -MP -MF .deps/sched_wrappers.Tpo -c -o sched_wrappers.o `test -f 'pid/sched_wrappers.cpp' || echo './'`pid/sched_wrappers.cpp
+mv -f .deps/i-ssh.Tpo .deps/i-ssh.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../../include  -I../../include -I../../jalib -Wall -g3 -O0 -DDEBUG -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -MT virtualpidtable.o -MD -MP -MF .deps/virtualpidtable.Tpo -c -o virtualpidtable.o `test -f 'pid/virtualpidtable.cpp' || echo './'`pid/virtualpidtable.cpp
+mv -f .deps/i-socketconnection.Tpo .deps/i-socketconnection.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../../include  -I../../include -I../../jalib -Wall -g3 -O0 -DDEBUG -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -MT sysvipc.o -MD -MP -MF .deps/sysvipc.Tpo -c -o sysvipc.o `test -f 'svipc/sysvipc.cpp' || echo './'`svipc/sysvipc.cpp
+mv -f .deps/i-sshdrainer.Tpo .deps/i-sshdrainer.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../../include  -I../../include -I../../jalib -Wall -g3 -O0 -DDEBUG -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -MT sysvipcwrappers.o -MD -MP -MF .deps/sysvipcwrappers.Tpo -c -o sysvipcwrappers.o `test -f 'svipc/sysvipcwrappers.cpp' || echo './'`svipc/sysvipcwrappers.cpp
+mv -f .deps/pid_filewrappers.Tpo .deps/pid_filewrappers.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../../include  -I../../include -I../../jalib -Wall -g3 -O0 -DDEBUG -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -MT timer_create.o -MD -MP -MF .deps/timer_create.Tpo -c -o timer_create.o `test -f 'timer/timer_create.cpp' || echo './'`timer/timer_create.cpp
+mv -f .deps/pid.Tpo .deps/pid.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../../include  -I../../include -I../../jalib -Wall -g3 -O0 -DDEBUG -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -MT timerlist.o -MD -MP -MF .deps/timerlist.Tpo -c -o timerlist.o `test -f 'timer/timerlist.cpp' || echo './'`timer/timerlist.cpp
+mv -f .deps/pid_miscwrappers.Tpo .deps/pid_miscwrappers.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../../include  -I../../include -I../../jalib -Wall -g3 -O0 -DDEBUG -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -MT timerwrappers.o -MD -MP -MF .deps/timerwrappers.Tpo -c -o timerwrappers.o `test -f 'timer/timerwrappers.cpp' || echo './'`timer/timerwrappers.cpp
+mv -f .deps/sched_wrappers.Tpo .deps/sched_wrappers.Po
+rm -f libssh.a
+ar cr libssh.a i-util_ssh.o 
+ranlib libssh.a
+g++ -std=c++14 -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -shared -Xlinker -znow -Wl,--unresolved-symbols=ignore-all  -o ../../lib/dmtcp/libdmtcp_alloc.so mallocwrappers.o mmapwrappers.o -ldl -lpthread 
+mv -f .deps/pidwrappers.Tpo .deps/pidwrappers.Po
+g++ -std=c++14 -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -shared -Xlinker -znow -Wl,--unresolved-symbols=ignore-all  -o ../../lib/dmtcp/libdmtcp_dl.so dlwrappers.o -ldl -lpthread 
+g++ -std=c++14 -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -shared -Xlinker -znow -Wl,--unresolved-symbols=ignore-all  -o ../../lib/dmtcp/libdmtcp_ipc.so i-connection.o i-connectionidentifier.o i-connectionlist.o i-ipc.o i-eventconnection.o i-eventconnlist.o i-eventwrappers.o i-util_descriptor.o i-fileconnection.o i-fileconnlist.o i-filewrappers.o i-openwrappers.o i-posixipcwrappers.o i-ptyconnection.o i-ptyconnlist.o i-ptywrappers.o i-connectionrewirer.o i-kernelbufferdrainer.o i-socketconnection.o i-socketconnlist.o i-socketwrappers.o i-ssh.o i-sshdrainer.o -ldl -lpthread -lrt 
+g++ -std=c++14 -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -fPIC  -o ../../bin/dmtcp_ssh i-dmtcp_ssh.o libssh.a -ldl -lpthread 
+mv -f .deps/timer_create.Tpo .deps/timer_create.Po
+g++ -std=c++14 -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -fPIC  -o ../../bin/dmtcp_sshd i-dmtcp_sshd.o libssh.a -ldl -lpthread 
+mv -f .deps/sysvipcwrappers.Tpo .deps/sysvipcwrappers.Po
+mv -f .deps/virtualpidtable.Tpo .deps/virtualpidtable.Po
+g++ -std=c++14 -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -shared -Xlinker -znow -Wl,--unresolved-symbols=ignore-all  -o ../../lib/dmtcp/libdmtcp_pid.so pid.o pid_filewrappers.o pid_miscwrappers.o pid_syscallsreal.o pidwrappers.o sched_wrappers.o virtualpidtable.o  -ldl -lpthread 
+mv -f .deps/timerwrappers.Tpo .deps/timerwrappers.Po
+mv -f .deps/timerlist.Tpo .deps/timerlist.Po
+g++ -std=c++14 -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -shared -Xlinker -znow -Wl,--unresolved-symbols=ignore-all  -o ../../lib/dmtcp/libdmtcp_timer.so timer_create.o timerlist.o timerwrappers.o -ldl -lpthread 
+mv -f .deps/sysvipc.Tpo .deps/sysvipc.Po
+g++ -std=c++14 -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -shared -Xlinker -znow -Wl,--unresolved-symbols=ignore-all  -o ../../lib/dmtcp/libdmtcp_svipc.so sysvipc.o sysvipcwrappers.o -ldl -lpthread 
+make[4]: Leaving directory '/global/cfs/cdirs/cr/jiamingz/git/jiamingLog/dmtcp/src/plugin'
+make[4]: Entering directory '/global/cfs/cdirs/cr/jiamingz/git/jiamingLog/dmtcp/src'
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -mcx16  -g -O2 -Wall -g3 -O0 -DDEBUG -MT dmtcp_command.o -MD -MP -MF .deps/dmtcp_command.Tpo -c -o dmtcp_command.o dmtcp_command.cpp
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -mcx16  -g -O2 -Wall -g3 -O0 -DDEBUG -MT coordinatorapi.o -MD -MP -MF .deps/coordinatorapi.Tpo -c -o coordinatorapi.o coordinatorapi.cpp
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -mcx16  -g -O2 -Wall -g3 -O0 -DDEBUG -MT dmtcpmessagetypes.o -MD -MP -MF .deps/dmtcpmessagetypes.Tpo -c -o dmtcpmessagetypes.o dmtcpmessagetypes.cpp
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -mcx16  -g -O2 -Wall -g3 -O0 -DDEBUG -MT dmtcp_dlsym.o -MD -MP -MF .deps/dmtcp_dlsym.Tpo -c -o dmtcp_dlsym.o dmtcp_dlsym.cpp
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -mcx16  -g -O2 -Wall -g3 -O0 -DDEBUG -MT jalibinterface.o -MD -MP -MF .deps/jalibinterface.Tpo -c -o jalibinterface.o jalibinterface.cpp
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -mcx16  -g -O2 -Wall -g3 -O0 -DDEBUG -MT mutex.o -MD -MP -MF .deps/mutex.Tpo -c -o mutex.o mutex.cpp
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -mcx16  -g -O2 -Wall -g3 -O0 -DDEBUG -MT processinfo.o -MD -MP -MF .deps/processinfo.Tpo -c -o processinfo.o processinfo.cpp
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -mcx16  -g -O2 -Wall -g3 -O0 -DDEBUG -MT procselfmaps.o -MD -MP -MF .deps/procselfmaps.Tpo -c -o procselfmaps.o procselfmaps.cpp
+mutex.cpp: In function 'int DmtcpMutexTryLock(DmtcpMutex*)':
+mutex.cpp:82:22: warning: comparison of integer expressions of different signedness: 'uint32_t' {aka 'unsigned int'} and 'pid_t' {aka 'int'} [-Wsign-compare]
+   82 |     if (mutex->owner == owner) {
+      |         ~~~~~~~~~~~~~^~~~~~~~
+In file included from mutex.cpp:3:
+mutex.cpp: In function 'int DmtcpMutexUnlock(DmtcpMutex*)':
+mutex.cpp:119:24: warning: comparison of integer expressions of different signedness: 'uint32_t' {aka 'unsigned int'} and 'pid_t' {aka 'int'} [-Wsign-compare]
+  119 |   JASSERT(mutex->owner == owner);
+      |           ~~~~~~~~~~~~~^~~~~~~~
+../jalib/jassert.h:264:7: note: in definition of macro 'JASSERT'
+  264 |   if (term) {                                                     \
+      |       ^~~~
+mv -f .deps/dmtcp_dlsym.Tpo .deps/dmtcp_dlsym.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -mcx16  -g -O2 -Wall -g3 -O0 -DDEBUG -MT rwlock.o -MD -MP -MF .deps/rwlock.Tpo -c -o rwlock.o rwlock.cpp
+mv -f .deps/jalibinterface.Tpo .deps/jalibinterface.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -mcx16  -g -O2 -Wall -g3 -O0 -DDEBUG -MT shareddata.o -MD -MP -MF .deps/shareddata.Tpo -c -o shareddata.o shareddata.cpp
+mv -f .deps/mutex.Tpo .deps/mutex.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -mcx16  -g -O2 -Wall -g3 -O0 -DDEBUG -MT tokenize.o -MD -MP -MF .deps/tokenize.Tpo -c -o tokenize.o tokenize.cpp
+mv -f .deps/procselfmaps.Tpo .deps/procselfmaps.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -mcx16  -g -O2 -Wall -g3 -O0 -DDEBUG -MT uniquepid.o -MD -MP -MF .deps/uniquepid.Tpo -c -o uniquepid.o uniquepid.cpp
+mv -f .deps/dmtcpmessagetypes.Tpo .deps/dmtcpmessagetypes.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -mcx16  -g -O2 -Wall -g3 -O0 -DDEBUG -MT util_exec.o -MD -MP -MF .deps/util_exec.Tpo -c -o util_exec.o util_exec.cpp
+mv -f .deps/dmtcp_command.Tpo .deps/dmtcp_command.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -mcx16  -g -O2 -Wall -g3 -O0 -DDEBUG -MT util_init.o -MD -MP -MF .deps/util_init.Tpo -c -o util_init.o util_init.cpp
+mv -f .deps/coordinatorapi.Tpo .deps/coordinatorapi.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -mcx16  -g -O2 -Wall -g3 -O0 -DDEBUG -MT util_misc.o -MD -MP -MF .deps/util_misc.Tpo -c -o util_misc.o util_misc.cpp
+In file included from rwlock.cpp:6:
+rwlock.cpp: In function 'int DmtcpRWLockUnlock(DmtcpRWLock*)':
+rwlock.cpp:145:33: warning: comparison of integer expressions of different signedness: 'uint32_t' {aka 'unsigned int'} and 'pid_t' {aka 'int'} [-Wsign-compare]
+  145 |     JASSERT(rwlock->xLock.owner == dmtcp_gettid());
+      |             ~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~
+../jalib/jassert.h:264:7: note: in definition of macro 'JASSERT'
+  264 |   if (term) {                                                     \
+      |       ^~~~
+mv -f .deps/processinfo.Tpo .deps/processinfo.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -mcx16  -g -O2 -Wall -g3 -O0 -DDEBUG -MT workerstate.o -MD -MP -MF .deps/workerstate.Tpo -c -o workerstate.o workerstate.cpp
+mv -f .deps/tokenize.Tpo .deps/tokenize.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -mcx16  -g -O2 -Wall -g3 -O0 -DDEBUG -MT jalib.o -MD -MP -MF .deps/jalib.Tpo -c -o jalib.o `test -f '../jalib/jalib.cpp' || echo './'`../jalib/jalib.cpp
+mv -f .deps/rwlock.Tpo .deps/rwlock.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -mcx16  -g -O2 -Wall -g3 -O0 -DDEBUG -MT jalloc.o -MD -MP -MF .deps/jalloc.Tpo -c -o jalloc.o `test -f '../jalib/jalloc.cpp' || echo './'`../jalib/jalloc.cpp
+util_misc.cpp: In function 'dmtcp::string dmtcp::Util::getTimestampStr()':
+util_misc.cpp:702:24: warning: format '%d' expects argument of type 'int', but argument 4 has type '__suseconds_t' {aka 'long int'} [-Wformat=]
+  702 |   sprintf(buf2, "%s.%03d", buf1, tv.tv_usec / 1000);
+      |                     ~~~^         ~~~~~~~~~~~~~~~~~
+      |                        |                    |
+      |                        int                  __suseconds_t {aka long int}
+      |                     %03ld
+util_misc.cpp:702:21: warning: '%03d' directive writing between 3 and 11 bytes into a region of size between 0 and 127 [-Wformat-overflow=]
+  702 |   sprintf(buf2, "%s.%03d", buf1, tv.tv_usec / 1000);
+      |                     ^~~~
+util_misc.cpp:702:17: note: using the range [-2147483648, 2147483647] for directive argument
+  702 |   sprintf(buf2, "%s.%03d", buf1, tv.tv_usec / 1000);
+      |                 ^~~~~~~~~
+util_misc.cpp:702:10: note: 'sprintf' output between 5 and 140 bytes into a destination of size 128
+  702 |   sprintf(buf2, "%s.%03d", buf1, tv.tv_usec / 1000);
+      |   ~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+mv -f .deps/uniquepid.Tpo .deps/uniquepid.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -mcx16  -g -O2 -Wall -g3 -O0 -DDEBUG -MT jassert.o -MD -MP -MF .deps/jassert.Tpo -c -o jassert.o `test -f '../jalib/jassert.cpp' || echo './'`../jalib/jassert.cpp
+mv -f .deps/shareddata.Tpo .deps/shareddata.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -mcx16  -g -O2 -Wall -g3 -O0 -DDEBUG -MT jbuffer.o -MD -MP -MF .deps/jbuffer.Tpo -c -o jbuffer.o `test -f '../jalib/jbuffer.cpp' || echo './'`../jalib/jbuffer.cpp
+mv -f .deps/util_exec.Tpo .deps/util_exec.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -mcx16  -g -O2 -Wall -g3 -O0 -DDEBUG -MT jfilesystem.o -MD -MP -MF .deps/jfilesystem.Tpo -c -o jfilesystem.o `test -f '../jalib/jfilesystem.cpp' || echo './'`../jalib/jfilesystem.cpp
+mv -f .deps/util_misc.Tpo .deps/util_misc.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -mcx16  -g -O2 -Wall -g3 -O0 -DDEBUG -MT jserialize.o -MD -MP -MF .deps/jserialize.Tpo -c -o jserialize.o `test -f '../jalib/jserialize.cpp' || echo './'`../jalib/jserialize.cpp
+mv -f .deps/util_init.Tpo .deps/util_init.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -mcx16  -g -O2 -Wall -g3 -O0 -DDEBUG -MT jsocket.o -MD -MP -MF .deps/jsocket.Tpo -c -o jsocket.o `test -f '../jalib/jsocket.cpp' || echo './'`../jalib/jsocket.cpp
+mv -f .deps/workerstate.Tpo .deps/workerstate.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -mcx16  -g -O2 -Wall -g3 -O0 -DDEBUG -MT jtimer.o -MD -MP -MF .deps/jtimer.Tpo -c -o jtimer.o `test -f '../jalib/jtimer.cpp' || echo './'`../jalib/jtimer.cpp
+mv -f .deps/jalib.Tpo .deps/jalib.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -mcx16  -g -O2 -Wall -g3 -O0 -DDEBUG -MT dmtcpnohijackstubs.o -MD -MP -MF .deps/dmtcpnohijackstubs.Tpo -c -o dmtcpnohijackstubs.o dmtcpnohijackstubs.cpp
+mv -f .deps/jalloc.Tpo .deps/jalloc.Po
+gcc -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -MT nosyscallsreal.o -MD -MP -MF .deps/nosyscallsreal.Tpo -c -o nosyscallsreal.o nosyscallsreal.c
+../jalib/jassert.cpp: In member function 'void jassert_internal::JAssert::PrintBacktrace()':
+../jalib/jassert.cpp:221:15: warning: unused variable 'demangled' [-Wunused-variable]
+  221 |         char *demangled =
+      |               ^~~~~~~~~
+mv -f .deps/nosyscallsreal.Tpo .deps/nosyscallsreal.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -mcx16  -g -O2 -Wall -g3 -O0 -DDEBUG -MT dmtcp_coordinator.o -MD -MP -MF .deps/dmtcp_coordinator.Tpo -c -o dmtcp_coordinator.o dmtcp_coordinator.cpp
+mv -f .deps/jbuffer.Tpo .deps/jbuffer.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -mcx16  -g -O2 -Wall -g3 -O0 -DDEBUG -MT lookup_service.o -MD -MP -MF .deps/lookup_service.Tpo -c -o lookup_service.o lookup_service.cpp
+mv -f .deps/jserialize.Tpo .deps/jserialize.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -mcx16  -g -O2 -Wall -g3 -O0 -DDEBUG -MT restartscript.o -MD -MP -MF .deps/restartscript.Tpo -c -o restartscript.o restartscript.cpp
+mv -f .deps/jassert.Tpo .deps/jassert.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -mcx16  -g -O2 -Wall -g3 -O0 -DDEBUG -MT dmtcp_launch.o -MD -MP -MF .deps/dmtcp_launch.Tpo -c -o dmtcp_launch.o dmtcp_launch.cpp
+mv -f .deps/jtimer.Tpo .deps/jtimer.Po
+gcc -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -MT dmtcp_nocheckpoint.o -MD -MP -MF .deps/dmtcp_nocheckpoint.Tpo -c -o dmtcp_nocheckpoint.o dmtcp_nocheckpoint.c
+mv -f .deps/dmtcpnohijackstubs.Tpo .deps/dmtcpnohijackstubs.Po
+gcc -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -MT dmtcp_get_libc_offset.o -MD -MP -MF .deps/dmtcp_get_libc_offset.Tpo -c -o dmtcp_get_libc_offset.o dmtcp_get_libc_offset.c
+mv -f .deps/dmtcp_nocheckpoint.Tpo .deps/dmtcp_nocheckpoint.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -mcx16  -g -O2 -Wall -g3 -O0 -DDEBUG -MT dmtcp_restart.o -MD -MP -MF .deps/dmtcp_restart.Tpo -c -o dmtcp_restart.o dmtcp_restart.cpp
+mv -f .deps/dmtcp_get_libc_offset.Tpo .deps/dmtcp_get_libc_offset.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -mcx16  -g -O2 -Wall -g3 -O0 -DDEBUG -MT dmtcp_restart_plugin.o -MD -MP -MF .deps/dmtcp_restart_plugin.Tpo -c -o dmtcp_restart_plugin.o `test -f '/global/cfs/cdirs/cr/jiamingz/git/jiamingLog/restart_plugin/dmtcp_restart_plugin.cpp' || echo './'`/global/cfs/cdirs/cr/jiamingz/git/jiamingLog/restart_plugin/dmtcp_restart_plugin.cpp
+mv -f .deps/jfilesystem.Tpo .deps/jfilesystem.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -mcx16  -g -O2 -Wall -g3 -O0 -DDEBUG -MT alarm.o -MD -MP -MF .deps/alarm.Tpo -c -o alarm.o alarm.cpp
+mv -f .deps/jsocket.Tpo .deps/jsocket.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -mcx16  -g -O2 -Wall -g3 -O0 -DDEBUG -MT ckptserializer.o -MD -MP -MF .deps/ckptserializer.Tpo -c -o ckptserializer.o ckptserializer.cpp
+dmtcp_launch.cpp: In function 'void testFsGsBase()':
+dmtcp_launch.cpp:758:16: warning: comparison of integer expressions of different signedness: 'long unsigned int' and 'int' [-Wsign-compare]
+  758 |     if (fsbase != -1) {
+      |         ~~~~~~~^~~~~
+mv -f .deps/dmtcp_launch.Tpo .deps/dmtcp_launch.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -mcx16  -g -O2 -Wall -g3 -O0 -DDEBUG -MT dlwrappers.o -MD -MP -MF .deps/dlwrappers.Tpo -c -o dlwrappers.o dlwrappers.cpp
+mv -f .deps/restartscript.Tpo .deps/restartscript.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -mcx16  -g -O2 -Wall -g3 -O0 -DDEBUG -MT dmtcpplugin.o -MD -MP -MF .deps/dmtcpplugin.Tpo -c -o dmtcpplugin.o dmtcpplugin.cpp
+mv -f .deps/alarm.Tpo .deps/alarm.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -mcx16  -g -O2 -Wall -g3 -O0 -DDEBUG -MT dmtcpworker.o -MD -MP -MF .deps/dmtcpworker.Tpo -c -o dmtcpworker.o dmtcpworker.cpp
+mv -f .deps/lookup_service.Tpo .deps/lookup_service.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -mcx16  -g -O2 -Wall -g3 -O0 -DDEBUG -MT dmtcp_dlsym_wrappers.o -MD -MP -MF .deps/dmtcp_dlsym_wrappers.Tpo -c -o dmtcp_dlsym_wrappers.o dmtcp_dlsym_wrappers.cpp
+mv -f .deps/ckptserializer.Tpo .deps/ckptserializer.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -mcx16  -g -O2 -Wall -g3 -O0 -DDEBUG -MT execwrappers.o -MD -MP -MF .deps/execwrappers.Tpo -c -o execwrappers.o execwrappers.cpp
+mv -f .deps/dmtcp_restart_plugin.Tpo .deps/dmtcp_restart_plugin.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -mcx16  -g -O2 -Wall -g3 -O0 -DDEBUG -MT glibcsystem.o -MD -MP -MF .deps/glibcsystem.Tpo -c -o glibcsystem.o glibcsystem.cpp
+mv -f .deps/glibcsystem.Tpo .deps/glibcsystem.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -mcx16  -g -O2 -Wall -g3 -O0 -DDEBUG -MT kvdb.o -MD -MP -MF .deps/kvdb.Tpo -c -o kvdb.o kvdb.cpp
+mv -f .deps/dlwrappers.Tpo .deps/dlwrappers.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -mcx16  -g -O2 -Wall -g3 -O0 -DDEBUG -MT miscwrappers.o -MD -MP -MF .deps/miscwrappers.Tpo -c -o miscwrappers.o miscwrappers.cpp
+mv -f .deps/dmtcp_coordinator.Tpo .deps/dmtcp_coordinator.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -mcx16  -g -O2 -Wall -g3 -O0 -DDEBUG -MT plugininfo.o -MD -MP -MF .deps/plugininfo.Tpo -c -o plugininfo.o plugininfo.cpp
+mv -f .deps/dmtcp_restart.Tpo .deps/dmtcp_restart.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -mcx16  -g -O2 -Wall -g3 -O0 -DDEBUG -MT pluginmanager.o -MD -MP -MF .deps/pluginmanager.Tpo -c -o pluginmanager.o pluginmanager.cpp
+mv -f .deps/dmtcp_dlsym_wrappers.Tpo .deps/dmtcp_dlsym_wrappers.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -mcx16  -g -O2 -Wall -g3 -O0 -DDEBUG -MT popen.o -MD -MP -MF .deps/popen.Tpo -c -o popen.o popen.cpp
+mv -f .deps/dmtcpplugin.Tpo .deps/dmtcpplugin.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -mcx16  -g -O2 -Wall -g3 -O0 -DDEBUG -MT tls.o -MD -MP -MF .deps/tls.Tpo -c -o tls.o tls.cpp
+mv -f .deps/dmtcpworker.Tpo .deps/dmtcpworker.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -mcx16  -g -O2 -Wall -g3 -O0 -DDEBUG -MT rlimitfloatenv.o -MD -MP -MF .deps/rlimitfloatenv.Tpo -c -o rlimitfloatenv.o rlimitfloatenv.cpp
+mv -f .deps/kvdb.Tpo .deps/kvdb.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -mcx16  -g -O2 -Wall -g3 -O0 -DDEBUG -MT signalwrappers.o -MD -MP -MF .deps/signalwrappers.Tpo -c -o signalwrappers.o signalwrappers.cpp
+mv -f .deps/miscwrappers.Tpo .deps/miscwrappers.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -mcx16  -g -O2 -Wall -g3 -O0 -DDEBUG -MT siginfo.o -MD -MP -MF .deps/siginfo.Tpo -c -o siginfo.o siginfo.cpp
+mv -f .deps/plugininfo.Tpo .deps/plugininfo.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -mcx16  -g -O2 -Wall -g3 -O0 -DDEBUG -MT syslogwrappers.o -MD -MP -MF .deps/syslogwrappers.Tpo -c -o syslogwrappers.o syslogwrappers.cpp
+mv -f .deps/execwrappers.Tpo .deps/execwrappers.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -mcx16  -g -O2 -Wall -g3 -O0 -DDEBUG -MT terminal.o -MD -MP -MF .deps/terminal.Tpo -c -o terminal.o terminal.cpp
+mv -f .deps/tls.Tpo .deps/tls.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -mcx16  -g -O2 -Wall -g3 -O0 -DDEBUG -MT threadlist.o -MD -MP -MF .deps/threadlist.Tpo -c -o threadlist.o threadlist.cpp
+mv -f .deps/rlimitfloatenv.Tpo .deps/rlimitfloatenv.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -mcx16  -g -O2 -Wall -g3 -O0 -DDEBUG -MT threadsync.o -MD -MP -MF .deps/threadsync.Tpo -c -o threadsync.o threadsync.cpp
+mv -f .deps/pluginmanager.Tpo .deps/pluginmanager.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -mcx16  -g -O2 -Wall -g3 -O0 -DDEBUG -MT threadwrappers.o -MD -MP -MF .deps/threadwrappers.Tpo -c -o threadwrappers.o threadwrappers.cpp
+mv -f .deps/popen.Tpo .deps/popen.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -mcx16  -g -O2 -Wall -g3 -O0 -DDEBUG -MT wrappers.o -MD -MP -MF .deps/wrappers.Tpo -c -o wrappers.o wrappers.cpp
+mv -f .deps/signalwrappers.Tpo .deps/signalwrappers.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -mcx16  -g -O2 -Wall -g3 -O0 -DDEBUG -MT writeckpt.o -MD -MP -MF .deps/writeckpt.Tpo -c -o writeckpt.o writeckpt.cpp
+mv -f .deps/siginfo.Tpo .deps/siginfo.Po
+gcc -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -MT syscallsreal.o -MD -MP -MF .deps/syscallsreal.Tpo -c -o syscallsreal.o syscallsreal.c
+mv -f .deps/syslogwrappers.Tpo .deps/syslogwrappers.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -mcx16  -g -O2 -Wall -g3 -O0 -DDEBUG -MT trampolines.o -MD -MP -MF .deps/trampolines.Tpo -c -o trampolines.o trampolines.cpp
+mv -f .deps/terminal.Tpo .deps/terminal.Po
+rm -f libdmtcpinternal.a
+ar cr libdmtcpinternal.a coordinatorapi.o dmtcpmessagetypes.o dmtcp_dlsym.o jalibinterface.o mutex.o processinfo.o procselfmaps.o rwlock.o shareddata.o tokenize.o uniquepid.o util_exec.o util_init.o util_misc.o workerstate.o 
+ranlib libdmtcpinternal.a
+threadlist.cpp: In function 'void dmtcp::ThreadList::suspendThreads()':
+threadlist.cpp:440:11: warning: unused variable 'ret' [-Wunused-variable]
+  440 |       int ret;
+      |           ^~~
+rm -f libjalib.a
+ar cr libjalib.a jalib.o jalloc.o jassert.o jbuffer.o jfilesystem.o jserialize.o jsocket.o jtimer.o 
+ranlib libjalib.a
+rm -f libnohijack.a
+ar cr libnohijack.a dmtcpnohijackstubs.o nosyscallsreal.o 
+ranlib libnohijack.a
+mv -f .deps/syscallsreal.Tpo .deps/syscallsreal.Po
+gcc -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -fPIC  -o ../bin/dmtcp_nocheckpoint dmtcp_nocheckpoint.o  
+gcc -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -fPIC  -o ../bin/dmtcp_get_libc_offset dmtcp_get_libc_offset.o -ldl 
+mv -f .deps/threadsync.Tpo .deps/threadsync.Po
+g++ -std=c++14 -fPIC -mcx16  -g -O2 -Wall -g3 -O0 -DDEBUG -fPIC  -o ../bin/dmtcp_restart dmtcp_restart.o dmtcp_restart_plugin.o libdmtcpinternal.a libjalib.a libnohijack.a -lpthread -lrt -ldl  
+g++ -std=c++14 -fPIC -mcx16  -g -O2 -Wall -g3 -O0 -DDEBUG -fPIC  -o ../bin/dmtcp_command dmtcp_command.o libdmtcpinternal.a libjalib.a libnohijack.a -lpthread -lrt -ldl  
+g++ -std=c++14 -fPIC -mcx16  -g -O2 -Wall -g3 -O0 -DDEBUG -fPIC  -o ../bin/dmtcp_coordinator dmtcp_coordinator.o lookup_service.o restartscript.o libdmtcpinternal.a libjalib.a libnohijack.a -lpthread -lrt -ldl  
+mv -f .deps/threadwrappers.Tpo .deps/threadwrappers.Po
+g++ -std=c++14 -fPIC -mcx16  -g -O2 -Wall -g3 -O0 -DDEBUG -fPIC  -o ../bin/dmtcp_launch dmtcp_launch.o libdmtcpinternal.a libjalib.a libnohijack.a -lpthread -lrt -ldl  
+mv -f .deps/threadlist.Tpo .deps/threadlist.Po
+writeckpt.cpp: In function 'void mtcp_get_next_page_range(Area*, size_t*, int*)':
+writeckpt.cpp:375:10: warning: unused variable 'count' [-Wunused-variable]
+  375 |   size_t count = 0;
+      |          ^~~~~
+mv -f .deps/wrappers.Tpo .deps/wrappers.Po
+mv -f .deps/trampolines.Tpo .deps/trampolines.Po
+rm -f libsyscallsreal.a
+ar cr libsyscallsreal.a syscallsreal.o trampolines.o 
+ranlib libsyscallsreal.a
+mv -f .deps/writeckpt.Tpo .deps/writeckpt.Po
+g++ -std=c++14 -fPIC -mcx16  -g -O2 -Wall -g3 -O0 -DDEBUG -shared -Xlinker -znow  -o ../lib/dmtcp/libdmtcp.so alarm.o ckptserializer.o dlwrappers.o dmtcpplugin.o dmtcpworker.o dmtcp_dlsym_wrappers.o execwrappers.o glibcsystem.o kvdb.o miscwrappers.o plugininfo.o pluginmanager.o popen.o tls.o rlimitfloatenv.o signalwrappers.o siginfo.o syslogwrappers.o terminal.o threadlist.o threadsync.o threadwrappers.o wrappers.o writeckpt.o libdmtcpinternal.a libjalib.a libsyscallsreal.a -ldl -lpthread -lrt  
+make[4]: Leaving directory '/global/cfs/cdirs/cr/jiamingz/git/jiamingLog/dmtcp/src'
+make[3]: Leaving directory '/global/cfs/cdirs/cr/jiamingz/git/jiamingLog/dmtcp/src'
+cd plugin && make
+cd contrib && make
+make[3]: Entering directory '/global/cfs/cdirs/cr/jiamingz/git/jiamingLog/dmtcp/contrib'
+make[3]: Nothing to be done for 'default'.
+make[3]: Leaving directory '/global/cfs/cdirs/cr/jiamingz/git/jiamingLog/dmtcp/contrib'
+make[3]: Entering directory '/global/cfs/cdirs/cr/jiamingz/git/jiamingLog/dmtcp/plugin'
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -MT discover_dmtcpinput.o -MD -MP -MF .deps/discover_dmtcpinput.Tpo -c -o discover_dmtcpinput.o `test -f 'batch-queue/discover_dmtcpinput.cpp' || echo './'`batch-queue/discover_dmtcpinput.cpp
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -MT discover_resources.o -MD -MP -MF .deps/discover_resources.Tpo -c -o discover_resources.o `test -f 'batch-queue/discover_resources.cpp' || echo './'`batch-queue/discover_resources.cpp
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -MT discover_slurm.o -MD -MP -MF .deps/discover_slurm.Tpo -c -o discover_slurm.o `test -f 'batch-queue/discover_slurm.cpp' || echo './'`batch-queue/discover_slurm.cpp
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -MT discover_torque.o -MD -MP -MF .deps/discover_torque.Tpo -c -o discover_torque.o `test -f 'batch-queue/discover_torque.cpp' || echo './'`batch-queue/discover_torque.cpp
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -MT dmtcp_discover_rm.o -MD -MP -MF .deps/dmtcp_discover_rm.Tpo -c -o dmtcp_discover_rm.o `test -f 'batch-queue/dmtcp_discover_rm.cpp' || echo './'`batch-queue/dmtcp_discover_rm.cpp
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -MT slurm_helper.o -MD -MP -MF .deps/slurm_helper.Tpo -c -o slurm_helper.o `test -f 'batch-queue/slurm_helper.cpp' || echo './'`batch-queue/slurm_helper.cpp
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -MT dmtcp_srun_helper.o -MD -MP -MF .deps/dmtcp_srun_helper.Tpo -c -o dmtcp_srun_helper.o `test -f 'batch-queue/dmtcp_srun_helper.cpp' || echo './'`batch-queue/dmtcp_srun_helper.cpp
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -MT rm_main.o -MD -MP -MF .deps/rm_main.Tpo -c -o rm_main.o `test -f 'batch-queue/rm_main.cpp' || echo './'`batch-queue/rm_main.cpp
+mv -f .deps/slurm_helper.Tpo .deps/slurm_helper.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -MT rm_torque.o -MD -MP -MF .deps/rm_torque.Tpo -c -o rm_torque.o `test -f 'batch-queue/rm_torque.cpp' || echo './'`batch-queue/rm_torque.cpp
+mv -f .deps/dmtcp_srun_helper.Tpo .deps/dmtcp_srun_helper.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -MT rm_slurm.o -MD -MP -MF .deps/rm_slurm.Tpo -c -o rm_slurm.o `test -f 'batch-queue/rm_slurm.cpp' || echo './'`batch-queue/rm_slurm.cpp
+mv -f .deps/dmtcp_discover_rm.Tpo .deps/dmtcp_discover_rm.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -MT rm_utils.o -MD -MP -MF .deps/rm_utils.Tpo -c -o rm_utils.o `test -f 'batch-queue/rm_utils.cpp' || echo './'`batch-queue/rm_utils.cpp
+mv -f .deps/discover_torque.Tpo .deps/discover_torque.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -MT rm_pmi.o -MD -MP -MF .deps/rm_pmi.Tpo -c -o rm_pmi.o `test -f 'batch-queue/rm_pmi.cpp' || echo './'`batch-queue/rm_pmi.cpp
+mv -f .deps/rm_main.Tpo .deps/rm_main.Po
+gcc -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -MT modify-env.o -MD -MP -MF .deps/modify-env.Tpo -c -o modify-env.o `test -f 'modify-env/modify-env.c' || echo './'`modify-env/modify-env.c
+mv -f .deps/discover_slurm.Tpo .deps/discover_slurm.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -MT warning.o -MD -MP -MF .deps/warning.Tpo -c -o warning.o `test -f 'modify-env/warning.cpp' || echo './'`modify-env/warning.cpp
+mv -f .deps/modify-env.Tpo .deps/modify-env.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -MT pathvirt.o -MD -MP -MF .deps/pathvirt.Tpo -c -o pathvirt.o `test -f 'pathvirt/pathvirt.cpp' || echo './'`pathvirt/pathvirt.cpp
+mv -f .deps/discover_resources.Tpo .deps/discover_resources.Po
+g++ -std=c++14 -DHAVE_CONFIG_H -I. -I../include  -I../include -I../jalib -Wall -g3 -O0 -DDEBUG -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -MT unique-ckpt.o -MD -MP -MF .deps/unique-ckpt.Tpo -c -o unique-ckpt.o `test -f 'unique-ckpt/unique-ckpt.cpp' || echo './'`unique-ckpt/unique-ckpt.cpp
+mv -f .deps/rm_torque.Tpo .deps/rm_torque.Po
+cp batch-queue/dmtcp_rm_loclaunch ../bin/
+g++ -std=c++14 -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -fPIC  -o ../bin/dmtcp_srun_helper slurm_helper.o dmtcp_srun_helper.o -ldl -lpthread 
+mv -f .deps/discover_dmtcpinput.Tpo .deps/discover_dmtcpinput.Po
+g++ -std=c++14 -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -fPIC  -o ../bin/dmtcp_discover_rm discover_dmtcpinput.o discover_resources.o discover_slurm.o discover_torque.o dmtcp_discover_rm.o -ldl -lpthread 
+mv -f .deps/rm_utils.Tpo .deps/rm_utils.Po
+mv -f .deps/rm_pmi.Tpo .deps/rm_pmi.Po
+mv -f .deps/warning.Tpo .deps/warning.Po
+g++ -std=c++14 -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -shared -Xlinker -znow -Wl,--unresolved-symbols=ignore-all  -o ../lib/dmtcp/libdmtcp_modify-env.so modify-env.o warning.o -ldl -lpthread 
+mv -f .deps/rm_slurm.Tpo .deps/rm_slurm.Po
+g++ -std=c++14 -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -shared -Xlinker -znow -Wl,--unresolved-symbols=ignore-all  -o ../lib/dmtcp/libdmtcp_batch-queue.so rm_main.o rm_torque.o rm_slurm.o rm_utils.o rm_pmi.o slurm_helper.o -ldl -lpthread 
+mv -f .deps/pathvirt.Tpo .deps/pathvirt.Po
+g++ -std=c++14 -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -shared -Xlinker -znow -Wl,--unresolved-symbols=ignore-all  -o ../lib/dmtcp/libdmtcp_pathvirt.so pathvirt.o -ldl -lpthread 
+mv -f .deps/unique-ckpt.Tpo .deps/unique-ckpt.Po
+g++ -std=c++14 -fPIC -g -O2 -Wall -g3 -O0 -DDEBUG -shared -Xlinker -znow -Wl,--unresolved-symbols=ignore-all  -o ../lib/dmtcp/libdmtcp_unique-ckpt.so unique-ckpt.o -ldl -lpthread 
+make[3]: Leaving directory '/global/cfs/cdirs/cr/jiamingz/git/jiamingLog/dmtcp/plugin'
+make[2]: Leaving directory '/global/cfs/cdirs/cr/jiamingz/git/jiamingLog/dmtcp'
+cp -rf dmtcp/bin .
+cp -rf dmtcp/lib .
+cd mpi-proxy-split && make install && make -j tests
+make[2]: Entering directory '/global/cfs/cdirs/cr/jiamingz/git/jiamingLog/mpi-proxy-split'
+make -C mpi-wrappers libmpiwrappers.a
+make[3]: Entering directory '/global/cfs/cdirs/cr/jiamingz/git/jiamingLog/mpi-proxy-split'
+make[3]: warning: jobserver unavailable: using -j1.  Add '+' to parent make rule.
+./p2p-deterministic.py p2p-deterministic.txt > p2p-deterministic.h
+CC -std=c++14 -g -O2 -Wall -g3 -O0 -DDEBUG -fPIC -I../../dmtcp/include -I../../dmtcp/jalib -I.. -I../../dmtcp/src -I../lower-half -c -o mpi_p2p_wrappers.o mpi_p2p_wrappers.cpp
+if [ ! -z "$MPI_COLLECTIVE_P2P" ]; then \
+  DEFINE_mpi_collective_p2p="-DMPI_COLLECTIVE_P2P"; \
+else \
+  DEFINE_mpi_collective_p2p=""; \
+fi && \
+CC -std=c++14 -g -O2 -Wall -g3 -O0 -DDEBUG -fPIC -I../../dmtcp/include -I../../dmtcp/jalib -I.. -I../../dmtcp/src -I../lower-half -Wall -DDEBUG -fPIC $DEFINE_mpi_collective_p2p \
+          -I.. -I../lower-half -c mpi_collective_wrappers.cpp
+CC -std=c++14 -g -O2 -Wall -g3 -O0 -DDEBUG -fPIC -I../../dmtcp/include -I../../dmtcp/jalib -I.. -I../../dmtcp/src -I../lower-half -c -o mpi_request_wrappers.o mpi_request_wrappers.cpp
+CC -std=c++14 -g -O2 -Wall -g3 -O0 -DDEBUG -fPIC -I../../dmtcp/include -I../../dmtcp/jalib -I.. -I../../dmtcp/src -I../lower-half -c -o mpi_type_wrappers.o mpi_type_wrappers.cpp
+CC -std=c++14 -g -O2 -Wall -g3 -O0 -DDEBUG -fPIC -I../../dmtcp/include -I../../dmtcp/jalib -I.. -I../../dmtcp/src -I../lower-half -c -o mpi_comm_wrappers.o mpi_comm_wrappers.cpp
+CC -std=c++14 -g -O2 -Wall -g3 -O0 -DDEBUG -fPIC -I../../dmtcp/include -I../../dmtcp/jalib -I.. -I../../dmtcp/src -I../lower-half -c -o mpi_group_wrappers.o mpi_group_wrappers.cpp
+CC -std=c++14 -g -O2 -Wall -g3 -O0 -DDEBUG -fPIC -I../../dmtcp/include -I../../dmtcp/jalib -I.. -I../../dmtcp/src -I../lower-half -c -o mpi_cart_wrappers.o mpi_cart_wrappers.cpp
+CC -std=c++14 -g -O2 -Wall -g3 -O0 -DDEBUG -fPIC -I../../dmtcp/include -I../../dmtcp/jalib -I.. -I../../dmtcp/src -I../lower-half -c -o mpi_op_wrappers.o mpi_op_wrappers.cpp
+python3 generate-mpi-unimplemented-wrappers.py mpi_unimplemented_wrappers.txt > mpi_unimplemented_wrappers.cpp
+CC -std=c++14 -g -O2 -Wall -g3 -O0 -DDEBUG -fPIC -I../../dmtcp/include -I../../dmtcp/jalib -I.. -I../../dmtcp/src -I../lower-half -c -o mpi_unimplemented_wrappers.o mpi_unimplemented_wrappers.cpp
+rm -f mpi_fortran_wrappers.cpp
+tmp=mpi_fortran_wrappers.cpp.tmp.$$ ; \
+printf "%s\n\n" \
+ "// *** THIS FILE IS AUTO-GENERATED! DO 'make' TO UPDATE. ***" >$tmp;\
+python3 generate-mpi-fortran-wrappers.py mpi_fortran_wrappers.txt >> $tmp && mv -f $tmp mpi_fortran_wrappers.cpp || (rm -f $tmp && false)
+CC -std=c++14 -g -O2 -Wall -g3 -O0 -DDEBUG -fPIC -I../../dmtcp/include -I../../dmtcp/jalib -I.. -I../../dmtcp/src -I../lower-half -c -o mpi_fortran_wrappers.o mpi_fortran_wrappers.cpp
+CC -std=c++14 -g -O2 -Wall -g3 -O0 -DDEBUG -fPIC -I../../dmtcp/include -I../../dmtcp/jalib -I.. -I../../dmtcp/src -I../lower-half -c -o mpi_wrappers.o mpi_wrappers.cpp
+cc -g -O2 -std=gnu11 -Wall -g3 -O0 -DDEBUG -fPIC -I../../dmtcp/include -I.. -I../lower-half -c -o get_fortran_constants.o get_fortran_constants.c
+ftn -g -O2 -std=gnu11 -Wall -g3 -O0 -DDEBUG -fPIC -I../../dmtcp/include -I.. -I../lower-half -fPIC -c -o fortran_constants.o fortran_constants.f90
+ifort: command line warning #10006: ignoring unknown option '-std=gnu11'
+ifort: command line warning #10157: ignoring option '-W'; argument is of wrong type
+CC -std=c++14 -g -O2 -Wall -g3 -O0 -DDEBUG -fPIC -I../../dmtcp/include -I../../dmtcp/jalib -I.. -I../../dmtcp/src -I../lower-half -Wall -DDEBUG -fPIC \
+          -I.. -I../lower-half -c mpi_win_wrappers.cpp
+CC -std=c++14 -g -O2 -Wall -g3 -O0 -DDEBUG -fPIC -I../../dmtcp/include -I../../dmtcp/jalib -I.. -I../../dmtcp/src -I../lower-half -c -o mpi_file_wrappers.o mpi_file_wrappers.cpp
+CC -std=c++14 -g -O2 -Wall -g3 -O0 -DDEBUG -fPIC -I../../dmtcp/include -I../../dmtcp/jalib -I.. -I../../dmtcp/src -I../lower-half -c -o mpi_error_wrappers.o mpi_error_wrappers.cpp
+cc -g -O2 -std=gnu11 -Wall -g3 -O0 -DDEBUG -fPIC -I../../dmtcp/include -I.. -I../lower-half -c -o p2p-deterministic.o p2p-deterministic.c
+touch mpi_collective_wrappers.cpp
+make mpi_collective_wrappers.o
+make[4]: Entering directory '/global/cfs/cdirs/cr/jiamingz/git/jiamingLog/mpi-proxy-split/mpi-wrappers'
+if [ ! -z "$MPI_COLLECTIVE_P2P" ]; then \
+  DEFINE_mpi_collective_p2p="-DMPI_COLLECTIVE_P2P"; \
+else \
+  DEFINE_mpi_collective_p2p=""; \
+fi && \
+CC -std=c++14 -g -O2 -Wall -g3 -O0 -DDEBUG -fPIC -I../../dmtcp/include -I../../dmtcp/jalib -I.. -I../../dmtcp/src -I../lower-half -Wall -DDEBUG -fPIC $DEFINE_mpi_collective_p2p \
+          -I.. -I../lower-half -c mpi_collective_wrappers.cpp
+make[4]: Leaving directory '/global/cfs/cdirs/cr/jiamingz/git/jiamingLog/mpi-proxy-split/mpi-wrappers'
+ar cr libmpiwrappers.a mpi_p2p_wrappers.o mpi_collective_wrappers.o mpi_request_wrappers.o mpi_type_wrappers.o mpi_comm_wrappers.o mpi_group_wrappers.o mpi_cart_wrappers.o mpi_op_wrappers.o mpi_unimplemented_wrappers.o mpi_fortran_wrappers.o mpi_wrappers.o get_fortran_constants.o fortran_constants.o mpi_win_wrappers.o mpi_file_wrappers.o mpi_error_wrappers.o p2p-deterministic.o
+make[3]: Leaving directory '/global/cfs/cdirs/cr/jiamingz/git/jiamingLog/mpi-proxy-split/mpi-wrappers'
+make ../lib/dmtcp/libmana.so
+make[3]: Entering directory '/global/cfs/cdirs/cr/jiamingz/git/jiamingLog/mpi-proxy-split'
+make[3]: warning: jobserver unavailable: using -j1.  Add '+' to parent make rule.
+CC -std=c++14 -g -O2 -Wall -g3 -O0 -DDEBUG -fno-stack-protector -fPIC -I../dmtcp/include -I../dmtcp/jalib -Impi-wrappers -I. -I../dmtcp/src -Ilower-half -c -o mpi_plugin.o mpi_plugin.cpp
+CC -std=c++14 -g -O2 -Wall -g3 -O0 -DDEBUG -fno-stack-protector -fPIC -I../dmtcp/include -I../dmtcp/jalib -Impi-wrappers -I. -I../dmtcp/src -Ilower-half -c -o p2p_drain_send_recv.o p2p_drain_send_recv.cpp
+CC -std=c++14 -g -O2 -Wall -g3 -O0 -DDEBUG -fno-stack-protector -fPIC -I../dmtcp/include -I../dmtcp/jalib -Impi-wrappers -I. -I../dmtcp/src -Ilower-half -c -o p2p_log_replay.o p2p_log_replay.cpp
+CC -std=c++14 -g -O2 -Wall -g3 -O0 -DDEBUG -fno-stack-protector -fPIC -I../dmtcp/include -I../dmtcp/jalib -Impi-wrappers -I. -I../dmtcp/src -Ilower-half -c -o record-replay.o record-replay.cpp
+CC -std=c++14 -g -O2 -Wall -g3 -O0 -DDEBUG -fno-stack-protector -fPIC -I../dmtcp/include -I../dmtcp/jalib -Impi-wrappers -I. -I../dmtcp/src -Ilower-half -c -o seq_num.o seq_num.cpp
+CC -std=c++14 -g -O2 -Wall -g3 -O0 -DDEBUG -fno-stack-protector -fPIC -I../dmtcp/include -I../dmtcp/jalib -Impi-wrappers -I. -I../dmtcp/src -Ilower-half -c -o logger.o logger.cpp
+CC -std=c++14 -g -O2 -Wall -g3 -O0 -DDEBUG -fno-stack-protector -fPIC -I../dmtcp/include -I../dmtcp/jalib -Impi-wrappers -I. -I../dmtcp/src -Ilower-half -c -o split_process.o split_process.cpp
+make[4]: Entering directory '/global/cfs/cdirs/cr/jiamingz/git/jiamingLog/mpi-proxy-split/lower-half'
+cc -g -O2 -std=gnu11 -Wall -g3 -O0 -DDEBUG -fPIC -I../../dmtcp/include -c -o procmapsutils.o procmapsutils.c
+make[4]: Leaving directory '/global/cfs/cdirs/cr/jiamingz/git/jiamingLog/mpi-proxy-split/lower-half'
+g++ -shared -fPIC -g3 -O0 -o libmana.so mpi_plugin.o p2p_drain_send_recv.o p2p_log_replay.o record-replay.o seq_num.o logger.o split_process.o lower-half/procmapsutils.o -Wl,--whole-archive mpi-wrappers/libmpiwrappers.a -Wl,--no-whole-archive
+cp -f libmana.so ../lib/dmtcp/libmana.so
+make[3]: Leaving directory '/global/cfs/cdirs/cr/jiamingz/git/jiamingLog/mpi-proxy-split'
+make ../lib/dmtcp/libmpistub.so
+make[3]: Entering directory '/global/cfs/cdirs/cr/jiamingz/git/jiamingLog/mpi-proxy-split'
+make[3]: warning: jobserver unavailable: using -j1.  Add '+' to parent make rule.
+make -C mpi-wrappers install
+make[4]: Entering directory '/global/cfs/cdirs/cr/jiamingz/git/jiamingLog/mpi-proxy-split/mpi-wrappers'
+rm -f mpi_stub_wrappers.c
+tmp=mpi_stub_wrappers.c.tmp.$$ ; \
+printf "%s\n\n" \
+ "// *** THIS FILE IS AUTO-GENERATED! DO 'make' TO UPDATE. ***" >$tmp;\
+python3 generate-mpi-stub-wrappers.py mpi_stub_wrappers.txt >> $tmp && mv -f $tmp mpi_stub_wrappers.c || (rm -f $tmp && false)
+cc -g -O2 -std=gnu11 -Wall -g3 -O0 -DDEBUG -fPIC -I../../dmtcp/include -I.. -I../lower-half -c -o mpi_stub_wrappers.o mpi_stub_wrappers.c
+cc -fPIC mpi_stub_wrappers.o -shared -o libmpistub.so
+cp -f libmpistub.so ../../lib/dmtcp/
+cd ../../lib/dmtcp && \
+	ln -sf libmpistub.so libmpich_intel.so.3.0.1 && \
+	ln -sf libmpich_intel.so.3.0.1 libmpich_intel.so.3 && \
+	ln -sf libmpistub.so libmpich_gnu_82.so.3.0.1 && \
+	ln -sf libmpich_gnu_82.so.3.0.1 libmpich_gnu_82.so.3
+cd ../../lib/dmtcp && \
+	ln -sf libmpistub.so libpmi.so.0.5.0 && \
+	ln -sf libpmi.so.0.5.0 libpmi.so.0
+cp -f mana_p2p_update_logs ../../bin/
+make[4]: Leaving directory '/global/cfs/cdirs/cr/jiamingz/git/jiamingLog/mpi-proxy-split/mpi-wrappers'
+make[3]: Leaving directory '/global/cfs/cdirs/cr/jiamingz/git/jiamingLog/mpi-proxy-split'
+make ../bin/lh_proxy
+make[3]: Entering directory '/global/cfs/cdirs/cr/jiamingz/git/jiamingLog/mpi-proxy-split'
+make[3]: warning: jobserver unavailable: using -j1.  Add '+' to parent make rule.
+make -C lower-half install
+make[4]: Entering directory '/global/cfs/cdirs/cr/jiamingz/git/jiamingLog/mpi-proxy-split/lower-half'
+cc -g -O2 -std=gnu11 -Wall -g3 -O0 -DDEBUG -fPIC -I../../dmtcp/include -c -o lh_proxy.o lh_proxy.c
+cc -g -O2 -std=gnu11 -Wall -g3 -O0 -DDEBUG -fPIC -I../../dmtcp/include -c -o libproxy.o libproxy.c
+cc -g -O2 -std=gnu11 -Wall -g3 -O0 -DDEBUG -fPIC -I../../dmtcp/include -c -o sbrk.o sbrk.c
+cc -g -O2 -std=gnu11 -Wall -g3 -O0 -DDEBUG -fPIC -I../../dmtcp/include -c -o mmap64.o mmap64.c
+cc -g -O2 -std=gnu11 -Wall -g3 -O0 -DDEBUG -fPIC -I../../dmtcp/include -c -o munmap.o munmap.c
+cc -g -O2 -std=gnu11 -Wall -g3 -O0 -DDEBUG -fPIC -I../../dmtcp/include -c -o shmat.o shmat.c
+cc -g -O2 -std=gnu11 -Wall -g3 -O0 -DDEBUG -fPIC -I../../dmtcp/include -c -o shmget.o shmget.c
+ar cr libproxy.a libproxy.o procmapsutils.o sbrk.o mmap64.o munmap.o shmat.o shmget.o
+if cc -v 2>&1 | grep -q 'MPICH version'; then \
+  rm -f tmp.sh; \
+  cc -show -static -Wl,--wrap -Wl,__munmap -Wl,--wrap -Wl,shmat -Wl,--wrap -Wl,shmget -Wl,-Ttext-segment=E000000 -o lh_proxy -Wl,-start-group \
+    lh_proxy.o libproxy.a -lmpich -lrt -lpthread -lc -Wl,-end-group | \
+    sed -e 's^-lunwind ^ ^'> tmp.sh; \
+  sh tmp.sh; \
+  rm -f tmp.sh; \
+elif false; then \
+  cc -static -Wl,--wrap -Wl,__munmap -Wl,--wrap -Wl,shmat -Wl,--wrap -Wl,shmget -Wl,-Ttext-segment=E000000 -o lh_proxy -Wl,-start-group \
+            lh_proxy.o libproxy.a -lmpich `cat static_libs.txt` -Wl,--end-group; \
+else \
+  cc -static -Wl,--wrap -Wl,__munmap -Wl,--wrap -Wl,shmat -Wl,--wrap -Wl,shmget -Wl,-Ttext-segment=E000000 -o lh_proxy -Wl,-start-group \
+            lh_proxy.o libproxy.a -lmpich -lrt -lpthread -lc -ldl -Wl,-end-group; \
+fi
+ld: libproxy.a(libproxy.o): in function `getVdsoPointerInLinkMap':
+/global/cfs/cdirs/cr/jiamingz/git/jiamingLog/mpi-proxy-split/lower-half/libproxy.c:233: warning: Using 'dlopen' in statically linked applications requires at runtime the shared libraries from the glibc version used for linking
+ld: /opt/cray/pe/atp/3.14.9/lib/libAtpSigHandler.a(libAtpSigHandler_la-libAtpSigHandler.o): in function `(anonymous namespace)::get_frontend_addrinfo(char const*, char const*)':
+(.text+0x16e): warning: Using 'getaddrinfo' in statically linked applications requires at runtime the shared libraries from the glibc version used for linking
+if cc -v 2>&1 | grep -q 'MPICH version'; then \
+  rm -f tmp.sh; \
+  cc -show -static -Wl,--wrap -Wl,__munmap -Wl,--wrap -Wl,shmat -Wl,--wrap -Wl,shmget -o lh_proxy_da -Wl,-start-group \
+    lh_proxy.o libproxy.a -lmpich -lrt -lpthread -lc -Wl,-end-group | \
+    sed -e 's^-lunwind ^ ^'> tmp.sh; \
+  sh tmp.sh; \
+  rm -f tmp.sh; \
+elif false; then \
+  cc -static -Wl,--wrap -Wl,__munmap -Wl,--wrap -Wl,shmat -Wl,--wrap -Wl,shmget -o lh_proxy_da -Wl,-start-group \
+            lh_proxy.o libproxy.a -lmpich `cat static_libs.txt` -Wl,--end-group; \
+else \
+  cc -static -Wl,--wrap -Wl,__munmap -Wl,--wrap -Wl,shmat -Wl,--wrap -Wl,shmget -o lh_proxy_da -Wl,-start-group \
+  lh_proxy.o libproxy.a -lmpich -lrt -lpthread -lc -ldl -Wl,-end-group; \
+fi
+ld: libproxy.a(libproxy.o): in function `getVdsoPointerInLinkMap':
+/global/cfs/cdirs/cr/jiamingz/git/jiamingLog/mpi-proxy-split/lower-half/libproxy.c:233: warning: Using 'dlopen' in statically linked applications requires at runtime the shared libraries from the glibc version used for linking
+ld: /opt/cray/pe/atp/3.14.9/lib/libAtpSigHandler.a(libAtpSigHandler_la-libAtpSigHandler.o): in function `(anonymous namespace)::get_frontend_addrinfo(char const*, char const*)':
+(.text+0x16e): warning: Using 'getaddrinfo' in statically linked applications requires at runtime the shared libraries from the glibc version used for linking
+cp -f lh_proxy lh_proxy_da ../../bin/
+make[4]: Leaving directory '/global/cfs/cdirs/cr/jiamingz/git/jiamingLog/mpi-proxy-split/lower-half'
+make[3]: Leaving directory '/global/cfs/cdirs/cr/jiamingz/git/jiamingLog/mpi-proxy-split'
+make ../bin/gethostbyname_proxy
+make[3]: Entering directory '/global/cfs/cdirs/cr/jiamingz/git/jiamingLog/mpi-proxy-split'
+make[3]: warning: jobserver unavailable: using -j1.  Add '+' to parent make rule.
+make[3]: '../bin/gethostbyname_proxy' is up to date.
+make[3]: Leaving directory '/global/cfs/cdirs/cr/jiamingz/git/jiamingLog/mpi-proxy-split'
+make ../bin/mana_p2p_update_logs
+make[3]: Entering directory '/global/cfs/cdirs/cr/jiamingz/git/jiamingLog/mpi-proxy-split'
+make[3]: warning: jobserver unavailable: using -j1.  Add '+' to parent make rule.
+make[3]: '../bin/mana_p2p_update_logs' is up to date.
+make[3]: Leaving directory '/global/cfs/cdirs/cr/jiamingz/git/jiamingLog/mpi-proxy-split'
+make[2]: Leaving directory '/global/cfs/cdirs/cr/jiamingz/git/jiamingLog/mpi-proxy-split'
+make[2]: Entering directory '/global/cfs/cdirs/cr/jiamingz/git/jiamingLog/mpi-proxy-split'
+make[2]: warning: -jN forced in submake: disabling jobserver mode.
+make[3]: Entering directory '/global/cfs/cdirs/cr/jiamingz/git/jiamingLog/mpi-proxy-split/test'
+make default_part2
+make[4]: Entering directory '/global/cfs/cdirs/cr/jiamingz/git/jiamingLog/mpi-proxy-split/test'
+make[4]: Nothing to be done for 'default_part2'.
+make[4]: Leaving directory '/global/cfs/cdirs/cr/jiamingz/git/jiamingLog/mpi-proxy-split/test'
+make[3]: Leaving directory '/global/cfs/cdirs/cr/jiamingz/git/jiamingLog/mpi-proxy-split/test'
+make[2]: Leaving directory '/global/cfs/cdirs/cr/jiamingz/git/jiamingLog/mpi-proxy-split'
+make[1]: Leaving directory '/global/cfs/cdirs/cr/jiamingz/git/jiamingLog'
