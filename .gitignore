@@ -16,6 +16,7 @@ core
 cscope.*
 dmtcpaware*
 *aclocal.m4*
+bldlog*.txt
 
 autom4te.cache
 

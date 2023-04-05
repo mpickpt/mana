@@ -231,13 +231,11 @@ USER_DEFINED_WRAPPER(int, Ireduce,
   MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
   MPI_Op realOp = VIRTUAL_TO_REAL_OP(op);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);  
-  std::cout<<"====================="<<std::endl;
+
 // -------------last call wont reach after this-----------------
 // go in next func but never return
-  retval = NEXT_FUNC(Ireduce)(sendbuf, recvbuf, count,
-      realType, realOp, root, realComm, request);
+  std::cout<<"====================="<<std::endl;
   std::cout<<"Entering Ireduce"<<std::endl;
-  std::cout<<"return value: "<<retval<<std::endl;
   std::cout<<"send buffer: "<<sendbuf<<std::endl;
   std::cout<<"recv buffer: "<<recvbuf<<std::endl;
   std::cout<<"count: "<<count<<std::endl;
@@ -246,6 +244,9 @@ USER_DEFINED_WRAPPER(int, Ireduce,
   std::cout<<"root: "<<root<<std::endl;
   std::cout<<"realComm: "<<realComm<<std::endl;
   std::cout<<"request: "<<request<<std::endl;
+  retval = NEXT_FUNC(Ireduce)(sendbuf, recvbuf, count,
+      realType, realOp, root, realComm, request);
+  std::cout<<"return value: "<<retval<<std::endl;
   std::cout<<"====================="<<std::endl;
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS && MPI_LOGGING()) {

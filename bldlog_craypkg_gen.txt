@@ -1,4 +1,0 @@
-Warning: Two dynamic libaries with the same basename found: ignoring libmpich_intel.so.3.0.1
-Warning: Two dynamic libaries with the same basename found: ignoring libpmi.so.0
-Warning: Product contains no static libraries for the following dynamic libaries: libdmtcp_timer.so, libmana.so, libdmtcp.so, libdmtcp_modify-env.so, libdmtcp_pathvirt.so, libdmtcp_dl.so, libdmtcp_ipc.so, libdmtcp_unique-ckpt.so, libdmtcp_batch-queue.so, libpmi.so.0.5.0, libdmtcp_alloc.so, libdmtcp_pid.so, libmpich_intel.so.3, libdmtcp_svipc.so, libmpistub.so, libmpidummy.so (static linking will fail)
-Generating pcfiles
