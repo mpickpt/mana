@@ -99,7 +99,7 @@ int show_msg_file(char *name)
   int fd_log = open(name, O_RDWR);
   if (fd_log == -1) {
     fprintf(stderr, "show_log_file open: fle %s, error: %s\n", name, strerror(errno));
-    return 1; 
+    return 1;
   }
 
   while (1) {
@@ -143,7 +143,7 @@ int show_request_file(char *name)
   }
   return 0;
 }
- 
+
 int show_log(char *name)
 {
   int rank;

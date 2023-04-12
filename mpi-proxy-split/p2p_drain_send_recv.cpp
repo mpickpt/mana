@@ -178,7 +178,7 @@ drainRemainingP2pMsgs()
     // if the color is specified on only one side of the intercommunicator, or
     // specified as MPI_UNDEFINED by the program. In this case, the MPI function
     // still returns MPI_SUCCESS. So the MPI_COMM_NULL can be added to the
-    // active communicator set `active_comms'. 
+    // active communicator set `active_comms'.
     if (*comm == MPI_COMM_NULL) {
       continue;
     }
@@ -243,7 +243,7 @@ allDrained()
   }
   return true;
 }
-    
+
 void
 drainSendRecv()
 {
@@ -252,7 +252,7 @@ drainSendRecv()
     while (!allDrained()) {
       // If pending MPI_Irecv or MPI_Isend, use MPI_Test to try to complete it.
       completePendingP2pRequests();
-      // If MPI_Irecv not posted but msg was sent, use MPI_Iprobe to drain msg 
+      // If MPI_Irecv not posted but msg was sent, use MPI_Iprobe to drain msg.
       drainRemainingP2pMsgs();
     }
     sleep(5);
@@ -339,7 +339,7 @@ localRankToGlobalRank(int localRank, MPI_Comm localComm)
   NEXT_FUNC(Comm_group)(MPI_COMM_WORLD, &worldGroup);
   NEXT_FUNC(Comm_group)(realComm, &localGroup);
   NEXT_FUNC(Group_translate_ranks)(localGroup, 1, &localRank,
-                                   worldGroup, &worldRank); 
+                                   worldGroup, &worldRank);
   NEXT_FUNC(Group_free)(&worldGroup);
   NEXT_FUNC(Group_free)(&localGroup);
   RETURN_TO_UPPER_HALF();

@@ -177,7 +177,7 @@ USER_DEFINED_WRAPPER(int, Type_create_struct, (int) count,
   return retval;
 }
 
-// Perlmutter cray_mpich both implement MPI 3.1. However, they use different 
+// Perlmutter cray_mpich both implement MPI 3.1. However, they use different
 // APIs. We use MPICH_NUMVERSION (3.4a2) to differentiate the cray-mpich on Cori
 // and Perlmuttter. This ad-hoc workaround should be removed once the cray-mpich
 // on Perlmutter is fixed to use the right API.
