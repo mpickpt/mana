@@ -115,7 +115,7 @@ int MPI_Gather(const void* sendbuf, int sendcount, MPI_Datatype sendtype,
                int root, MPI_Comm comm) {
   PROLOG_Comm_rank_size;
   int i;
-  int inplace = (sendbuf == MPI_IN_PLACE || FORTRAN_MPI_IN_PLACE);
+  int inplace = (sendbuf == MPI_IN_PLACE || sendbuf == FORTRAN_MPI_IN_PLACE);
   if (rank != root) {
     MPI_Send(sendbuf, sendcount, sendtype, root, 0, comm);
   } else { // else: rank == root
@@ -146,7 +146,7 @@ int MPI_Gatherv(const void* sendbuf, int sendcount, MPI_Datatype sendtype,
                 MPI_Datatype recvtype, int root, MPI_Comm comm) {
   PROLOG_Comm_rank_size;
   int i;
-  int inplace = (sendbuf == MPI_IN_PLACE || FORTRAN_MPI_IN_PLACE);
+  int inplace = (sendbuf == MPI_IN_PLACE || sendbuf == FORTRAN_MPI_IN_PLACE);
   if (rank != root) {
     for (i = 0; i < size; i++) {
       if (i != root) {
@@ -182,7 +182,7 @@ int MPI_Scatter(const void* sendbuf, int sendcount, MPI_Datatype sendtype,
                 int root, MPI_Comm comm) {
   PROLOG_Comm_rank_size;
   int i;
-  int inplace = (sendbuf == MPI_IN_PLACE || FORTRAN_MPI_IN_PLACE);
+  int inplace = (recvbuf == MPI_IN_PLACE || recvbuf == FORTRAN_MPI_IN_PLACE);
   if (inplace) { // if true, MPI says to ignore recvcount/recvtype
     recvcount = sendcount;
     recvtype = sendtype;
@@ -224,7 +224,7 @@ int MPI_Scatterv(const void* sendbuf, const int sendcounts[],
                  int root, MPI_Comm comm) {
   PROLOG_Comm_rank_size;
   int i;
-  int inplace = (sendbuf == MPI_IN_PLACE || FORTRAN_MPI_IN_PLACE);
+  int inplace = (recvbuf == MPI_IN_PLACE || recvbuf == FORTRAN_MPI_IN_PLACE);
   if (rank == root) {
     MPI_Aint lower_bound;
     MPI_Aint sendextent;
@@ -257,6 +257,7 @@ int MPI_Allgather(const void* sendbuf, int sendcount, MPI_Datatype sendtype,
                   MPI_Comm comm) {
   PROLOG_Comm_rank_size;
   int root;
+  // sendbuf can propagate MPI_IN_PLACE and FORTRAN_MPI_IN_PLACE
   for (root = 0; root < size; root++) {
     MPI_Gather(sendbuf, sendcount, sendtype, recvbuf, recvcount, recvtype,
                root, comm);
@@ -282,7 +283,7 @@ int MPI_Alltoall(const void* sendbuf, int sendcount, MPI_Datatype sendtype,
                  MPI_Comm comm) {
   PROLOG_Comm_rank_size;
   int i;
-  int inplace = (sendbuf == MPI_IN_PLACE || FORTRAN_MPI_IN_PLACE);
+  int inplace = (sendbuf == MPI_IN_PLACE || sendbuf == FORTRAN_MPI_IN_PLACE);
   if (inplace) { // if true, MPI says to ignore recvcount/recvtype
     recvcount = sendcount;
     recvtype = sendtype;
@@ -335,7 +336,7 @@ int MPI_Alltoallv(const void* sendbuf, const int sendcounts[],
 
   PROLOG_Comm_rank_size;
   int i;
-  int inplace = (sendbuf == MPI_IN_PLACE || FORTRAN_MPI_IN_PLACE);
+  int inplace = (sendbuf == MPI_IN_PLACE || sendbuf == FORTRAN_MPI_IN_PLACE);
   if (inplace) { // if true, MPI says to ignore recvcount/recvtype
     recvcounts = sendcounts;
     recvtype = sendtype;
@@ -425,7 +426,7 @@ int MPI_Reduce(const void* sendbuf, void* recvbuf, int count,
   MPI_Aint lower_bound;
   MPI_Aint extent;
   MPI_Type_get_extent(datatype, &lower_bound, &extent);
-  int inplace = (sendbuf == MPI_IN_PLACE || FORTRAN_MPI_IN_PLACE);
+  int inplace = (sendbuf == MPI_IN_PLACE || sendbuf == FORTRAN_MPI_IN_PLACE);
   if (inplace && rank == root) {
     sendbuf = recvbuf;
   }
@@ -457,6 +458,7 @@ int MPI_Reduce(const void* sendbuf, void* recvbuf, int count,
 
 int MPI_Allreduce(const void* sendbuf, void* recvbuf, int count,
                   MPI_Datatype datatype, MPI_Op op, MPI_Comm comm) {
+  // sendbuf can propagate MPI_IN_PLACE and FORTRAN_MPI_IN_PLACE
   MPI_Reduce(sendbuf, recvbuf, count, datatype, op, 0 /* root */, comm);
   MPI_Bcast(recvbuf, count, datatype, 0 /* root */, comm);
   return MPI_SUCCESS;
@@ -494,7 +496,7 @@ int MPI_Scan(const void* sendbuf, void* recvbuf, int count,
   int retval;
 
   // Deal with buffers in place
-  int inplace = (sendbuf == MPI_IN_PLACE || FORTRAN_MPI_IN_PLACE);
+  int inplace = (sendbuf == MPI_IN_PLACE || sendbuf == FORTRAN_MPI_IN_PLACE);
   if (inplace) {
     sendbuf = recvbuf;
   }
