@@ -80,13 +80,13 @@ struct KeyvalTuple {
 static std::vector<int> keyvalVec;
 static std::unordered_map<int, KeyvalTuple> tupleMap;
 
-// The following are prvalues, so we need an address to point them to.
+// The following are prvalues. So we need an address to point them to.
 // On Cori, this is 2^22 - 1, but it just needs to be greater than 2^15 - 1.
 static const int MAX_TAG_COUNT = 2097151;
 // We're actually supposed to check the rank of the HOST process in the group
 // associated with the MPI_COMM_WORLD communicator, but even the standard says
 // "MPI does not specify what it means for a process to be a HOST, nor does it
-// require that a HOST exists", so we just use a no HOST value.
+// require that a HOST exists". So we just use a no HOST value.
 static const int MPI_HOST_RANK = MPI_PROC_NULL;
 static const int MPI_IO_SOURCE = MPI_ANY_SOURCE;
 static const int MPI_WTIME_IS_GLOBAL_VAL = 0;

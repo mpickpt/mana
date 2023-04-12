@@ -45,7 +45,7 @@ sem_t ckpt_thread_sem;
 *      current_phase = STOP_BEFORE_CS;
 *
 *  Note that this situation can still occur with only a semaphore to
-*  implement the freepass, so another semaphore is required to
+*  implement the freepass. So another semaphore is required to
 *  enforce that the thread in commit_begin cannot enter the state
 *  STOP_BEFORE_CS until we verify that the thread giving the free pass
 *  has checked the thread state
