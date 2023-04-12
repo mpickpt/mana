@@ -202,7 +202,7 @@ namespace dmtcp_mpi
 
       // Adds the given real id to the virtual id table and creates a new
       // corresponding virtual id.
-      // Returns the new virtual id on success, null id otherwise
+      // Returns the new virtual id on success, null id otherwise.
       T onCreate(T real)
       {
         T vId = _nullId;
@@ -302,7 +302,7 @@ namespace dmtcp_mpi
         MPI_Comm_size(comm, &commSize);
         int rbuf[commSize];
         // FIXME: Use MPI_Group_translate_ranks instead of Allgather.
-        // MPI_Group_translate_ranks only execute localy, so we can avoid
+        // MPI_Group_translate_ranks only executes locally. So we can avoid
         // the cost of collective communication
         // FIXME: cray cc complains "catastrophic error" that can't find
         // split-process.h
