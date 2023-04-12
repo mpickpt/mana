@@ -1,6 +1,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+// FIXME:
+//     We should test for the presence of mpifort (MPI/Fortran support).
+//     Then, if mpifort is not supported, we define get_fortran_constants()
+//     to set FORTRAN_MPI_XXX to XXX inside get_fortran_constants().
+//     Alternatively, initialize FORTRAN_MPI_XXX to XXX.  Then, this is safe
+//     to use in the collective calls.
+//       if (sendbuf == FORTRAN_MPI_XXX) { sendbuf = XXX; }
+
 // In C, we call get_fortran_constants(), which eventually calls
 // get_fortran_constants_helper(FORTRAN_CONSTANT) which calls
 //  get_fortran_constants_helper-(int *t) in this file, which allows

@@ -9,8 +9,8 @@
 !         them at C level.
 ! For example, note that the MPI_Allreduce wrapper contains:
 !   if (sendbuf == FORTRAN_MPI_IN_PLACE) {
-!     retval = NEXT_FUNC(Allreduce)(MPI_IN_PLACE, recvbuf, count,
-!                                   realType, realOp, realComm);
+!     sendbuf = MPI_IN_PLACE;
+!   }
 ! MPI 3.1 standard:
 !   The constants that cannot be used in initialization expressions or
 !   assignments in Fortran are as follows:
