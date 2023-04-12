@@ -23,7 +23,7 @@
 int mtcp_sys_errno;
 LowerHalfInfo_t lh_info;
 // FIXME:  The value of pdlsym must be passed from mtcp_restart to
-//         the upper half, so that NEXT_FNC() in mpi-wrappers in libmana.so in 
+//         the upper half, so that NEXT_FNC() in mpi-wrappers in libmana.so in
 //         can use the updated pdlsym in case the address of the lower half
 //         in the restarted process has changed.
 //         But the lower half is loaded at a fixed address.  So, the address of
@@ -172,7 +172,7 @@ startProxy(char *argv0, char **envp)
   // Child does execve to lh_proxy from mpi-split-process/lower-half.
   // lh_proxy executes the constructor in libproxy.c that intializes lh_info
   // and writes lh_info to the stdout, which was redirected to pipefd_in.
-  // Parent reads lh_info from child through pipefd_out. 
+  // Parent reads lh_info from child through pipefd_out.
   // Parent calls read_lh_proxy_bits, which calls procss_vm_read on child.
   // Then the parent kills the child.
   int childpid = mtcp_sys_fork();

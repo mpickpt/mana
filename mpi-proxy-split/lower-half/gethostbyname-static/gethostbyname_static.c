@@ -1,11 +1,11 @@
 /* Copyright 2021 Gene Cooperman (gene@ccs.neu.edu)
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *     http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -226,7 +226,7 @@ int main(int argc, char *argv[]) {
   if (argc == 2) {
     gethostbyname_r(argv[1], &ret, buf, sizeof(buf), &result, &h_errnop);
     printf("First and second alias: %s %s\n",
-           ret.h_aliases[0], ret.h_aliases[1]); 
+           ret.h_aliases[0], ret.h_aliases[1]);
     printf("First address: %u.%u.%u.%u\n",
            BYTE(0), BYTE(1), BYTE(2), BYTE(3));
   } else if (argc == 3) {
