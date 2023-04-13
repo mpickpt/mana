@@ -254,18 +254,17 @@ USER_DEFINED_WRAPPER(int, Waitany, (int) count,
   int flag = 0;
   bool all_null = true;
   *local_index = MPI_UNDEFINED;
-  int *is_null = (int*) malloc(sizeof(int) * count);
+  int was_null[count] = {0};
   for (int i = 0; i < count; i++) {
-    is_null[i] = local_array_of_requests[i] == MPI_REQUEST_NULL ? 1 : 0;
+    was_null[i] = local_array_of_requests[i] == MPI_REQUEST_NULL ? 1 : 0;
   }
   while (1) {
     for (int i = 0; i < count; i++) {
       if (local_array_of_requests[i] == MPI_REQUEST_NULL) {
-        if (is_null[i]) {
+        if (was_null[i]) {
           continue;
         } else {
           *local_index = i;
-          free(is_null);
           return retval;
         }
       }
@@ -275,7 +274,6 @@ USER_DEFINED_WRAPPER(int, Waitany, (int) count,
                                  local_status, false);
       if (retval != MPI_SUCCESS) {
         DMTCP_PLUGIN_ENABLE_CKPT();
-        free(is_null);
         return retval;
       }
       if (flag) {
@@ -292,9 +290,8 @@ USER_DEFINED_WRAPPER(int, Waitany, (int) count,
             int worldRank = localRankToGlobalRank(local_status->MPI_SOURCE, comm);
             g_recvBytesByRank[worldRank] += count * size;
         } else if (*request == MPI_REQUEST_NULL) {
-          if (!is_null[i]) {
+          if (!was_null[i]) {
             *local_index = i;
-            free(is_null);
             return retval;
           }
         }
@@ -308,14 +305,12 @@ USER_DEFINED_WRAPPER(int, Waitany, (int) count,
         *local_index = i;
 
         DMTCP_PLUGIN_ENABLE_CKPT();
-        free(is_null);
         return retval;
       }
 
       DMTCP_PLUGIN_ENABLE_CKPT();
     }
     if (all_null) {
-      free(is_null);
       return retval;
     }
   }
