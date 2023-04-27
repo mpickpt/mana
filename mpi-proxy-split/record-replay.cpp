@@ -1107,7 +1107,7 @@ static int restoreIreduce(MpiRecord& rec) {
     MPI_Request virtRequest = rec.args(7);
     UPDATE_REQUEST_MAP(virtRequest, newRealRequest);
 #ifdef USE_REQUEST_LOG
-    logRequestInfo(virtRequest, IREDUCE_REQUSET);
+    logRequestInfo(virtRequest, IREDUCE_REQUEST);
 #endif
   }
   return retval;

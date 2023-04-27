@@ -39,7 +39,7 @@ typedef enum __mpi_req
   ISEND_REQUEST,
   IRECV_REQUEST,
   IBCAST_REQUEST,
-  IREDUCE_REQUSET,
+  IREDUCE_REQUEST,
   IBARRIER_REQUEST,
 } mpi_req_t;
 

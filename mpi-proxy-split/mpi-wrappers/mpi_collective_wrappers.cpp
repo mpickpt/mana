@@ -241,7 +241,7 @@ USER_DEFINED_WRAPPER(int, Ireduce,
     LOG_CALL(restoreRequests, Ireduce, sendbuf, recvbuf,
         count, datatype, op, root, comm, *request);
 #ifdef USE_REQUEST_LOG
-    logRequestInfo(*request, IREDUCE_REQUSET);
+    logRequestInfo(*request, IREDUCE_REQUEST);
 #endif
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
