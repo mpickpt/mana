@@ -38,7 +38,7 @@ int MPI_Init_thread(int *argc, char ***argv, int required, int *provided) {
       strcat(result, argv[i][0]);
       strcat(result, " ");
   }
-  fprintf(stdout, "MPI_Init_thread: argc: %d, argv: %s, required: %d, provided: %d\n", *argc, result, required, *provided);
+  fprintf(stderr, "MPI_Init_thread: argc: %d, argv: %s, required: %d, provided: %d\n", *argc, result, required, *provided);
   free(result);
 #endif
   int retval;
@@ -52,7 +52,7 @@ int MPI_Group_rank(MPI_Group group, int *rank) {
 #if ENABLE_LOGGER_PRINT
   int size;
   MPI_Group_size(group, &size);
-  fprintf(stdout, "MPI_Group_rank: group size: %d, rank: %d\n", size, *rank);
+  fprintf(stderr, "MPI_Group_rank: group size: %d, rank: %d\n", size, *rank);
 #endif
   return retval;
 }
@@ -63,7 +63,7 @@ int MPI_Barrier(MPI_Comm comm) {
   int comm_size = -1;
   MPI_Comm_rank(comm, &comm_rank);
   MPI_Comm_size(comm, &comm_size);
-  fprintf(stdout, "MPI_Barrier: Comm rank: %d, Comm size: %d\n", comm_rank, comm_size);
+  fprintf(stderr, "MPI_Barrier: Comm rank: %d, Comm size: %d\n", comm_rank, comm_size);
 #endif
   int retval;
   retval = NEXT_FNC(MPI_Barrier)(comm);
@@ -102,7 +102,7 @@ int MPI_Cart_create(MPI_Comm comm_old, int ndims, const int dims[],const int per
       strcat(speriods, ", ");
     }
   }
-  fprintf(stdout, "MPI_Cart_create: Comm old rank:%d, Comm old size:%d, N dims: %d, dims: %s, periods: %s, reorder: %d, Comm cart rank: %d, Comm cart size: %d\n"
+  fprintf(stderr, "MPI_Cart_create: Comm old rank:%d, Comm old size:%d, N dims: %d, dims: %s, periods: %s, reorder: %d, Comm cart rank: %d, Comm cart size: %d\n"
   , old_comm_rank, old_comm_size, ndims, sdims, speriods, reorder, comm_cart_rank, comm_cart_size);
 #endif
   return retval;
@@ -134,7 +134,7 @@ int MPI_Cart_sub(MPI_Comm comm, const int remain_dims[], MPI_Comm *newcomm) {
     }
   }
 
-  fprintf(stdout,
+  fprintf(stderr,
     "MPI_Cart_sub: Comm rank: %d, Comm size: %d, sub Comm rank: %d, sub Comm size: %d, remain dims: %s\n", 
     comm_rank, comm_size, new_comm_rank, new_comm_size, str);
 #endif
@@ -162,7 +162,7 @@ int MPI_Send(const void *buf, int count, MPI_Datatype datatype, int dest, int ta
   get_datatype_string(datatype, dtstr);
 
   fprintf(
-    stdout,
+    stderr,
     "MPI_Send: Comm Rank: %d & "
     "Comm Size: %d & Datatype: %s-%d & Buffer Size: %d & Buffer Address: %p & Buffer: %02x %02x %02x "
     "%02x %02x %02x %02x %02x & Dest: %d & Tag: %d & Send Counter: %d\n",
@@ -196,7 +196,7 @@ int MPI_Isend(const void *buf, int count, MPI_Datatype datatype, int dest, int t
     get_datatype_string(datatype, dtstr);
 
     fprintf(
-      stdout,
+      stderr,
       "MPI_Isend: Comm Rank: %d & "
       "Comm Size: %d & Datatype: %s-%d & Buffer Size: %d & Buffer Address: %p & Buffer: %02x %02x %02x "
       "%02x %02x %02x %02x %02x & Dest: %d & Tag: %d & Isend Counter: %d\n",
@@ -230,7 +230,7 @@ int MPI_Recv(void *buf, int count, MPI_Datatype datatype, int source, int tag,
   get_datatype_string(datatype, dtstr);
   
   fprintf(
-    stdout,
+    stderr,
     "MPI_Recv: Comm Rank: %d & "
     "Comm Size: %d & Datatype: %s-%d & Buffer Size: %d & Buffer Address: %p & Buffer: %02x %02x %02x "
     "%02x %02x %02x %02x %02x & Source: %d & Tag: %d & Recv Counter: %d\n",
@@ -262,7 +262,7 @@ int MPI_Irecv(void *buf, int count, MPI_Datatype datatype, int source,
   get_datatype_string(datatype, dtstr);
 
   fprintf(
-  stdout,
+  stderr,
   "MPI_Irecv: Comm Rank: %d & "
   "Comm Size: %d & Datatype: %s-%d & Buffer Size: %d & Buffer Address: %p & Buffer: %02x %02x %02x "
   "%02x %02x %02x %02x %02x & Source: %d & Tag: %d & Irecv Counter: %d\n",
@@ -287,6 +287,12 @@ int MPI_Irecv(void *buf, int count, MPI_Datatype datatype, int source,
  */
 int MPI_Ireduce(const void *sendbuf, void *recvbuf, int count, MPI_Datatype datatype,
                 MPI_Op op, int root, MPI_Comm comm, MPI_Request *request) {
+  bool is_fortran_mpi_in_place = false;
+  if (sendbuf == FORTRAN_MPI_IN_PLACE) {
+    sendbuf = MPI_IN_PLACE;
+    is_fortran_mpi_in_place = true;
+  }
+  
   Ireduce_counter++;
 #if ENABLE_LOGGER_PRINT
   int ds = 0;
@@ -300,17 +306,18 @@ int MPI_Ireduce(const void *sendbuf, void *recvbuf, int count, MPI_Datatype data
   buf_size = count * ds;
   get_datatype_string(datatype, dtstr);
   get_op_string(op, opstr); 
+#define SAFE_CHAR(x) (is_fortran_mpi_in_place ? -1 : *((char *)x))
   fprintf(
-  stdout,
+  stderr,
   "MPI_Ireduce: Comm Rank: %d & Comm Size: %d & Root: %d & Operation: %s & Datatype: %s-%d & Count: %d & "
   "Buffer Size: %d & Send Buffer Address: %p & Send Buffer: %02x %02x %02x %02x %02x %02x %02x %02x & Recv Buffer Address: %p "
   "& Recv Buffer: %02x %02x %02x %02x %02x %02x %02x %02x & Ireduce "
   "Counter: %d \n",comm_rank, comm_size, root, opstr, dtstr,
-  datatype, count, buf_size, sendbuf, *((unsigned char *)sendbuf),
-  *((unsigned char *)sendbuf + 1), *((unsigned char *)sendbuf + 2),
-  *((unsigned char *)sendbuf + 3), *((unsigned char *)sendbuf + 4),
-  *((unsigned char *)sendbuf + 5), *((unsigned char *)sendbuf + 6),
-  *((unsigned char *)sendbuf + 7), recvbuf, *((unsigned char *)recvbuf),
+  datatype, count, buf_size, sendbuf, SAFE_CHAR(sendbuf),
+  SAFE_CHAR(sendbuf+1), SAFE_CHAR(sendbuf+2),
+  SAFE_CHAR(sendbuf+3), SAFE_CHAR(sendbuf+4),
+  SAFE_CHAR(sendbuf+5), SAFE_CHAR(sendbuf+6),
+  SAFE_CHAR(sendbuf+7), recvbuf, *((unsigned char *)recvbuf),
   *((unsigned char *)recvbuf + 1), *((unsigned char *)recvbuf + 2),
   *((unsigned char *)recvbuf + 3), *((unsigned char *)recvbuf + 4),
   *((unsigned char *)recvbuf + 5), *((unsigned char *)recvbuf + 6),
@@ -337,7 +344,7 @@ int MPI_Ibcast(void *buffer, int count, MPI_Datatype datatype, int root, MPI_Com
   get_datatype_string(datatype, dtstr);
 
   fprintf(
-    stdout,
+    stderr,
     "MPI_Ibcast: Comm Rank: %d "
     "& Comm Size: %d & Root: %d & Datatype:%s-%d & Count: %d & Buffer Size: %d & Buffer Address: %p "
     "& Buffer: %02x %02x %02x %02x %02x %02x %02x %02x & Ibcast Counter: "
@@ -371,7 +378,7 @@ int MPI_Bcast(void *buffer, int count, MPI_Datatype datatype, int root,
   get_datatype_string(datatype, dtstr);
 
   fprintf(
-    stdout,
+    stderr,
     "MPI_Bcast: Comm Rank: %d & Comm Size: %d & Root: %d & Datatype: %s-%d & Count: %d & Buffer Size: %d & Buffer Address: %p "
     "& Buffer: %02x %02x %02x %02x %02x %02x %02x %02x & Bcast Counter: "
     "%d \n", comm_rank, comm_size, root, dtstr, datatype, count, buf_size, buffer, *((unsigned char *)buffer),
@@ -388,7 +395,7 @@ int MPI_Bcast(void *buffer, int count, MPI_Datatype datatype, int root,
 int MPI_Allreduce(const void *sendbuf, void *recvbuf, int count,
                   MPI_Datatype datatype, MPI_Op op, MPI_Comm comm)
 {
-  static bool is_fortran_mpi_in_place = false;
+  bool is_fortran_mpi_in_place = false;
   if (sendbuf == FORTRAN_MPI_IN_PLACE) {
     sendbuf = MPI_IN_PLACE;
     is_fortran_mpi_in_place = true;
@@ -408,7 +415,7 @@ int MPI_Allreduce(const void *sendbuf, void *recvbuf, int count,
   get_datatype_string(datatype, dtstr);
   get_op_string(op, opstr);
   fprintf(
-      stdout,
+      stderr,
       "MPI_Allreduce: Comm Rank: %d "
       "& Comm Size: %d & Operation: %s & Datatype: %s-%d & Count: %d & Buffer "
       "Size: %d & Send Buffer Address: %p & Send Buffer: %02x %02x %02x %02x %02x %02x %02x %02x & Recv Buffer Address: %p & Recv "
@@ -433,15 +440,15 @@ int MPI_Reduce(const void *sendbuf, void *recvbuf, int count, MPI_Datatype datat
                MPI_Op op, int root, MPI_Comm comm)
 {
   Reduce_counter++;
-  int is_fortran_mpi_in_place = 0;
+  bool is_fortran_mpi_in_place = false;
   if (sendbuf == FORTRAN_MPI_IN_PLACE) {
     sendbuf = MPI_IN_PLACE;
-    is_fortran_mpi_in_place = 1;
+    is_fortran_mpi_in_place = true;
   }
 #if 0
   static bool fortran_mpi_in_place_addr_found = false;
   if (!fortran_mpi_in_place_addr_found) {
-    fprintf(stdout, "***FORTRAN MPI IN PLACE: %p\n", FORTRAN_MPI_IN_PLACE);
+    fprintf(stderr, "***FORTRAN MPI IN PLACE: %p\n", FORTRAN_MPI_IN_PLACE);
     fortran_mpi_in_place_addr_found = true;
   }
 #endif
@@ -459,7 +466,7 @@ int MPI_Reduce(const void *sendbuf, void *recvbuf, int count, MPI_Datatype datat
   get_op_string(op, opstr);
 #define SAFE_CHAR(x) (is_fortran_mpi_in_place ? -1 : *((char *)x))
   fprintf(
-        stdout,
+        stderr,
         "MPI_Reduce: Comm Rank: %d "
         "& Comm Size: %d & Root: %d & Operation: %s & Datatype: %s-%d & Count: %d & "
         "Buffer Size: %d & Send Buffer Address: %p & Send Buffer: %02x %02x %02x %02x %02x %02x %02x %02x & Recv Buffer Address: %p "
@@ -477,7 +484,7 @@ int MPI_Reduce(const void *sendbuf, void *recvbuf, int count, MPI_Datatype datat
         *((unsigned char *)recvbuf + 7), Reduce_counter);
 #if 0
   if (is_fortran_mpi_in_place) {
-    fprintf(stdout, "***Send buffer is FORTRAN_MPI_IN_PLACE\n");
+    fprintf(stderr, "***Send buffer is FORTRAN_MPI_IN_PLACE\n");
   }
 #endif
 #endif
@@ -491,7 +498,7 @@ int MPI_Alltoall(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
                  MPI_Comm comm)
 {
   Alltoall_counter++;
-  static bool is_fortran_mpi_in_place = false;
+  bool is_fortran_mpi_in_place = false;
   if (sendbuf == FORTRAN_MPI_IN_PLACE) {
     sendbuf = MPI_IN_PLACE;
     is_fortran_mpi_in_place = true;
@@ -516,7 +523,7 @@ int MPI_Alltoall(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
   get_datatype_string(recvtype, rdtstr);
 
   fprintf(
-      stdout,
+      stderr,
       "MPI_Alltoall: Comm Rank: %d "
       "& Comm Size: %d & Send Datatype: %s-%d & Send Count: %d & Send Buffer "
       "Size: %d & Send Buffer Address: %p & Send Buffer: %02x %02x %02x %02x %02x %02x %02x %02x & Recv "
@@ -545,7 +552,7 @@ int MPI_Alltoallv(const void *sendbuf, const int *sendcounts,
                   MPI_Comm comm)
 {
   Alltoallv_counter++;
-  static bool is_fortran_mpi_in_place = false;
+  bool is_fortran_mpi_in_place = false;
   if (sendbuf == FORTRAN_MPI_IN_PLACE) {
     sendbuf = MPI_IN_PLACE;
     is_fortran_mpi_in_place = true;
@@ -570,7 +577,7 @@ int MPI_Alltoallv(const void *sendbuf, const int *sendcounts,
   get_datatype_string(recvtype, rdtstr);
 
   fprintf(
-    stdout,
+    stderr,
     "MPI_Alltoallv: Comm Rank: %d "
     "& Comm Size: %d & Send Datatype: %s-%d & Send Count: %d & Send Buffer "
     "Size: %d & Send Buffer Address: %p & Send Buffer: %02x %02x %02x %02x %02x %02x %02x %02x & Recv "
@@ -598,7 +605,7 @@ int MPI_Gatherv(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
                 MPI_Datatype recvtype, int root, MPI_Comm comm)
 {
   Gatherv_counter++;
-  static bool is_fortran_mpi_in_place = false;
+  bool is_fortran_mpi_in_place = false;
   if (sendbuf == FORTRAN_MPI_IN_PLACE) {
     sendbuf = MPI_IN_PLACE;
     is_fortran_mpi_in_place = true;
@@ -621,7 +628,7 @@ int MPI_Gatherv(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
   rbuf_size = *recvcounts * ds;
   get_datatype_string(recvtype, rdtstr);
   fprintf(
-        stdout,
+        stderr,
         "MPI_Gatherv: Comm Rank: %d "
         "& Comm Size: %d & Root: %d & Send Datatype: %s-%d & Send Count: %d & Send Buffer Size: %d & Send Buffer Address: %p & Send Buffer: %02x %02x %02x %02x %02x %02x %02x %02x & Recv Datatype: %s-%d & Recv Count: %d & Recv Buffer Size: %d & Recv Buffer Address: %p & Recv Buffer: %02x %02x %02x %02x %02x %02x %02x %02x & Gatherv Counter: %d\n",
         comm_rank, comm_size,root,
@@ -646,7 +653,7 @@ int MPI_Allgather(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
                   MPI_Comm comm)
 {
   Allgather_counter++;
-  static bool is_fortran_mpi_in_place = false; 
+  bool is_fortran_mpi_in_place = false; 
   if (sendbuf == FORTRAN_MPI_IN_PLACE) {
     sendbuf = MPI_IN_PLACE;
     is_fortran_mpi_in_place = true;
@@ -670,7 +677,7 @@ int MPI_Allgather(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
   get_datatype_string(recvtype, rdtstr);
 
   fprintf(
-      stdout,
+      stderr,
       "MPI_Allgather: Comm Rank: %d "
       "& Comm Size: %d & Send Datatype: %s-%d & Send Count: %d & Send Buffer "
       "Size: %d & Send Buffer Address: %p & Send Buffer: %02x %02x %02x %02x %02x %02x %02x %02x & Recv "
@@ -689,7 +696,6 @@ int MPI_Allgather(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
       Allgather_counter);
 #endif
   int retval;
-
   retval = NEXT_FNC(MPI_Allgather)(sendbuf, sendcount, sendtype, recvbuf, recvcount, recvtype, comm);
   return retval;
 }
@@ -717,7 +723,7 @@ int MPI_Allgatherv(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
   get_datatype_string(recvtype, rdtstr);
 
   fprintf(
-      stdout,
+      stderr,
       "MPI_Allgatherv: Comm Rank: %d "
       "& Comm Size: %d & Send Datatype: %s-%d & Send Count: %d & Send Buffer "
       "Size: %d & Send Buffer Address: %p & Send Buffer: %02x %02x %02x %02x %02x %02x %02x %02x & Recv "
@@ -746,7 +752,6 @@ EXTERNC int mpi_init_thread_ (int* required, int* provided, int *ierr) {
   *ierr = MPI_Init_thread(&argc, &argv, *required, provided);
   return *ierr;
 }
-
 
 EXTERNC int mpi_barrier_ (MPI_Comm* comm, int *ierr) {
   *ierr = MPI_Barrier(*comm);
