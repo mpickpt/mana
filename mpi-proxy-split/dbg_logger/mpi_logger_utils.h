@@ -14,21 +14,22 @@
     _real_ ## func;                                                          \
   })
 
-//@todo: fix tortran wrapper and constants, this could lead to the crash of wrapper
-void *FORTRAN_MPI_BOTTOM = NULL;
-void *FORTRAN_MPI_STATUS_IGNORE = NULL;
-void *FORTRAN_MPI_STATUSES_IGNORE = NULL;
-void *FORTRAN_MPI_ERRCODES_IGNORE = NULL;
-void *FORTRAN_MPI_IN_PLACE = NULL;
-void *FORTRAN_MPI_ARGV_NULL = NULL;
-void *FORTRAN_MPI_ARGVS_NULL = NULL;
-void *FORTRAN_MPI_UNWEIGHTED = NULL;
-void *FORTRAN_MPI_WEIGHTS_EMPTY = NULL;
-void *FORTRAN_CONSTANTS_END = NULL;
+EXTERNC void get_fortran_constants();
+extern void *FORTRAN_MPI_BOTTOM;
+extern void *FORTRAN_MPI_STATUS_IGNORE;
+extern void *FORTRAN_MPI_STATUSES_IGNORE;
+extern void *FORTRAN_MPI_ERRCODES_IGNORE;
+extern void *FORTRAN_MPI_IN_PLACE;
+extern void *FORTRAN_MPI_ARGV_NULL;
+extern void *FORTRAN_MPI_ARGVS_NULL;
+extern void *FORTRAN_MPI_UNWEIGHTED;
+extern void *FORTRAN_MPI_WEIGHTS_EMPTY;
+extern void *FORTRAN_CONSTANTS_END;
 
 /*
  * Util functions
 */
+#if 1
 void
 get_datatype_string(MPI_Datatype datatype, char *buf)
 {
@@ -125,6 +126,7 @@ void get_op_string(MPI_Op op, char *buf)
       break;
   }
 }
+#if 0
 int get_buffer_checksum(int* buffer, int size) { 
   int words = size / 4;
   int checksum = 0;
@@ -134,5 +136,7 @@ int get_buffer_checksum(int* buffer, int size) {
   }
   return checksum;
 }
+#endif
+#endif
 
 #endif
