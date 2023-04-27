@@ -388,7 +388,7 @@ int MPI_Bcast(void *buffer, int count, MPI_Datatype datatype, int root,
 int MPI_Allreduce(const void *sendbuf, void *recvbuf, int count,
                   MPI_Datatype datatype, MPI_Op op, MPI_Comm comm)
 {
-  static bool is_fortran_mpi_in_place = false;
+  bool is_fortran_mpi_in_place = false;
   if (sendbuf == FORTRAN_MPI_IN_PLACE) {
     sendbuf = MPI_IN_PLACE;
     is_fortran_mpi_in_place = true;
@@ -433,10 +433,10 @@ int MPI_Reduce(const void *sendbuf, void *recvbuf, int count, MPI_Datatype datat
                MPI_Op op, int root, MPI_Comm comm)
 {
   Reduce_counter++;
-  int is_fortran_mpi_in_place = 0;
+  bool is_fortran_mpi_in_place = false;
   if (sendbuf == FORTRAN_MPI_IN_PLACE) {
     sendbuf = MPI_IN_PLACE;
-    is_fortran_mpi_in_place = 1;
+    is_fortran_mpi_in_place = true;
   }
 #if 0
   static bool fortran_mpi_in_place_addr_found = false;
@@ -491,7 +491,7 @@ int MPI_Alltoall(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
                  MPI_Comm comm)
 {
   Alltoall_counter++;
-  static bool is_fortran_mpi_in_place = false;
+  bool is_fortran_mpi_in_place = false;
   if (sendbuf == FORTRAN_MPI_IN_PLACE) {
     sendbuf = MPI_IN_PLACE;
     is_fortran_mpi_in_place = true;
@@ -545,7 +545,7 @@ int MPI_Alltoallv(const void *sendbuf, const int *sendcounts,
                   MPI_Comm comm)
 {
   Alltoallv_counter++;
-  static bool is_fortran_mpi_in_place = false;
+  bool is_fortran_mpi_in_place = false;
   if (sendbuf == FORTRAN_MPI_IN_PLACE) {
     sendbuf = MPI_IN_PLACE;
     is_fortran_mpi_in_place = true;
@@ -598,7 +598,7 @@ int MPI_Gatherv(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
                 MPI_Datatype recvtype, int root, MPI_Comm comm)
 {
   Gatherv_counter++;
-  static bool is_fortran_mpi_in_place = false;
+  bool is_fortran_mpi_in_place = false;
   if (sendbuf == FORTRAN_MPI_IN_PLACE) {
     sendbuf = MPI_IN_PLACE;
     is_fortran_mpi_in_place = true;
@@ -646,7 +646,7 @@ int MPI_Allgather(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
                   MPI_Comm comm)
 {
   Allgather_counter++;
-  static bool is_fortran_mpi_in_place = false; 
+  bool is_fortran_mpi_in_place = false; 
   if (sendbuf == FORTRAN_MPI_IN_PLACE) {
     sendbuf = MPI_IN_PLACE;
     is_fortran_mpi_in_place = true;
@@ -689,7 +689,6 @@ int MPI_Allgather(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
       Allgather_counter);
 #endif
   int retval;
-
   retval = NEXT_FNC(MPI_Allgather)(sendbuf, sendcount, sendtype, recvbuf, recvcount, recvtype, comm);
   return retval;
 }
@@ -746,7 +745,6 @@ EXTERNC int mpi_init_thread_ (int* required, int* provided, int *ierr) {
   *ierr = MPI_Init_thread(&argc, &argv, *required, provided);
   return *ierr;
 }
-
 
 EXTERNC int mpi_barrier_ (MPI_Comm* comm, int *ierr) {
   *ierr = MPI_Barrier(*comm);
