@@ -41,6 +41,8 @@ USER_DEFINED_WRAPPER(int, Send,
                      (const void *) buf, (int) count, (MPI_Datatype) datatype,
                      (int) dest, (int) tag, (MPI_Comm) comm)
 {
+  global_p2p_communication_barrier();
+
   int retval;
 #if 0
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -70,6 +72,8 @@ USER_DEFINED_WRAPPER(int, Isend,
                      (int) dest, (int) tag,
                      (MPI_Comm) comm, (MPI_Request *) request)
 {
+  global_p2p_communication_barrier();
+
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
@@ -105,6 +109,8 @@ USER_DEFINED_WRAPPER(int, Rsend, (const void*) ibuf, (int) count,
                      (MPI_Datatype) datatype, (int) dest,
                      (int) tag, (MPI_Comm) comm)
 {
+  global_p2p_communication_barrier();
+
   // FIXME: Implement this wrapper with MPI_Irsend
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -135,6 +141,8 @@ USER_DEFINED_WRAPPER(int, Recv,
                      (int) source, (int) tag,
                      (MPI_Comm) comm, (MPI_Status *) status)
 {
+  global_p2p_communication_barrier();
+
   int retval;
 #if 0
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -164,6 +172,8 @@ USER_DEFINED_WRAPPER(int, Irecv,
                      (int) source, (int) tag,
                      (MPI_Comm) comm, (MPI_Request *) request)
 {
+  global_p2p_communication_barrier();
+
   int retval;
   int flag = 0;
   int size = 0;
@@ -240,6 +250,8 @@ USER_DEFINED_WRAPPER(int, Sendrecv, (const void *) sendbuf, (int) sendcount,
                      (int) recvcount, (MPI_Datatype) recvtype, (int) source,
                      (int) recvtag, (MPI_Comm) comm, (MPI_Status *) status)
 {
+  global_p2p_communication_barrier();
+
   int retval;
 #if 0
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -283,6 +295,8 @@ USER_DEFINED_WRAPPER(int, Sendrecv_replace, (void *) buf, (int) count,
                      (int) sendtag, (int) source,
                      (int) recvtag, (MPI_Comm) comm, (MPI_Status *) status)
 {
+  global_p2p_communication_barrier();
+  
   MPI_Request reqs[2];
   MPI_Status sts[2];
 

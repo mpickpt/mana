@@ -1030,6 +1030,42 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       // FIXME:  See commant at: dmtcpplugin.cpp:'case DMTCP_EVENT_PRESUSPEND'
       drain_mpi_collective();
       openCkptFileFds();
+
+      /* P2P messages draining */
+      fprintf(stdout, "\n[Rank-%d] Suspending P2P communication...",
+              g_world_rank);
+      fflush(stdout);
+
+      // Suspend the global P2P communication
+      global_p2p_communication = 0;
+      sleep(2); // Wait for the user thread to get stuck in the P2P API
+
+      fprintf(stdout, "\n[Rank-%d] MPI:Register-local-sends-and-receives\n",
+              g_world_rank);
+      fflush(stdout);
+      dmtcp_global_barrier("MPI:Register-local-sends-and-receives");
+
+      fprintf(stdout, "\n[Rank-%d] mana_state = CKPT_P2P\n", g_world_rank);
+      fflush(stdout);
+      mana_state = CKPT_P2P;
+
+      fprintf(stdout, "\n[Rank-%d] registerLocalSendsAndRecvs()\n",
+              g_world_rank);
+      fflush(stdout);
+      registerLocalSendsAndRecvs(); // p2p_drain_send_recv.cpp
+
+      fprintf(stdout, "\n[Rank-%d] MPI:Drain-Send-Recv\n", g_world_rank);
+      fflush(stdout);
+      dmtcp_global_barrier("MPI:Drain-Send-Recv");
+
+      fprintf(stdout, "\n[Rank-%d] drainSendRecv()\n", g_world_rank);
+      fflush(stdout);
+      drainSendRecv(); // p2p_drain_send_recv.cpp
+
+      fprintf(stdout, "\n[Rank-%d] Exiting DMTCP_EVENT_PRESUSPEND\n",
+              g_world_rank);
+      fflush(stdout);
+
       break;
     }
 
@@ -1042,11 +1078,12 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       getLocalRankInfo(); // p2p_log_replay.cpp
       dmtcp_global_barrier("MPI:update-ckpt-dir-by-rank");
       updateCkptDirByRank(); // mpi_plugin.cpp
-      dmtcp_global_barrier("MPI:Register-local-sends-and-receives");
-      mana_state = CKPT_P2P;
-      registerLocalSendsAndRecvs(); // p2p_drain_send_recv.cpp
-      dmtcp_global_barrier("MPI:Drain-Send-Recv");
-      drainSendRecv(); // p2p_drain_send_recv.cpp
+      // dmtcp_global_barrier("MPI:Register-local-sends-and-receives");
+      // mana_state = CKPT_P2P;
+      // registerLocalSendsAndRecvs(); // p2p_drain_send_recv.cpp
+      // dmtcp_global_barrier("MPI:Drain-Send-Recv");
+      // drainSendRecv(); // p2p_drain_send_recv.cpp
+      dmtcp_global_barrier("MPI:computeUnionOfCkptImageAddresses");
       computeUnionOfCkptImageAddresses();
       dmtcp_global_barrier("MPI:save-mana-header-and-mpi-files");
       const char *file = get_mana_header_file_name();
@@ -1062,6 +1099,9 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     }
 
     case DMTCP_EVENT_RESUME: {
+      // Resume the global P2P communication
+      global_p2p_communication = 1;
+
       processingOpenCkpFileFds = false;
       dmtcp_local_barrier("MPI:Reset-Drain-Send-Recv-Counters");
       resetDrainCounters(); // p2p_drain_send_recv.cpp
@@ -1072,6 +1112,9 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     }
 
     case DMTCP_EVENT_RESTART: {
+      // Resume the global P2P communication
+      global_p2p_communication = 1;
+
       processingOpenCkpFileFds = false;
       logCkptFileFds();
 
@@ -1121,6 +1164,36 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       break;
     }
   }
+}
+
+void
+global_p2p_communication_barrier()
+{
+  if (global_p2p_communication == 1 ||
+      (global_p2p_communication == 0 && internal_p2p_communication == 1))
+    return;
+
+  time_t my_time = time(NULL);
+  char *time_str = ctime(&my_time);
+
+  my_time = time(NULL);
+  time_str = ctime(&my_time);
+  time_str[strlen(time_str) - 1] = '\0';
+
+  fprintf(stdout, "\n%s [Rank-%d] Global P2P communication barrier entered.",
+          time_str, g_world_rank);
+  fflush(stdout);
+
+  while (global_p2p_communication == 0) {
+  }
+
+  my_time = time(NULL);
+  time_str = ctime(&my_time);
+  time_str[strlen(time_str) - 1] = '\0';
+
+  fprintf(stdout, "\n%s [Rank-%d] Global P2P communication barrier exited.\n",
+          time_str, g_world_rank);
+  fflush(stdout);
 }
 
 DmtcpPluginDescriptor_t mpi_plugin = {
