@@ -76,6 +76,9 @@ USER_DEFINED_WRAPPER(int, Bcast,
                      (void *) buffer, (int) count, (MPI_Datatype) datatype,
                      (int) root, (MPI_Comm) comm)
 {
+  fprintf(stdout, "\nBcast: first version\n");
+  fflush(stdout);
+  
   int rank, size;
   int retval = MPI_SUCCESS;
   MPI_Comm_rank(comm, &rank);
@@ -312,6 +315,123 @@ USER_DEFINED_WRAPPER(int, Ibarrier, (MPI_Comm) comm, (MPI_Request *) request)
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
+/*
+int
+MPI_Allreduce_reproducible(const void *sendbuf,
+                           void *recvbuf,
+                           int count,
+                           MPI_Datatype datatype,
+                           MPI_Op op,
+                           MPI_Comm comm)
+{
+  fprintf(stdout, "\nMPI_Allreduce_reproducible called\n");
+  fflush(stdout);
+
+  int root = 0;
+  int comm_rank;
+  int comm_size;
+  int type_size;
+  MPI_Comm dup_comm;
+
+  MPI_Comm_size(comm, &comm_size);
+  fprintf(stdout, "\nMPI_Allreduce_reproducible here 2 -> comm_size: %d\n",
+          comm_size);
+          fflush(stdout);
+  MPI_Type_size(datatype, &type_size);
+  fprintf(stdout, "\nMPI_Allreduce_reproducible here 3\n");
+  fflush(stdout);
+  // Allocate temporary buffer
+  void *tmpbuf = malloc(count * comm_size * type_size);
+  fprintf(stdout, "\nMPI_Allreduce_reproducible here 4\n");
+  fflush(stdout);
+
+  MPI_Comm_dup(comm, &dup_comm); // duplicate the communicator
+
+  fprintf(stdout, "\nMPI_Allreduce_reproducible here 5\n");
+  fflush(stdout);
+
+  MPI_Gather(sendbuf, count, datatype, tmpbuf, count * comm_size, datatype, root, dup_comm);
+
+  if (comm_rank == root) {
+    fprintf(stdout, "\nMPI_Allreduce_reproducible here 6\n");
+    fflush(stdout);
+    MPI_Reduce_local(tmpbuf, recvbuf, count, datatype, op);
+    fprintf(stdout, "\nMPI_Allreduce_reproducible here 7\n");
+    fflush(stdout);
+  }
+
+  MPI_Comm_free(&dup_comm); // free the duplicated communicator
+  MPI_Barrier(comm);
+  fprintf(stdout, "\nMPI_Allreduce_reproducible here 8\n");
+  fflush(stdout);
+
+  free(tmpbuf);
+  int rc = MPI_Bcast(recvbuf, count, datatype, root, com m);
+  fprintf(stdout, "\nMPI_Allreduce_reproducible here 9\n");
+  fflush(stdout);
+  return rc;
+}*/
+
+int
+MPI_Allreduce_reproducible(const void *sendbuf,
+                           void *recvbuf,
+                           int count,
+                           MPI_Datatype datatype,
+                           MPI_Op op,
+                           MPI_Comm comm,
+                           int dump_trace_from)
+{
+#define MAX_ALL_SENDBUF_SIZE (1024 * 1024 * 16) /* 15 MB */
+  // We use 'static' becuase we don't want the overhead of the compiler
+  //   initializing these to zero each time the function is called.
+
+  static unsigned char tmpbuf[MAX_ALL_SENDBUF_SIZE];
+
+  int root = 0;
+  int comm_rank;
+  int comm_size;
+  int type_size;
+
+  MPI_Comm_rank(comm, &comm_rank);
+  MPI_Comm_size(comm, &comm_size);
+  MPI_Type_size(datatype, &type_size);
+
+  JASSERT(count * comm_size * type_size <= MAX_ALL_SENDBUF_SIZE);
+  JASSERT(sendbuf != FORTRAN_MPI_IN_PLACE);
+  JASSERT(sendbuf != MPI_IN_PLACE);
+
+  // if (Allreduce_counter > dump_trace_from)
+  //   fprintf(stdout, "\nMPI_Allreduce_reproducible: here 1, before gather\n");
+
+  MPI_Gather(sendbuf, count, datatype, tmpbuf, count, datatype, 0, comm);
+
+  // if (Allreduce_counter > dump_trace_from)
+  //   fprintf(stdout, "\nMPI_Allreduce_reproducible: here 2, after gather\n");
+
+  if (comm_rank == root) {
+    // if (Allreduce_counter > dump_trace_from)
+    //   fprintf(stdout,
+    //           "\nMPI_Allreduce_reproducible: here 3, before reduce_local\n");
+
+    memset(recvbuf, 0, count * type_size);
+    memcpy(recvbuf, tmpbuf + (count * type_size * 0), count * type_size);
+    for (int i = 1; i < comm_size; i++) {
+      MPI_Reduce_local(tmpbuf + (count * type_size * i), recvbuf, count,
+                       datatype, op);
+    }
+
+    // if (Allreduce_counter > dump_trace_from)
+    //   fprintf(stdout,
+    //           "\nMPI_Allreduce_reproducible: here 4, after reduce_local\n");
+  }
+
+  // if (Allreduce_counter > dump_trace_from) {
+  //   fprintf(stdout, "\nMPI_Allreduce_reproducible: here 5, before bcast\n");
+  //   fflush(stdout);
+  // }
+
+  return MPI_Bcast(recvbuf, count, datatype, 0, comm);
+}
 
 USER_DEFINED_WRAPPER(int, Allreduce,
                      (const void *) sendbuf, (void *) recvbuf,
@@ -360,6 +480,7 @@ USER_DEFINED_WRAPPER(int, Allreduce,
       *((unsigned char *)recvbuf + 3), *((unsigned char *)recvbuf + 4),
       *((unsigned char *)recvbuf + 5), *((unsigned char *)recvbuf + 6),
       *((unsigned char *)recvbuf + 7), Allreduce_counter, schecksum, rchecksum);
+  fflush(stdout);
   }
 #endif
   /* ************************************************* */
@@ -369,20 +490,23 @@ USER_DEFINED_WRAPPER(int, Allreduce,
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   get_fortran_constants();
-  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-  MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
-  MPI_Op realOp = VIRTUAL_TO_REAL_OP(op);
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  // FIXME: Ideally, we should only check FORTRAN_MPI_IN_PLACE
-  //        in the Fortran wrapper.
-  if (sendbuf == FORTRAN_MPI_IN_PLACE) {
-    retval = NEXT_FUNC(Allreduce)(MPI_IN_PLACE, recvbuf, count,
-        realType, realOp, realComm);
-  } else {
-    retval = NEXT_FUNC(Allreduce)(sendbuf, recvbuf, count,
-        realType, realOp, realComm);
-  }
-  RETURN_TO_UPPER_HALF();
+  retval = MPI_Allreduce_reproducible(sendbuf, recvbuf, count, datatype,
+ 		                    op, comm, 0);
+
+  // MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+  // MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
+  // MPI_Op realOp = VIRTUAL_TO_REAL_OP(op);
+  // JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  // // FIXME: Ideally, we should only check FORTRAN_MPI_IN_PLACE
+  // //        in the Fortran wrapper.
+  // if (sendbuf == FORTRAN_MPI_IN_PLACE) {
+  //   retval = NEXT_FUNC(Allreduce)(MPI_IN_PLACE, recvbuf, count,
+  //       realType, realOp, realComm);
+  // } else {
+  //   retval = NEXT_FUNC(Allreduce)(sendbuf, recvbuf, count,
+  //       realType, realOp, realComm);
+  // }
+  // RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
   commit_finish(comm, passthrough);
 
@@ -1095,6 +1219,7 @@ USER_DEFINED_WRAPPER(int, Allgather, (const void *) sendbuf, (int) sendcount,
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
   commit_finish(comm, passthrough);
+
 #if defined B4B_PRINT && B4B_PRINT == 1
   /* ************************************************* */
   if (Allreduce_counter > dump_trace_from) {

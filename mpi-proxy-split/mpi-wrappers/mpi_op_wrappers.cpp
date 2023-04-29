@@ -81,8 +81,9 @@ USER_DEFINED_WRAPPER(int, Reduce_local,
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Op realOp = VIRTUAL_TO_REAL_OP(op);
+  MPI_Datatype realdataType = VIRTUAL_TO_REAL_TYPE(datatype);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  retval = NEXT_FUNC(Reduce_local)(inbuf, inoutbuf, count, datatype, realOp);
+  retval = NEXT_FUNC(Reduce_local)(inbuf, inoutbuf, count, realdataType, realOp);
   RETURN_TO_UPPER_HALF();
   // This is non-blocking.  No need to log it.
   DMTCP_PLUGIN_ENABLE_CKPT();
