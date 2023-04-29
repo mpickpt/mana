@@ -170,27 +170,113 @@ USER_DEFINED_WRAPPER(int, Ibarrier, (MPI_Comm) comm, (MPI_Request *) request)
   return retval;
 }
 
+/*******************************************************************************
+ * This version, MPI_Allreduce_reproducible, can be called from
+ * the MPI_Allreduce wrapper and returned.  If desired, it could be
+ * called selectively on certain sizes or certain types or certain op's.
+ * 
+ * This function is only meaningful for floating-point datatypes, as
+ * floating-point operations are non-associative.
+ * 
+ * On the Reproducibility of MPI Reduction Operations
+ * https://www.mcs.anl.gov/papers/P4093-0713_1.pdf
+ * 
+ * An optimisation of allreduce communication in message-passing systems
+ * https://www.sciencedirect.com/science/article/pii/S0167819121000612
+ * 
+ * MPI standard:
+ * Advice to users. Some applications may not be able to ignore the
+ * non-associative nature of floating-point operations or may use
+ * user-defined operations (see Section 5.9.5) that require a special
+ * reduction order and cannot be treated as associative. Such applications
+ * should enforce the order of evaluation explicitly. For example, in the
+ * case of operations that require a strict left-to-right (or right-to-left
+ * evaluation order, this could be done by gathering all operands at a single
+ * process (e.g., with MPI_GATHER), applying the reduction operation in the
+ * desired order (e.g., with MPI_REDUCE_LOCAL), and if needed, broadcast or
+ * scatter the result to the other processes (e.g., with MPI_BCAST). (End
+ * of advice to users.)
+ * 
+ * Note: MPI_Waitany and MPI_Scan and MPI_Allreduce can receive messages
+ * non-deterministically.
+ ******************************************************************************/
+
+int
+MPI_Allreduce_reproducible(const void *sendbuf,
+                           void *recvbuf,
+                           int count,
+                           MPI_Datatype datatype,
+                           MPI_Op op,
+                           MPI_Comm comm,
+                           int dump_trace_from)
+{
+#define MAX_ALL_SENDBUF_SIZE (1024 * 1024 * 16) /* 15 MB */
+  // We use 'static' becuase we don't want the overhead of the compiler
+  // initializing these to zero each time the function is called.
+
+  static unsigned char tmpbuf[MAX_ALL_SENDBUF_SIZE];
+
+  int root = 0;
+  int comm_rank;
+  int comm_size;
+  int type_size;
+
+  MPI_Comm_rank(comm, &comm_rank);
+  MPI_Comm_size(comm, &comm_size);
+  MPI_Type_size(datatype, &type_size);
+
+  JASSERT(count * comm_size * type_size <= MAX_ALL_SENDBUF_SIZE);
+  JASSERT(sendbuf != FORTRAN_MPI_IN_PLACE && sendbuf != MPI_IN_PLACE)
+    .Text("MANA: MPI_Allreduce_reproducible: MPI_IN_PLACE not yet supported.");
+
+  // Gather the operands from all ranks in the comm
+  MPI_Gather(sendbuf, count, datatype, tmpbuf, count, datatype, 0, comm);
+
+  // Perform the local reduction operation on the root rank
+  if (comm_rank == root) {
+    memset(recvbuf, 0, count * type_size);
+    memcpy(recvbuf, tmpbuf + (count * type_size * 0), count * type_size);
+    for (int i = 1; i < comm_size; i++) {
+      MPI_Reduce_local(tmpbuf + (count * type_size * i), recvbuf, count,
+                       datatype, op);
+    }
+  }
+
+  // Broadcat the local reduction operation result in the comm
+  int rc = MPI_Bcast(recvbuf, count, datatype, 0, comm);
+
+  return rc;
+}
+
 USER_DEFINED_WRAPPER(int, Allreduce,
                      (const void *) sendbuf, (void *) recvbuf,
                      (int) count, (MPI_Datatype) datatype,
                      (MPI_Op) op, (MPI_Comm) comm)
 {
+  char *s = getenv("MANA_USE_ALLREDUCE_REPRODUCIBLE");
+  int use_allreduce_reproducible = (s != NULL) ? atoi(s) : 0;
+
   bool passthrough = false;
   commit_begin(comm, passthrough);
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   get_fortran_constants();
-  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-  MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
-  MPI_Op realOp = VIRTUAL_TO_REAL_OP(op);
-  // FIXME: Ideally, check FORTRAN_MPI_IN_PLACE only in the Fortran wrapper.
-  if (sendbuf == FORTRAN_MPI_IN_PLACE) {
-    sendbuf = MPI_IN_PLACE;
+  if (use_allreduce_reproducible)
+    retval = MPI_Allreduce_reproducible(sendbuf, recvbuf, count, datatype, op,
+                                        comm, 0);
+  else {
+    MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+    MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
+    MPI_Op realOp = VIRTUAL_TO_REAL_OP(op);
+    // FIXME: Ideally, check FORTRAN_MPI_IN_PLACE only in the Fortran wrapper.
+    if (sendbuf == FORTRAN_MPI_IN_PLACE) {
+      sendbuf = MPI_IN_PLACE;
+    }
+    JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+    retval =
+      NEXT_FUNC(Allreduce)(sendbuf, recvbuf, count, realType, realOp, realComm);
+    RETURN_TO_UPPER_HALF();
   }
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  retval = NEXT_FUNC(Allreduce)(sendbuf, recvbuf, count,
-      realType, realOp, realComm);
-  RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
   commit_finish(comm, passthrough);
   return retval;
