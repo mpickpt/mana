@@ -4,7 +4,7 @@
 #include <mpi.h>
 
 #define EXTERNC extern "C"
-#define ENABLE_LOGGER_PRINT true
+#define ENABLE_LOGGER_PRINT 1
 #define NEXT_FNC(func)                                                       \
   ({                                                                         \
     static __typeof__(&func)_real_ ## func = (__typeof__(&func)) - 1;        \
