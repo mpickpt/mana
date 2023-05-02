@@ -283,6 +283,12 @@ int MPI_Irecv(void *buf, int count, MPI_Datatype datatype, int source,
  */
 int MPI_Ireduce(const void *sendbuf, void *recvbuf, int count, MPI_Datatype datatype,
                 MPI_Op op, int root, MPI_Comm comm, MPI_Request *request) {
+  bool is_fortran_mpi_in_place = false;
+  if (sendbuf == FORTRAN_MPI_IN_PLACE) {
+    sendbuf = MPI_IN_PLACE;
+    is_fortran_mpi_in_place = true;
+  }
+  
   Ireduce_counter++;
 #if ENABLE_LOGGER_PRINT
   int ds = 0;
@@ -296,17 +302,18 @@ int MPI_Ireduce(const void *sendbuf, void *recvbuf, int count, MPI_Datatype data
   buf_size = count * ds;
   get_datatype_string(datatype, dtstr);
   get_op_string(op, opstr); 
+#define SAFE_CHAR(x) (is_fortran_mpi_in_place ? -1 : *((char *)x))
   fprintf(
   stderr,
   "MPI_Ireduce: Comm Rank: %d & Comm Size: %d & Root: %d & Operation: %s & Datatype: %s-%d & Count: %d & "
   "Buffer Size: %d & Send Buffer Address: %p & Send Buffer: %02x %02x %02x %02x %02x %02x %02x %02x & Recv Buffer Address: %p "
   "& Recv Buffer: %02x %02x %02x %02x %02x %02x %02x %02x & Ireduce "
   "Counter: %d \n",comm_rank, comm_size, root, opstr, dtstr,
-  datatype, count, buf_size, sendbuf, *((unsigned char *)sendbuf),
-  *((unsigned char *)sendbuf + 1), *((unsigned char *)sendbuf + 2),
-  *((unsigned char *)sendbuf + 3), *((unsigned char *)sendbuf + 4),
-  *((unsigned char *)sendbuf + 5), *((unsigned char *)sendbuf + 6),
-  *((unsigned char *)sendbuf + 7), recvbuf, *((unsigned char *)recvbuf),
+  datatype, count, buf_size, sendbuf, SAFE_CHAR(sendbuf),
+  SAFE_CHAR(sendbuf+1), SAFE_CHAR(sendbuf+2),
+  SAFE_CHAR(sendbuf+3), SAFE_CHAR(sendbuf+4),
+  SAFE_CHAR(sendbuf+5), SAFE_CHAR(sendbuf+6),
+  SAFE_CHAR(sendbuf+7), recvbuf, *((unsigned char *)recvbuf),
   *((unsigned char *)recvbuf + 1), *((unsigned char *)recvbuf + 2),
   *((unsigned char *)recvbuf + 3), *((unsigned char *)recvbuf + 4),
   *((unsigned char *)recvbuf + 5), *((unsigned char *)recvbuf + 6),
