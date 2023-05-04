@@ -231,6 +231,10 @@ USER_DEFINED_WRAPPER(int, Ireduce,
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
   MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
   MPI_Op realOp = VIRTUAL_TO_REAL_OP(op);
+  // FIXME: Ideally, check FORTRAN_MPI_IN_PLACE only in the Fortran wrapper.
+  if (sendbuf == FORTRAN_MPI_IN_PLACE) {
+    sendbuf = MPI_IN_PLACE;
+  }
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Ireduce)(sendbuf, recvbuf, count,
       realType, realOp, root, realComm, request);
@@ -486,6 +490,10 @@ USER_DEFINED_WRAPPER(int, Allgatherv, (const void *) sendbuf, (int) sendcount,
   bool passthrough = false;
   commit_begin(comm, passthrough);
   int retval;
+  // FIXME: Ideally, check FORTRAN_MPI_IN_PLACE only in the Fortran wrapper.
+  if (sendbuf == FORTRAN_MPI_IN_PLACE) {
+    sendbuf = MPI_IN_PLACE;
+  }
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
   MPI_Datatype realSendType = VIRTUAL_TO_REAL_TYPE(sendtype);
