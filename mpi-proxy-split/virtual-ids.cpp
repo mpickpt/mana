@@ -107,9 +107,9 @@ function init_virt_datatype_id_t(datatype_id_t real_datatype) {
 #define ADD_NEW(real_objid) \ 
   UPDATE_MAP(CONCAT(init_virt_,__typeof__(real_objid))(real_objid), real_objid)
 
-#define REMOVE_OLD(virt_objid)
+#define REMOVE_OLD(virt_objid) \
   virt_to_real_map.erase(virt_objid.handle)
 
-// update an existing vid->rid mapping.
-#define UPDATE_MAP(virt_objid, real_objid)
+// update an existing vid->rid mapping. 
+#define UPDATE_MAP(virt_objid, real_objid) \
   virt_to_real_map[virt_objid.handle] = real_objid.handle
