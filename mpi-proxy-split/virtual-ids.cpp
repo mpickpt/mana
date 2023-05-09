@@ -20,13 +20,16 @@
  ****************************************************************************/
 #include <map>
 
+#include <mpi.h>
+
 // where key is the casted address of the virtual id_t, and value is the casted address of the real id_t.
 // In the real id_t, real_comm, etc, are defined.
 std::map<long, long> virt_to_real_map;
+std::map<long, long> virt_to_metadata_map;
 
-struct comm_id_t {
+struct virt_comm_t {
   MPI_Comm real_comm; // Real MPI communicator in the lower-half
-  long handle; // A copy of the int type handle generated from the address of this struct
+  int handle; // A copy of the int type handle generated from the address of this struct
   unsigned int ggid; // Global Group ID
   unsigned long seq_num; // Sequence number for the CVC algorithm
   unsigned long target; // Target number for the CVC algorithm
@@ -36,29 +39,29 @@ struct comm_id_t {
   // struct virt_group_t *group; // Or should this field be a pointer to virt_group_t?
 }
 
-struct group_id_t {
+struct virt_group_t {
   MPI_Group real_group; // Real MPI group in the lower-half
-  long handle; // A copy of the int type handle generated from the address of this struct
+  int handle; // A copy of the int type handle generated from the address of this struct
   int *ranks; // list of ranks of the group.
   // unsigned int ggid; // Global Group ID
 }
 
-struct request_id_t {
+struct virt_request_t {
   MPI_Request request; // Real MPI request in the lower-half
-  long handle; // A copy of the int type handle generated from the address of this struct
+  int handle; // A copy of the int type handle generated from the address of this struct
   enum request_kind; // P2P request or collective request
   MPI_Status status; // Real MPI status in the lower-half
 }
 
-struct op_id_t {
+struct virt_op_t {
   MPI_Op real_op; // Real MPI operator in the lower-half
-  long handle; // A copy of the int type handle generated from the address of this struct
+  int handle; // A copy of the int type handle generated from the address of this struct
   MPI_User_function *user_fn; // Function pointer to the user defined op function
 }
 
-struct datatype_id_t {
+struct virt_datatype_t {
   MPI_Type real_datatype; // Real MPI type in the lower-half
-  long handle; // A copy of the int type handle generated from the address of this struct
+  int handle; // A copy of the int type handle generated from the address of this struct
   // Components of user-defined datatype.
   MPI_count num_integers;
   int *integers; 
@@ -71,45 +74,36 @@ struct datatype_id_t {
   int *combiner;
 }
 
-union id_t {
-  comm_id_t comm;
-  group_id_t group;
-  request_id_t request;
-  op_id_t op;
-  datatype_id_t datatype;
-}
-
-function init_virt_comm_id_t(comm_id_t real_commid) {
-}
-
-function init_virt_group_id_t(group_id_t real_groupid) {
-}
-
-function init_virt_request_id_t(request_id_t real_requestid) {
-}
-
-function init_virt_op_id_t(op_id_t real_opid) {
-}
-
-function init_virt_datatype_id_t(datatype_id_t real_datatype) {
+union virt_t {
+  virt_comm_t comm;
+  virt_group_t group;
+  virt_request_t request;
+  virt_op_t op;
+  virt_datatype_t datatype;
 }
 
 #define CONCAT(a, b) a ## b
 
 #define VIRTUAL_TO_REAL(virt_objid) \
-  *(__typeof__(&virt_objid))virt_to_real_map[virt_objid.handle]
+  *(__typeof__(&virt_objid))virt_to_real_map[*(long *)virt_objid]
 
+//#define REAL_TO_VIRTUAL(real_objid)		\
 
-#define REAL_TO_VIRTUAL(real_objid) \
-  // TODO
-
-// adds the given real id to the virtual id table
+// adds the given real id to the virtual id table, returns virtual id
 #define ADD_NEW(real_objid) \ 
-  UPDATE_MAP(CONCAT(init_virt_,__typeof__(real_objid))(real_objid), real_objid)
+{
+  // TODO Per-type logic: Create metadata
+}
 
+// Removes an old vid mapping, returns the mapped real id. Assumes the mapping exists presently.
 #define REMOVE_OLD(virt_objid) \
-  virt_to_real_map.erase(virt_objid.handle)
+  {
+  long it = virt_to_real_map.find(*(long *)virt_objid);
+__typeof__(&virt_objid) real_objid = *(__typeof__(&virt_objid))it;
+virt_to_real_map.erase(*(long *)virt_objid);
+  real_objid;
+  }
 
 // update an existing vid->rid mapping. 
 #define UPDATE_MAP(virt_objid, real_objid) \
-  virt_to_real_map[virt_objid.handle] = real_objid.handle
+  virt_to_real_map[*(long *)virt_objid] = *(long *)real_objid
