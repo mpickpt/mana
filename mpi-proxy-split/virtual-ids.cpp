@@ -79,15 +79,33 @@ union id_t {
   datatype_id_t datatype;
 }
 
+function init_virt_comm_id_t(comm_id_t real_commid) {
+}
+
+function init_virt_group_id_t(group_id_t real_groupid) {
+}
+
+function init_virt_request_id_t(request_id_t real_requestid) {
+}
+
+function init_virt_op_id_t(op_id_t real_opid) {
+}
+
+function init_virt_datatype_id_t(datatype_id_t real_datatype) {
+}
+
+#define CONCAT(a, b) a ## b
+
 #define VIRTUAL_TO_REAL(virt_objid) \
   *(__typeof__(&virt_objid))virt_to_real_map[virt_objid.handle]
 
-#define REAL_TO_VIRTUAL(real_objid)		\
+
+#define REAL_TO_VIRTUAL(real_objid) \
   // TODO
 
 // adds the given real id to the virtual id table
 #define ADD_NEW(real_objid) \ 
-__typeof__(real_objid) virt_objid = malloc(sizeof(real_objid)); // TODO initialize VID particulars depending on real_objid.
+  UPDATE_MAP(CONCAT(init_virt_,__typeof__(real_objid))(real_objid), real_objid)
 
 #define REMOVE_OLD(virt_objid)
   virt_to_real_map.erase(virt_objid.handle)
