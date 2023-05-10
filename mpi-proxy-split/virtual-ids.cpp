@@ -133,17 +133,17 @@ class UniversalVirtualIdTable
       return ret; 
     }
 
-    bool getNewVirtualId(long id) {
+    bool getNewVirtualId(long* id) {
       bool res = false;
 
       // TODO: lock table
       if (_virtToRealMap.size() < _max) {
 	std::size_t count = 0;
         while (1) {
-          virt_t* new_id = addOneToNextVirtualId();
+          long new_id = reinterpret_cast<long>(addOneToNextVirtualId());
           id_iterator i = _virtToRealMap.find(new_id);
 	  if (i == _virtToRealMap.end()) {
-	    *id = reinterpret_cast<long>(new_id);
+	    *id = new_id;
 	    res = true;
 	    break;
 	  }
@@ -240,4 +240,4 @@ class UniversalVirtualIdTable
       _max = max;
       _nullId = 0; // TODO
     }
-}
+};
