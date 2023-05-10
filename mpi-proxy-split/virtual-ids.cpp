@@ -161,7 +161,7 @@ class UniversalVirtualIdTable
 
       // TODO lock table
       for (id_iterator i = _virtToRealMap.begin(); i != _virtToRealMap.end(); ++i) {
-        if (i->second == id) {
+        if (i->second == realId) {
           retval = true;
         }
       }
@@ -170,7 +170,7 @@ class UniversalVirtualIdTable
     }
 
     long virtualToReal(long virtualId) {
-      return virt_to_real_map[virtualId];
+      return _virtToRealMap[virtualId];
     }
 
     long realToVirtual(long realId) {
@@ -196,7 +196,7 @@ class UniversalVirtualIdTable
 
       if (realIdExists(realId)) {
         // "Adding an existing real id is a legal operation".
-        virtualId = realToVirtual(real);
+        virtualId = realToVirtual(realId);
       } else {
         if (!getNewVirtualId(&virtualId)) {
             // TODO: Error out in some fashion
@@ -219,6 +219,7 @@ class UniversalVirtualIdTable
     }
 
   protected:
+    typedef typename std::map<long, long>::iterator id_iterator;
     // Casted address of virtual type -> casted address of real type
     std::map<long, long> _virtToRealMap;
     // Next virtualid. This structure is taken from dmtcmp/include/virtualidtable.h
