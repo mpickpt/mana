@@ -50,13 +50,16 @@
 // It is the caller's responsibility to cast the `long` ids to their appropriate types.
 class UniversalVirtualIdTable
 {
-    UniversalVirtualIdTable(size_t max = MAX_VIRTUAL_ID)
+  public:
+
+    static UniversalVirtualIdTable& instance()
     {
-      _base = 0; // TODO
-      _max = max;
-      _nullId = 0; // TODO
+      static UniversalVirtualIdTable table();
+      return table;
     }
 
+  // TODO: Currently, these just follow the old virtualids from dmtcp.
+  // We want these to point to addresses of metadata structures.
     void resetNextVirtualId()
     {
       _nextVirtualId = (_base + 1)
@@ -160,6 +163,14 @@ class UniversalVirtualIdTable
 
     // Casted address of virtual type -> casted address of corresponding metadata struct
     std::map<long, long> _virtToMetadataMap;
+
+  private:
+    UniversalVirtualIdTable(size_t max = MAX_VIRTUAL_ID)
+    {
+      _base = 0; // TODO
+      _max = max;
+      _nullId = 0; // TODO
+    }
 }
 
 
