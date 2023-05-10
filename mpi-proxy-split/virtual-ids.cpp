@@ -22,6 +22,7 @@
 
 #include <mpi.h>
 
+
 #define CONCAT(a, b) a ## b
 
 // Returns the real type for a virtual type
@@ -46,6 +47,63 @@
 
 #define MAX_VIRTUAL_ID 999
 
+// --- metadata structs ---
+
+struct virt_comm_t {
+    MPI_Comm real_comm; // Real MPI communicator in the lower-half
+    int handle; // A copy of the int type handle generated from the address of this struct
+    unsigned int ggid; // Global Group ID
+    unsigned long seq_num; // Sequence number for the CVC algorithm
+    unsigned long target; // Target number for the CVC algorithm
+    int size; // Size of this communicator
+    int local_rank; // local rank number of this communicator
+    int *ranks; // list of ranks of the group.
+    // struct virt_group_t *group; // Or should this field be a pointer to virt_group_t?
+};
+
+struct virt_group_t {
+    MPI_Group real_group; // Real MPI group in the lower-half
+    int handle; // A copy of the int type handle generated from the address of this struct
+    int *ranks; // list of ranks of the group.
+    // unsigned int ggid; // Global Group ID
+};
+
+struct virt_request_t {
+    MPI_Request request; // Real MPI request in the lower-half
+    int handle; // A copy of the int type handle generated from the address of this struct
+    enum request_kind; // P2P request or collective request
+    MPI_Status status; // Real MPI status in the lower-half
+};
+
+struct virt_op_t {
+    MPI_Op real_op; // Real MPI operator in the lower-half
+    int handle; // A copy of the int type handle generated from the address of this struct
+    MPI_User_function *user_fn; // Function pointer to the user defined op function
+};
+
+struct virt_datatype_t {
+    MPI_Type real_datatype; // Real MPI type in the lower-half
+    int handle; // A copy of the int type handle generated from the address of this struct
+    // Components of user-defined datatype.
+    MPI_count num_integers;
+    int *integers;
+    MPI_count num_addresses;
+    int *addresses;
+    MPI_count num_large_counts;
+    int *large_counts;
+    MPI_count num_datatypes;
+    int *datatypes;
+    int *combiner;
+};
+
+union virt_t {
+    virt_comm_t comm;
+    virt_group_t group;
+    virt_request_t request;
+    virt_op_t op;
+    virt_datatype_t datatype;
+};
+
 // MpiVirtualization, but for all types.
 // It is the caller's responsibility to cast the `long` ids to their appropriate types.
 class UniversalVirtualIdTable
@@ -62,14 +120,14 @@ class UniversalVirtualIdTable
     // We want these to point to addresses of metadata structures.
     void resetNextVirtualId()
     {
-      _nextVirtualId = (_base + 1)
+      _nextVirtualId = (_base + 1);
     }
 
     virt_t* addOneToNextVirtualId()
     {
       virt_t* ret = _nextVirtualId;
       _nextVirtualId = (_nextVirtualId + 1);
-      if _nextVirtualId >= (_base + _max) {
+      if (_nextVirtualId >= (_base + _max)) {
           resetNextVirtualId();
       }
       return ret; 
@@ -79,11 +137,11 @@ class UniversalVirtualIdTable
       bool res = false;
 
       // TODO: lock table
-      if (_idMapTable.size() < _max) {
-        size_t count = 0;
+      if (_virtToRealMap.size() < _max) {
+	std::size_t count = 0;
         while (1) {
           virt_t* new_id = addOneToNextVirtualId();
-          id_iterator i = _idMapTable.find(new_id);
+          id_iterator i = _virtToRealMap.find(new_id);
 	  if (i == _virtToRealMap.end()) {
 	    *id = reinterpret_cast<long>(new_id);
 	    res = true;
@@ -169,74 +227,16 @@ class UniversalVirtualIdTable
     // dmtcmp initializes base as a reference to the id type. What would be suitable for all the id types?
     virt_t* _base;
     long _nullId;
-    size_t _max;
+    std::size_t _max;
 
     // Casted address of virtual type -> casted address of corresponding metadata struct
     std::map<long, long> _virtToMetadataMap;
 
   private:
-    UniversalVirtualIdTable(size_t max = MAX_VIRTUAL_ID)
+  UniversalVirtualIdTable(std::size_t max = MAX_VIRTUAL_ID)
     {
       _base = 0; // TODO
       _max = max;
       _nullId = 0; // TODO
     }
-}
-
-
-// --- metadata structs ---
-
-struct virt_comm_t {
-    MPI_Comm real_comm; // Real MPI communicator in the lower-half
-    int handle; // A copy of the int type handle generated from the address of this struct
-    unsigned int ggid; // Global Group ID
-    unsigned long seq_num; // Sequence number for the CVC algorithm
-    unsigned long target; // Target number for the CVC algorithm
-    int size; // Size of this communicator
-    int local_rank; // local rank number of this communicator
-    int *ranks; // list of ranks of the group.
-    // struct virt_group_t *group; // Or should this field be a pointer to virt_group_t?
-}
-
-struct virt_group_t {
-    MPI_Group real_group; // Real MPI group in the lower-half
-    int handle; // A copy of the int type handle generated from the address of this struct
-    int *ranks; // list of ranks of the group.
-    // unsigned int ggid; // Global Group ID
-}
-
-struct virt_request_t {
-    MPI_Request request; // Real MPI request in the lower-half
-    int handle; // A copy of the int type handle generated from the address of this struct
-    enum request_kind; // P2P request or collective request
-    MPI_Status status; // Real MPI status in the lower-half
-}
-
-struct virt_op_t {
-    MPI_Op real_op; // Real MPI operator in the lower-half
-    int handle; // A copy of the int type handle generated from the address of this struct
-    MPI_User_function *user_fn; // Function pointer to the user defined op function
-}
-
-struct virt_datatype_t {
-    MPI_Type real_datatype; // Real MPI type in the lower-half
-    int handle; // A copy of the int type handle generated from the address of this struct
-    // Components of user-defined datatype.
-    MPI_count num_integers;
-    int *integers;
-    MPI_count num_addresses;
-    int *addresses;
-    MPI_count num_large_counts;
-    int *large_counts;
-    MPI_count num_datatypes;
-    int *datatypes;
-    int *combiner;
-}
-
-union virt_t {
-    virt_comm_t comm;
-    virt_group_t group;
-    virt_request_t request;
-    virt_op_t op;
-    virt_datatype_t datatype;
 }
