@@ -112,8 +112,8 @@ class UniversalVirtualIdTable
 
     static UniversalVirtualIdTable& instance()
     {
-      static UniversalVirtualIdTable table();
-      return table;
+      static UniversalVirtualIdTable instance;
+      return instance;
     }
 
     // TODO: Currently, these just follow the old virtualids from dmtcp.
