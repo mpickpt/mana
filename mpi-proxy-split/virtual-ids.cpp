@@ -65,26 +65,37 @@ class UniversalVirtualIdTable
       _nextVirtualId = (_base + 1)
     }
 
-    long addOneToNextVirtualId()
+    virt_t* addOneToNextVirtualId()
     {
-      long ret = _nextVirtualId;
+      virt_t* ret = _nextVirtualId;
       _nextVirtualId = (_nextVirtualId + 1);
       if _nextVirtualId >= (_base + _max) {
           resetNextVirtualId();
       }
-
-      return ret;
+      return ret; 
     }
 
     bool getNewVirtualId(long id) {
       bool res = false;
+
+      // TODO: lock table
       if (_idMapTable.size() < _max) {
-          size_t count = 0;
-          while (1) {
-              long new_id = addOneToNextVirtualId();
-              id_iterator i = _idMapTable.find(new_id);
-          }
+        size_t count = 0;
+        while (1) {
+          virt_t* new_id = addOneToNextVirtualId();
+          id_iterator i = _idMapTable.find(new_id); // TODO: Should we use reinterpret_cast here? (obviously this doesn't work as written)
+	  if (i == _virtToRealMap.end()) {
+	    *id = new_id;  // TODO: reinterpret_cast
+	    res = true;
+	    break;
+	  }
+	  if (++count == _max) {
+	    break;
+	  }
+        }
       }
+      // TODO: unlock table
+      return res;
     }
 
     bool realIdExists(long realId) {
@@ -135,7 +146,6 @@ class UniversalVirtualIdTable
             updateMapping(virtualId, realId);
         }
       }
-
       return virtualId;
     }
 
@@ -155,9 +165,9 @@ class UniversalVirtualIdTable
     std::map<long, long> _virtToRealMap;
     // Next virtualid. This structure is taken from dmtcmp/include/virtualidtable.h
     // TODO: What is a suitable "base" of all the mpi types?
-    long _nextVirtualId;
+    virt_t* _nextVirtualId;
     // dmtcmp initializes base as a reference to the id type. What would be suitable for all the id types?
-    long _base;
+    virt_t* _base;
     long _nullId;
     size_t _max;
 
