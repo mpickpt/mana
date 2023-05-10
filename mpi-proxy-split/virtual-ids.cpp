@@ -85,7 +85,7 @@ class UniversalVirtualIdTable
           virt_t* new_id = addOneToNextVirtualId();
           id_iterator i = _idMapTable.find(new_id);
 	  if (i == _virtToRealMap.end()) {
-	    *id = reinterpret_cast<long>(new_id);;
+	    *id = reinterpret_cast<long>(new_id);
 	    res = true;
 	    break;
 	  }
