@@ -97,7 +97,8 @@ void *heapAddr = nullptr;
 // #define DEBUG
 
 #undef dmtcp_skip_memory_region_ckpting
-const VA HIGH_ADDR_START = (VA)0x7fff00000000;
+// High memory could start at 0x7ffc00000000 on Perlmutter
+const VA HIGH_ADDR_START = (VA)0x7ffc00000000;
 
 static bool isLhDevice(const ProcMapsArea *area);
 static bool isLhCoreRegion(const ProcMapsArea *area);
