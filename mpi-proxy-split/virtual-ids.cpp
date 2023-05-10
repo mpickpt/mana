@@ -58,8 +58,8 @@ class UniversalVirtualIdTable
       return table;
     }
 
-  // TODO: Currently, these just follow the old virtualids from dmtcp.
-  // We want these to point to addresses of metadata structures.
+    // TODO: Currently, these just follow the old virtualids from dmtcp.
+    // We want these to point to addresses of metadata structures.
     void resetNextVirtualId()
     {
       _nextVirtualId = (_base + 1)
@@ -83,9 +83,9 @@ class UniversalVirtualIdTable
         size_t count = 0;
         while (1) {
           virt_t* new_id = addOneToNextVirtualId();
-          id_iterator i = _idMapTable.find(new_id); // TODO: Should we use reinterpret_cast here? (obviously this doesn't work as written)
+          id_iterator i = _idMapTable.find(new_id);
 	  if (i == _virtToRealMap.end()) {
-	    *id = new_id;  // TODO: reinterpret_cast
+	    *id = reinterpret_cast<long>(new_id);;
 	    res = true;
 	    break;
 	  }
