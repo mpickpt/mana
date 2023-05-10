@@ -22,88 +22,200 @@
 
 #include <mpi.h>
 
-// where key is the casted address of the virtual id_t, and value is the casted address of the real id_t.
-// In the real id_t, real_comm, etc, are defined.
-std::map<long, long> virt_to_real_map;
-std::map<long, long> virt_to_metadata_map;
+#define CONCAT(a, b) a ## b
+
+// Returns the real type for a virtual type
+#define VIRTUAL_TO_REAL(virt_objid) \
+  *(__typeof__(&virt_objid))UniversalVirtualIdTable::instance().virtualToReal(*(long *)virt_objid)
+
+// Returns the virtual type for a real type.
+#define REAL_TO_VIRTUAL(real_objid)		\
+  *(__typeof__(&virt_objid))UniversalVirtualIdTable::instance().realToVirtual(*(long *)virt_objid)
+
+// Adds the given real id to the virtual id table, returns virtual id.
+#define ADD_NEW(real_objid) \
+  *(__typeof__(&virt_objid))UniversalVirtualIdTable::instance().onCreate(*(long *)virt_objid)
+
+// Removes an old vid mapping, returns the mapped real id.
+#define REMOVE_OLD(virt_objid) \
+  *(__typeof__(&virt_objid))UniversalVirtualIdTable::instance().onRemove(*(long *)virt_objid)
+
+// Update an existing vid->rid mapping.
+#define UPDATE_MAP(virt_objid, real_objid) \
+  *(__typeof__(&virt_objid))UniversalVirtualIdTable::instance().updateMapping(*(long *)virt_objid)
+
+#define MAX_VIRTUAL_ID 999
+
+// MpiVirtualization, but for all types.
+// It is the caller's responsibility to cast the `long` ids to their appropriate types.
+class UniversalVirtualIdTable
+{
+    UniversalVirtualIdTable(size_t max = MAX_VIRTUAL_ID)
+    {
+      _base = 0; // TODO
+      _max = max;
+      _nullId = 0; // TODO
+    }
+
+    void resetNextVirtualId()
+    {
+      _nextVirtualId = (_base + 1)
+    }
+
+    long addOneToNextVirtualId()
+    {
+      long ret = _nextVirtualId;
+      _nextVirtualId = (_nextVirtualId + 1);
+      if _nextVirtualId >= (_base + _max) {
+          resetNextVirtualId();
+      }
+
+      return ret;
+    }
+
+    bool getNewVirtualId(long id) {
+      bool res = false;
+      if (_idMapTable.size() < _max) {
+          size_t count = 0;
+          while (1) {
+              long new_id = addOneToNextVirtualId();
+              id_iterator i = _idMapTable.find(new_id);
+          }
+      }
+    }
+
+    bool realIdExists(long realId) {
+      bool retval = false;
+
+      // TODO lock table
+      for (id_iterator i = _virtToRealMap.begin(); i != _virtToRealMap.end(); ++i) {
+        if (i->second == id) {
+          retval = true;
+        }
+      }
+      // TODO unlock table
+      return retval;
+    }
+
+    long virtualToReal(long virtualId) {
+      return virt_to_real_map[virtualId];
+    }
+
+    long realToVirtual(long realId) {
+      // TODO: Lock table
+
+      for (id_iterator i = _virtToRealMap.begin(); i!= _virtToRealMap.end(); ++i) {
+        if (realId == i->second) {
+          // TODO unlock table
+          return i->first;
+        }
+      }
+      // TODO unlock table
+
+      return realId;
+    }
+
+    long onCreate(long realId) {
+      long virtualId = _nullId;
+
+      if (realId == _nullId) {
+        return virtualId;
+      }
+
+      if (realIdExists(realId)) {
+        // "Adding an existing real id is a legal operation".
+        virtualId = realToVirtual(real);
+      } else {
+        if (!getNewVirtualId(&virtualId)) {
+            // TODO: Error out in some fashion
+        } else {
+            updateMapping(virtualId, realId);
+        }
+      }
+
+      return virtualId;
+    }
+
+    // Removes virtual id from table and returns the corresponding real id. Assuming that it exists, for now.
+    long onRemove(long virtualId) {
+      long realId = virtualToReal(virtualId);
+      _virtToRealMap.erase(virtualId);
+      return realId;
+    }
+
+    long updateMapping(long virtualId, long realId) {
+      _virtToRealMap[virtualId] = realId;
+    }
+
+  protected:
+    // Casted address of virtual type -> casted address of real type
+    std::map<long, long> _virtToRealMap;
+    // Next virtualid. This structure is taken from dmtcmp/include/virtualidtable.h
+    // TODO: What is a suitable "base" of all the mpi types?
+    long _nextVirtualId;
+    // dmtcmp initializes base as a reference to the id type. What would be suitable for all the id types?
+    long _base;
+    long _nullId;
+    size_t _max;
+
+    // Casted address of virtual type -> casted address of corresponding metadata struct
+    std::map<long, long> _virtToMetadataMap;
+}
+
+
+// --- metadata structs ---
 
 struct virt_comm_t {
-  MPI_Comm real_comm; // Real MPI communicator in the lower-half
-  int handle; // A copy of the int type handle generated from the address of this struct
-  unsigned int ggid; // Global Group ID
-  unsigned long seq_num; // Sequence number for the CVC algorithm
-  unsigned long target; // Target number for the CVC algorithm
-  int size; // Size of this communicator
-  int local_rank; // local rank number of this communicator
-  int *ranks; // list of ranks of the group.
-  // struct virt_group_t *group; // Or should this field be a pointer to virt_group_t?
+    MPI_Comm real_comm; // Real MPI communicator in the lower-half
+    int handle; // A copy of the int type handle generated from the address of this struct
+    unsigned int ggid; // Global Group ID
+    unsigned long seq_num; // Sequence number for the CVC algorithm
+    unsigned long target; // Target number for the CVC algorithm
+    int size; // Size of this communicator
+    int local_rank; // local rank number of this communicator
+    int *ranks; // list of ranks of the group.
+    // struct virt_group_t *group; // Or should this field be a pointer to virt_group_t?
 }
 
 struct virt_group_t {
-  MPI_Group real_group; // Real MPI group in the lower-half
-  int handle; // A copy of the int type handle generated from the address of this struct
-  int *ranks; // list of ranks of the group.
-  // unsigned int ggid; // Global Group ID
+    MPI_Group real_group; // Real MPI group in the lower-half
+    int handle; // A copy of the int type handle generated from the address of this struct
+    int *ranks; // list of ranks of the group.
+    // unsigned int ggid; // Global Group ID
 }
 
 struct virt_request_t {
-  MPI_Request request; // Real MPI request in the lower-half
-  int handle; // A copy of the int type handle generated from the address of this struct
-  enum request_kind; // P2P request or collective request
-  MPI_Status status; // Real MPI status in the lower-half
+    MPI_Request request; // Real MPI request in the lower-half
+    int handle; // A copy of the int type handle generated from the address of this struct
+    enum request_kind; // P2P request or collective request
+    MPI_Status status; // Real MPI status in the lower-half
 }
 
 struct virt_op_t {
-  MPI_Op real_op; // Real MPI operator in the lower-half
-  int handle; // A copy of the int type handle generated from the address of this struct
-  MPI_User_function *user_fn; // Function pointer to the user defined op function
+    MPI_Op real_op; // Real MPI operator in the lower-half
+    int handle; // A copy of the int type handle generated from the address of this struct
+    MPI_User_function *user_fn; // Function pointer to the user defined op function
 }
 
 struct virt_datatype_t {
-  MPI_Type real_datatype; // Real MPI type in the lower-half
-  int handle; // A copy of the int type handle generated from the address of this struct
-  // Components of user-defined datatype.
-  MPI_count num_integers;
-  int *integers; 
-  MPI_count num_addresses;
-  int *addresses;
-  MPI_count num_large_counts;
-  int *large_counts;
-  MPI_count num_datatypes;
-  int *datatypes;
-  int *combiner;
+    MPI_Type real_datatype; // Real MPI type in the lower-half
+    int handle; // A copy of the int type handle generated from the address of this struct
+    // Components of user-defined datatype.
+    MPI_count num_integers;
+    int *integers;
+    MPI_count num_addresses;
+    int *addresses;
+    MPI_count num_large_counts;
+    int *large_counts;
+    MPI_count num_datatypes;
+    int *datatypes;
+    int *combiner;
 }
 
 union virt_t {
-  virt_comm_t comm;
-  virt_group_t group;
-  virt_request_t request;
-  virt_op_t op;
-  virt_datatype_t datatype;
+    virt_comm_t comm;
+    virt_group_t group;
+    virt_request_t request;
+    virt_op_t op;
+    virt_datatype_t datatype;
 }
-
-#define CONCAT(a, b) a ## b
-
-#define VIRTUAL_TO_REAL(virt_objid) \
-  *(__typeof__(&virt_objid))virt_to_real_map[*(long *)virt_objid]
-
-//#define REAL_TO_VIRTUAL(real_objid)		\
-
-// adds the given real id to the virtual id table, returns virtual id
-#define ADD_NEW(real_objid) \ 
-{
-  // TODO Per-type logic: Create metadata
-}
-
-// Removes an old vid mapping, returns the mapped real id. Assumes the mapping exists presently.
-#define REMOVE_OLD(virt_objid) \
-  {
-  long it = virt_to_real_map.find(*(long *)virt_objid);
-__typeof__(&virt_objid) real_objid = *(__typeof__(&virt_objid))it;
-virt_to_real_map.erase(*(long *)virt_objid);
-  real_objid;
-  }
-
-// update an existing vid->rid mapping. 
-#define UPDATE_MAP(virt_objid, real_objid) \
-  virt_to_real_map[*(long *)virt_objid] = *(long *)real_objid
