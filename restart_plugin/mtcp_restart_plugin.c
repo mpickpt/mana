@@ -468,9 +468,10 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
     //   for the GNI driver data, to be created when the GNI library runs.
     // This says that we have to reserve only up to the mtcp_restart stack.
     end1 = rinfo->pluginInfo.memRange.start - 1 * GB;
-    // start2 == end2:  So, this will not be used.
-    start2 = 0;
-    end2 = start2;
+    // Reserve 8MB above min high memory region. That should include
+    // stack memory region.
+    start2 = rinfo->minHighMemStart;
+    end2 = rinfo->minHighMemStart + 8 * MB;
   } else {
     // On standard Ubuntu/CentOS libs are mmap'ed downward in memory.
     // Allow an extra 1 GB for future upper-half libs and mmaps to be loaded.
@@ -491,8 +492,10 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
     Area stack_area;
     MTCP_ASSERT(getMappedArea(&stack_area, "[stack]") == 1);
     end1 = MIN(stack_area.endAddr - 4 * GB, rinfo->minHighMemStart - 4 * GB);
-    start2 = 0;
-    end2 = start2;
+    // Reserve 8MB above min high memory region. That should include
+    // stack memory region.
+    start2 = rinfo->minHighMemStart;
+    end2 = rinfo->minHighMemStart + 8 * MB;
   }
 
   reserveUpperHalfMemoryRegionsForCkptImgs(start1, end1, start2, end2);
@@ -595,9 +598,10 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
     //   for the GNI driver data, to be created when the GNI library runs.
     // This says that we have to reserve only up to the mtcp_restart stack.
     end1 = rinfo->pluginInfo.memRange.start - 1 * GB;
-    // start2 == end2:  So, this will not be used.
-    start2 = 0;
-    end2 = start2;
+    // Reserve 8MB above min high memory region. That should include
+    // stack memory region.
+    start2 = rinfo->minHighMemStart;
+    end2 = rinfo->minHighMemStart + 8 * MB;
   } else {
     // On standard Ubuntu/CentOS libs are mmap'ed downward in memory.
     // Allow an extra 1 GB for future upper-half libs and mmaps to be loaded.
@@ -618,8 +622,10 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
     Area stack_area;
     MTCP_ASSERT(getMappedArea(&stack_area, "[stack]") == 1);
     end1 = MIN(stack_area.endAddr - 4 * GB, rinfo->minHighMemStart - 4 * GB);
-    start2 = 0;
-    end2 = start2;
+    // Reserve 8MB above min high memory region. That should include
+    // stack memory region.
+    start2 = rinfo->minHighMemStart;
+    end2 = rinfo->minHighMemStart + 8 * MB;
   }
 
   char full_filename[PATH_MAX];
