@@ -251,7 +251,7 @@ class UniversalVirtualIdTable
     long _nullId;
   std::size_t _count;
     std::size_t _max;
-
+  void* _metadataArray; // TODO Calling `malloc()` for every vid creation is suboptimal. An optimal design would probably use this field or one like it, allocating all the memory at once. I don't move forward with this design for now because I'm not sure how to canonically handle the resulting fragmentation issues.
 
   private:
   UniversalVirtualIdTable(std::size_t max = MAX_VIRTUAL_ID)
@@ -259,5 +259,6 @@ class UniversalVirtualIdTable
       _count = 0;
       _max = MAX_VIRTUAL_ID;
       _nullId = NULL; // TODO
+      _metadataArray = malloc(_max * sizeof(virt_t));
     }
 };
