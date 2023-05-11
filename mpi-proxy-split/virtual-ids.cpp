@@ -217,7 +217,7 @@ class UniversalVirtualIdTable
         // "Adding an existing real id is a legal operation".
         virtualId = realToVirtual(realId);
       } else {
-        if (!getNewVirtualId(&virtualId)) {
+        if (_count > _max) {
             // TODO: Error out in some fashion
         } else {
 	  _count++;
