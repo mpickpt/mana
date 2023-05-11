@@ -171,39 +171,39 @@ class UniversalVirtualIdTable
 
   long onCreateComm(long realId) {
     void* metadata = malloc(sizeof(virt_comm_t));
-    onCreate(realId, metadata)
+    onCreate(realId, metadata);
   }
 
   long onCreateGroup(long realId) {
     void* metadata = malloc(sizeof(virt_group_t));
-    onCreate(realId, metadata)
+    onCreate(realId, metadata);
   }
 
   long onCreateType(long realId) {
     void* metadata = malloc(sizeof(virt_datatype_t));
-    onCreate(realId, metadata)
+    onCreate(realId, metadata);
   }
 
   long onCreateOp(long realId) {
     void* metadata = malloc(sizeof(virt_op_t));
-    onCreate(realId, metadata)
+    onCreate(realId, metadata);
   }
 
   // TODO
   long onCreateCommKeyval(long realId) {
     void* metadata;
-    onCreate(realId, (void *)metadata)
+    onCreate(realId, (void *)metadata);
   }
 
   // TODO
   long onCreateFile(long realId) {
     void* metadata;
-    onCreate(realId, (void *)metadata)
+    onCreate(realId, (void *)metadata);
   }
 
   long onCreateRequest(long realId) {
     void* metadata = malloc(sizeof(virt_request_t));
-    onCreate(realId, metadata)
+    onCreate(realId, metadata);
   }
 
   long onCreate(long realId, void* metadata) {
