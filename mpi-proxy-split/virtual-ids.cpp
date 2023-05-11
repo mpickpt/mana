@@ -21,6 +21,7 @@
 #include <map>
 
 #include <mpi.h>
+#include <stdlib.h>
 
 
 #define CONCAT(a, b) a ## b
@@ -179,7 +180,7 @@ class UniversalVirtualIdTable
   }
 
   long onCreateType(long realId) {
-    void* metadata = malloc(sizeof(virt_type_t));
+    void* metadata = malloc(sizeof(virt_datatype_t));
     onCreate(realId, metadata)
   }
 
