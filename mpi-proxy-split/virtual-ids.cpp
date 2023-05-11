@@ -2,6 +2,9 @@
  *   Copyright (C) 2019-2021 by Gene Cooperman, Rohan Garg, Yao Xu          *
  *   gene@ccs.neu.edu, rohgarg@ccs.neu.edu, xu.yao1@northeastern.edu        *
  *                                                                          *
+ *   Edited 2023 by Leonid Belyaev                                          *
+ *   belyaev.l@northeastern.edu                                             *
+ *                                                                          *
  *  This file is part of DMTCP.                                             *
  *                                                                          *
  *  DMTCP is free software: you can redistribute it and/or                  *
