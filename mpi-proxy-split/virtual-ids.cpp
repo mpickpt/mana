@@ -169,6 +169,7 @@ class UniversalVirtualIdTable
       return realId;
     }
 
+  // TODO all of these metadata structures need to be filled out. I don't understand the details of the respective algorithms yet, so I do not do it here.
   long onCreateComm(long realId) {
     void* metadata = malloc(sizeof(virt_comm_t));
     onCreate(realId, metadata);
