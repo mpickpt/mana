@@ -33,9 +33,30 @@
 #define REAL_TO_VIRTUAL(real_objid)		\
   *(__typeof__(&virt_objid))UniversalVirtualIdTable::instance().realToVirtual(*(long *)virt_objid)
 
+// I think it necessary to retain seperate creation macros, because each one needs to create a different metadata struct.
+// One might be able to simplify these using CONCAT and __typeof__.
+
 // Adds the given real id to the virtual id table, returns virtual id.
-#define ADD_NEW(real_objid) \
-  *(__typeof__(&virt_objid))UniversalVirtualIdTable::instance().onCreate(*(long *)virt_objid)
+#define ADD_NEW_FILE(real_objid) \
+  *(__typeof__(&virt_objid))UniversalVirtualIdTable::instance().onCreateFile(*(long *)virt_objid)
+
+#define ADD_NEW_COMM(real_objid) \
+  *(__typeof__(&real_objid))UniversalVirtualIdTable::instance().onCreateComm(*(long *)real_objid)
+
+#define ADD_NEW_GROUP(real_objid) \
+  *(__typeof__(&real_objid))UniversalVirtualIdTable::instance().onCreateGroup(*(long *)real_objid)
+
+#define ADD_NEW_TYPE(real_objid) \
+  *(__typeof__(&real_objid))UniversalVirtualIdTable::instance().onCreateType(*(long *)real_objid)
+
+#define ADD_NEW_OP(real_objid) \
+  *(__typeof__(&real_objid))UniversalVirtualIdTable::instance().onCreateOp(*(long *)real_objid)
+
+#define ADD_NEW_COMM_KEYVAL(real_objid) \
+  *(__typeof__(&real_objid))UniversalVirtualIdTable::instance().onCreateCommKeyval(*(long *)real_objid)
+
+#define ADD_NEW_REQUEST(reak_objid) \
+  *(__typeof__(&real_objid))UniversalVirtualIdTable::instance().onCreateRequest(*(long *)real_objid)
 
 // Removes an old vid mapping, returns the mapped real id.
 #define REMOVE_OLD(virt_objid) \
@@ -116,46 +137,6 @@ class UniversalVirtualIdTable
       return instance;
     }
 
-    // TODO: Currently, these just follow the old virtualids from dmtcp.
-    // We want these to point to addresses of metadata structures.
-    void resetNextVirtualId()
-    {
-      _nextVirtualId = (_base + 1);
-    }
-
-    virt_t* addOneToNextVirtualId()
-    {
-      virt_t* ret = _nextVirtualId;
-      _nextVirtualId = (_nextVirtualId + 1);
-      if (_nextVirtualId >= (_base + _max)) {
-          resetNextVirtualId();
-      }
-      return ret; 
-    }
-
-    bool getNewVirtualId(long* id) {
-      bool res = false;
-
-      // TODO: lock table
-      if (_virtToRealMap.size() < _max) {
-	std::size_t count = 0;
-        while (1) {
-          long new_id = reinterpret_cast<long>(addOneToNextVirtualId());
-          id_iterator i = _virtToRealMap.find(new_id);
-	  if (i == _virtToRealMap.end()) {
-	    *id = new_id;
-	    res = true;
-	    break;
-	  }
-	  if (++count == _max) {
-	    break;
-	  }
-        }
-      }
-      // TODO: unlock table
-      return res;
-    }
-
     bool realIdExists(long realId) {
       bool retval = false;
 
@@ -187,7 +168,44 @@ class UniversalVirtualIdTable
       return realId;
     }
 
-    long onCreate(long realId) {
+  long onCreateComm(long realId) {
+    void* metadata = malloc(sizeof(virt_comm_t));
+    onCreate(realId, metadata)
+  }
+
+  long onCreateGroup(long realId) {
+    void* metadata = malloc(sizeof(virt_group_t));
+    onCreate(realId, metadata)
+  }
+
+  long onCreateType(long realId) {
+    void* metadata = malloc(sizeof(virt_type_t));
+    onCreate(realId, metadata)
+  }
+
+  long onCreateOp(long realId) {
+    void* metadata = malloc(sizeof(virt_op_t));
+    onCreate(realId, metadata)
+  }
+
+  // TODO
+  long onCreateCommKeyval(long realId) {
+    void* metadata;
+    onCreate(realId, (void *)metadata)
+  }
+
+  // TODO
+  long onCreateFile(long realId) {
+    void* metadata;
+    onCreate(realId, (void *)metadata)
+  }
+
+  long onCreateRequest(long realId) {
+    void* metadata = malloc(sizeof(virt_request_t));
+    onCreate(realId, metadata)
+  }
+
+  long onCreate(long realId, void* metadata) {
       long virtualId = _nullId;
 
       if (realId == _nullId) {
@@ -201,7 +219,9 @@ class UniversalVirtualIdTable
         if (!getNewVirtualId(&virtualId)) {
             // TODO: Error out in some fashion
         } else {
-            updateMapping(virtualId, realId);
+	  _count++;
+	  virtualId = reinterpret_cast<long>(metadata);
+          updateMapping(virtualId, realId);
         }
       }
       return virtualId;
@@ -209,8 +229,13 @@ class UniversalVirtualIdTable
 
     // Removes virtual id from table and returns the corresponding real id. Assuming that it exists, for now.
     long onRemove(long virtualId) {
+      void* metadata = reinterpret_cast<void*>(virtualId);
       long realId = virtualToReal(virtualId);
+
       _virtToRealMap.erase(virtualId);
+      free(metadata);
+      _count--;
+
       return realId;
     }
 
@@ -222,22 +247,16 @@ class UniversalVirtualIdTable
     typedef typename std::map<long, long>::iterator id_iterator;
     // Casted address of virtual type -> casted address of real type
     std::map<long, long> _virtToRealMap;
-    // Next virtualid. This structure is taken from dmtcmp/include/virtualidtable.h
-    // TODO: What is a suitable "base" of all the mpi types?
-    virt_t* _nextVirtualId;
-    // dmtcmp initializes base as a reference to the id type. What would be suitable for all the id types?
-    virt_t* _base;
     long _nullId;
+  std::size_t _count;
     std::size_t _max;
 
-    // Casted address of virtual type -> casted address of corresponding metadata struct
-    std::map<long, long> _virtToMetadataMap;
 
   private:
   UniversalVirtualIdTable(std::size_t max = MAX_VIRTUAL_ID)
     {
-      _base = 0; // TODO
-      _max = max;
-      _nullId = 0; // TODO
+      _count = 0;
+      _max = MAX_VIRTUAL_ID;
+      _nullId = NULL; // TODO
     }
 };
