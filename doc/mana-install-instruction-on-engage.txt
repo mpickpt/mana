@@ -1,0 +1,119 @@
+# Load gcc module
+module load gcc/8.3.0 
+
+# Install MPICH from source; even though there's a module for mpich/3.0.4 available, it doesn't include reuired `mpifort`.
+wget https://www.mpich.org/static/downloads/3.3.2/mpich-3.3.2.tar.gz --no-check-certificate
+tar xzf mpich-3.3.2.tar.gz
+cd mpich-3.3.2
+mkdir ~/mpich_install
+./configure --prefix=/home/twinkle/mpich_install
+make 
+make install
+echo $PATH
+export PATH=$PATH:~/mpich_install/bin/
+which mpicc
+
+# Install other necessary libraries from source whose static versions are not available
+# Download and install libpciaccess
+cd ~
+mkdir local_install
+mkdir libpciaccess
+cd libpciaccess
+wget https://mirror.chpc.utah.edu/pub/vault.centos.org/7.6.1810/os/Source/SPackages/libpciaccess-0.14-1.el7.src.rpm --no-check-certificate
+rpm2cpio libpciaccess-0.14-1.el7.src.rpm | cpio -idv
+tar xzf libpciaccess-0.14.tar.bz2 
+tar xf libpciaccess-0.14.tar.bz2 
+cd libpciaccess-0.14/
+patch -Np1 < ../libpciaccess-rom-size.patch 
+./configure --prefix=$HOME/local_install
+make install
+
+# Download and install libxz
+cd ~
+mkdir libxz
+cd libxz
+wget https://mirror.chpc.utah.edu/pub/vault.centos.org/7.6.1810/os/Source/SPackages/xz-5.2.2-1.el7.src.rpm --no-check-certificate 
+rpm2cpio xz-5.2.2-1.el7.src.rpm | cpio -idv
+tar xf xz-5.2.2.tar.gz
+cd xz-5.2.2/
+patch -Np1 <../xz-5.2.2-compat-libs.patch
+patch -Np1 <../xz-5.2.2-man-page-day.patch 
+./configure --prefix=$HOME/local_install
+make -j install
+
+# Download and install zlib
+cd ~
+mkdir zlib
+cd zlib/
+wget https://mirror.chpc.utah.edu/pub/vault.centos.org/7.6.1810/os/Source/SPackages/zlib-1.2.7-18.el7.src.rpm --no-check-certificate 
+rpm2cpio zlib-1.2.7-18.el7.src.rpm | cpio -idv
+tar xf zlib-1.2.7.tar.bz2 
+cd zlib-1.2.7/
+patch -Np1 < ../zlib-1.2.5-minizip-fixuncrypt.patch
+patch -Np1 < ../zlib-1.2.7-optimized-s390.patch
+patch -Np1 < ../zlib-1.2.7-z-block-flush.patch
+patch -Np1 < ../zlib-1.2.7-fix-serious-but-very-rare-decompression-bug-in-inftr.patch
+patch -Np1 < ../zlib-1.2.7-Fix-bug-where-gzopen-gzclose-would-write-an-empty-fi.patch
+./configure --prefix=$HOME/local_install
+make install
+
+# Download and install libxml2
+# FIXME: make install would end in error for installing python but libxml2.a should be installed before we reach to the error
+cd ~
+mkdir libxml2
+cd libxml2/
+wget https://mirror.chpc.utah.edu/pub/vault.centos.org/7.6.1810/os/Source/SPackages/libxml2-2.9.1-6.el7_2.3.src.rpm --no-check-certificate 
+rpm2cpio libxml2-2.9.1-6.el7_2.3.src.rpm | cpio -idv
+tar xf libxml2-2.9.1.tar.gz 
+cd libxml2-2.9.1/
+patch -Np1 < ../libxml2-multilib.patch
+patch -Np1 < ../libxml2-2.9.0-do-not-check-crc.patch
+patch -Np1 < ../libxml2-Fix-a-regression-in-xmlGetDocCompressMode.patch
+patch -Np1 < ../CVE-2014-3660-rhel7.patch
+patch -Np1 < ../libxml2-Fix-missing-entities-after-CVE-2014-3660-fix.patch
+patch -Np1 < ../libxml2-Do-not-fetch-external-parameter-entities.patch
+patch -Np1 < ../libxml2-Fix-regression-introduced-by-CVE-2014-0191.patch
+patch -Np1 < ../libxml2-Stop-parsing-on-entities-boundaries-errors.patch
+patch -Np1 < ../libxml2-Cleanup-conditional-section-error-handling.patch
+patch -Np1 < ../libxml2-Fail-parsing-early-on-if-encoding-conversion-failed.patch
+patch -Np1 < ../libxml2-Another-variation-of-overflow-in-Conditional-sections.patch
+patch -Np1 < ../libxml2-Fix-an-error-in-previous-Conditional-section-patch.patch
+patch -Np1 < ../libxml2-Fix-parsing-short-unclosed-comment-uninitialized-access.patch
+patch -Np1 < ../libxml2-Avoid-extra-processing-of-MarkupDecl-when-EOF.patch
+patch -Np1 < ../libxml2-Avoid-processing-entities-after-encoding-conversion-failures.patch
+patch -Np1 < ../libxml2-xmlStopParser-reset-errNo.patch
+patch -Np1 < ../libxml2-CVE-2015-7497-Avoid-an-heap-buffer-overflow-in-xmlDictComputeFastQKey.patch
+patch -Np1 < ../libxml2-CVE-2015-5312-Another-entity-expansion-issue.patch
+patch -Np1 < ../libxml2-Add-xmlHaltParser-to-stop-the-parser.patch
+patch -Np1 < ../libxml2-Reuse-xmlHaltParser-where-it-makes-sense.patch
+patch -Np1 < ../libxml2-Do-not-print-error-context-when-there-is-none.patch
+patch -Np1 < ../libxml2-Detect-incoherency-on-GROW.patch
+patch -Np1 < ../libxml2-Fix-some-loop-issues-embedding-NEXT.patch
+patch -Np1 < ../libxml2-Bug-on-creating-new-stream-from-entity.patch
+patch -Np1 < ../libxml2-CVE-2015-7500-Fix-memory-access-error-due-to-incorrect-entities-boundaries.patch
+patch -Np1 < ../libxml2-CVE-2015-8242-Buffer-overead-with-HTML-parser-in-push-mode.patch
+patch -Np1 < ../libxml2-CVE-2015-1819-Enforce-the-reader-to-run-in-constant-memory.patch
+patch -Np1 < ../libxml2-Add-missing-increments-of-recursion-depth-counter-to-XML-parser.patch
+patch -Np1 < ../libxml2-Avoid-building-recursive-entities.patch
+patch -Np1 < ../libxml2-Bug-757711-heap-buffer-overflow-in-xmlFAParsePosCharGroup-https-bugzilla.gnome.org-show_bug.cgi-id-757711.patch
+patch -Np1 < ../libxml2-Bug-758588-Heap-based-buffer-overread-in-xmlParserPrintFileContextInternal-https-bugzilla.gnome.org-show_bug.cgi-id-758588.patch
+patch -Np1 < ../libxml2-Bug-758605-Heap-based-buffer-overread-in-xmlDictAddString-https-bugzilla.gnome.org-show_bug.cgi-id-758605.patch
+patch -Np1 < ../libxml2-Bug-759398-Heap-use-after-free-in-xmlDictComputeFastKey-https-bugzilla.gnome.org-show_bug.cgi-id-759398.patch
+patch -Np1 < ../libxml2-Bug-763071-heap-buffer-overflow-in-xmlStrncat-https-bugzilla.gnome.org-show_bug.cgi-id-763071.patch
+patch -Np1 < ../libxml2-Fix-inappropriate-fetch-of-entities-content.patch
+patch -Np1 < ../libxml2-Fix-some-format-string-warnings-with-possible-format-string-vulnerability.patch
+patch -Np1 < ../libxml2-Heap-based-buffer-overread-in-htmlCurrentChar.patch
+patch -Np1 < ../libxml2-Heap-based-buffer-overread-in-xmlNextChar.patch
+patch -Np1 < ../libxml2-Heap-based-buffer-underreads-due-to-xmlParseName.patch
+patch -Np1 < ../libxml2-Heap-use-after-free-in-htmlParsePubidLiteral-and-htmlParseSystemiteral.patch
+patch -Np1 < ../libxml2-Heap-use-after-free-in-xmlSAX2AttributeNs.patch
+patch -Np1 < ../libxml2-More-format-string-warnings-with-possible-format-string-vulnerability.patch
+./configure --prefix=$HOME/local_install
+make -j install
+
+# clone MANA
+cd ~
+git clone https://github.com/mpickpt/mana.git
+cd mana/
+git apply mana-install-dir.patch
+make mana
