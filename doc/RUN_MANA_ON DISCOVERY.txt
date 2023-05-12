@@ -1,0 +1,145 @@
+###################################################
+##	SSH INTO COMPUTE NODES
+###################################################
+
+=> cd ~/.ssh
+=> touch authorized_keys
+=> cat known_hosts >> authorirized_keys
+=> ssh [node name] 
+
+
+###################################################
+##	SBATCH MANA MPI PROCESSES
+###################################################
+=> cd ~/mana/mpi_proxy_split/test
+=> touch sbatch_run.script
+=> vim sbatch_run.script
+  :> inside the file:
+{
+#!/bin/bash
+
+#SBATCH --ntasks-per-node=8
+#SBATCH --cpus-per-task=1
+#SBATCH --time=00:15:00
+#SBATCH --job-name=MyJobName
+#SBATCH --mem=4G
+#SBATCH --partition=short
+
+mana_coordinator
+mpi -np 4 mana_launch ./mpi_hello_world.mana.exe
+}
+
+=> [runniung the script]:
+
+	=> sbatch sbatch_run.script
+		[this will throw error if there are ckpt dir present already. delete them before
+			submitting run request]
+	=> tail -f slurm-[JOB ID].out
+
+###################################################
+##	CHECK ON RUNNING MPI PROCESSES
+###################################################
+=> squeue -u [USERNAME]
+=> if you want to ssh into the compute node , read the compute node adddress from the above command and simply run ssh. you will be automatically logged out of the node when the process terminates.
+
+=> mana_status -l
+o/p:
+Coordinator:
+  Host: c0181
+  Port: 7779
+Client List:
+#, PROG[virtPID:realPID]@HOST, DMTCP-UNIQUEPID, STATE, BARRIER
+1, mpi_hello_world.mana.exe[40000:27716]@c0181, 11517b61bc5-40000-15e0805e24a15a, WorkerState::RUNNING,
+2, mpi_hello_world.mana.exe[41000:27720]@c0181, 11517b61bc5-41000-15e0805e2510b4, WorkerState::RUNNING,
+3, mpi_hello_world.mana.exe[42000:27721]@c0181, 11517b61bc5-42000-15e0805e2414ac, WorkerState::RUNNING,
+4, mpi_hello_world.mana.exe[43000:27723]@c0181, 11517b61bc5-43000-15e0805e237011, WorkerState::RUNNING,
+
+=> mana_status --help
+    -s, --status:          Print status message
+    -l, --list:            List connected clients
+    -c, --checkpoint:      Checkpoint all nodes
+    -bc, --bcheckpoint:    Checkpoint all nodes, dmtcp_command blocks until done
+    -kc, --kcheckpoint     Checkpoint all nodes, kill all nodes when done
+    -i, --interval <val>   Update ckpt interval to <val> seconds (0=never)
+    -k, --kill             Kill all nodes
+    -q, --quit             Kill all nodes and quit
+
+=> also monitor the slurm-[JOBID].out file:
+	tail -f slurm-[JOB ID].out	
+o/p: 
+*** Coordinator/job information written to /home/bisht.r/.mana
+Hello world from processor test, rank 0 out of 4 processors
+Will now sleep for 500 seconds ...
+Hello world from processor test, rank 1 out of 4 processors
+Will now sleep for 500 seconds ...
+Hello world from processor test, rank 2 out of 4 processors
+Will now sleep for 500 seconds ...
+Hello world from processor test, rank 3 out of 4 processors
+Will now sleep for 500 seconds ...
+
+###################################################
+##	EXECUTE CHECKPOINTING
+###################################################
+
+=> mana_status -c 
+
+=>  mana_status -l
+Coordinator:
+  Host: c0181
+  Port: 7779
+Client List:
+#, PROG[virtPID:realPID]@HOST, DMTCP-UNIQUEPID, STATE, BARRIER
+1, mpi_hello_world.mana.exe[40000:27716]@c0181, 11517b61bc5-40000-15e0805e24a15a, WorkerState::CHECKPOINTING, Socket::Ckpt_Register_Peer_Info
+2, mpi_hello_world.mana.exe[41000:27720]@c0181, 11517b61bc5-41000-15e0805e2510b4, WorkerState::CHECKPOINTING, Socket::Ckpt_Register_Peer_Info
+3, mpi_hello_world.mana.exe[42000:27721]@c0181, 11517b61bc5-42000-15e0805e2414ac, WorkerState::CHECKPOINTING, Socket::Ckpt_Register_Peer_Info
+4, mpi_hello_world.mana.exe[43000:27723]@c0181, 11517b61bc5-43000-15e0805e237011, WorkerState::CHECKPOINTING, Socket::Ckpt_Register_Peer_Info
+
+
+=> re-read the updated slurm file information.
+	tail -f slurm-[JOB ID].out
+
+o/p:
+Signal received; continuing sleep for 202 seconds.
+Signal received; continuing sleep for 202 seconds.
+Signal received; continuing sleep for 202 seconds.
+Signal received; continuing sleep for 202 seconds.
+
+###################################################
+##	EXECUTE MANA RESTART PROCESS
+###################################################
+=>make sure your ckpt dirs are in the current dir
+
+=> touch sbatch_restart.script
+=> vim sbatch_restart.script
+  :> inside the file:
+{
+#!/bin/bash
+
+#SBATCH --ntasks-per-node=8
+#SBATCH --cpus-per-task=1
+#SBATCH --time=00:15:00
+#SBATCH --job-name=MyJobName
+#SBATCH --mem=4G
+#SBATCH --partition=short
+
+mana_coordinator
+mpi -np 4 mana_restart
+}
+
+=> sbatch sbatch_restart.script
+
+=> this above command will create a new JOBID for you.
+
+=> tail -f slurm-[newJOBID].out
+
+[3544] /home/bisht.r/mana/restart_plugin/mtcp_restart_plugin.c:645 mtcp_plugin_hook:
+  [Rank: 1] Choosing ckpt image: ./ckpt_rank_1/ckpt_mpi_hello_world.mana.exe_11517b61bc5-40000-15e0805e24a15a.dmtcp
+[3545] /home/bisht.r/mana/restart_plugin/mtcp_restart_plugin.c:645 mtcp_plugin_hook:
+  [Rank: 3] Choosing ckpt image: ./ckpt_rank_3/ckpt_mpi_hello_world.mana.exe_11517b61bc5-43000-15e0805e237011.dmtcp
+[3547] /home/bisht.r/mana/restart_plugin/mtcp_restart_plugin.c:645 mtcp_plugin_hook:
+  [Rank: 2] Choosing ckpt image: ./ckpt_rank_2/ckpt_mpi_hello_world.mana.exe_11517b61bc5-41000-15e0805e2510b4.dmtcp
+Signal received; continuing sleep for 202 seconds.
+Signal received; continuing sleep for 202 seconds.
+Signal received; continuing sleep for 202 seconds.
+Signal received; continuing sleep for 202 seconds.
+
