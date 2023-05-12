@@ -107,6 +107,7 @@ struct virt_op_t {
 };
 
 struct virt_datatype_t {
+  // TODO add mpi type identifier field virtual class
     MPI_Type real_datatype; // Real MPI type in the lower-half
     int handle; // A copy of the int type handle generated from the address of this struct
     // Components of user-defined datatype.
@@ -193,7 +194,7 @@ class UniversalVirtualIdTable
     onCreate(realId, metadata);
   }
 
-  // TODO
+  // TODO Comm keyval store
   long onCreateCommKeyval(long realId) {
     void* metadata;
     onCreate(realId, (void *)metadata);
@@ -262,7 +263,17 @@ class UniversalVirtualIdTable
     {
       _count = 0;
       _max = MAX_VIRTUAL_ID;
-      _nullId = NULL; // TODO
+	_nullId = NULL; // TODO include all of respective null pointer
       _metadataArray = malloc(_max * sizeof(virt_t));
     }
 };
+
+// TODO use DMTCP? Find a way to "union" all of the mpi types
+// MPI comm, mpi group
+// virtual class and inheritance to create universal IdType
+
+// Use salloc to run compile
+
+// SLURM
+
+// salloc -n1, maybe time flag
