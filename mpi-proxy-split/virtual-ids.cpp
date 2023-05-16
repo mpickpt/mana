@@ -185,11 +185,11 @@ class UniversalVirtualIdTable
       // "Adding an existing real id is a legal operation."
       vId = _vIdTable.realToVirtual(real);
     } else {
-      if (_count > _max) {
+      // if (_count > _max) {
 
-      }
-      UniveralMpiType realWrapper = malloc(sizeof(virt_t));
-      virt_t.real_thing = real;
+      // }
+      // UniveralMpiType realWrapper = malloc(sizeof(virt_t));
+      // virt_t.real_thing = real;
       // vid -> struct 
 
 
