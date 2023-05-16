@@ -1,0 +1,14 @@
+#!/bin/bash
+
+#SBATCH --ntasks-per-node=8
+#SBATCH --cpus-per-task=1
+#SBATCH --time=00:15:00
+#SBATCH --job-name=MyJobName
+#SBATCH --mem=4G
+#SBATCH --partition=short
+#mpirun -np 4 mana_restart
+mana_coordinator
+#mpirun -np 4 ./mpi_hello_world.exe
+#mpirun -np 4 ./ping_pong.exe
+#mpirun -np 4  mana_launch ./mpi_hello_world.mana.exe
+mpirun -np 4 mana_launch --ckptdir ~/mana/scripts/ckpt_dir ~/mana/mpi-proxy-split/test/ping_pong.mana.exe
