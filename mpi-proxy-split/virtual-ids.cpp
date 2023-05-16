@@ -42,27 +42,11 @@
 // I think it necessary to retain seperate creation macros, because each one needs to create a different metadata struct.
 // One might be able to simplify these using CONCAT and __typeof__.
 
-// Adds the given real id to the virtual id table, returns virtual id.
-#define ADD_NEW_FILE(real_objid) \
-  *(__typeof__(&virt_objid))UniversalVirtualIdTable::instance().onCreateFile(*(long *)virt_objid)
-
 #define ADD_NEW_COMM(real_objid) \
-  *(__typeof__(&real_objid))UniversalVirtualIdTable::instance().onCreateComm(*(long *)real_objid)
+  UniversalVirtualIdTable::instance().onCreateComm((UniversalMpiType)real_objid)
 
 #define ADD_NEW_GROUP(real_objid) \
-  *(__typeof__(&real_objid))UniversalVirtualIdTable::instance().onCreateGroup(*(long *)real_objid)
-
-#define ADD_NEW_TYPE(real_objid) \
-  *(__typeof__(&real_objid))UniversalVirtualIdTable::instance().onCreateType(*(long *)real_objid)
-
-#define ADD_NEW_OP(real_objid) \
-  *(__typeof__(&real_objid))UniversalVirtualIdTable::instance().onCreateOp(*(long *)real_objid)
-
-#define ADD_NEW_COMM_KEYVAL(real_objid) \
-  *(__typeof__(&real_objid))UniversalVirtualIdTable::instance().onCreateCommKeyval(*(long *)real_objid)
-
-#define ADD_NEW_REQUEST(real_objid) \
-  *(__typeof__(&real_objid))UniversalVirtualIdTable::instance().onCreateRequest(*(long *)real_objid)
+  UniversalVirtualIdTable::instance().onCreateGroup((UniversalMpiType)real_objid)
 
 // Removes an old vid mapping, returns the mapped real id.
 #define REMOVE_OLD(virt_objid) \
@@ -148,7 +132,6 @@ union UniversalMpiType {
 };
 
 // MpiVirtualization, but for all types.
-// It is the caller's responsibility to cast the `long` ids to their appropriate types.
 class UniversalVirtualIdTable
 {
   public:
@@ -174,8 +157,7 @@ class UniversalVirtualIdTable
     return _vIdTable.realToVirtual(real);
   }
 
-  UniversalMpiType onCreate(UniversalMpiType real) {
-    UniversalMpiType vId = NULL;
+  UniversalMpiType onCreate(UniversalMpiType real, UniversalMpiType vId) {
 
     if (isNull(real)) {
       return real;
@@ -185,15 +167,8 @@ class UniversalVirtualIdTable
       // "Adding an existing real id is a legal operation."
       vId = _vIdTable.realToVirtual(real);
     } else {
-      // if (_count > _max) {
-
-      // }
-      // UniveralMpiType realWrapper = malloc(sizeof(virt_t));
-      // virt_t.real_thing = real;
-      // vid -> struct 
-
-
-      if (!_vIdTable.getNewVirtualId(&vId)) { // TODO 
+      // HACK: We can manage vId creation ourselves without dmtcp.
+      if (_count++ > _max) {
 	JWARNING(false)(real)(_vIdTable.getTypeStr())
 	  .Text("Failed to create a new vId");
       } else {
@@ -201,6 +176,16 @@ class UniversalVirtualIdTable
       }
     }
     return vId;
+  }
+
+  UniversalMpiType onCreateComm(UniversalMpiType real) {
+    UniversalMpiType vId = (UniversalMpiType)malloc(sizeof(virt_comm_tt));
+    return onCreate(real, vId);
+  }
+
+  UniversalMpiType onCreateGroup(UniversalMpiType real) {
+    UniversalMpiType vId = (UniversalMpiType)malloc(sizeof(virt_group_t));
+    return onCreate(real, vId);
   }
 
   UniversalMpiType onRemove(UniversalMpiType virt) {
@@ -213,6 +198,7 @@ class UniversalVirtualIdTable
     if (_vIdTable.virtualIdExists(virt)) {
 	realId = _vIdTable.virtualToReal(virt);
 	_vIdTable.erase(virt);
+	free(virt);
     } else {
 	JWARNING(false)(virt)(_vIdTable.getTypeStr())
 		.Text("Cannot delete non-existent virtual id");
@@ -236,7 +222,7 @@ class UniversalVirtualIdTable
   }
 
   // View mpi.h for details on these constants.
-  // mpi.h lists "results of the compare operations". Should I use that instead?
+  // TODO mpi.h lists "results of the compare operations". Should I use that instead?
   bool isNull(const UniversalMpiType& id) { 
     return id == &MPI_COMM_NULL ||
       id == &MPI_OP_NULL ||
@@ -250,20 +236,14 @@ class UniversalVirtualIdTable
 
   protected:
     dmtcp::VirtualIdTable<UniversalMpiType> _vIdTable;
+    int _count;
+    int _max;
   
   private:
   UniversalVirtualIdTable(std::size_t max = MAX_VIRTUAL_ID)
     {
 	_vIdTable = _vIdTable("UniversalMPIType", (UniversalMpiType)0, (size_t)999999)
+	  _count = 0;
+	_max = max;
     }
 };
-
-// TODO use DMTCP? Find a way to "union" all of the mpi types
-// MPI comm, mpi group
-// virtual class and inheritance to create universal IdType
-
-// Use salloc to run compile
-
-// SLURM
-
-// salloc -n1, maybe time flag
