@@ -161,10 +161,10 @@ class UniversalVirtualIdTable
 
   UniversalMpiType virtualToReal(UniversalMpiType virt) {
     if (isNull(virt)) {
-      return vit;
+      return virt;
     }
 
-    return _vIdTable.virtualToReal(virt).real_thing; // vid -> wrapper structures
+    return _vIdTable.virtualToReal(virt); // vid -> wrapper structures
   }
 
   UniversalMpiType realToVirtual(UniversalMpiType real) {
