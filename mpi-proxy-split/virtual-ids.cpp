@@ -67,19 +67,19 @@ long onRemove(long virtId) {
 // Writing these macros as ternary expressions means there is no overhead associated with extra function arguments.
 
 #define REAL_TO_VIRTUAL(id, null) \ 
-  (id == null) ? null : *(__typeof__(&id))realToVirtual(*(long *)id)
+  (id == null) ? null : *(__typeof__(&id))realToVirtual(*(long *)&id)
 
 #define VIRTUAL_TO_REAL(id, null) \
-  (id == null) ? null : *(__typeof__(&id))virtualToReal(*(long *)id)
+  (id == null) ? null : *(__typeof__(&id))virtualToReal(*(long *)&id)
 
 #define ADD_NEW(id, null, metadata)						\
-  (id == null) ? null : *(__typeof__(&id))onCreate(*(long *)id, malloc(sizeof(metadata)))
+  (id == null) ? null : *(__typeof__(&id))onCreate(*(long *)&id, malloc(sizeof(metadata)))
 
 #define REMOVE_OLD(id, null) \
-  (id == null) ? null : *(__typeof__(&id))onRemove(*(long *)id)
+  (id == null) ? null : *(__typeof__(&id))onRemove(*(long *)&id)
 
 #define UPDATE_MAP(v, r, null) \
-  (id == null) ? null : *(__typeof__(&id))updateMapping(*(long *)v, *(long* ) r)/
+  (id == null) ? null : *(__typeof__(&id))updateMapping(*(long *)&v, *(long* )&r)/
 
 #define REAL_TO_VIRTUAL_FILE(id) \
   REAL_TO_VIRTUAL(id, MPI_FILE_NULL) 
