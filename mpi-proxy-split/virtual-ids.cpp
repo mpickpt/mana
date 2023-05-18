@@ -61,6 +61,7 @@ long onRemove(long virtId) {
   // TODO if exists
   long realId = virtualToReal(virtId);
   vIdTable.erase(virtId);
+  free((void *)&virtId);
   return realId;
 }
 
