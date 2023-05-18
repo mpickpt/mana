@@ -28,35 +28,123 @@
 
 #include "dmtcp.h"
 
-
-#define CONCAT(a, b) a ## b
-
-// Returns the real type for a virtual type
-#define VIRTUAL_TO_REAL(virt_objid) \
-  UniversalVirtualIdTable::instance().virtualToReal((UniversalMpiType)virt_objid)
-
-// Returns the virtual type for a real type.
-#define REAL_TO_VIRTUAL(real_objid)		\
-  UniversalVirtualIdTable::instance().realToVirtual((UniversalMpiType)real_objid)
-
-// I think it necessary to retain seperate creation macros, because each one needs to create a different metadata struct.
-// One might be able to simplify these using CONCAT and __typeof__.
-
-#define ADD_NEW_COMM(real_objid) \
-  UniversalVirtualIdTable::instance().onCreateComm((UniversalMpiType)real_objid)
-
-#define ADD_NEW_GROUP(real_objid) \
-  UniversalVirtualIdTable::instance().onCreateGroup((UniversalMpiType)real_objid)
-
-// Removes an old vid mapping, returns the mapped real id.
-#define REMOVE_OLD(virt_objid) \
-  UniversalVirtualIdTable::instance().onRemove((UniversalMpiType)virt_objid)
-
-// Update an existing vid->rid mapping.
-#define UPDATE_MAP(virt_objid, real_objid) \
-  UniversalVirtualIdTable::instance().updateMapping((UniversalMpiType)virt_objid, (UniversalMpiType)real_objid)
-
 #define MAX_VIRTUAL_ID 999
+
+// Per Yao Xu, MANA does not require the thread safety offered by DMTCP's VirtualIdTable.
+std::map<long, long> vIdTable;
+typedef typename std::map<long, long>::iterator id_iterator;
+
+long realToVirtual(long realId) {
+  for (id_iterator i =  vIdTable.begin(); i != vIdTable.end(); ++i) {
+    if (realId == i->second) {
+      return i->first;
+    }
+  }
+  return realId;
+}
+
+long virtualToReal(long virtId) {
+  return vIdTable[virtId];
+}
+
+long updateMapping(long virtId, long realId) {
+  vIdTable[virtId] = realId;
+  return virtId;
+}
+
+long onCreate(long realId, void* metadata) {
+  // TODO fill out handle
+  return updateMapping(*(long *)metadata, realId);
+}
+
+long onRemove(long virtId) {
+  // TODO if exists
+  long realId = virtualToReal(virtId);
+  vIdTable.erase(virtId);
+  return realId;
+}
+
+// Writing these macros as ternary expressions means there is no overhead associated with extra function arguments.
+
+#define REAL_TO_VIRTUAL_FILE(id) \
+  ((*(long* ) id) == MPI_FILE_NULL) ? MPI_FILE_NULL : realToVirtual(*(long *)id)
+#define VIRTUAL_TO_REAL_FILE(id) \
+  ((*(long* ) id) == MPI_FILE_NULL) ? MPI_FILE_NULL : virtualToReal(*(long *)id)
+#define ADD_NEW_FILE(id) \
+  ((*(long* ) id) == MPI_FILE_NULL) ? MPI_FILE_NULL : onCreate(*(long *)id, malloc(sizeof(virt_file_t)))
+#define REMOVE_OLD_FILE(id) \
+  ((*(long* ) id) == MPI_FILE_NULL) ? MPI_FILE_NULL : onRemove(*(long *)id)
+#define UPDATE_FILE_MAP(v, r) \
+  ((*(long* ) id) == MPI_FILE_NULL) ? MPI_FILE_NULL : updateMapping(*(long *)v, *(long* ) r)/
+
+
+#define REAL_TO_VIRTUAL_COMM(id) \
+  ((*(long* ) id) == MPI_COMM_NULL) ? MPI_COMM_NULL : realToVirtual(*(long *)id)
+#define VIRTUAL_TO_REAL_COMM(id) \
+  ((*(long* ) id) == MPI_COMM_NULL) ? MPI_COMM_NULL : virtualToReal(*(long *)id)
+#define ADD_NEW_COMM(id) \
+  ((*(long* ) id) == MPI_COMM_NULL) ? MPI_COMM_NULL : onCreate(*(long *)id, malloc(sizeof(virt_comm_t)))
+#define REMOVE_OLD_COMM(id) \
+  ((*(long* ) id) == MPI_COMM_NULL) ? MPI_COMM_NULL : onRemove(*(long *)id)
+#define UPDATE_COMM_MAP(v, r) \
+  ((*(long* ) id) == MPI_COMM_NULL) ? MPI_COMM_NULL : updateMapping(*(long *)v, *(long* ) r)
+
+#define REAL_TO_VIRTUAL_GROUP(id) \
+  ((*(long* ) id) == MPI_GROUP_NULL) ? MPI_GROUP_NULL : realToVirtual(*(long *)id)
+#define VIRTUAL_TO_REAL_GROUP(id) \
+  ((*(long* ) id) == MPI_GROUP_NULL) ? MPI_GROUP_NULL : virtualToReal(*(long *)id)
+#define ADD_NEW_GROUP(id) \
+  ((*(long* ) id) == MPI_GROUP_NULL) ? MPI_GROUP_NULL : onCreate(*(long *)id, malloc(sizeof(virt_group_t)))
+#define REMOVE_OLD_GROUP(id) \
+  ((*(long* ) id) == MPI_GROUP_NULL) ? MPI_GROUP_NULL : onRemove(*(long *)id)
+#define UPDATE_GROUP_MAP(v, r) \
+  ((*(long* ) id) == MPI_GROUP_NULL) ? MPI_GROUP_NULL : updateMapping(*(long *)v, *(long* ) r)
+
+
+#define REAL_TO_VIRTUAL_TYPE(id) \
+  ((*(long* ) id) == MPI_TYPE_NULL) ? MPI_TYPE_NULL : realToVirtual(*(long *)id)
+#define VIRTUAL_TO_REAL_TYPE(id) \
+  ((*(long* ) id) == MPI_TYPE_NULL) ? MPI_TYPE_NULL : virtualToReal(*(long *)id)
+#define ADD_NEW_TYPE(id) \
+  ((*(long* ) id) == MPI_TYPE_NULL) ? MPI_TYPE_NULL : onCreate(*(long *)id, malloc(sizeof(virt_type_t)))
+#define REMOVE_OLD_TYPE(id) \
+  ((*(long* ) id) == MPI_TYPE_NULL) ? MPI_TYPE_NULL : onRemove(*(long *)id)
+#define UPDATE_TYPE_MAP(v, r) \
+  ((*(long* ) id) == MPI_TYPE_NULL) ? MPI_TYPE_NULL : updateMapping(*(long *)v, *(long* ) r)
+
+
+#define REAL_TO_VIRTUAL_OP(id) \
+  ((*(long* ) id) == MPI_OP_NULL) ? MPI_OP_NULL : realToVirtual(*(long *)id)
+#define VIRTUAL_TO_REAL_OP(id) \
+  ((*(long* ) id) == MPI_OP_NULL) ? MPI_OP_NULL : virtualToReal(*(long *)id)
+#define ADD_NEW_OP(id) \
+  ((*(long* ) id) == MPI_OP_NULL) ? MPI_OP_NULL : onCreate(*(long *)id, malloc(sizeof(virt_op_t)))
+#define REMOVE_OLD_OP(id) \
+  ((*(long* ) id) == MPI_OP_NULL) ? MPI_OP_NULL : onRemove(*(long *)id)
+#define UPDATE_OP_MAP(v, r) \
+  ((*(long* ) id) == MPI_OP_NULL) ? MPI_OP_NULL : updateMapping(*(long *)v, *(long* ) r)
+
+#define REAL_TO_VIRTUAL_COMM_KEYVAL(id) \
+  ((*(long* ) id) == MPI_COMM_KEYVAL_NULL) ? MPI_COMM_KEYVAL_NULL : realToVirtual(*(long *)id)
+#define VIRTUAL_TO_REAL_COMM_KEYVAL(id) \
+  ((*(long* ) id) == MPI_COMM_KEYVAL_NULL) ? MPI_COMM_KEYVAL_NULL : virtualToReal(*(long *)id)
+#define ADD_NEW_COMM_KEYVAL(id) \
+  ((*(long* ) id) == MPI_COMM_KEYVAL_NULL) ? MPI_COMM_KEYVAL_NULL : onCreate(*(long *)id, malloc(sizeof(virt_comm_keyval_t)))
+#define REMOVE_OLD_COMM_KEYVAL(id) \
+  ((*(long* ) id) == MPI_COMM_KEYVAL_NULL) ? MPI_COMM_KEYVAL_NULL : onRemove(*(long *)id)
+#define UPDATE_COMM_KEYVAL_MAP(v, r) \
+  ((*(long* ) id) == MPI_COMM_KEYVAL_NULL) ? MPI_COMM_KEYVAL_NULL : updateMapping(*(long *)v, *(long* ) r)
+
+#define REAL_TO_VIRTUAL_REQUEST(id) \
+  ((*(long* ) id) == MPI_REQUEST_NULL) ? MPI_REQUEST_NULL : realToVirtual(*(long *)id)
+#define VIRTUAL_TO_REAL_REQUEST(id) \
+  ((*(long* ) id) == MPI_REQUEST_NULL) ? MPI_REQUEST_NULL : virtualToReal(*(long *)id)
+#define ADD_NEW_REQUEST(id) \
+  ((*(long* ) id) == MPI_REQUEST_NULL) ? MPI_REQUEST_NULL : onCreate(*(long *)id, malloc(sizeof(virt_request_t)))
+#define REMOVE_OLD_REQUEST(id) \
+  ((*(long* ) id) == MPI_REQUEST_NULL) ? MPI_REQUEST_NULL : onRemove(*(long *)id)
+#define UPDATE_REQUEST_MAP(v, r) \
+  ((*(long* ) id) == MPI_REQUEST_NULL) ? MPI_REQUEST_NULL : updateMapping(*(long *)v, *(long* ) r)
 
 // --- metadata structs ---
 
@@ -114,136 +202,4 @@ union virt_t {
     virt_request_t request;
     virt_op_t op;
     virt_datatype_t datatype;
-};
-
-union UniversalMpiType {
-  MPI_Comm comm;
-  MPI_Group group;
-  MPI_Datatype datatype;
-  MPI_Op operation;
-  MPI_File file;
-  MPI_Request request;
-  operator MPI_Comm () const { return comm; }
-  operator MPI_Group () const { return group; }
-  operator MPI_Datatype () const { return datatype; }
-  operator MPI_Op () const { return operation; }
-  operator MPI_File () const { return file; }
-  operator MPI_Request () const { return request; }
-};
-
-// MpiVirtualization, but for all types.
-class UniversalVirtualIdTable
-{
-  public:
-
-    static UniversalVirtualIdTable& instance()
-    {
-      static UniversalVirtualIdTable instance;
-      return instance;
-    }
-
-  UniversalMpiType virtualToReal(UniversalMpiType virt) {
-    if (isNull(virt)) {
-      return virt;
-    }
-
-    return _vIdTable.virtualToReal(virt); // vid -> wrapper structures
-  }
-
-  UniversalMpiType realToVirtual(UniversalMpiType real) {
-    if (isNull(real)) {
-      return real;
-    }
-    return _vIdTable.realToVirtual(real);
-  }
-
-  UniversalMpiType onCreate(UniversalMpiType real, UniversalMpiType vId) {
-
-    if (isNull(real)) {
-      return real;
-    }
-
-    if (_vIdTable.realIdExists(real)) {
-      // "Adding an existing real id is a legal operation."
-      vId = _vIdTable.realToVirtual(real);
-    } else {
-      // HACK: We can manage vId creation ourselves without dmtcp.
-      if (_count++ > _max) {
-	JWARNING(false)(real)(_vIdTable.getTypeStr())
-	  .Text("Failed to create a new vId");
-      } else {
-	_vIdTable.updateMapping(vId, realWrapper);
-      }
-    }
-    return vId;
-  }
-
-  UniversalMpiType onCreateComm(UniversalMpiType real) {
-    UniversalMpiType vId = (UniversalMpiType)malloc(sizeof(virt_comm_tt));
-    return onCreate(real, vId);
-  }
-
-  UniversalMpiType onCreateGroup(UniversalMpiType real) {
-    UniversalMpiType vId = (UniversalMpiType)malloc(sizeof(virt_group_t));
-    return onCreate(real, vId);
-  }
-
-  UniversalMpiType onRemove(UniversalMpiType virt) {
-    UniversalMpiType realId = _nullId; // TODO how to return a "Null Universal?"
-
-    if (isNull(virt)) {
-      return virt;
-    }
-    // DMTCP virtual id table already does the lock around the table.
-    if (_vIdTable.virtualIdExists(virt)) {
-	realId = _vIdTable.virtualToReal(virt);
-	_vIdTable.erase(virt);
-	free(virt);
-    } else {
-	JWARNING(false)(virt)(_vIdTable.getTypeStr())
-		.Text("Cannot delete non-existent virtual id");
-    }
-    return realId;
-  }
-
-  UniversalMpiType updateMapping(UniversalMpiType virt, UniversalMpiType real) {
-    if (isNull(virt)) {
-      return virt;
-        }
-        // DMTCP virtual id table already does the lock around the table.
-        if (!_vIdTable.virtualIdExists(virt)) {
-          JWARNING(false)(virt)(real)(_vIdTable.getTypeStr())
-                  (_vIdTable.realToVirtual(real))
-                  .Text("Cannot update mapping for a non-existent virt. id");
-          return _nullId;
-        }
-        _vIdTable.updateMapping(virt, real);
-        return virt;
-  }
-
-  // View mpi.h for details on these constants.
-  // TODO mpi.h lists "results of the compare operations". Should I use that instead?
-  bool isNull(const UniversalMpiType& id) { 
-    return id == &MPI_COMM_NULL ||
-      id == &MPI_OP_NULL ||
-      id == &MPI_GROUP_NULL ||
-      id == &MPI_DATATYPE_NULL ||
-      id == &MPI_REQUEST_NULL ||
-      id == &MPI_ERRHANDLER_NULL ||
-      id == &MPI_MESSAGE_NULL ||
-      id == &MPI_MESSAGE_NO_PROC
-  }
-
-  protected:
-    dmtcp::VirtualIdTable<UniversalMpiType> _vIdTable;
-    int _count;
-    int _max;
-  
-  private:
-  UniversalVirtualIdTable(std::size_t max = MAX_VIRTUAL_ID)
-    {
-	_vIdTable = _vIdTable("UniversalMPIType", (UniversalMpiType)0, (size_t)999999)
-	  _count = 0;
-	_max = max;
-    }
 };
