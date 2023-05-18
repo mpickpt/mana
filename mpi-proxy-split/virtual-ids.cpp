@@ -66,85 +66,97 @@ long onRemove(long virtId) {
 
 // Writing these macros as ternary expressions means there is no overhead associated with extra function arguments.
 
-#define REAL_TO_VIRTUAL_FILE(id) \
-  ((*(long* ) id) == MPI_FILE_NULL) ? MPI_FILE_NULL : *(__typeof__(&id))realToVirtual(*(long *)id)
-#define VIRTUAL_TO_REAL_FILE(id) \
-  ((*(long* ) id) == MPI_FILE_NULL) ? MPI_FILE_NULL : *(__typeof__(&id))virtualToReal(*(long *)id)
-#define ADD_NEW_FILE(id) \
-  ((*(long* ) id) == MPI_FILE_NULL) ? MPI_FILE_NULL : *(__typeof__(&id))onCreate(*(long *)id, malloc(sizeof(virt_file_t)))
-#define REMOVE_OLD_FILE(id) \
-  ((*(long* ) id) == MPI_FILE_NULL) ? MPI_FILE_NULL : *(__typeof__(&id))onRemove(*(long *)id)
-#define UPDATE_FILE_MAP(v, r) \
-  ((*(long* ) id) == MPI_FILE_NULL) ? MPI_FILE_NULL : *(__typeof__(&id))updateMapping(*(long *)v, *(long* ) r)/
+#define REAL_TO_VIRTUAL(id, null) \ 
+  ((*(long* ) id) == null) ? null : *(__typeof__(&id))realToVirtual(*(long *)id)
 
+#define VIRTUAL_TO_REAL(id, null) \
+  ((*(long* ) id) == null) ? null : *(__typeof__(&id))virtualToReal(*(long *)id)
+
+#define ADD_NEW(id, null) \
+  ((*(long* ) id) == null) ? null : *(__typeof__(&id))onCreate(*(long *)id, malloc(sizeof(virt_file_t)))
+
+#define REMOVE_OLD(id, null) \
+  ((*(long* ) id) == null) ? null : *(__typeof__(&id))onRemove(*(long *)id)
+
+#define UPDATE_MAP(v, r, null) \
+  ((*(long* ) id) == null) ? null : *(__typeof__(&id))updateMapping(*(long *)v, *(long* ) r)/
+
+#define REAL_TO_VIRTUAL_FILE(id) \
+  REAL_TO_VIRTUAL(id, MPI_FILE_NULL) 
+#define VIRTUAL_TO_REAL_FILE(id) \
+  VIRTUAL_TO_REAL(id, MPI_FILE_NULL)
+#define ADD_NEW_FILE(id) \
+  ADD_NEW(id, MPI_FILE_NULL)
+#define REMOVE_OLD_FILE(id) \
+  REMOVE_OLD(id, MPI_FILE_NULL)
+#define UPDATE_FILE_MAP(v, r) \
+  UPDATE_MAP(id, MPI_FILE_NULL)
 
 #define REAL_TO_VIRTUAL_COMM(id) \
-  ((*(long* ) id) == MPI_COMM_NULL) ? MPI_COMM_NULL : *(__typeof__(&id))realToVirtual(*(long *)id)
+  REAL_TO_VIRTUAL(id, MPI_COMM_NULL) 
 #define VIRTUAL_TO_REAL_COMM(id) \
-  ((*(long* ) id) == MPI_COMM_NULL) ? MPI_COMM_NULL : *(__typeof__(&id))virtualToReal(*(long *)id)
+  VIRTUAL_TO_REAL(id, MPI_COMM_NULL)
 #define ADD_NEW_COMM(id) \
-  ((*(long* ) id) == MPI_COMM_NULL) ? MPI_COMM_NULL : *(__typeof__(&id))onCreate(*(long *)id, malloc(sizeof(virt_comm_t)))
+  ADD_NEW(id, MPI_COMM_NULL)
 #define REMOVE_OLD_COMM(id) \
-  ((*(long* ) id) == MPI_COMM_NULL) ? MPI_COMM_NULL : *(__typeof__(&id))onRemove(*(long *)id)
+  REMOVE_OLD(id, MPI_COMM_NULL)
 #define UPDATE_COMM_MAP(v, r) \
-  ((*(long* ) id) == MPI_COMM_NULL) ? MPI_COMM_NULL : *(__typeof__(&id))updateMapping(*(long *)v, *(long* ) r)
+  UPDATE_MAP(id, MPI_COMM_NULL)
 
 #define REAL_TO_VIRTUAL_GROUP(id) \
-  ((*(long* ) id) == MPI_GROUP_NULL) ? MPI_GROUP_NULL : *(__typeof__(&id))realToVirtual(*(long *)id)
+  REAL_TO_VIRTUAL(id, MPI_GROUP_NULL) 
 #define VIRTUAL_TO_REAL_GROUP(id) \
-  ((*(long* ) id) == MPI_GROUP_NULL) ? MPI_GROUP_NULL : *(__typeof__(&id))virtualToReal(*(long *)id)
+  VIRTUAL_TO_REAL(id, MPI_GROUP_NULL)
 #define ADD_NEW_GROUP(id) \
-  ((*(long* ) id) == MPI_GROUP_NULL) ? MPI_GROUP_NULL : *(__typeof__(&id))onCreate(*(long *)id, malloc(sizeof(virt_group_t)))
+  ADD_NEW(id, MPI_GROUP_NULL)
 #define REMOVE_OLD_GROUP(id) \
-  ((*(long* ) id) == MPI_GROUP_NULL) ? MPI_GROUP_NULL : *(__typeof__(&id))onRemove(*(long *)id)
+  REMOVE_OLD(id, MPI_GROUP_NULL)
 #define UPDATE_GROUP_MAP(v, r) \
-  ((*(long* ) id) == MPI_GROUP_NULL) ? MPI_GROUP_NULL : *(__typeof__(&id))updateMapping(*(long *)v, *(long* ) r)
-
+  UPDATE_MAP(id, MPI_GROUP_NULL)
 
 #define REAL_TO_VIRTUAL_TYPE(id) \
-  ((*(long* ) id) == MPI_TYPE_NULL) ? MPI_TYPE_NULL : *(__typeof__(&id))realToVirtual(*(long *)id)
+  REAL_TO_VIRTUAL(id, MPI_TYPE_NULL) 
 #define VIRTUAL_TO_REAL_TYPE(id) \
-  ((*(long* ) id) == MPI_TYPE_NULL) ? MPI_TYPE_NULL : *(__typeof__(&id))virtualToReal(*(long *)id)
+  VIRTUAL_TO_REAL(id, MPI_TYPE_NULL)
 #define ADD_NEW_TYPE(id) \
-  ((*(long* ) id) == MPI_TYPE_NULL) ? MPI_TYPE_NULL : *(__typeof__(&id))onCreate(*(long *)id, malloc(sizeof(virt_type_t)))
+  ADD_NEW(id, MPI_TYPE_NULL)
 #define REMOVE_OLD_TYPE(id) \
-  ((*(long* ) id) == MPI_TYPE_NULL) ? MPI_TYPE_NULL : *(__typeof__(&id))onRemove(*(long *)id)
+  REMOVE_OLD(id, MPI_TYPE_NULL)
 #define UPDATE_TYPE_MAP(v, r) \
-  ((*(long* ) id) == MPI_TYPE_NULL) ? MPI_TYPE_NULL : *(__typeof__(&id))updateMapping(*(long *)v, *(long* ) r)
-
+  UPDATE_MAP(id, MPI_TYPE_NULL)
 
 #define REAL_TO_VIRTUAL_OP(id) \
-  ((*(long* ) id) == MPI_OP_NULL) ? MPI_OP_NULL : *(__typeof__(&id))realToVirtual(*(long *)id)
+  REAL_TO_VIRTUAL(id, MPI_OP_NULL) 
 #define VIRTUAL_TO_REAL_OP(id) \
-  ((*(long* ) id) == MPI_OP_NULL) ? MPI_OP_NULL : *(__typeof__(&id))virtualToReal(*(long *)id)
+  VIRTUAL_TO_REAL(id, MPI_OP_NULL)
 #define ADD_NEW_OP(id) \
-  ((*(long* ) id) == MPI_OP_NULL) ? MPI_OP_NULL : *(__typeof__(&id))onCreate(*(long *)id, malloc(sizeof(virt_op_t)))
+  ADD_NEW(id, MPI_OP_NULL)
 #define REMOVE_OLD_OP(id) \
-  ((*(long* ) id) == MPI_OP_NULL) ? MPI_OP_NULL : *(__typeof__(&id))onRemove(*(long *)id)
+  REMOVE_OLD(id, MPI_OP_NULL)
 #define UPDATE_OP_MAP(v, r) \
-  ((*(long* ) id) == MPI_OP_NULL) ? MPI_OP_NULL : *(__typeof__(&id))updateMapping(*(long *)v, *(long* ) r)
+  UPDATE_MAP(id, MPI_OP_NULL)
 
 #define REAL_TO_VIRTUAL_COMM_KEYVAL(id) \
-  ((*(long* ) id) == MPI_COMM_KEYVAL_NULL) ? MPI_COMM_KEYVAL_NULL : *(__typeof__(&id))realToVirtual(*(long *)id)
+  REAL_TO_VIRTUAL(id, MPI_COMM_KEYVAL_NULL) 
 #define VIRTUAL_TO_REAL_COMM_KEYVAL(id) \
-  ((*(long* ) id) == MPI_COMM_KEYVAL_NULL) ? MPI_COMM_KEYVAL_NULL : *(__typeof__(&id))virtualToReal(*(long *)id)
+  VIRTUAL_TO_REAL(id, MPI_COMM_KEYVAL_NULL)
 #define ADD_NEW_COMM_KEYVAL(id) \
-  ((*(long* ) id) == MPI_COMM_KEYVAL_NULL) ? MPI_COMM_KEYVAL_NULL : *(__typeof__(&id))onCreate(*(long *)id, malloc(sizeof(virt_comm_keyval_t)))
+  ADD_NEW(id, MPI_COMM_KEYVAL_NULL)
 #define REMOVE_OLD_COMM_KEYVAL(id) \
-  ((*(long* ) id) == MPI_COMM_KEYVAL_NULL) ? MPI_COMM_KEYVAL_NULL : *(__typeof__(&id))onRemove(*(long *)id)
+  REMOVE_OLD(id, MPI_COMM_KEYVAL_NULL)
 #define UPDATE_COMM_KEYVAL_MAP(v, r) \
-  ((*(long* ) id) == MPI_COMM_KEYVAL_NULL) ? MPI_COMM_KEYVAL_NULL : *(__typeof__(&id))updateMapping(*(long *)v, *(long* ) r)
+  UPDATE_MAP(id, MPI_COMM_KEYVAL_NULL)
 
 #define REAL_TO_VIRTUAL_REQUEST(id) \
-  ((*(long* ) id) == MPI_REQUEST_NULL) ? MPI_REQUEST_NULL : *(__typeof__(&id))realToVirtual(*(long *)id)
+  REAL_TO_VIRTUAL(id, MPI_REQUEST_NULL) 
 #define VIRTUAL_TO_REAL_REQUEST(id) \
-  ((*(long* ) id) == MPI_REQUEST_NULL) ? MPI_REQUEST_NULL : *(__typeof__(&id))virtualToReal(*(long *)id)
+  VIRTUAL_TO_REAL(id, MPI_REQUEST_NULL)
 #define ADD_NEW_REQUEST(id) \
-  ((*(long* ) id) == MPI_REQUEST_NULL) ? MPI_REQUEST_NULL : *(__typeof__(&id))onCreate(*(long *)id, malloc(sizeof(virt_request_t)))
+  ADD_NEW(id, MPI_REQUEST_NULL)
 #define REMOVE_OLD_REQUEST(id) \
-  ((*(long* ) id) == MPI_REQUEST_NULL) ? MPI_REQUEST_NULL : *(__typeof__(&id))onRemove(*(long *)id)
+  REMOVE_OLD(id, MPI_REQUEST_NULL)
 #define UPDATE_REQUEST_MAP(v, r) \
-  ((*(long* ) id) == MPI_REQUEST_NULL) ? MPI_REQUEST_NULL : *(__typeof__(&id))updateMapping(*(long *)v, *(long* ) r)
+  UPDATE_MAP(id, MPI_REQUEST_NULL)
 
 // --- metadata structs ---
 
