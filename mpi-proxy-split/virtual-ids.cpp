@@ -72,8 +72,8 @@ long onRemove(long virtId) {
 #define VIRTUAL_TO_REAL(id, null) \
   (id == null) ? null : *(__typeof__(&id))virtualToReal(*(long *)id)
 
-#define ADD_NEW(id, null) \
-  (id == null) ? null : *(__typeof__(&id))onCreate(*(long *)id, malloc(sizeof(virt_file_t)))
+#define ADD_NEW(id, null, metadata)						\
+  (id == null) ? null : *(__typeof__(&id))onCreate(*(long *)id, malloc(sizeof(metadata)))
 
 #define REMOVE_OLD(id, null) \
   (id == null) ? null : *(__typeof__(&id))onRemove(*(long *)id)
@@ -86,7 +86,7 @@ long onRemove(long virtId) {
 #define VIRTUAL_TO_REAL_FILE(id) \
   VIRTUAL_TO_REAL(id, MPI_FILE_NULL)
 #define ADD_NEW_FILE(id) \
-  ADD_NEW(id, MPI_FILE_NULL)
+  ADD_NEW(id, MPI_FILE_NULL, virt_file_t)
 #define REMOVE_OLD_FILE(id) \
   REMOVE_OLD(id, MPI_FILE_NULL)
 #define UPDATE_FILE_MAP(v, r) \
@@ -97,7 +97,7 @@ long onRemove(long virtId) {
 #define VIRTUAL_TO_REAL_COMM(id) \
   VIRTUAL_TO_REAL(id, MPI_COMM_NULL)
 #define ADD_NEW_COMM(id) \
-  ADD_NEW(id, MPI_COMM_NULL)
+  ADD_NEW(id, MPI_COMM_NULL, virt_comm_t)
 #define REMOVE_OLD_COMM(id) \
   REMOVE_OLD(id, MPI_COMM_NULL)
 #define UPDATE_COMM_MAP(v, r) \
@@ -108,7 +108,7 @@ long onRemove(long virtId) {
 #define VIRTUAL_TO_REAL_GROUP(id) \
   VIRTUAL_TO_REAL(id, MPI_GROUP_NULL)
 #define ADD_NEW_GROUP(id) \
-  ADD_NEW(id, MPI_GROUP_NULL)
+  ADD_NEW(id, MPI_GROUP_NULL, virt_group_t)
 #define REMOVE_OLD_GROUP(id) \
   REMOVE_OLD(id, MPI_GROUP_NULL)
 #define UPDATE_GROUP_MAP(v, r) \
@@ -119,7 +119,7 @@ long onRemove(long virtId) {
 #define VIRTUAL_TO_REAL_TYPE(id) \
   VIRTUAL_TO_REAL(id, MPI_TYPE_NULL)
 #define ADD_NEW_TYPE(id) \
-  ADD_NEW(id, MPI_TYPE_NULL)
+  ADD_NEW(id, MPI_TYPE_NULL, virt_type_t)
 #define REMOVE_OLD_TYPE(id) \
   REMOVE_OLD(id, MPI_TYPE_NULL)
 #define UPDATE_TYPE_MAP(v, r) \
@@ -130,7 +130,7 @@ long onRemove(long virtId) {
 #define VIRTUAL_TO_REAL_OP(id) \
   VIRTUAL_TO_REAL(id, MPI_OP_NULL)
 #define ADD_NEW_OP(id) \
-  ADD_NEW(id, MPI_OP_NULL)
+  ADD_NEW(id, MPI_OP_NULL, virt_op_t)
 #define REMOVE_OLD_OP(id) \
   REMOVE_OLD(id, MPI_OP_NULL)
 #define UPDATE_OP_MAP(v, r) \
@@ -141,7 +141,7 @@ long onRemove(long virtId) {
 #define VIRTUAL_TO_REAL_COMM_KEYVAL(id) \
   VIRTUAL_TO_REAL(id, MPI_COMM_KEYVAL_NULL)
 #define ADD_NEW_COMM_KEYVAL(id) \
-  ADD_NEW(id, MPI_COMM_KEYVAL_NULL)
+  ADD_NEW(id, MPI_COMM_KEYVAL_NULL, virt_comm_keyval_t)
 #define REMOVE_OLD_COMM_KEYVAL(id) \
   REMOVE_OLD(id, MPI_COMM_KEYVAL_NULL)
 #define UPDATE_COMM_KEYVAL_MAP(v, r) \
@@ -152,7 +152,7 @@ long onRemove(long virtId) {
 #define VIRTUAL_TO_REAL_REQUEST(id) \
   VIRTUAL_TO_REAL(id, MPI_REQUEST_NULL)
 #define ADD_NEW_REQUEST(id) \
-  ADD_NEW(id, MPI_REQUEST_NULL)
+  ADD_NEW(id, MPI_REQUEST_NULL, virt_request_t)
 #define REMOVE_OLD_REQUEST(id) \
   REMOVE_OLD(id, MPI_REQUEST_NULL)
 #define UPDATE_REQUEST_MAP(v, r) \
