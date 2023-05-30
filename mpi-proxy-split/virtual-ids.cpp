@@ -31,56 +31,26 @@
 #define MAX_VIRTUAL_ID 999
 
 // Per Yao Xu, MANA does not require the thread safety offered by DMTCP's VirtualIdTable.
-std::map<long, long> vIdTable;
-typedef typename std::map<long, long>::iterator id_iterator;
-
-long realToVirtual(long realId) {
-  for (id_iterator i =  vIdTable.begin(); i != vIdTable.end(); ++i) {
-    if (realId == i->second) {
-      return i->first;
-    }
-  }
-  return realId;
-}
-
-long virtualToReal(long virtId) {
-  return vIdTable[virtId];
-}
-
-long updateMapping(long virtId, long realId) {
-  vIdTable[virtId] = realId;
-  return virtId;
-}
-
-long onCreate(long realId, void* metadata) {
-  // TODO fill out handle
-  return updateMapping(*(long *)metadata, realId);
-}
-
-long onRemove(long virtId) {
-  // TODO if exists
-  long realId = virtualToReal(virtId);
-  vIdTable.erase(virtId);
-  free((void *)&virtId);
-  return realId;
-}
+std::map<int, void *> vTypeTable; // int vId -> void* vType. vType contains rId. Designed for MPICH for now.
+typedef typename std::map<int, void*>::iterator id_iterator;
 
 // Writing these macros as ternary expressions means there is no overhead associated with extra function arguments.
 
+// These casts mean that the user only sees the real id from vType.
 #define REAL_TO_VIRTUAL(id, null) \ 
-  (id == null) ? null : *(__typeof__(&id))realToVirtual(*(long *)&id)
+  (id == null) ? null : *(__typeof__(&id))realToVirtual(id)
 
 #define VIRTUAL_TO_REAL(id, null) \
-  (id == null) ? null : *(__typeof__(&id))virtualToReal(*(long *)&id)
+  (id == null) ? null : *(__typeof__(&id))virtualToReal(id)
 
-#define ADD_NEW(id, null, metadata)						\
-  (id == null) ? null : *(__typeof__(&id))onCreate(*(long *)&id, malloc(sizeof(metadata)))
+#define ADD_NEW(id, null, virtual_type)						\
+  (id == null) ? null : *(__typeof__(&id))onCreate(id, malloc(sizeof(virtual_type)))
 
 #define REMOVE_OLD(id, null) \
-  (id == null) ? null : *(__typeof__(&id))onRemove(*(long *)&id)
+  (id == null) ? null : *(__typeof__(&id))onRemove(id)
 
 #define UPDATE_MAP(v, r, null) \
-  (id == null) ? null : *(__typeof__(&id))updateMapping(*(long *)&v, *(long* )&r)/
+  (id == null) ? null : *(__typeof__(&id))updateMapping(v, r)/
 
 #define REAL_TO_VIRTUAL_FILE(id) \
   REAL_TO_VIRTUAL(id, MPI_FILE_NULL) 
@@ -159,10 +129,11 @@ long onRemove(long virtId) {
 #define UPDATE_REQUEST_MAP(v, r) \
   UPDATE_MAP(id, MPI_REQUEST_NULL)
 
+
 // --- metadata structs ---
 
 struct virt_comm_t {
-    MPI_Comm real_comm; // Real MPI communicator in the lower-half
+    MPI_Comm real_id; // Real MPI communicator in the lower-half
     int handle; // A copy of the int type handle generated from the address of this struct
     unsigned int ggid; // Global Group ID
     unsigned long seq_num; // Sequence number for the CVC algorithm
@@ -174,28 +145,28 @@ struct virt_comm_t {
 };
 
 struct virt_group_t {
-    MPI_Group real_group; // Real MPI group in the lower-half
+    MPI_Group real_id; // Real MPI group in the lower-half
     int handle; // A copy of the int type handle generated from the address of this struct
     int *ranks; // list of ranks of the group.
     // unsigned int ggid; // Global Group ID
 };
 
 struct virt_request_t {
-    MPI_Request request; // Real MPI request in the lower-half
+    MPI_Request real_id; // Real MPI request in the lower-half
     int handle; // A copy of the int type handle generated from the address of this struct
     enum request_kind; // P2P request or collective request
     MPI_Status status; // Real MPI status in the lower-half
 };
 
 struct virt_op_t {
-    MPI_Op real_op; // Real MPI operator in the lower-half
+    MPI_Op real_id; // Real MPI operator in the lower-half
     int handle; // A copy of the int type handle generated from the address of this struct
     MPI_User_function *user_fn; // Function pointer to the user defined op function
 };
 
 struct virt_datatype_t {
   // TODO add mpi type identifier field virtual class
-    MPI_Type real_datatype; // Real MPI type in the lower-half
+    MPI_Type real_id; // Real MPI type in the lower-half
     int handle; // A copy of the int type handle generated from the address of this struct
     // Components of user-defined datatype.
     MPI_count num_integers;
@@ -216,3 +187,45 @@ union virt_t {
     virt_op_t op;
     virt_datatype_t datatype;
 };
+
+// TODO do we still need this? And maybe rename?
+int realToVirtual(void* realId) {
+  for (id_iterator i =  vTypeTable.begin(); i != vTypeTable.end(); ++i) {
+    if (realId == ((virt_comm_t*)i->second)->real_id) {
+      return i->first;
+    }
+  }
+  return NULL;
+}
+
+void* virtualToReal(int virtId) {
+  id_iterator it = vTypeTable.find(virtId);
+  if (it != vTypeTable.end()) {
+    return it->second;
+  }
+  return NULL;
+}
+
+void* updateMapping(long virtId, void* realId) {
+  vTypeTable[virtId] = realId;
+  return NULL;
+}
+
+void* onCreate(long realId, void* metadata) {
+  // TODO fill out handle
+  ((virt_comm_t*)metadata)->handle = *(long *)metadata;
+  ((virt_comm_t*)metadata)->real_id = realId;
+
+  return updateMapping(*(long *)metadata, metadata);
+}
+
+int onRemove(int virtId) {
+  // TODO if exists
+  void* vType = virtualToReal(virtId);
+  vTypeTable.erase(virtId);
+
+  int realId = ((virt_comm_t *)vType)->real_id; // HACK MPICH
+  free(vType); // TODO should we free this or return this?
+  return realId;
+}
+
