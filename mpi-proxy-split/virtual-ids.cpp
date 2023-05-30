@@ -191,7 +191,6 @@ union virt_t {
     virt_datatype_t datatype;
 };
 
-// TODO do we still need this? And maybe rename?
 int realToVirtual(void* realId) {
   return ((virt_comm_t*)realId)->handle;
 }
@@ -204,20 +203,22 @@ void* virtualToReal(int virtId) {
   return NULL;
 }
 
-void* updateMapping(long virtId, void* realId) {
-  vTypeTable[virtId] = realId;
-  return NULL;
+int updateMapping(int virtId, int realId) { // HACK MPICH
+  void* vtype = vTypeTable[virtId];
+  ((virt_comm_t*)vtype)->real_id = realId;
+  return realId;
 }
 
-void* onCreate(int realId, void* metadata) { // HACK MPICH
+int onCreate(int realId, void* vType) { // HACK MPICH
   // TODO fill out handle
 
   int vId = nextvId++;
-  ((virt_comm_t*)metadata)->handle = *(long *)metadata;
-  ((virt_comm_t*)metadata)->real_id = realId;
-  ((virt_comm_t*)metadata)->handle = vId;
+  ((virt_comm_t*)vType)->handle = *(long *)vType;
+  ((virt_comm_t*)vType)->real_id = realId;
+  ((virt_comm_t*)vType)->handle = vId;
 
-  return updateMapping(vId, metadata);
+  vTypeTable[vId] = vType;
+  return realId;
 }
 
 int onRemove(int virtId) {
