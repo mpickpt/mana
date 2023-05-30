@@ -196,17 +196,17 @@ int realToVirtual(void* realId) {
   return ((virt_comm_t*)realId)->handle;
 }
 
-void* virtualToReal(int virtId) {
+int virtualToReal(int virtId) {
   id_iterator it = vTypeTable.find(virtId);
   if (it != vTypeTable.end()) {
-    return it->second;
+    return ((virt_comm_t *)it->second)->real_id;
   }
   return NULL;
 }
 
 int updateMapping(int virtId, int realId) { // HACK MPICH
-  void* vtype = vTypeTable[virtId];
-  ((virt_comm_t*)vtype)->real_id = realId;
+  void* vType = vTypeTable[virtId];
+  ((virt_comm_t*)vType)->real_id = realId;
   return realId;
 }
 
@@ -221,7 +221,12 @@ int onCreate(int realId, void* vType) { // HACK MPICH
 }
 
 int onRemove(int virtId) {
-  void* vType = virtualToReal(virtId);
+  void* vType;
+
+  id_iterator it = vTypeTable.find(virtId);
+  if (it != vTypeTable.end()) {
+    vType = it->second;
+  }
   vTypeTable.erase(virtId);
 
   int realId = ((virt_comm_t *)vType)->real_id; // HACK MPICH
