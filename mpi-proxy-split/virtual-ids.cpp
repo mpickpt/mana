@@ -40,8 +40,9 @@ int nextvId = base;
 // Writing these macros as ternary expressions means there is no overhead associated with extra function arguments.
 
 // These casts mean that the user only sees the real id from vType.
+// The REAL IDs are contained in heap-allocated vType structures. So we cast again.
 #define REAL_TO_VIRTUAL(id, null) \ 
-  (id == null) ? null : *(__typeof__(&id))realToVirtual(id)
+  (id == null) ? null : *(__typeof__(&id))realToVirtual((void*)&id)
 
 #define VIRTUAL_TO_REAL(id, null) \
   (id == null) ? null : *(__typeof__(&id))virtualToReal(id)
