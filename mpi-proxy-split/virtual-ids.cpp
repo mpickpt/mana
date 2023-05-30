@@ -34,6 +34,9 @@
 std::map<int, void *> vTypeTable; // int vId -> void* vType. vType contains rId. Designed for MPICH for now.
 typedef typename std::map<int, void*>::iterator id_iterator;
 
+int base = 1;
+int nextvId = base;
+
 // Writing these macros as ternary expressions means there is no overhead associated with extra function arguments.
 
 // These casts mean that the user only sees the real id from vType.
@@ -211,12 +214,15 @@ void* updateMapping(long virtId, void* realId) {
   return NULL;
 }
 
-void* onCreate(long realId, void* metadata) {
+void* onCreate(int realId, void* metadata) { // HACK MPICH
   // TODO fill out handle
+
+  int vId = nextvId++;
   ((virt_comm_t*)metadata)->handle = *(long *)metadata;
   ((virt_comm_t*)metadata)->real_id = realId;
+  ((virt_comm_t*)metadata)->handle = vId;
 
-  return updateMapping(*(long *)metadata, metadata);
+  return updateMapping(vId, metadata);
 }
 
 int onRemove(int virtId) {
