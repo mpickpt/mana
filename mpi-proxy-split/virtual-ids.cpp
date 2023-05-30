@@ -31,7 +31,7 @@
 #define MAX_VIRTUAL_ID 999
 
 // Per Yao Xu, MANA does not require the thread safety offered by DMTCP's VirtualIdTable.
-std::map<int, void *> vTypeTable; // int vId -> void* vType. vType contains rId. Designed for MPICH for now.
+std::map<int, void *> vTypeTable; // int vId -> void* vType. vType contains rId. Designed for MPICH for now (i.e. uses ints).
 typedef typename std::map<int, void*>::iterator id_iterator;
 
 int base = 1;
@@ -211,8 +211,6 @@ int updateMapping(int virtId, int realId) { // HACK MPICH
 }
 
 int onCreate(int realId, void* vType) { // HACK MPICH
-  // TODO fill out handle
-
   int vId = nextvId++;
   ((virt_comm_t*)vType)->handle = *(long *)vType;
   ((virt_comm_t*)vType)->real_id = realId;
@@ -223,12 +221,11 @@ int onCreate(int realId, void* vType) { // HACK MPICH
 }
 
 int onRemove(int virtId) {
-  // TODO if exists
   void* vType = virtualToReal(virtId);
   vTypeTable.erase(virtId);
 
   int realId = ((virt_comm_t *)vType)->real_id; // HACK MPICH
-  free(vType); // TODO should we free this or return this?
+  free(vType);
   return realId;
 }
 
