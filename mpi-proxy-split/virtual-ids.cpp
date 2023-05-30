@@ -193,12 +193,7 @@ union virt_t {
 
 // TODO do we still need this? And maybe rename?
 int realToVirtual(void* realId) {
-  for (id_iterator i =  vTypeTable.begin(); i != vTypeTable.end(); ++i) {
-    if (realId == ((virt_comm_t*)i->second)->real_id) {
-      return i->first;
-    }
-  }
-  return NULL;
+  return ((virt_comm_t*)realId)->handle;
 }
 
 void* virtualToReal(int virtId) {
