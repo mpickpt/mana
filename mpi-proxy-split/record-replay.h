@@ -26,6 +26,7 @@
 
 #include <algorithm>
 #include <functional>
+#include <memory>
 #include <mutex>
 #include <typeinfo>
 #include <unordered_map>
@@ -106,34 +107,22 @@ namespace dmtcp_mpi
   // Struct for saving arbitrary function arguments
   struct FncArg
   {
-    void *_data;
+    std::shared_ptr<void> _data;
     enum TYPE _type;
 
-    FncArg(const void *data, size_t len, dmtcp_mpi::TYPE type)
-      : _data(JALLOC_HELPER_MALLOC(len))
+    // Default _type set to TYPE_INT_ARRAY because this constructor is also used
+    // by CREATE_LOG_BUF in MPI_Cart functions.
+    FncArg(const void *data, size_t len, dmtcp_mpi::TYPE type = TYPE_INT_ARRAY)
+      : _type(type)
     {
-      _type = type;
-      if (_data && data) {
-        memcpy(_data, data, len);
+      void *ptr = JALLOC_HELPER_MALLOC(len);
+      if (ptr) {
+        _data = std::shared_ptr<void>(ptr,
+                                      [](void *p) { JALLOC_HELPER_FREE(p);});
       }
-    }
 
-    // This constructor is only used by CREATE_LOG_BUF
-    FncArg(const void *data, size_t len)
-      : _data(JALLOC_HELPER_MALLOC(len))
-    {
-      // Default _type set to TYPE_INT_ARRAY because this constructor is used
-      // by CREATE_LOG_BUF in MPI_Cart functions.
-      _type = dmtcp_mpi::TYPE_INT_ARRAY;
       if (_data && data) {
-        memcpy(_data, data, len);
-      }
-    }
-
-    ~FncArg()
-    {
-      if (!_data) {
-        JALLOC_HELPER_FREE(_data);
+        memcpy(_data.get(), data, len);
       }
     }
 
@@ -149,7 +138,7 @@ namespace dmtcp_mpi
     // Returns an int corresponding to the saved argument
     operator int() const
     {
-      return *(int*)_data;
+      return *(int*)_data.get();
     }
 
     // Returns an int pointer to saved argument
@@ -160,9 +149,9 @@ namespace dmtcp_mpi
     operator int*() const
     {
       if (_type == dmtcp_mpi::TYPE_INT_ARRAY) {
-        return (int*)_data;
+        return (int*)_data.get();
       } else if (_type == dmtcp_mpi::TYPE_INT_PTR) {
-        return *(int**)_data;
+        return *(int**)_data.get();
       } else {
         JASSERT(false).Text("Unsupported arg type");
         return NULL;
@@ -173,24 +162,24 @@ namespace dmtcp_mpi
     // MPI_Aint is 8 bytes (long int).
     operator long*() const
     {
-      return (long*)_data;
+      return (long*)_data.get();
     }
 
     // Returns a void pointer to saved argument
     operator void*() const
     {
-      return *(void**)_data;
+      return *(void**)_data.get();
     }
 
     // Returns a void pointer to saved argument
     operator void const*() const
     {
-      return *(void const**)_data;
+      return *(void const**)_data.get();
     }
 
     operator MPI_User_function*() const
     {
-      return *(MPI_User_function**)_data;
+      return *(MPI_User_function**)_data.get();
     }
   };
 
