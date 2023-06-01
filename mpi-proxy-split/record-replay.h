@@ -115,7 +115,7 @@ namespace dmtcp_mpi
     FncArg(const void *data, size_t len, dmtcp_mpi::TYPE type)
       : _data(JALLOC_HELPER_MALLOC(len))
     {
-      assert(len <= 160);
+      JASSERT(len <= 160);
       _type = type;
       if (_data && data) {
         memcpy(_data, data, len);
@@ -129,8 +129,7 @@ namespace dmtcp_mpi
       // Default _type set to TYPE_INT_ARRAY because this constructor is used
       // by CREATE_LOG_BUF in MPI_Cart functions.
       _type = dmtcp_mpi::TYPE_INT_ARRAY;
-      assert(len <= 160);
-      _type = type;
+      JASSERT(len <= 160);
       if (_data && data) {
         memcpy(_data, data, len);
       }
