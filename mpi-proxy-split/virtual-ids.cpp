@@ -287,11 +287,12 @@ int onCreateComm(int realId, void* vType) {
   ggid_iterator it = ggidTable.find(ggid);
 
   if (it != ggidTable.end()) {
-    ((virt_comm_t*) vType)->ggid = ((ggid_t *)it->second); // HACK this sucks.
+    ((virt_comm_t*) vType)->ggid = ((ggid_t *)it->second);
   } else {
     ggid_t* g = ((ggid_t *) malloc(sizeof(ggid_t)));
+    g->ggid = ggid;
     ggidTable[ggid] = g;
-    ((virt_comm_t*) vType)->ggid = g; // HACK this sucks.
+    ((virt_comm_t*) vType)->ggid = g;
   }
 }
 
