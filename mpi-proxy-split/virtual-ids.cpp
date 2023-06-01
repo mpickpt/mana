@@ -28,11 +28,20 @@
 
 #include "dmtcp.h"
 
+#include "virtualidtable.h"
+#include "jassert.h"
+#include "jconvert.h"
+#include "split_process.h"
+
 #define MAX_VIRTUAL_ID 999
 
+struct ggid_t;
+
 // Per Yao Xu, MANA does not require the thread safety offered by DMTCP's VirtualIdTable.
-std::map<int, void *> vTypeTable; // int vId -> void* vType. vType contains rId. Designed for MPICH for now (i.e. uses ints).
+std::map<int, void *> vTypeTable; // int vId -> void* virt_t vType. vType contains rId. Designed for MPICH for now (i.e. uses ints).
+std::map<int, ggid_t*> ggidTable; // int ggid -> ggid_t*
 typedef typename std::map<int, void*>::iterator id_iterator;
+typedef typename std::map<int, ggid_t*>::iterator ggid_iterator; // Yes, these are aliases.
 
 int base = 1;
 int nextvId = base;
@@ -72,7 +81,8 @@ int nextvId = base;
 #define VIRTUAL_TO_REAL_COMM(id) \
   VIRTUAL_TO_REAL(id, MPI_COMM_NULL)
 #define ADD_NEW_COMM(id) \
-  ADD_NEW(id, MPI_COMM_NULL, virt_comm_t)
+  (id == MPI_COMM_NULL) ? null : *(__typeof__(&id))onCreateComm(id, malloc(sizeof(virt_comm_t))) // HACK.
+  // ADD_NEW(id, MPI_COMM_NULL, virt_comm_t)
 #define REMOVE_OLD_COMM(id) \
   REMOVE_OLD(id, MPI_COMM_NULL)
 #define UPDATE_COMM_MAP(v, r) \
@@ -133,19 +143,43 @@ int nextvId = base;
 #define UPDATE_REQUEST_MAP(v, r) \
   UPDATE_MAP(id, MPI_REQUEST_NULL)
 
+#ifndef NEXT_FUNC
+# define NEXT_FUNC(func)                                                       \
+  ({                                                                           \
+    static __typeof__(&MPI_##func)_real_MPI_## func =                          \
+                                                (__typeof__(&MPI_##func)) - 1; \
+    if (_real_MPI_ ## func == (__typeof__(&MPI_##func)) - 1) {                 \
+      _real_MPI_ ## func = (__typeof__(&MPI_##func))pdlsym(MPI_Fnc_##func);    \
+    }                                                                          \
+    _real_MPI_ ## func;                                                        \
+  })
+#endif // ifndef NEXT_FUNC
 
 // --- metadata structs ---
+
+
+struct ggid_t {
+  int ggid; // hashing results of communicator members
+
+  unsigned long seq_num;
+
+  unsigned long target_num;
+};
 
 struct virt_comm_t {
     MPI_Comm real_id; // Real MPI communicator in the lower-half
     int handle; // A copy of the int type handle generated from the address of this struct
-    unsigned int ggid; // Global Group ID
-    unsigned long seq_num; // Sequence number for the CVC algorithm
-    unsigned long target; // Target number for the CVC algorithm
+    ggid_t* ggid; // A ggid_t structure, containing CVC information for this communicator.
     int size; // Size of this communicator
     int local_rank; // local rank number of this communicator
     int *ranks; // list of ranks of the group.
+
     // struct virt_group_t *group; // Or should this field be a pointer to virt_group_t?
+
+    // These fields are obsoleted by ggid_t.
+    // unsigned int ggid; // Global Group ID
+    // unsigned long seq_num; // Sequence number for the CVC algorithm
+    // unsigned long target; // Target number for the CVC algorithm
 };
 
 struct virt_group_t {
@@ -218,6 +252,47 @@ int onCreate(int realId, void* vType) { // HACK MPICH
 
   vTypeTable[vId] = vType;
   return realId;
+}
+
+int hash(int i) {
+  return i * 2654435761 % ((unsigned long)1 << 32);
+}
+
+int getggid(MPI_Comm comm) {
+  if (comm == MPI_COMM_NULL) {
+    return comm;
+  }
+  unsigned int ggid = 0;
+  int worldRank, commSize;
+  MPI_Comm_rank(MPI_COMM_WORLD, &worldRank);
+  MPI_Comm_size(comm, &commSize);
+  int rbuf[commSize];
+
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  NEXT_FUNC(Allgather)(&worldRank, 1, MPI_INT,
+			rbuf, 1, MPI_INT, realComm);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+
+  for (int i = 0; i < commSize; i++) {
+    ggid ^= hash(rbuf[i] + 1);
+  }
+
+  return ggid;
+}
+
+int onCreateComm(int realId, void* vType) {
+  int ggid = getggid(realId);
+  ggid_iterator it = ggidTable.find(ggid);
+
+  if (it != ggidTable.end()) {
+    ((virt_comm_t*) vType)->ggid = ((ggid_t *)it->second); // HACK this sucks.
+  } else {
+    ggid_t* g = ((ggid_t *) malloc(sizeof(ggid_t)));
+    ggidTable[ggid] = g;
+    ((virt_comm_t*) vType)->ggid = g; // HACK this sucks.
+  }
 }
 
 int onRemove(int virtId) {
