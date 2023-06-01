@@ -106,12 +106,16 @@ namespace dmtcp_mpi
   // Struct for saving arbitrary function arguments
   struct FncArg
   {
-    void *_data;
+    char data_array[160]; // 10*16 bytes:  should be enough if
+                          // we have at most 10 arguments to an MPI call,
+                          // and each argument is at most 16 bytes.
+    void *_data = data_array;
     enum TYPE _type;
 
     FncArg(const void *data, size_t len, dmtcp_mpi::TYPE type)
       : _data(JALLOC_HELPER_MALLOC(len))
     {
+      assert(len <= 160);
       _type = type;
       if (_data && data) {
         memcpy(_data, data, len);
@@ -125,15 +129,10 @@ namespace dmtcp_mpi
       // Default _type set to TYPE_INT_ARRAY because this constructor is used
       // by CREATE_LOG_BUF in MPI_Cart functions.
       _type = dmtcp_mpi::TYPE_INT_ARRAY;
+      assert(len <= 160);
+      _type = type;
       if (_data && data) {
         memcpy(_data, data, len);
-      }
-    }
-
-    ~FncArg()
-    {
-      if (!_data) {
-        JALLOC_HELPER_FREE(_data);
       }
     }
 
