@@ -128,7 +128,7 @@ USER_DEFINED_WRAPPER(int, Comm_create, (MPI_Comm) comm, (MPI_Group) group,
     RETURN_TO_UPPER_HALF();
     if (retval == MPI_SUCCESS && MPI_LOGGING()) {
       MPI_Comm virtComm = ADD_NEW_COMM(*newcomm);
-      unsigned int gid = VirtualGlobalCommId::instance()
+      // unsigned int gid = VirtualGlobalCommId::instance() TODO
         .createGlobalId(virtComm);
       *newcomm = virtComm;
       active_comms.insert(virtComm);
@@ -213,7 +213,9 @@ USER_DEFINED_WRAPPER(int, Comm_free, (MPI_Comm *) comm)
     // realComm = REMOVE_OLD_COMM(*comm);
     // CLEAR_COMM_LOGS(*comm);
     active_comms.erase(*comm);
-    unsigned int gid = VirtualGlobalCommId::instance().getGlobalId(*comm);
+
+    // unsigned int gid = VirtualGlobalCommId::instance().getGlobalId(*comm); TODO TODO
+    // This appears to be unnecessary, given the "if 0".
 #if 0 
     seq_num.erase(gid);
 #endif
@@ -355,7 +357,7 @@ USER_DEFINED_WRAPPER(int, Comm_split_type, (MPI_Comm) comm, (int) split_type,
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS && MPI_LOGGING()) {
     MPI_Comm virtComm = ADD_NEW_COMM(*newcomm);
-    VirtualGlobalCommId::instance().createGlobalId(virtComm);
+    // VirtualGlobalCommId::instance().createGlobalId(virtComm); TODO
     *newcomm = virtComm;
     active_comms.insert(virtComm);
     LOG_CALL(restoreComms, Comm_split_type, comm,
@@ -486,7 +488,7 @@ USER_DEFINED_WRAPPER(int, Comm_create_group, (MPI_Comm) comm,
     int retval = MPI_Comm_create_group_internal(comm, group, tag, newcomm);
     if (retval == MPI_SUCCESS && MPI_LOGGING()) {
       MPI_Comm virtComm = ADD_NEW_COMM(*newcomm);
-      VirtualGlobalCommId::instance().createGlobalId(virtComm);
+      // VirtualGlobalCommId::instance().createGlobalId(virtComm); TODO
       *newcomm = virtComm;
       active_comms.insert(virtComm);
       LOG_CALL(restoreComms, Comm_create_group, comm, group, tag, virtComm);
