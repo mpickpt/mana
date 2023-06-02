@@ -51,11 +51,19 @@ int nextvId = base;
 #define CONCAT(a,b) a ## b
 
 // Writing these macros as ternary expressions means there is no overhead associated with extra function arguments.
-#define DESCRIPTOR_TO_VIRTUAL(id, null) \ 
+#define DESC_TO_VIRTUAL(id, null) \ 
   (id == null) ? null : descriptorToVirtual(type)
 
-#define VIRTUAL_TO_DESCRIPTOR(id, null) \
+#define VIRTUAL_TO_DESC(id, null) \
   (id == null) ? null : virtualToDescriptor(id)
+
+// TODO this operation is now accomplished effectively with DESCRIPTOR_TO_VIRTUAL.
+// #define REAL_TO_VIRTUAL(id, null) \ 
+//   (DESCRIPTOR_TO_VIRTUAL(id, null) == NULL) ? NULL : VIRTUAL_TO_DESCRIPTOR(id, null)
+
+  // TODO this sucks because it does the lookup twice. Need to figure out how to define a tmp here.
+#define VIRTUAL_TO_REAL(id, null) \
+  (VIRTUAL_TO_DESC(id, null) == NULL) ? NULL : VIRTUAL_TO_DESC(id, null)->real_id
 
 #define ADD_NEW(real_id, null, descriptor_type)						\
   (real_id == null) ? null : assignVid(CONCAT(init_,descriptor_type)(real_id))
@@ -70,6 +78,8 @@ int nextvId = base;
   DESC_TO_VIRTUAL(id, MPI_FILE_NULL) 
 #define VIRTUAL_TO_DESC_FILE(id) \
   VIRTUAL_TO_DESC(id, MPI_FILE_NULL)
+#define VIRTUAL_TO_REAL_FILE(id, null) \
+  VIRTUAL_TO_REAL(id, null)
 #define ADD_NEW_FILE(id) \
   ADD_NEW(id, MPI_FILE_NULL, virt_file_t)
 #define REMOVE_OLD_FILE(id) \
@@ -81,6 +91,8 @@ int nextvId = base;
   DESC_TO_VIRTUAL(id, MPI_COMM_NULL) 
 #define VIRTUAL_TO_DESC_COMM(id) \
   VIRTUAL_TO_DESC(id, MPI_COMM_NULL)
+#define VIRTUAL_TO_REAL_COMM(id, null) \
+  VIRTUAL_TO_REAL(id, MPI_COMM_NULL)
 #define ADD_NEW_COMM(id) \
   ADD_NEW(id, MPI_COMM_NULL, comm_desc_t)
 #define REMOVE_OLD_COMM(id) \
@@ -92,6 +104,8 @@ int nextvId = base;
   DESC_TO_VIRTUAL(id, MPI_GROUP_NULL) 
 #define VIRTUAL_TO_DESC_GROUP(id) \
   VIRTUAL_TO_DESC(id, MPI_GROUP_NULL)
+#define VIRTUAL_TO_REAL_GROUP(id) \
+  VIRTUAL_TO_REAL(id, MPI_GROUP_NULL)
 #define ADD_NEW_GROUP(id) \
   ADD_NEW(id, MPI_GROUP_NULL, virt_group_t)
 #define REMOVE_OLD_GROUP(id) \
@@ -103,6 +117,8 @@ int nextvId = base;
   DESC_TO_VIRTUAL(id, MPI_TYPE_NULL) 
 #define VIRTUAL_TO_DESC_TYPE(id) \
   VIRTUAL_TO_DESC(id, MPI_TYPE_NULL)
+#define VIRTUAL_TO_REAL_TYPE(id) \
+  VIRTUAL_TO_REAL(id, MPI_TYPE_NULL)
 #define ADD_NEW_TYPE(id) \
   ADD_NEW(id, MPI_TYPE_NULL, virt_type_t)
 #define REMOVE_OLD_TYPE(id) \
@@ -114,6 +130,8 @@ int nextvId = base;
   DESC_TO_VIRTUAL(id, MPI_OP_NULL) 
 #define VIRTUAL_TO_DESC_OP(id) \
   VIRTUAL_TO_DESC(id, MPI_OP_NULL)
+#define VIRTUAL_TO_REAL_OP(id) \
+  VIRTUAL_TO_REAL(id, MPI_OP_NULL)
 #define ADD_NEW_OP(id) \
   ADD_NEW(id, MPI_OP_NULL, virt_op_t)
 #define REMOVE_OLD_OP(id) \
@@ -125,6 +143,8 @@ int nextvId = base;
   DESC_TO_VIRTUAL(id, MPI_COMM_KEYVAL_NULL) 
 #define VIRTUAL_TO_DESC_COMM_KEYVAL(id) \
   VIRTUAL_TO_DESC(id, MPI_COMM_KEYVAL_NULL)
+#define VIRTUAL_TO_REAL_COMM_KEYVAL(id) \
+  VIRTUAL_TO_REAL(id, MPI_COMM_KEYVAL_NULL)
 #define ADD_NEW_COMM_KEYVAL(id) \
   ADD_NEW(id, MPI_COMM_KEYVAL_NULL, virt_comm_keyval_t)
 #define REMOVE_OLD_COMM_KEYVAL(id) \
@@ -136,6 +156,8 @@ int nextvId = base;
   DESC_TO_VIRTUAL(id, MPI_REQUEST_NULL) 
 #define VIRTUAL_TO_DESC_REQUEST(id) \
   VIRTUAL_TO_DESC(id, MPI_REQUEST_NULL)
+#define VIRTUAL_TO_REAL_REQUEST(id) \
+  VIRTUAL_TO_REAL(id, MPI_REQUEST_NULL)
 #define ADD_NEW_REQUEST(id) \
   ADD_NEW(id, MPI_REQUEST_NULL, virt_request_t)
 #define REMOVE_OLD_REQUEST(id) \
