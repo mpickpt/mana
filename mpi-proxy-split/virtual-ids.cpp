@@ -35,35 +35,39 @@
 
 #define MAX_VIRTUAL_ID 999
 
-struct ggid_t;
+// perlmutter -- load more modules
 
-// Per Yao Xu, MANA does not require the thread safety offered by DMTCP's VirtualIdTable.
-std::map<int, void *> vTypeTable; // int vId -> void* virt_t vType. vType contains rId. Designed for MPICH for now (i.e. uses ints).
-std::map<int, ggid_t*> ggidTable; // int ggid -> ggid_t*
-typedef typename std::map<int, void*>::iterator id_iterator;
-typedef typename std::map<int, ggid_t*>::iterator ggid_iterator; // Yes, these are aliases.
+// load cray-pmi (process management i-)
+// unload cudatoolkit
+// unload gpu
+
+struct ggid_desc_t;
+union id_desc_t;
+
+// Per Yao Xu, MANA does not require the thread safety offered by DMTCP's VirtualIdTable. We use std::map.
+std::map<int, id_desc_t*> idDescriptorTable; // int vId -> id_desc_t*, which contains rId.
+std::map<int, ggid_desc_t*> ggidDescriptorTable; // int ggid -> ggid_desc_t*
+typedef typename std::map<int, id_desc_t*>::iterator id_desc_iterator;
+typedef typename std::map<int, ggid_desc_t*>::iterator ggid_desc_iterator;
 
 int base = 1;
 int nextvId = base;
 
 // Writing these macros as ternary expressions means there is no overhead associated with extra function arguments.
+#define DESCRIPTOR_TO_VIRTUAL(id, null) \ 
+  (id == null) ? null : descriptorToVirtual(type)
 
-// These casts mean that the user only sees the real id from vType.
-// The REAL IDs are contained in heap-allocated vType structures. So we cast again.
-#define REAL_TO_VIRTUAL(id, null) \ 
-  (id == null) ? null : *(__typeof__(&id))realToVirtual((void*)&id)
+#define VIRTUAL_TO_DESCRIPTOR(id, null) \
+  (id == null) ? null : virtualToDescriptor(id)
 
-#define VIRTUAL_TO_REAL(id, null) \
-  (id == null) ? null : *(__typeof__(&id))virtualToReal(id)
+#define ADD_NEW(real_id, null, descriptor_type)						\
+  (real_id == null) ? null : onCreate(real_id, malloc(sizeof(descriptor_type)))
 
-#define ADD_NEW(id, null, virtual_type)						\
-  (id == null) ? null : *(__typeof__(&id))onCreate(id, malloc(sizeof(virtual_type)))
+#define REMOVE_OLD(virtual_id, null) \
+  (virtual_id == null) ? null : onRemove(virtual_id)
 
-#define REMOVE_OLD(id, null) \
-  (id == null) ? null : *(__typeof__(&id))onRemove(id)
-
-#define UPDATE_MAP(v, r, null) \
-  (id == null) ? null : *(__typeof__(&id))updateMapping(v, r)/
+#define UPDATE_MAP(virtual_id, real_id, null) \
+  (virtual_id == null) ? null : updateMapping(virtual_id, real_id)/
 
 #define REAL_TO_VIRTUAL_FILE(id) \
   REAL_TO_VIRTUAL(id, MPI_FILE_NULL) 
@@ -81,8 +85,8 @@ int nextvId = base;
 #define VIRTUAL_TO_REAL_COMM(id) \
   VIRTUAL_TO_REAL(id, MPI_COMM_NULL)
 #define ADD_NEW_COMM(id) \
-  (id == MPI_COMM_NULL) ? null : *(__typeof__(&id))onCreateComm(id, malloc(sizeof(virt_comm_t))) // HACK.
-  // ADD_NEW(id, MPI_COMM_NULL, virt_comm_t)
+  (id == MPI_COMM_NULL) ? null : onCreateComm(id, malloc(sizeof(comm_desc_t))) // HACK. Communicators are special, we need to give a ggid.
+  // ADD_NEW(id, MPI_COMM_NULL, comm_desc_t)
 #define REMOVE_OLD_COMM(id) \
   REMOVE_OLD(id, MPI_COMM_NULL)
 #define UPDATE_COMM_MAP(v, r) \
@@ -158,7 +162,7 @@ int nextvId = base;
 // --- metadata structs ---
 
 
-struct ggid_t {
+struct ggid_desc_t {
   int ggid; // hashing results of communicator members
 
   unsigned long seq_num;
@@ -166,10 +170,10 @@ struct ggid_t {
   unsigned long target_num;
 };
 
-struct virt_comm_t {
+struct comm_desc_t {
     MPI_Comm real_id; // Real MPI communicator in the lower-half
     int handle; // A copy of the int type handle generated from the address of this struct
-    ggid_t* ggid; // A ggid_t structure, containing CVC information for this communicator.
+    ggid_desc_t* ggid_desc; // A ggid_t structure, containing CVC information for this communicator.
     int size; // Size of this communicator
     int local_rank; // local rank number of this communicator
     int *ranks; // list of ranks of the group.
@@ -182,27 +186,27 @@ struct virt_comm_t {
     // unsigned long target; // Target number for the CVC algorithm
 };
 
-struct virt_group_t {
+struct group_desc_t {
     MPI_Group real_id; // Real MPI group in the lower-half
     int handle; // A copy of the int type handle generated from the address of this struct
     int *ranks; // list of ranks of the group.
     // unsigned int ggid; // Global Group ID
 };
 
-struct virt_request_t {
+struct request_desc_t {
     MPI_Request real_id; // Real MPI request in the lower-half
     int handle; // A copy of the int type handle generated from the address of this struct
     enum request_kind; // P2P request or collective request
     MPI_Status status; // Real MPI status in the lower-half
 };
 
-struct virt_op_t {
+struct op_desc_t {
     MPI_Op real_id; // Real MPI operator in the lower-half
     int handle; // A copy of the int type handle generated from the address of this struct
     MPI_User_function *user_fn; // Function pointer to the user defined op function
 };
 
-struct virt_datatype_t {
+struct datatype_desc_t {
   // TODO add mpi type identifier field virtual class
     MPI_Type real_id; // Real MPI type in the lower-half
     int handle; // A copy of the int type handle generated from the address of this struct
@@ -218,46 +222,64 @@ struct virt_datatype_t {
     int *combiner;
 };
 
-union virt_t {
-    virt_comm_t comm;
-    virt_group_t group;
-    virt_request_t request;
-    virt_op_t op;
-    virt_datatype_t datatype;
+union id_desc_t {
+    comm_desc_t comm;
+    group_desc_t group;
+    request_desc_t request;
+    op_desc_t op;
+    datatype_desc_t datatype;
 };
 
-int realToVirtual(void* realId) {
-  return ((virt_comm_t*)realId)->handle;
+// Given id_desc_t, return the contained virtualid.
+int descriptorToVirtual(id_desc_t* desc) {
+  return ((comm_desc_t*)desc)->handle;
 }
 
-int virtualToReal(int virtId) {
-  id_iterator it = vTypeTable.find(virtId);
-  if (it != vTypeTable.end()) {
-    return ((virt_comm_t *)it->second)->real_id;
+// Given int virtualid, return the contained id_desc_t if it exists.
+// Otherwise return NULL
+id_desc_t* virtualToDescriptor(int virtId) {
+  id_desc_iterator it = idDescriptorTable.find(virtId);
+  if (it != idDescriptorTable.end()) {
+    return it->second;
   }
   return NULL;
 }
 
-int updateMapping(int virtId, int realId) { // HACK MPICH
-  void* vType = vTypeTable[virtId];
-  ((virt_comm_t*)vType)->real_id = realId;
-  return realId;
+// Given int virtualId and realId of MPI size, update the descriptor referenced by virtualid, if it exists.
+// TODO If the referenced virtualID does not exist, create a descriptor for it.
+// Returns a reference to the descriptor created.
+id_desc_t* updateMapping(int virtId, __typeof__(MPI_Comm) realId) { // HACK MPICH
+  id_desc_iterator it = idDescriptorTable.find(virtId);
+  if (it != idDescriptorTable.end()) {
+    id_desc_t* desc = idDescriptorTable[virtId]; // if doesn't exist?
+    ((comm_desc_t*)desc)->real_id = realId;
+    return desc;
+  } else {
+    // TODO
+    return NULL;
+  }
 }
 
-int onCreate(int realId, void* vType) { // HACK MPICH
-  int vId = nextvId++;
-  ((virt_comm_t*)vType)->handle = *(long *)vType;
-  ((virt_comm_t*)vType)->real_id = realId;
-  ((virt_comm_t*)vType)->handle = vId;
+// Given realId of MPI size and id descriptor, fill out the id descriptor and save it in the table.
+// Returns the vId assigned.
+int onCreate(__typeof__(MPI_Comm) realId, id_desc_t* desc) { // HACK MPICH
+  int vId = nextvId++; // TODO
+  ((comm_desc_t*)desc)->real_id = realId;
+  ((comm_desc_t*)desc)->handle = vId;
 
-  vTypeTable[vId] = vType;
-  return realId;
+  idDescriptorTable[vId] = desc;
+  return vId;
 }
 
+// Hash function on integers. Consult https://stackoverflow.com/questions/664014/.
+// Returns a hash.
 int hash(int i) {
   return i * 2654435761 % ((unsigned long)1 << 32);
 }
 
+// Compute the ggid [Global Group Identifier] of a real MPI communicator.
+// This consists of a hash of its integer ranks.
+// Returns ggid.
 int getggid(MPI_Comm comm) {
   if (comm == MPI_COMM_NULL) {
     return comm;
@@ -282,30 +304,37 @@ int getggid(MPI_Comm comm) {
   return ggid;
 }
 
-int onCreateComm(int realId, void* vType) {
+// Given a real MPI Communicator and id descriptor, fill out the descriptor with the ggid.
+// Then, proceed as with any other real id.
+// Returns the vId assigned.
+int onCreateComm(MPI_Comm realComm, comm_desc_t* desc) {
+  int vId = nextvId++;
   int ggid = getggid(realId);
   ggid_iterator it = ggidTable.find(ggid);
 
   if (it != ggidTable.end()) {
-    ((virt_comm_t*) vType)->ggid = ((ggid_t *)it->second);
+    desc->ggid_desc = it->second;
   } else {
-    ggid_t* g = ((ggid_t *) malloc(sizeof(ggid_t)));
-    g->ggid = ggid;
-    ggidTable[ggid] = g;
-    ((virt_comm_t*) vType)->ggid = g;
+    ggid_desc_t* gd = ((ggid_desc_t *) malloc(sizeof(ggid_desc_t)));
+    gd->ggid = ggid;
+    ggidTable[ggid] = gd;
+    desc->ggid_desc = gd;
   }
+  return onCreate(realComm, vType);
 }
 
-int onRemove(int virtId) {
-  void* vType;
+// Remove a descriptor by its virtualid.
+// Returns the real id unmapped in the descriptor, which should fit into a long.
+long onRemove(int virtId) {
+  id_desc_t* desc;
 
-  id_iterator it = vTypeTable.find(virtId);
-  if (it != vTypeTable.end()) {
-    vType = it->second;
+  id_iterator it = idDescriptorTable.find(virtId);
+  if (it != idDescriptorTable.end()) {
+    desc = it->second;
   }
-  vTypeTable.erase(virtId);
+  idDescriptorTable.erase(virtId);
 
-  int realId = ((virt_comm_t *)vType)->real_id; // HACK MPICH
+  long realId = ((comm_desc_t *)vType)->real_id; // HACK MPICH
   free(vType);
   return realId;
 }
