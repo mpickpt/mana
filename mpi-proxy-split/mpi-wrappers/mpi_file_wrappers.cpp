@@ -163,8 +163,8 @@ USER_DEFINED_WRAPPER(int, File_get_view, (MPI_File) fh, (MPI_Offset*) disp,
   retval = NEXT_FUNC(File_get_view)(realFile, disp, &realEtype, &realFtype,
                                     datarep);
   RETURN_TO_UPPER_HALF();
-  *etype = REAL_TO_VIRTUAL_TYPE(realEtype);
-  *filetype = REAL_TO_VIRTUAL_TYPE(realFtype);
+  // *etype = REAL_TO_VIRTUAL_TYPE(realEtype); TODO Use the new arch
+  // *filetype = REAL_TO_VIRTUAL_TYPE(realFtype);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
