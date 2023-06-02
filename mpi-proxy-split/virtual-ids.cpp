@@ -44,6 +44,7 @@ std::map<int, ggid_desc_t*> ggidDescriptorTable; // int ggid -> ggid_desc_t*
 typedef typename std::map<int, id_desc_t*>::iterator id_desc_iterator;
 typedef typename std::map<int, ggid_desc_t*>::iterator ggid_desc_iterator;
 
+// vid generation mechanism.
 int base = 1;
 int nextvId = base;
 
@@ -81,7 +82,7 @@ int nextvId = base;
 #define VIRTUAL_TO_REAL_COMM(id) \
   VIRTUAL_TO_REAL(id, MPI_COMM_NULL)
 #define ADD_NEW_COMM(id) \
-  (id == MPI_COMM_NULL) ? null : onCreateComm(id, malloc(sizeof(comm_desc_t))) // HACK. Communicators are special, we need to give a ggid.
+  ADD_NEW(id, MPI_COMM_NULL, comm_desc_t)
 #define REMOVE_OLD_COMM(id) \
   REMOVE_OLD(id, MPI_COMM_NULL)
 #define UPDATE_COMM_MAP(v, r) \
@@ -174,11 +175,6 @@ struct comm_desc_t {
     int *ranks; // list of ranks of the group.
 
     // struct virt_group_t *group; // Or should this field be a pointer to virt_group_t?
-
-    // These fields are obsoleted by ggid_t.
-    // unsigned int ggid; // Global Group ID
-    // unsigned long seq_num; // Sequence number for the CVC algorithm
-    // unsigned long target; // Target number for the CVC algorithm
 };
 
 
@@ -340,7 +336,7 @@ id_desc_t* virtualToDescriptor(int virtId) {
 // Given int virtualId and realId of MPI size, update the descriptor referenced by virtualid, if it exists.
 // TODO If the referenced virtualID does not exist, create a descriptor for it.
 // Returns a reference to the descriptor created.
-id_desc_t* updateMapping(int virtId, __typeof__(MPI_Comm) realId) { // HACK MPICH
+id_desc_t* updateMapping(int virtId, long realId) { // HACK MPICH
   id_desc_iterator it = idDescriptorTable.find(virtId);
   if (it != idDescriptorTable.end()) {
     id_desc_t* desc = idDescriptorTable[virtId]; // if doesn't exist?
@@ -360,14 +356,6 @@ int assignVid(id_desc_t* desc) {
 
   idDescriptorTable[vId] = desc;
   return vId;
-}
-
-// Given a real MPI Communicator and id descriptor, fill out the descriptor with the ggid.
-// Then, proceed as with any other real id.
-// Returns the vId assigned.
-int onCreateComm(MPI_Comm realComm, comm_desc_t* desc) {
-
-  return onCreate(realComm, vType);
 }
 
 // Remove a descriptor by its virtualid.
