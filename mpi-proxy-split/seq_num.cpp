@@ -55,7 +55,7 @@ sem_t freepass_sync_sem;
 
 // std::map<unsigned int, unsigned long> seq_num;
 // std::map<unsigned int, unsigned long> target;
-typedef std::pair<unsigned int, unsigned long> comm_seq_pair_t;
+// typedef std::pair<unsigned int, unsigned long> comm_seq_pair_t;
 
 constexpr const char *comm_seq_max_db = "/plugin/MANA/comm-seq-max";
 
