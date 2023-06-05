@@ -53,8 +53,8 @@ sem_t ckpt_thread_sem;
 sem_t freepass_sem;
 sem_t freepass_sync_sem;
 
-std::map<unsigned int, unsigned long> seq_num;
-std::map<unsigned int, unsigned long> target;
+// std::map<unsigned int, unsigned long> seq_num;
+// std::map<unsigned int, unsigned long> target;
 typedef std::pair<unsigned int, unsigned long> comm_seq_pair_t;
 
 constexpr const char *comm_seq_max_db = "/plugin/MANA/comm-seq-max";
@@ -82,12 +82,13 @@ void seq_num_destroy() {
 }
 
 int print_seq_nums() {
-  unsigned int comm_id;
-  unsigned long seq;
+  unsigned int comm_ggid;
+  unsigned long seq_num;
   int target_reached = 1;
-  for (comm_seq_pair_t pair : seq_num) {
-    comm_id = pair.first;
-    seq = pair.second;
+
+  for (ggid_desc_iterator pair : ggidDescriptorTable) { // in virtual-ids.cpp
+    comm_ggid = pair.first;
+    seq_num = pair.second->seq_num;
     printf("%d, %u, %lu\n", g_world_rank, comm_id, seq);
   }
   fflush(stdout);
@@ -95,19 +96,19 @@ int print_seq_nums() {
 }
 
 int check_seq_nums(bool exclusive) {
-  unsigned int comm_id;
+  unsigned int comm_ggid;
   int target_reached = 1;
-  for (comm_seq_pair_t pair : seq_num) {
-    comm_id = pair.first;
+  for (ggid_desc_iterator pair : ggidDescriptorTable) {
+    comm_ggid = pair.first;
     if (exclusive) {
-      if (target[comm_id] + 1 > seq_num[comm_id]) {
-        target_reached = 0;
-        break;
+      if (pair.second->target_num + 1 > pair.second->seq_num) {
+	target_reached = 0;
+	break;
       }
     } else {
-      if (target[comm_id] > seq_num[comm_id]) {
-        target_reached = 0;
-        break;
+      if (pair.second->target_num > pair.second->seq_num) {
+	target_reached = 0;
+	break;
       }
     }
   }
@@ -127,7 +128,8 @@ int twoPhaseCommit(MPI_Comm comm,
 }
 
 void seq_num_broadcast(MPI_Comm comm, unsigned long new_target) {
-  unsigned int comm_gid = VirtualGlobalCommId::instance().getGlobalId(comm);
+  comm_desc_t* desc = VIRTUAL_TO_DESC_COMM(comm);
+  unsigned int comm_gid = desc->ggid_desc->ggid;
   unsigned long msg[2] = {comm_gid, new_target};
   int comm_size;
   int comm_rank;
@@ -135,7 +137,7 @@ void seq_num_broadcast(MPI_Comm comm, unsigned long new_target) {
   MPI_Comm_size(comm, &comm_size);
   MPI_Comm_rank(comm, &comm_rank);
   MPI_Group world_group, local_group;
-  MPI_Comm real_local_comm = VIRTUAL_TO_REAL_COMM(comm);
+  MPI_Comm real_local_comm = desc.real_id;
   MPI_Comm real_world_comm = VIRTUAL_TO_REAL_COMM(g_world_comm);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   NEXT_FUNC(Comm_group)(real_world_comm, &world_group);
@@ -180,13 +182,12 @@ void commit_begin(MPI_Comm comm, bool passthrough) {
       RETURN_TO_UPPER_HALF();
       unsigned int updated_comm = (unsigned int) new_target[0];
       unsigned long updated_target = new_target[1];
-      std::map<unsigned int, unsigned long>::iterator it =
-        target.find(updated_comm);
-      if (it != target.end() && it->second < updated_target) {
-        target[updated_comm] = updated_target;
+      ggid_desc_t* updated_comm_ggid_desc = ggidDescriptorTable[updated_comm];
+      if (updated_comm_ggid_desc->target_num < updated_target) {
+	updated_comm_ggid_desc->target_num = updated_target;
 #ifdef DEBUG_SEQ_NUM
         printf("rank %d received new target comm %u seq %lu target %lu\n",
-            g_world_rank, updated_comm, seq_num[updated_comm], updated_target);
+	       g_world_rank, updated_comm, updated_comm_ggid_desc->seq_num, updated_target);
         fflush(stdout);
 #endif
       }
@@ -194,15 +195,15 @@ void commit_begin(MPI_Comm comm, bool passthrough) {
   }
   pthread_mutex_lock(&seq_num_lock);
   current_phase = IN_CS;
-  unsigned int comm_gid = VirtualGlobalCommId::instance().getGlobalId(comm);
-  seq_num[comm_gid]++;
+  ggid_desc_t* comm_ggid_desc = VIRTUAL_TO_DESC(comm)->ggid_desc;
+  comm_ggid_desc->seq_num++;
   pthread_mutex_unlock(&seq_num_lock);
 #ifdef DEBUG_SEQ_NUM
   // print_seq_nums();
 #endif
-  if (ckpt_pending && seq_num[comm_gid] > target[comm_gid]) {
-    target[comm_gid] = seq_num[comm_gid];
-    seq_num_broadcast(comm, seq_num[comm_gid]);
+  if (ckpt_pending && comm_ggid_desc->seq_num > comm_ggid_desc->target) {
+    comm_ggid_desc->target = comm_ggid_desc->seq_num;
+    seq_num_broadcast(comm, comm_ggid_desc->seq_num);
   }
 }
 
@@ -228,13 +229,12 @@ void commit_finish(MPI_Comm comm, bool passthrough) {
       RETURN_TO_UPPER_HALF();
       unsigned int updated_comm = (unsigned int) new_target[0];
       unsigned long updated_target = new_target[1];
-      std::map<unsigned int, unsigned long>::iterator it =
-        target.find(updated_comm);
-      if (it != target.end() && it->second < updated_target) {
-        target[updated_comm] = updated_target;
+      ggid_desc_t* updated_comm_ggid_desc = ggidDescriptorTable[updated_comm];
+      if (updated_comm_ggid_desc->target < updated_target) {
+	updated_comm_ggid_desc->target_num = updated_target;
 #ifdef DEBUG_SEQ_NUM
         printf("rank %d received new target comm %u seq %lu target %lu\n",
-            g_world_rank, updated_comm, seq_num[updated_comm], updated_target);
+	       g_world_rank, updated_comm, updated_comm_ggid_desc->seq_num, updated_target);
         fflush(stdout);
 #endif
       }
@@ -243,9 +243,9 @@ void commit_finish(MPI_Comm comm, bool passthrough) {
 }
 
 void upload_seq_num() {
-  for (comm_seq_pair_t pair : seq_num) {
+  for (ggid_desc_iterator pair : ggidDescriptorTable) {
     dmtcp::string comm_id_str(jalib::XToString(pair.first));
-    unsigned int seq = pair.second;
+    unsigned int seq = pair.second->seq_num;
     JASSERT(dmtcp::kvdb::request64(KVDBRequest::MAX, comm_seq_max_db,
                                    comm_id_str, seq) == KVDBResponse::SUCCESS);
   }
@@ -253,13 +253,13 @@ void upload_seq_num() {
 
 void download_targets(std::map<unsigned int, unsigned long> &target) {
   int64_t max_seq = 0;
-  unsigned int comm_id;
-  for (comm_seq_pair_t pair : seq_num) {
-    comm_id = pair.first;
+  unsigned int comm_ggid;
+  for (ggid_desc_t pair : ggidDescriptorTable) {
+    comm_ggid = pair.first;
     dmtcp::string comm_id_str(jalib::XToString(pair.first));
     JASSERT(dmtcp::kvdb::get64(comm_seq_max_db, comm_id_str, &max_seq) ==
             KVDBResponse::SUCCESS);
-    target[comm_id] = max_seq;
+    pair.second->target_num = max_seq;
   }
 }
 
