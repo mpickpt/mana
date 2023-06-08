@@ -16,9 +16,9 @@
 // #define REAL_TO_VIRTUAL(id, null) \ 
 //   (DESCRIPTOR_TO_VIRTUAL(id, null) == NULL) ? NULL : VIRTUAL_TO_DESCRIPTOR(id, null)
 
-  // TODO this sucks because it does the lookup twice. Need to figure out how to define a tmp here.
+// TODO We use GNU macro extensions to store a temporary variable tmp.
 #define VIRTUAL_TO_REAL(id, null) \
-  (VIRTUAL_TO_DESC(id, null) == NULL) ? NULL : VIRTUAL_TO_DESC(id, null)->real_id
+    {(id_desc_t* _tmp = VIRTUAL_TO_DESC(id, null); (tmp == NULL) ? NULL : tmp->real_id} 
 
 #define ADD_NEW(real_id, null, descriptor_type)						\
   (real_id == null) ? null : assignVid(CONCAT(init_,descriptor_type)(real_id))
