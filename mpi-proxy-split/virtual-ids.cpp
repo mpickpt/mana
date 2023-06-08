@@ -168,7 +168,7 @@ op_desc_t* init_op_desc_t(MPI_Op realOp) {
 
 struct datatype_desc_t {
   // TODO add mpi type identifier field virtual class
-    MPI_Type real_id; // Real MPI type in the lower-half
+    MPI_Datatype real_id; // Real MPI type in the lower-half
     int handle; // A copy of the int type handle generated from the address of this struct
     // Components of user-defined datatype.
     MPI_count num_integers;
@@ -182,7 +182,7 @@ struct datatype_desc_t {
     int *combiner;
 };
 
-datatype_desc_t* init_datatype_desc_t(MPI_Type realType) {
+datatype_desc_t* init_datatype_desc_t(MPI_Datatype realType) {
   datatype_desc_t* desc = ((datatype_desc_t*)malloc(sizeof(datatype_desc_t)));
   desc->real_id = realType;
 
