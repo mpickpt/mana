@@ -21,7 +21,7 @@
     {(id_desc_t* _tmp = VIRTUAL_TO_DESC(id, null); (tmp == NULL) ? NULL : tmp->real_id} 
 
 #define ADD_NEW(real_id, null, descriptor_type)						\
-  (real_id == null) ? null : assignVid(CONCAT(init_,descriptor_type)(real_id))
+    (real_id == null) ? null : assignVid((union id_desc_t*) CONCAT(init_,descriptor_type)(real_id))
 
 #define REMOVE_OLD(virtual_id, null) \
   (virtual_id == null) ? null : onRemove(virtual_id)
