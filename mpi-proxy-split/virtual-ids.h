@@ -36,7 +36,7 @@
 #define VIRTUAL_TO_REAL_FILE(id, null) \
   VIRTUAL_TO_REAL(id, null)
 #define ADD_NEW_FILE(id) \
-  ADD_NEW(id, MPI_FILE_NULL, virt_file_t)
+  ADD_NEW(id, MPI_FILE_NULL, file_desc_t)
 #define REMOVE_OLD_FILE(id) \
   REMOVE_OLD(id, MPI_FILE_NULL)
 #define UPDATE_FILE_MAP(v, r) \
@@ -62,7 +62,7 @@
 #define VIRTUAL_TO_REAL_GROUP(id) \
   VIRTUAL_TO_REAL(id, MPI_GROUP_NULL)
 #define ADD_NEW_GROUP(id) \
-  ADD_NEW(id, MPI_GROUP_NULL, virt_group_t)
+  ADD_NEW(id, MPI_GROUP_NULL, group_desc_t)
 #define REMOVE_OLD_GROUP(id) \
   REMOVE_OLD(id, MPI_GROUP_NULL)
 #define UPDATE_GROUP_MAP(v, r) \
@@ -75,7 +75,7 @@
 #define VIRTUAL_TO_REAL_TYPE(id) \
   VIRTUAL_TO_REAL(id, MPI_TYPE_NULL)
 #define ADD_NEW_TYPE(id) \
-  ADD_NEW(id, MPI_TYPE_NULL, virt_type_t)
+  ADD_NEW(id, MPI_TYPE_NULL, type_desc_t)
 #define REMOVE_OLD_TYPE(id) \
   REMOVE_OLD(id, MPI_TYPE_NULL)
 #define UPDATE_TYPE_MAP(v, r) \
@@ -88,7 +88,7 @@
 #define VIRTUAL_TO_REAL_OP(id) \
   VIRTUAL_TO_REAL(id, MPI_OP_NULL)
 #define ADD_NEW_OP(id) \
-  ADD_NEW(id, MPI_OP_NULL, virt_op_t)
+  ADD_NEW(id, MPI_OP_NULL, op_desc_t)
 #define REMOVE_OLD_OP(id) \
   REMOVE_OLD(id, MPI_OP_NULL)
 #define UPDATE_OP_MAP(v, r) \
@@ -114,7 +114,7 @@
 #define VIRTUAL_TO_REAL_REQUEST(id) \
   VIRTUAL_TO_REAL(id, MPI_REQUEST_NULL)
 #define ADD_NEW_REQUEST(id) \
-  ADD_NEW(id, MPI_REQUEST_NULL, virt_request_t)
+  ADD_NEW(id, MPI_REQUEST_NULL, request_desc_t)
 #define REMOVE_OLD_REQUEST(id) \
   REMOVE_OLD(id, MPI_REQUEST_NULL)
 #define UPDATE_REQUEST_MAP(v, r) \
