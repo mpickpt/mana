@@ -150,7 +150,7 @@ id_desc_t* updateMapping(int virtId, long realId);
 id_desc_t* virtualToDescriptor(int virtId);
 int descriptorToVirtual(id_desc_t* desc);
 id_desc_t* init_id_desc_t();
-datatype_desc_t* init_datatype_desc_t(MPI_Type realType);
+datatype_desc_t* init_datatype_desc_t(MPI_Datatype realType);
 op_desc_t* init_op_desc_t(MPI_Op realOp);
 request_desc_t* init_request_desc_t(MPI_Request realReq);
 group_desc_t* init_group_desc_t(MPI_Group realGroup);
