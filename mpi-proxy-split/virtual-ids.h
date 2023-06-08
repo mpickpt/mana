@@ -6,7 +6,7 @@
 #define CONCAT(a,b) a ## b
 
 // Writing these macros as ternary expressions means there is no overhead associated with extra function arguments.
-#define DESC_TO_VIRTUAL(id, null) \ 
+#define DESC_TO_VIRTUAL(id, null) \
   (id == null) ? null : descriptorToVirtual(type)
 
 #define VIRTUAL_TO_DESC(id, null) \
