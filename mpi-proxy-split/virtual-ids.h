@@ -17,14 +17,11 @@
 //   (DESCRIPTOR_TO_VIRTUAL(id, null) == NULL) ? NULL : VIRTUAL_TO_DESCRIPTOR(id, null)
 
 // HACK We use GNU macro extensions to store a temporary variable tmp.
-#define VIRTUAL_TO_REAL(id, null) \
-do {
-  id_desc_t* VTR_TMP = VIRTUAL_TO_DESC(id, null);
-  (_tmp == NULL) ? NULL : _tmp->real_id;
- } while (0)
-
-    {(id_desc_t* _tmp = VIRTUAL_TO_DESC(id, null); (_tmp == NULL) ? NULL : _tmp->real_id;} 
-
+#define VIRTUAL_TO_REAL(id, null)                   \
+    ({                                              \
+       id_desc_t* _tmp = VIRTUAL_TO_DESC(id, null); \
+       (_tmp == NULL) ? NULL : _tmp->real_id;       \
+     })
 #define ADD_NEW(real_id, null, descriptor_type)						\
     (real_id == null) ? null : assignVid((union id_desc_t*) CONCAT(init_,descriptor_type)(real_id))
 
