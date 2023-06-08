@@ -33,8 +33,8 @@
   DESC_TO_VIRTUAL(id, MPI_FILE_NULL) 
 #define VIRTUAL_TO_DESC_FILE(id) \
   VIRTUAL_TO_DESC(id, MPI_FILE_NULL)
-#define VIRTUAL_TO_REAL_FILE(id, null) \
-  VIRTUAL_TO_REAL(id, null)
+#define VIRTUAL_TO_REAL_FILE(id) \
+  VIRTUAL_TO_REAL(id, MPI_FILE_NULL)
 #define ADD_NEW_FILE(id) \
   ADD_NEW(id, MPI_FILE_NULL, file_desc_t)
 #define REMOVE_OLD_FILE(id) \
@@ -46,7 +46,7 @@
   DESC_TO_VIRTUAL(id, MPI_COMM_NULL) 
 #define VIRTUAL_TO_DESC_COMM(id) \
   VIRTUAL_TO_DESC(id, MPI_COMM_NULL)
-#define VIRTUAL_TO_REAL_COMM(id, null) \
+#define VIRTUAL_TO_REAL_COMM(id) \
   VIRTUAL_TO_REAL(id, MPI_COMM_NULL)
 #define ADD_NEW_COMM(id) \
   ADD_NEW(id, MPI_COMM_NULL, comm_desc_t)
