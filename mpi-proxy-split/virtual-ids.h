@@ -17,8 +17,12 @@
 //   (DESCRIPTOR_TO_VIRTUAL(id, null) == NULL) ? NULL : VIRTUAL_TO_DESCRIPTOR(id, null)
 
 // HACK We use GNU macro extensions to store a temporary variable tmp.
-#define VIRTUAL_TO_REAL(id, null) \
-  virtual_to_real(VIRTUAL_TO_DESC(id, null));
+#define VIRTUAL_TO_REAL(id, null, real_id_type, desc_type)    \
+    ({                                              \
+       id_desc_t* _tmp = VIRTUAL_TO_DESC(id, null); \
+       ((_tmp == NULL) ? ((real_id_type) NULL) : ((desc_type *)_tmp)->real_id);	\
+     })
+// virtual_to_real(VIRTUAL_TO_DESC(id, null));
 //id_desc_t* VTR_tmp = VIRTUAL_TO_DESC(id, null); (VTR_tmp == NULL) ? NULL : VTR_tmp->real_id
 
 #define ADD_NEW(real_id, null, descriptor_type)						\
@@ -35,7 +39,7 @@
 #define VIRTUAL_TO_DESC_FILE(id) \
   VIRTUAL_TO_DESC(id, MPI_FILE_NULL)
 #define VIRTUAL_TO_REAL_FILE(id) \
-  VIRTUAL_TO_REAL(id, MPI_FILE_NULL)
+  VIRTUAL_TO_REAL(id, MPI_FILE_NULL, MPI_File, file_desc_t)
 #define ADD_NEW_FILE(id) \
   ADD_NEW(id, MPI_FILE_NULL, file_desc_t)
 #define REMOVE_OLD_FILE(id) \
@@ -48,7 +52,7 @@
 #define VIRTUAL_TO_DESC_COMM(id) \
   VIRTUAL_TO_DESC(id, MPI_COMM_NULL)
 #define VIRTUAL_TO_REAL_COMM(id) \
-  VIRTUAL_TO_REAL(id, MPI_COMM_NULL)
+  VIRTUAL_TO_REAL(id, MPI_COMM_NULL, MPI_Comm, comm_desc_t)
 #define ADD_NEW_COMM(id) \
   ADD_NEW(id, MPI_COMM_NULL, comm_desc_t)
 #define REMOVE_OLD_COMM(id) \
@@ -61,7 +65,7 @@
 #define VIRTUAL_TO_DESC_GROUP(id) \
   VIRTUAL_TO_DESC(id, MPI_GROUP_NULL)
 #define VIRTUAL_TO_REAL_GROUP(id) \
-  VIRTUAL_TO_REAL(id, MPI_GROUP_NULL)
+  VIRTUAL_TO_REAL(id, MPI_GROUP_NULL, MPI_Group, group_desc_t)
 #define ADD_NEW_GROUP(id) \
   ADD_NEW(id, MPI_GROUP_NULL, group_desc_t)
 #define REMOVE_OLD_GROUP(id) \
@@ -74,7 +78,7 @@
 #define VIRTUAL_TO_DESC_TYPE(id) \
   VIRTUAL_TO_DESC(id, MPI_DATATYPE_NULL)
 #define VIRTUAL_TO_REAL_TYPE(id) \
-  VIRTUAL_TO_REAL(id, MPI_DATATYPE_NULL)
+  VIRTUAL_TO_REAL(id, MPI_DATATYPE_NULL, MPI_Datatype, type_desc_t)
 #define ADD_NEW_TYPE(id) \
   ADD_NEW(id, MPI_DATATYPE_NULL, type_desc_t)
 #define REMOVE_OLD_TYPE(id) \
@@ -87,7 +91,7 @@
 #define VIRTUAL_TO_DESC_OP(id) \
   VIRTUAL_TO_DESC(id, MPI_OP_NULL)
 #define VIRTUAL_TO_REAL_OP(id) \
-  VIRTUAL_TO_REAL(id, MPI_OP_NULL)
+  VIRTUAL_TO_REAL(id, MPI_OP_NULL, MPI_Op, op_desc_t)
 #define ADD_NEW_OP(id) \
   ADD_NEW(id, MPI_OP_NULL, op_desc_t)
 #define REMOVE_OLD_OP(id) \
@@ -100,7 +104,7 @@
 #define VIRTUAL_TO_DESC_COMM_KEYVAL(id) \
   VIRTUAL_TO_DESC(id, MPI_COMM_KEYVAL_NULL)
 #define VIRTUAL_TO_REAL_COMM_KEYVAL(id) \
-  VIRTUAL_TO_REAL(id, MPI_COMM_KEYVAL_NULL)
+  VIRTUAL_TO_REAL(id, MPI_COMM_KEYVAL_NULL, MPI_Commkeyval, virt_comm_keyval_t)
 #define ADD_NEW_COMM_KEYVAL(id) \
   ADD_NEW(id, MPI_COMM_KEYVAL_NULL, virt_comm_keyval_t)
 #define REMOVE_OLD_COMM_KEYVAL(id) \
@@ -113,7 +117,7 @@
 #define VIRTUAL_TO_DESC_REQUEST(id) \
   VIRTUAL_TO_DESC(id, MPI_REQUEST_NULL)
 #define VIRTUAL_TO_REAL_REQUEST(id) \
-  VIRTUAL_TO_REAL(id, MPI_REQUEST_NULL)
+  VIRTUAL_TO_REAL(id, MPI_REQUEST_NULL, MPI_Request, request_desc_t)
 #define ADD_NEW_REQUEST(id) \
   ADD_NEW(id, MPI_REQUEST_NULL, request_desc_t)
 #define REMOVE_OLD_REQUEST(id) \
