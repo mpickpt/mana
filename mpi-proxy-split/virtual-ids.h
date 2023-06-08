@@ -12,11 +12,11 @@
 #define VIRTUAL_TO_DESC(id, null) \
   (id == null) ? null : virtualToDescriptor(id)
 
-// TODO this operation is now accomplished effectively with DESCRIPTOR_TO_VIRTUAL.
+// NOTE this operation is now accomplished effectively with DESCRIPTOR_TO_VIRTUAL.
 // #define REAL_TO_VIRTUAL(id, null) \ 
 //   (DESCRIPTOR_TO_VIRTUAL(id, null) == NULL) ? NULL : VIRTUAL_TO_DESCRIPTOR(id, null)
 
-// TODO We use GNU macro extensions to store a temporary variable tmp.
+// HACK We use GNU macro extensions to store a temporary variable tmp.
 #define VIRTUAL_TO_REAL(id, null) \
     {(id_desc_t* _tmp = VIRTUAL_TO_DESC(id, null); (tmp == NULL) ? NULL : tmp->real_id} 
 
@@ -156,5 +156,3 @@ group_desc_t* init_group_desc_t(MPI_Group realGroup);
 comm_desc_t* init_comm_desc_t(MPI_Comm realComm);
 int getggid(MPI_Comm comm);
 int hash(int i);
-
-
