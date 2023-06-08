@@ -132,13 +132,13 @@
   })
 #endif // ifndef NEXT_FUNC
 
-extern struct ggid_desc_t;
-extern struct comm_desc_t;
-extern struct group_desc_t;
-extern struct request_desc_t;
-extern struct op_desc_t;
-extern struct datatype_desc_t;
-extern union id_desc_t;
+struct ggid_desc_t;
+struct comm_desc_t;
+struct group_desc_t;
+struct request_desc_t;
+struct op_desc_t;
+struct datatype_desc_t;
+union id_desc_t;
 
 extern std::map<int, id_desc_t*> idDescriptorTable;
 extern std::map<int, ggid_desc_t*> ggidDescriptorTable; 
