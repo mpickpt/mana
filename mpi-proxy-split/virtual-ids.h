@@ -18,7 +18,13 @@
 
 // HACK We use GNU macro extensions to store a temporary variable tmp.
 #define VIRTUAL_TO_REAL(id, null) \
-  id_desc_t* VTR_tmp = VIRTUAL_TO_DESC(id, null); (VTR_tmp == NULL) ? NULL : VTR_tmp->real_id
+  vtr(VIRTUAL_TO_DESC(id, null));
+//id_desc_t* VTR_tmp = VIRTUAL_TO_DESC(id, null); (VTR_tmp == NULL) ? NULL : VTR_tmp->real_id
+
+// OPTIMIZE
+long vtr(id_desc_t* desc) {
+  return (desc == NULL) ? NULL : ((comm_desc_t*)desc)->real_id
+}
 
 #define ADD_NEW(real_id, null, descriptor_type)						\
     (real_id == null) ? null : assignVid((union id_desc_t*) CONCAT(init_,descriptor_type)(real_id))
