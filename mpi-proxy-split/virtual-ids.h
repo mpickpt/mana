@@ -158,3 +158,5 @@ comm_desc_t* init_comm_desc_t(MPI_Comm realComm);
 int getggid(MPI_Comm comm);
 int hash(int i);
 long virtual_to_real(id_desc_t* desc);
+
+#endif // ifndef VIRTUAL_ID_H
