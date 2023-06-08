@@ -162,9 +162,10 @@ USER_DEFINED_WRAPPER(int, File_get_view, (MPI_File) fh, (MPI_Offset*) disp,
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(File_get_view)(realFile, disp, &realEtype, &realFtype,
                                     datarep);
-  RETURN_TO_UPPER_HALF();
-  // *etype = REAL_TO_VIRTUAL_TYPE(realEtype); TODO Use the new arch
-  // *filetype = REAL_TO_VIRTUAL_TYPE(realFtype);
+  RETURN_TO_UPPER_HALF(); // These REAL_TO_VIRTUALs are not O(1) as defined. FIXME
+  // *etype = REAL_TO_VIRTUAL_TYPE(realEtype); // Yao Xu - I will think more carefully about it, but we can ignore it for now.
+  // *filetype = REAL_TO_VIRTUAL_TYPE(realFtype); // I highly doubt if this wrapper is used in any MPI program that we are interested in.
+  // Therefore, we do not fill these out in the current work.
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
