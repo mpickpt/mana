@@ -3,17 +3,6 @@
 
 #include <mpi.h>
 
-struct ggid_desc_t;
-struct comm_desc_t;
-struct group_desc_t;
-struct request_desc_t;
-struct op_desc_t;
-struct datatype_desc_t;
-union id_desc_t;
-
-extern std::map<int, id_desc_t*> idDescriptorTable;
-extern std::map<int, ggid_desc_t*> ggidDescriptorTable; 
-
 #define CONCAT(a,b) a ## b
 
 // Writing these macros as ternary expressions means there is no overhead associated with extra function arguments.
@@ -29,7 +18,7 @@ extern std::map<int, ggid_desc_t*> ggidDescriptorTable;
 
 // HACK We use GNU macro extensions to store a temporary variable tmp.
 #define VIRTUAL_TO_REAL(id, null) \
-  id_desc_t* VTR_tmp = VIRTUAL_TO_DESC(id, null); (VTR_tmp == NULL) ? NULL : VTR_tmp->real_id;
+  id_desc_t* VTR_tmp = VIRTUAL_TO_DESC(id, null); (VTR_tmp == NULL) ? NULL : VTR_tmp->real_id
 
 #define ADD_NEW(real_id, null, descriptor_type)						\
     (real_id == null) ? null : assignVid((union id_desc_t*) CONCAT(init_,descriptor_type)(real_id))
@@ -142,6 +131,17 @@ extern std::map<int, ggid_desc_t*> ggidDescriptorTable;
     _real_MPI_ ## func;                                                        \
   })
 #endif // ifndef NEXT_FUNC
+
+struct ggid_desc_t;
+struct comm_desc_t;
+struct group_desc_t;
+struct request_desc_t;
+struct op_desc_t;
+struct datatype_desc_t;
+union id_desc_t;
+
+extern std::map<int, id_desc_t*> idDescriptorTable;
+extern std::map<int, ggid_desc_t*> ggidDescriptorTable; 
 
 long onRemove(int virtId);
 int assignVid(id_desc_t* desc);
