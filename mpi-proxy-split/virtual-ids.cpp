@@ -267,9 +267,7 @@ long onRemove(int virtId) {
   return realId;
 }
 
-// OPTIMIZE This sucks. I did it because I couldn't figure out how to write a multiline macro, 
-// with a temporary variable,
-// which also is an expression.
+// FIXME Using a function for this is not ideal. There's probably some macro magic we can use.
 long virtual_to_real(id_desc_t* desc) {
   return (desc == NULL) ? NULL : ((comm_desc_t*)desc)->real_id
 }
