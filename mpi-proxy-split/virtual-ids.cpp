@@ -267,3 +267,7 @@ long onRemove(int virtId) {
   return realId;
 }
 
+// OPTIMIZE
+long virtual_to_real(id_desc_t* desc) {
+  return (desc == NULL) ? NULL : ((comm_desc_t*)desc)->real_id
+}

@@ -18,13 +18,8 @@
 
 // HACK We use GNU macro extensions to store a temporary variable tmp.
 #define VIRTUAL_TO_REAL(id, null) \
-  vtr(VIRTUAL_TO_DESC(id, null));
+  virtual_to_real(VIRTUAL_TO_DESC(id, null));
 //id_desc_t* VTR_tmp = VIRTUAL_TO_DESC(id, null); (VTR_tmp == NULL) ? NULL : VTR_tmp->real_id
-
-// OPTIMIZE
-long vtr(id_desc_t* desc) {
-  return (desc == NULL) ? NULL : ((comm_desc_t*)desc)->real_id
-}
 
 #define ADD_NEW(real_id, null, descriptor_type)						\
     (real_id == null) ? null : assignVid((union id_desc_t*) CONCAT(init_,descriptor_type)(real_id))
@@ -162,3 +157,4 @@ group_desc_t* init_group_desc_t(MPI_Group realGroup);
 comm_desc_t* init_comm_desc_t(MPI_Comm realComm);
 int getggid(MPI_Comm comm);
 int hash(int i);
+long virtual_to_real(id_desc_t* desc);
