@@ -172,15 +172,15 @@ struct group_desc_t {
     // unsigned int ggid; // Global Group ID
 };
 
-enum request_kind {
+enum mpi_request_kind {
   COLLECTIVE,
   PEER_TO_PEER
-}
+};
 
 struct request_desc_t {
     MPI_Request real_id; // Real MPI request in the lower-half
     int handle; // A copy of the int type handle generated from the address of this struct
-    request_kind request_kind; // P2P request or collective request
+    mpi_request_kind request_kind; // P2P request or collective request
     MPI_Status status; // Real MPI status in the lower-half
 };
 
