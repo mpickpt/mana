@@ -20,7 +20,7 @@
 #define VIRTUAL_TO_REAL(id, null, real_id_type, desc_type)    \
     ({                                              \
        id_desc_t* _tmp = VIRTUAL_TO_DESC(id, null); \
-       ((_tmp == NULL) ? ((real_id_type) NULL) : ((desc_type *)_tmp)->real_id);	\
+       ((_tmp == NULL) ? null : ((desc_type *)_tmp)->real_id);	\
      })
 // virtual_to_real(VIRTUAL_TO_DESC(id, null));
 //id_desc_t* VTR_tmp = VIRTUAL_TO_DESC(id, null); (VTR_tmp == NULL) ? NULL : VTR_tmp->real_id
