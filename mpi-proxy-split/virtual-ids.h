@@ -79,9 +79,9 @@
 #define VIRTUAL_TO_DESC_TYPE(id) \
   VIRTUAL_TO_DESC(id, MPI_DATATYPE_NULL)
 #define VIRTUAL_TO_REAL_TYPE(id) \
-  VIRTUAL_TO_REAL(id, MPI_DATATYPE_NULL, MPI_Datatype, type_desc_t)
+  VIRTUAL_TO_REAL(id, MPI_DATATYPE_NULL, MPI_Datatype, datatype_desc_t)
 #define ADD_NEW_TYPE(id) \
-  ADD_NEW(id, MPI_DATATYPE_NULL, type_desc_t)
+  ADD_NEW(id, MPI_DATATYPE_NULL, datatype_desc_t)
 #define REMOVE_OLD_TYPE(id) \
   REMOVE_OLD(id, MPI_DATATYPE_NULL)
 #define UPDATE_TYPE_MAP(v, r) \
