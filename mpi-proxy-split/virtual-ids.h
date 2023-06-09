@@ -235,6 +235,7 @@ op_desc_t* init_op_desc_t(MPI_Op realOp);
 request_desc_t* init_request_desc_t(MPI_Request realReq);
 group_desc_t* init_group_desc_t(MPI_Group realGroup);
 comm_desc_t* init_comm_desc_t(MPI_Comm realComm);
+file_desc_t* init_file_desc_t(MPI_file realFile);
 int getggid(MPI_Comm comm);
 int hash(int i);
 long virtual_to_real(id_desc_t* desc);
