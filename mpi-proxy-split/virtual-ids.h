@@ -138,13 +138,76 @@
   })
 #endif // ifndef NEXT_FUNC
 
-struct ggid_desc_t;
-struct comm_desc_t;
-struct group_desc_t;
-struct request_desc_t;
-struct op_desc_t;
-struct datatype_desc_t;
-union id_desc_t;
+/* struct ggid_desc_t; */
+/* struct comm_desc_t; */
+/* struct group_desc_t; */
+/* struct request_desc_t; */
+/* struct op_desc_t; */
+/* struct datatype_desc_t; */
+/* union id_desc_t; */
+
+struct ggid_desc_t {
+  int ggid; // hashing results of communicator members
+
+  unsigned long seq_num;
+
+  unsigned long target_num;
+};
+
+struct comm_desc_t {
+    MPI_Comm real_id; // Real MPI communicator in the lower-half
+    int handle; // A copy of the int type handle generated from the address of this struct
+    ggid_desc_t* ggid_desc; // A ggid_t structure, containing CVC information for this communicator.
+    int size; // Size of this communicator
+    int local_rank; // local rank number of this communicator
+    int *ranks; // list of ranks of the group.
+
+    // struct virt_group_t *group; // Or should this field be a pointer to virt_group_t?
+};
+
+struct group_desc_t {
+    MPI_Group real_id; // Real MPI group in the lower-half
+    int handle; // A copy of the int type handle generated from the address of this struct
+    int *ranks; // list of ranks of the group.
+    // unsigned int ggid; // Global Group ID
+};
+
+struct request_desc_t {
+    MPI_Request real_id; // Real MPI request in the lower-half
+    int handle; // A copy of the int type handle generated from the address of this struct
+    enum request_kind; // P2P request or collective request
+    MPI_Status status; // Real MPI status in the lower-half
+};
+
+struct op_desc_t {
+    MPI_Op real_id; // Real MPI operator in the lower-half
+    int handle; // A copy of the int type handle generated from the address of this struct
+    MPI_User_function *user_fn; // Function pointer to the user defined op function
+};
+
+struct datatype_desc_t {
+  // TODO add mpi type identifier field virtual class
+    MPI_Datatype real_id; // Real MPI type in the lower-half
+    int handle; // A copy of the int type handle generated from the address of this struct
+    // Components of user-defined datatype.
+    MPI_count num_integers;
+    int *integers;
+    MPI_count num_addresses;
+    int *addresses;
+    MPI_count num_large_counts;
+    int *large_counts;
+    MPI_count num_datatypes;
+    int *datatypes;
+    int *combiner;
+};
+
+union id_desc_t {
+    comm_desc_t comm;
+    group_desc_t group;
+    request_desc_t request;
+    op_desc_t op;
+    datatype_desc_t datatype;
+};
 
 extern std::map<int, id_desc_t*> idDescriptorTable;
 extern std::map<int, ggid_desc_t*> ggidDescriptorTable; 
