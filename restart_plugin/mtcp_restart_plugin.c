@@ -472,6 +472,11 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
     // stack memory region.
     start2 = rinfo->minHighMemStart;
     end2 = rinfo->minHighMemStart + 8 * MB;
+    // Ignore region start2:end2 if it is overlapped with region start1:end1
+    if (start2 >= start1 && end2 <= end1) {
+      start2 = 0;
+      end2 = 0;
+    }
   } else {
     // On standard Ubuntu/CentOS libs are mmap'ed downward in memory.
     // Allow an extra 1 GB for future upper-half libs and mmaps to be loaded.
@@ -496,6 +501,11 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
     // stack memory region.
     start2 = rinfo->minHighMemStart;
     end2 = rinfo->minHighMemStart + 8 * MB;
+    // Ignore region start2:end2 if it is overlapped with region start1:end1
+    if (start2 >= start1 && end2 <= end1) {
+      start2 = 0;
+      end2 = 0;
+    }
   }
 
   reserveUpperHalfMemoryRegionsForCkptImgs(start1, end1, start2, end2);
@@ -602,6 +612,11 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
     // stack memory region.
     start2 = rinfo->minHighMemStart;
     end2 = rinfo->minHighMemStart + 8 * MB;
+    // Ignore region start2:end2 if it is overlapped with region start1:end1
+    if (start2 >= start1 && end2 <= end1) {
+      end2 = 0;
+      start2 = 0;
+    }
   } else {
     // On standard Ubuntu/CentOS libs are mmap'ed downward in memory.
     // Allow an extra 1 GB for future upper-half libs and mmaps to be loaded.
@@ -626,6 +641,11 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
     // stack memory region.
     start2 = rinfo->minHighMemStart;
     end2 = rinfo->minHighMemStart + 8 * MB;
+    // Ignore region start2:end2 if it is overlapped with region start1:end1
+    if (start2 >= start1 && end2 <= end1) {
+      end2 = 0;
+      start2 = 0;
+    }
   }
 
   char full_filename[PATH_MAX];
