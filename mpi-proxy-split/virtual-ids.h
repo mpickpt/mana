@@ -10,7 +10,7 @@
   (id == null) ? null : descriptorToVirtual(type)
 
 #define VIRTUAL_TO_DESC(id, null) \
-  (id == null) ? NULL : virtualToDescriptor(id)
+  (id == null) ? NULL : virtualToDescriptor((int) id)
 
 // NOTE this operation is now accomplished effectively with DESCRIPTOR_TO_VIRTUAL.
 // #define REAL_TO_VIRTUAL(id, null) \ 
@@ -19,7 +19,7 @@
 // HACK We use GNU macro extensions to store a temporary variable tmp.
 #define VIRTUAL_TO_REAL(id, null, real_id_type, desc_type)    \
     ({                                              \
-      id_desc_t* _VTR_tmp = VIRTUAL_TO_DESC(((real_id_type)id), null);		\
+      id_desc_t* _VTR_tmp = VIRTUAL_TO_DESC(id, null);		\
        real_id_type _VTR_id = (_VTR_tmp == NULL) ? null : ((desc_type *)_VTR_tmp)->real_id; \
        _VTR_id; \
      })
