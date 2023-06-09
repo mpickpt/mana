@@ -210,7 +210,7 @@ struct file_desc_t {
   MPI_File real_id;
   int handle;
   // TODO We probably want to save something else too.
-}
+};
 
 union id_desc_t {
     comm_desc_t comm;
