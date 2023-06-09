@@ -50,27 +50,6 @@ int base = 1;
 int nextvId = base;
 // --- metadata structs ---
 
-
-struct ggid_desc_t {
-  int ggid; // hashing results of communicator members
-
-  unsigned long seq_num;
-
-  unsigned long target_num;
-};
-
-struct comm_desc_t {
-    MPI_Comm real_id; // Real MPI communicator in the lower-half
-    int handle; // A copy of the int type handle generated from the address of this struct
-    ggid_desc_t* ggid_desc; // A ggid_t structure, containing CVC information for this communicator.
-    int size; // Size of this communicator
-    int local_rank; // local rank number of this communicator
-    int *ranks; // list of ranks of the group.
-
-    // struct virt_group_t *group; // Or should this field be a pointer to virt_group_t?
-};
-
-
 // Hash function on integers. Consult https://stackoverflow.com/questions/664014/.
 // Returns a hash.
 int hash(int i) {
@@ -124,26 +103,12 @@ comm_desc_t* init_comm_desc_t(MPI_Comm realComm) {
   return desc;
 }
 
-struct group_desc_t {
-    MPI_Group real_id; // Real MPI group in the lower-half
-    int handle; // A copy of the int type handle generated from the address of this struct
-    int *ranks; // list of ranks of the group.
-    // unsigned int ggid; // Global Group ID
-};
-
 group_desc_t* init_group_desc_t(MPI_Group realGroup) {
   group_desc_t* desc = ((group_desc_t*)malloc(sizeof(group_desc_t)));
   desc->real_id = realGroup;
   desc->ranks = NULL;
   return desc;
 }
-
-struct request_desc_t {
-    MPI_Request real_id; // Real MPI request in the lower-half
-    int handle; // A copy of the int type handle generated from the address of this struct
-    enum request_kind; // P2P request or collective request
-    MPI_Status status; // Real MPI status in the lower-half
-};
 
 request_desc_t* init_request_desc_t(MPI_Request realReq) {
   request_desc_t* desc = ((request_desc_t*)malloc(sizeof(request_desc_t)));
@@ -153,34 +118,12 @@ request_desc_t* init_request_desc_t(MPI_Request realReq) {
   return desc;
 }
 
-struct op_desc_t {
-    MPI_Op real_id; // Real MPI operator in the lower-half
-    int handle; // A copy of the int type handle generated from the address of this struct
-    MPI_User_function *user_fn; // Function pointer to the user defined op function
-};
-
 op_desc_t* init_op_desc_t(MPI_Op realOp) {
   op_desc_t* desc = ((op_desc_t*)malloc(sizeof(op_desc_t)));
   desc->real_id = realOp;
   desc->user_fn = NULL;
   return desc;
 }
-
-struct datatype_desc_t {
-  // TODO add mpi type identifier field virtual class
-    MPI_Datatype real_id; // Real MPI type in the lower-half
-    int handle; // A copy of the int type handle generated from the address of this struct
-    // Components of user-defined datatype.
-    MPI_count num_integers;
-    int *integers;
-    MPI_count num_addresses;
-    int *addresses;
-    MPI_count num_large_counts;
-    int *large_counts;
-    MPI_count num_datatypes;
-    int *datatypes;
-    int *combiner;
-};
 
 datatype_desc_t* init_datatype_desc_t(MPI_Datatype realType) {
   datatype_desc_t* desc = ((datatype_desc_t*)malloc(sizeof(datatype_desc_t)));
@@ -197,14 +140,6 @@ datatype_desc_t* init_datatype_desc_t(MPI_Datatype realType) {
   desc->combiner = NULL;
   return desc;
 }
-
-union id_desc_t {
-    comm_desc_t comm;
-    group_desc_t group;
-    request_desc_t request;
-    op_desc_t op;
-    datatype_desc_t datatype;
-};
 
 id_desc_t* init_id_desc_t() {
   int vId = nextvId++;
