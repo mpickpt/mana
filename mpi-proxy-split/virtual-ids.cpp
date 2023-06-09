@@ -141,6 +141,12 @@ datatype_desc_t* init_datatype_desc_t(MPI_Datatype realType) {
   return desc;
 }
 
+file_desc_t* init_file_desc_t(MPI_File realFile) {
+  file_desc_t* desc = ((file_desc_t*)malloc(sizeof(file_desc_t)));
+  desc->real_id = realFile;
+  return desc;
+}
+
 id_desc_t* init_id_desc_t() {
   int vId = nextvId++;
   return NULL;

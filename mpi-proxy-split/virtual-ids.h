@@ -206,12 +206,19 @@ struct datatype_desc_t {
     int *combiner;
 };
 
+struct file_desc_t {
+  MPI_File real_id;
+  int handle;
+  // TODO We probably want to save something else too.
+}
+
 union id_desc_t {
     comm_desc_t comm;
     group_desc_t group;
     request_desc_t request;
     op_desc_t op;
     datatype_desc_t datatype;
+    file_desc_t file;
 };
 
 extern std::map<int, id_desc_t*> idDescriptorTable;
