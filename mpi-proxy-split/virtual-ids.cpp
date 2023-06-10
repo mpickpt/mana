@@ -36,14 +36,12 @@
 
 #define MAX_VIRTUAL_ID 999
 
-struct ggid_desc_t;
-union id_desc_t;
+typedef typename std::map<int, id_desc_t*>::iterator id_desc_iterator;
+typedef typename std::map<int, ggid_desc_t*>::iterator ggid_desc_iterator;
 
 // Per Yao Xu, MANA does not require the thread safety offered by DMTCP's VirtualIdTable. We use std::map.
 std::map<int, id_desc_t*> idDescriptorTable; // int vId -> id_desc_t*, which contains rId.
 std::map<int, ggid_desc_t*> ggidDescriptorTable; // int ggid -> ggid_desc_t*
-typedef typename std::map<int, id_desc_t*>::iterator id_desc_iterator;
-typedef typename std::map<int, ggid_desc_t*>::iterator ggid_desc_iterator;
 
 // vid generation mechanism.
 int base = 1;
