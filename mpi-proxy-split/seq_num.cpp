@@ -86,7 +86,7 @@ int print_seq_nums() {
   unsigned long seq_num;
   int target_reached = 1;
 
-  for (ggid_desc_iterator pair : ggidDescriptorTable) { // in virtual-ids.cpp
+  for (ggid_desc_pair pair : ggidDescriptorTable) { // in virtual-ids.cpp
     comm_ggid = pair.first;
     seq_num = pair.second->seq_num;
     printf("%d, %u, %lu\n", g_world_rank, comm_id, seq);
@@ -98,7 +98,7 @@ int print_seq_nums() {
 int check_seq_nums(bool exclusive) {
   unsigned int comm_ggid;
   int target_reached = 1;
-  for (ggid_desc_iterator pair : ggidDescriptorTable) {
+  for (ggid_desc_pair pair : ggidDescriptorTable) {
     comm_ggid = pair.first;
     if (exclusive) {
       if (pair.second->target_num + 1 > pair.second->seq_num) {
@@ -243,7 +243,7 @@ void commit_finish(MPI_Comm comm, bool passthrough) {
 }
 
 void upload_seq_num() {
-  for (ggid_desc_iterator pair : ggidDescriptorTable) {
+  for (ggid_desc_pair pair : ggidDescriptorTable) {
     dmtcp::string comm_id_str(jalib::XToString(pair.first));
     unsigned int seq = pair.second->seq_num;
     JASSERT(dmtcp::kvdb::request64(KVDBRequest::MAX, comm_seq_max_db,

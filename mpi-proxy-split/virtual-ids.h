@@ -228,6 +228,8 @@ extern std::map<int, id_desc_t*> idDescriptorTable;
 extern std::map<int, ggid_desc_t*> ggidDescriptorTable; 
 typedef typename std::map<int, id_desc_t*>::iterator id_desc_iterator;
 typedef typename std::map<int, ggid_desc_t*>::iterator ggid_desc_iterator;
+typedef std::pair<int, id_desc_t*> id_desc_pair;
+typedef std::pair<int, ggid_desc_t*> ggid_desc_pair;
 
 long onRemove(int virtId);
 int assignVid(id_desc_t* desc);
