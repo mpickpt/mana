@@ -30,7 +30,7 @@
   (virtual_id == null) ? null : onRemove(virtual_id)
 
 #define UPDATE_MAP(virtual_id, real_id, null) \
-  (virtual_id == null) ? null : updateMapping(virtual_id, real_id)
+  (virtual_id == null) ? null : updateMapping(*((int*)(&virtual_id)), real_id)
 
 #define DESC_TO_VIRTUAL_FILE(id) \
   DESC_TO_VIRTUAL(id, MPI_FILE_NULL) 
