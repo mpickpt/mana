@@ -195,7 +195,7 @@ void commit_begin(MPI_Comm comm, bool passthrough) {
   }
   pthread_mutex_lock(&seq_num_lock);
   current_phase = IN_CS;
-  ggid_desc_t* comm_ggid_desc = VIRTUAL_TO_DESC(comm)->ggid_desc;
+  ggid_desc_t* comm_ggid_desc = VIRTUAL_TO_DESC_COMM(comm)->ggid_desc;
   comm_ggid_desc->seq_num++;
   pthread_mutex_unlock(&seq_num_lock);
 #ifdef DEBUG_SEQ_NUM
