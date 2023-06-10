@@ -9,8 +9,8 @@
 #define DESC_TO_VIRTUAL(id, null) \
   (id == null) ? null : descriptorToVirtual(type)
 
-#define VIRTUAL_TO_DESC(id, null) \
-  (id == null) ? NULL : virtualToDescriptor( *((int*)(&id)) )
+#define VIRTUAL_TO_DESC(id, null, desc_type)					\
+  (id == null) ? NULL : ((desc_type*) virtualToDescriptor( *((int*)(&id)) ))
 
 // NOTE this operation is now accomplished effectively with DESCRIPTOR_TO_VIRTUAL.
 // #define REAL_TO_VIRTUAL(id, null) \ 
@@ -18,7 +18,7 @@
 
 #define VIRTUAL_TO_REAL(id, null, real_id_type, desc_type)    \
     ({                                              \
-      id_desc_t* _VTR_tmp = VIRTUAL_TO_DESC(id, null);		\
+      id_desc_t* _VTR_tmp = VIRTUAL_TO_DESC(id, null, desc_type);			\
        real_id_type _VTR_id = (_VTR_tmp == NULL) ? null : ((desc_type *)_VTR_tmp)->real_id; \
        _VTR_id; \
      })
@@ -35,7 +35,7 @@
 #define DESC_TO_VIRTUAL_FILE(id) \
   DESC_TO_VIRTUAL(id, MPI_FILE_NULL) 
 #define VIRTUAL_TO_DESC_FILE(id) \
-  VIRTUAL_TO_DESC(id, MPI_FILE_NULL)
+  VIRTUAL_TO_DESC(id, MPI_FILE_NULL, file_desc_t)
 #define VIRTUAL_TO_REAL_FILE(id) \
   VIRTUAL_TO_REAL(id, MPI_FILE_NULL, MPI_File, file_desc_t)
 #define ADD_NEW_FILE(id) \
@@ -48,7 +48,7 @@
 #define DESC_TO_VIRTUAL_COMM(id) \
   DESC_TO_VIRTUAL(id, MPI_COMM_NULL) 
 #define VIRTUAL_TO_DESC_COMM(id) \
-  VIRTUAL_TO_DESC(id, MPI_COMM_NULL)
+  VIRTUAL_TO_DESC(id, MPI_COMM_NULL, comm_desc_t)
 #define VIRTUAL_TO_REAL_COMM(id) \
   VIRTUAL_TO_REAL(id, MPI_COMM_NULL, MPI_Comm, comm_desc_t)
 #define ADD_NEW_COMM(id) \
@@ -61,7 +61,7 @@
 #define DESC_TO_VIRTUAL_GROUP(id) \
   DESC_TO_VIRTUAL(id, MPI_GROUP_NULL) 
 #define VIRTUAL_TO_DESC_GROUP(id) \
-  VIRTUAL_TO_DESC(id, MPI_GROUP_NULL)
+  VIRTUAL_TO_DESC(id, MPI_GROUP_NULL, group_desc_t)
 #define VIRTUAL_TO_REAL_GROUP(id) \
   VIRTUAL_TO_REAL(id, MPI_GROUP_NULL, MPI_Group, group_desc_t)
 #define ADD_NEW_GROUP(id) \
@@ -74,7 +74,7 @@
 #define DESC_TO_VIRTUAL_TYPE(id) \
   DESC_TO_VIRTUAL(id, MPI_DATATYPE_NULL) 
 #define VIRTUAL_TO_DESC_TYPE(id) \
-  VIRTUAL_TO_DESC(id, MPI_DATATYPE_NULL)
+  VIRTUAL_TO_DESC(id, MPI_DATATYPE_NULL, datatype_desc_t)
 #define VIRTUAL_TO_REAL_TYPE(id) \
   VIRTUAL_TO_REAL(id, MPI_DATATYPE_NULL, MPI_Datatype, datatype_desc_t)
 #define ADD_NEW_TYPE(id) \
@@ -87,7 +87,7 @@
 #define DESC_TO_VIRTUAL_OP(id) \
   DESC_TO_VIRTUAL(id, MPI_OP_NULL) 
 #define VIRTUAL_TO_DESC_OP(id) \
-  VIRTUAL_TO_DESC(id, MPI_OP_NULL)
+  VIRTUAL_TO_DESC(id, MPI_OP_NULL, op_desc_t)
 #define VIRTUAL_TO_REAL_OP(id) \
   VIRTUAL_TO_REAL(id, MPI_OP_NULL, MPI_Op, op_desc_t)
 #define ADD_NEW_OP(id) \
@@ -100,7 +100,7 @@
 #define DESC_TO_VIRTUAL_COMM_KEYVAL(id) \
   DESC_TO_VIRTUAL(id, MPI_COMM_KEYVAL_NULL) 
 #define VIRTUAL_TO_DESC_COMM_KEYVAL(id) \
-  VIRTUAL_TO_DESC(id, MPI_COMM_KEYVAL_NULL)
+  VIRTUAL_TO_DESC(id, MPI_COMM_KEYVAL_NULL, virt_comm_keyval_t)
 #define VIRTUAL_TO_REAL_COMM_KEYVAL(id) \
   VIRTUAL_TO_REAL(id, MPI_COMM_KEYVAL_NULL, MPI_Commkeyval, virt_comm_keyval_t)
 #define ADD_NEW_COMM_KEYVAL(id) \
@@ -113,7 +113,7 @@
 #define DESC_TO_VIRTUAL_REQUEST(id) \
   DESC_TO_VIRTUAL(id, MPI_REQUEST_NULL) 
 #define VIRTUAL_TO_DESC_REQUEST(id) \
-  VIRTUAL_TO_DESC(id, MPI_REQUEST_NULL)
+  VIRTUAL_TO_DESC(id, MPI_REQUEST_NULL, request_desc_t)
 #define VIRTUAL_TO_REAL_REQUEST(id) \
   VIRTUAL_TO_REAL(id, MPI_REQUEST_NULL, MPI_Request, request_desc_t)
 #define ADD_NEW_REQUEST(id) \
