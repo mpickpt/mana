@@ -35,14 +35,14 @@
     int toReturn; \
     if (_UM_it != idDescriptorTable.end()) { \
       descriptor_type* desc = ((descriptor_type*)idDescriptorTable[virtual_id]); \
-      desc->real_id = real_id; \ 
+      desc->real_id = real_id; \
       toReturn = virtual_id; \
     } else { 		     \
       toReturn = null; \
     } \
-    toReturn; \ 
+    toReturn; \
 })
-    (virtual_id == null) ? null : ((real_id_type)updateMapping(*((int*)(&virtual_id)), (real_id==null) ? 0 : *((long*)(&real_id))))
+//(virtual_id == null) ? null : ((real_id_type)updateMapping(*((int*)(&virtual_id)), (real_id==null) ? 0 : *((long*)(&real_id))))
 
 #define DESC_TO_VIRTUAL_FILE(id) \
   DESC_TO_VIRTUAL(id, MPI_FILE_NULL) 
