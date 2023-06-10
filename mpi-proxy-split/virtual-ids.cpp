@@ -165,22 +165,6 @@ id_desc_t* virtualToDescriptor(int virtId) {
   return NULL;
 }
 
-// Given int virtualId and realId of MPI size, update the descriptor referenced by virtualid, if it exists.
-// TODO If the referenced virtualID does not exist, create a descriptor for it.
-// Returns a reference to the descriptor created.
-int updateMapping(int virtId, long realId) { // HACK MPICH
-  id_desc_iterator it = idDescriptorTable.find(virtId);
-  if (it != idDescriptorTable.end()) {
-    id_desc_t* desc = idDescriptorTable[virtId]; // if doesn't exist?
-    ((comm_desc_t*)desc)->real_id = realId;
-    return virtId;
-  } else {
-    // TODO
-    // If doesn't exist, return null id.
-    return 0;
-  }
-}
-
 // Given id desc, get vid, fill out the vid handle, and map the desc.
 // Returns the vId assigned.
 int assignVid(id_desc_t* desc) {
@@ -205,9 +189,4 @@ long onRemove(int virtId) {
   long realId = ((comm_desc_t *)vType)->real_id; // HACK MPICH
   free(vType);
   return realId;
-}
-
-// FIXME Using a function for this is not ideal. There's probably some macro magic we can use.
-long virtual_to_real(id_desc_t* desc) {
-  return (desc == NULL) ? NULL : ((comm_desc_t*)desc)->real_id
 }
