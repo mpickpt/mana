@@ -29,7 +29,19 @@
 #define REMOVE_OLD(virtual_id, null) \
   (virtual_id == null) ? null : onRemove(virtual_id)
 
-#define UPDATE_MAP(virtual_id, real_id, null, real_id_type)				\
+#define UPDATE_MAP(virtual_id, real_id, null, descriptor_type)	\
+  ({ \
+    id_desc_iterator _UM_it = idDescriptorTable.find(virtual_id); \
+    int toReturn; \
+    if (_UM_it != idDescriptorTable.end()) { \
+      descriptor_type* desc = ((descriptor_type*)idDescriptorTable[virtual_id]); \
+      desc->real_id = real_id; \ 
+      toReturn = virtual_id; \
+    } else { 		     \
+      toReturn = null; \
+    } \
+    toReturn; \ 
+})
     (virtual_id == null) ? null : ((real_id_type)updateMapping(*((int*)(&virtual_id)), (real_id==null) ? 0 : *((long*)(&real_id))))
 
 #define DESC_TO_VIRTUAL_FILE(id) \
