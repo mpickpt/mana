@@ -29,13 +29,13 @@
 #define REMOVE_OLD(virtual_id, null) \
   (virtual_id == null) ? null : onRemove(virtual_id)
 
-#define UPDATE_MAP(virtual_id, real_id, null, descriptor_type)	\
+#define UPDATE_MAP(virtual_id, to_update, null, descriptor_type)	\
   ({ \
     id_desc_iterator _UM_it = idDescriptorTable.find(virtual_id); \
     int toReturn; \
     if (_UM_it != idDescriptorTable.end()) { \
       descriptor_type* desc = ((descriptor_type*)idDescriptorTable[virtual_id]); \
-      desc->real_id = real_id; \
+      desc->real_id = to_update; \
       toReturn = virtual_id; \
     } else { 		     \
       toReturn = null; \
