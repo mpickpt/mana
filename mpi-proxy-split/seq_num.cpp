@@ -89,7 +89,7 @@ int print_seq_nums() {
   for (ggid_desc_pair pair : ggidDescriptorTable) { // in virtual-ids.cpp
     comm_ggid = pair.first;
     seq_num = pair.second->seq_num;
-    printf("%d, %u, %lu\n", g_world_rank, comm_id, seq);
+    printf("%d, %u, %lu\n", g_world_rank, comm_ggid, seq_num);
   }
   fflush(stdout);
   return target_reached;
@@ -129,15 +129,15 @@ int twoPhaseCommit(MPI_Comm comm,
 
 void seq_num_broadcast(MPI_Comm comm, unsigned long new_target) {
   comm_desc_t* desc = VIRTUAL_TO_DESC_COMM(comm);
-  unsigned int comm_gid = desc->ggid_desc->ggid;
-  unsigned long msg[2] = {comm_gid, new_target};
+  unsigned int comm_ggid = desc->ggid_desc->ggid;
+  unsigned long msg[2] = {comm_ggid, new_target};
   int comm_size;
   int comm_rank;
   int world_rank;
   MPI_Comm_size(comm, &comm_size);
   MPI_Comm_rank(comm, &comm_rank);
   MPI_Group world_group, local_group;
-  MPI_Comm real_local_comm = desc.real_id;
+  MPI_Comm real_local_comm = desc->real_id;
   MPI_Comm real_world_comm = VIRTUAL_TO_REAL_COMM(g_world_comm);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   NEXT_FUNC(Comm_group)(real_world_comm, &world_group);
@@ -153,7 +153,7 @@ void seq_num_broadcast(MPI_Comm comm, unsigned long new_target) {
       RETURN_TO_UPPER_HALF();
 #ifdef DEBUG_SEQ_NUM
       printf("rank %d sending to rank %d new target comm %u seq %lu target %lu\n",
-             g_world_rank, world_rank, comm_gid, seq_num[comm_gid], new_target);
+             g_world_rank, world_rank, comm_ggid, desc->ggid_desc->seq_num, new_target);
       fflush(stdout);
 #endif
     }
@@ -201,8 +201,8 @@ void commit_begin(MPI_Comm comm, bool passthrough) {
 #ifdef DEBUG_SEQ_NUM
   // print_seq_nums();
 #endif
-  if (ckpt_pending && comm_ggid_desc->seq_num > comm_ggid_desc->target) {
-    comm_ggid_desc->target = comm_ggid_desc->seq_num;
+  if (ckpt_pending && comm_ggid_desc->seq_num > comm_ggid_desc->target_num) {
+    comm_ggid_desc->target_num = comm_ggid_desc->seq_num;
     seq_num_broadcast(comm, comm_ggid_desc->seq_num);
   }
 }
@@ -230,7 +230,7 @@ void commit_finish(MPI_Comm comm, bool passthrough) {
       unsigned int updated_comm = (unsigned int) new_target[0];
       unsigned long updated_target = new_target[1];
       ggid_desc_t* updated_comm_ggid_desc = ggidDescriptorTable[updated_comm];
-      if (updated_comm_ggid_desc->target < updated_target) {
+      if (updated_comm_ggid_desc->target_num < updated_target) {
 	updated_comm_ggid_desc->target_num = updated_target;
 #ifdef DEBUG_SEQ_NUM
         printf("rank %d received new target comm %u seq %lu target %lu\n",
@@ -254,7 +254,7 @@ void upload_seq_num() {
 void download_targets(std::map<unsigned int, unsigned long> &target) {
   int64_t max_seq = 0;
   unsigned int comm_ggid;
-  for (ggid_desc_t pair : ggidDescriptorTable) {
+  for (ggid_desc_pair pair : ggidDescriptorTable) {
     comm_ggid = pair.first;
     dmtcp::string comm_id_str(jalib::XToString(pair.first));
     JASSERT(dmtcp::kvdb::get64(comm_seq_max_db, comm_id_str, &max_seq) ==
