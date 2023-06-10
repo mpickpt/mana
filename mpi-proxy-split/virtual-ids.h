@@ -34,7 +34,7 @@
     id_desc_iterator _UM_it = idDescriptorTable.find(*((int*)(&id)) virtual_id); \
     to_update_type toReturn; \
     if (_UM_it != idDescriptorTable.end()) { \
-      descriptor_type* desc = ((descriptor_type*)idDescriptorTable[virtual_id]); \
+      descriptor_type* desc = ((descriptor_type*)idDescriptorTable[*((int*)(&id))virtual_id]); \
       desc->real_id = to_update; \
       toReturn = virtual_id; \
     } else { 		     \
