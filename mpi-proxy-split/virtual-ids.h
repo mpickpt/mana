@@ -98,17 +98,17 @@
   UPDATE_MAP(v, r, MPI_OP_NULL)
 
 #define DESC_TO_VIRTUAL_COMM_KEYVAL(id) \
-  DESC_TO_VIRTUAL(id, MPI_COMM_KEYVAL_NULL) 
+  DESC_TO_VIRTUAL(id, 0) 
 #define VIRTUAL_TO_DESC_COMM_KEYVAL(id) \
-  VIRTUAL_TO_DESC(id, MPI_COMM_KEYVAL_NULL, virt_comm_keyval_t)
+  VIRTUAL_TO_DESC(id, 0, comm_keyval_desc_t)
 #define VIRTUAL_TO_REAL_COMM_KEYVAL(id) \
-  VIRTUAL_TO_REAL(id, MPI_COMM_KEYVAL_NULL, MPI_Commkeyval, virt_comm_keyval_t)
+  VIRTUAL_TO_REAL(id, 0, int, comm_keyval_desc_t)
 #define ADD_NEW_COMM_KEYVAL(id) \
-  ADD_NEW(id, MPI_COMM_KEYVAL_NULL, MPI_Commkeyval, virt_comm_keyval_t)
+  ADD_NEW(id, 0, int, comm_keyval_desc_t)
 #define REMOVE_OLD_COMM_KEYVAL(id) \
-  REMOVE_OLD(id, MPI_COMM_KEYVAL_NULL)
+  REMOVE_OLD(id, 0)
 #define UPDATE_COMM_KEYVAL_MAP(v, r) \
-  UPDATE_MAP(v, r, MPI_COMM_KEYVAL_NULL)
+  UPDATE_MAP(v, r, 0)
 
 #define DESC_TO_VIRTUAL_REQUEST(id) \
   DESC_TO_VIRTUAL(id, MPI_REQUEST_NULL) 
@@ -209,6 +209,11 @@ struct file_desc_t {
   // TODO We probably want to save something else too.
 };
 
+struct comm_keyval_desc_t {
+  int comm_keyval_desc_t real_id;
+  int handle;
+}
+
 union id_desc_t {
     comm_desc_t comm;
     group_desc_t group;
@@ -216,12 +221,15 @@ union id_desc_t {
     op_desc_t op;
     datatype_desc_t datatype;
     file_desc_t file;
+    comm_keyval_desc_t comm_keyval;
+
   operator comm_desc_t () const { return comm; }
   operator group_desc_t () const { return group; }
   operator request_desc_t () const { return request; }
   operator op_desc_t () const { return op; }
   operator datatype_desc_t () const { return datatype; }
   operator file_desc_t () const { return file; }
+  operator comm_keyval_desc_t () const { return comm_keyval; }
 };
 
 extern std::map<int, id_desc_t*> idDescriptorTable;
