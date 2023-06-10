@@ -42,7 +42,6 @@
     } \
     toReturn; \
 })
-//(virtual_id == null) ? null : ((real_id_type)updateMapping(*((int*)(&virtual_id)), (real_id==null) ? 0 : *((long*)(&real_id))))
 
 #define DESC_TO_VIRTUAL_FILE(id) \
   DESC_TO_VIRTUAL(id, MPI_FILE_NULL) 
@@ -147,14 +146,6 @@
   })
 #endif // ifndef NEXT_FUNC
 
-/* struct ggid_desc_t; */
-/* struct comm_desc_t; */
-/* struct group_desc_t; */
-/* struct request_desc_t; */
-/* struct op_desc_t; */
-/* struct datatype_desc_t; */
-/* union id_desc_t; */
-
 struct ggid_desc_t {
   int ggid; // hashing results of communicator members
 
@@ -253,7 +244,6 @@ typedef std::pair<int, ggid_desc_t*> ggid_desc_pair;
 
 long onRemove(int virtId);
 int assignVid(id_desc_t* desc);
-int updateMapping(int virtId, long realId);
 id_desc_t* virtualToDescriptor(int virtId);
 int descriptorToVirtual(id_desc_t* desc);
 id_desc_t* init_id_desc_t();
@@ -265,6 +255,5 @@ comm_desc_t* init_comm_desc_t(MPI_Comm realComm);
 file_desc_t* init_file_desc_t(MPI_File realFile);
 int getggid(MPI_Comm comm);
 int hash(int i);
-long virtual_to_real(id_desc_t* desc);
 
 #endif // ifndef VIRTUAL_ID_H
