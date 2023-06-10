@@ -29,8 +29,8 @@
 #define REMOVE_OLD(virtual_id, null) \
   (virtual_id == null) ? null : onRemove(virtual_id)
 
-#define UPDATE_MAP(virtual_id, real_id, null) \
-  (virtual_id == null) ? null : updateMapping(*((int*)(&virtual_id)), *((long*)(&real_id)))
+#define UPDATE_MAP(virtual_id, real_id, null, real_id_type)				\
+  (virtual_id == null) ? null : ((real_id_type)updateMapping(*((int*)(&virtual_id)), *((long*)(&real_id))))
 
 #define DESC_TO_VIRTUAL_FILE(id) \
   DESC_TO_VIRTUAL(id, MPI_FILE_NULL) 
@@ -43,7 +43,7 @@
 #define REMOVE_OLD_FILE(id) \
   REMOVE_OLD(id, MPI_FILE_NULL)
 #define UPDATE_FILE_MAP(v, r) \
-  UPDATE_MAP(v, r, MPI_FILE_NULL)
+  UPDATE_MAP(v, r, MPI_FILE_NULL, MPI_File)
 
 #define DESC_TO_VIRTUAL_COMM(id) \
   DESC_TO_VIRTUAL(id, MPI_COMM_NULL) 
@@ -56,7 +56,7 @@
 #define REMOVE_OLD_COMM(id) \
   REMOVE_OLD(id, MPI_COMM_NULL)
 #define UPDATE_COMM_MAP(v, r) \
-  UPDATE_MAP(v, r, MPI_COMM_NULL)
+  UPDATE_MAP(v, r, MPI_COMM_NULL, MPI_Comm)
 
 #define DESC_TO_VIRTUAL_GROUP(id) \
   DESC_TO_VIRTUAL(id, MPI_GROUP_NULL) 
@@ -69,7 +69,7 @@
 #define REMOVE_OLD_GROUP(id) \
   REMOVE_OLD(id, MPI_GROUP_NULL)
 #define UPDATE_GROUP_MAP(v, r) \
-  UPDATE_MAP(v, r, MPI_GROUP_NULL)
+  UPDATE_MAP(v, r, MPI_GROUP_NULL, MPI_Group)
 
 #define DESC_TO_VIRTUAL_TYPE(id) \
   DESC_TO_VIRTUAL(id, MPI_DATATYPE_NULL) 
@@ -82,7 +82,7 @@
 #define REMOVE_OLD_TYPE(id) \
   REMOVE_OLD(id, MPI_DATATYPE_NULL)
 #define UPDATE_TYPE_MAP(v, r) \
-  UPDATE_MAP(v, r, MPI_DATATYPE_NULL)
+  UPDATE_MAP(v, r, MPI_DATATYPE_NULL, MPI_Datatype)
 
 #define DESC_TO_VIRTUAL_OP(id) \
   DESC_TO_VIRTUAL(id, MPI_OP_NULL) 
@@ -95,7 +95,7 @@
 #define REMOVE_OLD_OP(id) \
   REMOVE_OLD(id, MPI_OP_NULL)
 #define UPDATE_OP_MAP(v, r) \
-  UPDATE_MAP(v, r, MPI_OP_NULL)
+  UPDATE_MAP(v, r, MPI_OP_NULL, MPI_Op)
 
 #define DESC_TO_VIRTUAL_COMM_KEYVAL(id) \
   DESC_TO_VIRTUAL(id, 0) 
@@ -108,7 +108,7 @@
 #define REMOVE_OLD_COMM_KEYVAL(id) \
   REMOVE_OLD(id, 0)
 #define UPDATE_COMM_KEYVAL_MAP(v, r) \
-  UPDATE_MAP(v, r, 0)
+  UPDATE_MAP(v, r, 0, int)
 
 #define DESC_TO_VIRTUAL_REQUEST(id) \
   DESC_TO_VIRTUAL(id, MPI_REQUEST_NULL) 
@@ -121,7 +121,7 @@
 #define REMOVE_OLD_REQUEST(id) \
   REMOVE_OLD(id, MPI_REQUEST_NULL)
 #define UPDATE_REQUEST_MAP(v, r) \
-  UPDATE_MAP(v, r, MPI_REQUEST_NULL)
+  UPDATE_MAP(v, r, MPI_REQUEST_NULL, MPI_Request)
 
 #ifndef NEXT_FUNC
 # define NEXT_FUNC(func)                                                       \
@@ -241,7 +241,7 @@ typedef std::pair<int, ggid_desc_t*> ggid_desc_pair;
 
 long onRemove(int virtId);
 int assignVid(id_desc_t* desc);
-long updateMapping(int virtId, long realId);
+int updateMapping(int virtId, long realId);
 id_desc_t* virtualToDescriptor(int virtId);
 int descriptorToVirtual(id_desc_t* desc);
 id_desc_t* init_id_desc_t();
