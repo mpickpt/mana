@@ -16,15 +16,12 @@
 // #define REAL_TO_VIRTUAL(id, null) \ 
 //   (DESCRIPTOR_TO_VIRTUAL(id, null) == NULL) ? NULL : VIRTUAL_TO_DESCRIPTOR(id, null)
 
-// HACK We use GNU macro extensions to store a temporary variable tmp.
 #define VIRTUAL_TO_REAL(id, null, real_id_type, desc_type)    \
     ({                                              \
       id_desc_t* _VTR_tmp = VIRTUAL_TO_DESC(id, null);		\
        real_id_type _VTR_id = (_VTR_tmp == NULL) ? null : ((desc_type *)_VTR_tmp)->real_id; \
        _VTR_id; \
      })
-// virtual_to_real(VIRTUAL_TO_DESC(id, null));
-//id_desc_t* VTR_tmp = VIRTUAL_TO_DESC(id, null); (VTR_tmp == NULL) ? NULL : VTR_tmp->real_id
 
 #define ADD_NEW(real_id, null, real_id_type, descriptor_type)		\
   (real_id == null) ? null : ((real_id_type)assignVid((union id_desc_t*) CONCAT(init_,descriptor_type)(real_id)))
@@ -219,10 +216,18 @@ union id_desc_t {
     op_desc_t op;
     datatype_desc_t datatype;
     file_desc_t file;
+  operator comm_desc_t () const { return comm; }
+  operator group_desc_t () const { return group; }
+  operator request_desc_t () const { return request; }
+  operator op_desc_t () const { return op; }
+  operator datatype_desc_t () const { return datatype; }
+  operator file_desc_t () const { return file; }
 };
 
 extern std::map<int, id_desc_t*> idDescriptorTable;
 extern std::map<int, ggid_desc_t*> ggidDescriptorTable; 
+typedef typename std::map<int, id_desc_t*>::iterator id_desc_iterator;
+typedef typename std::map<int, ggid_desc_t*>::iterator ggid_desc_iterator;
 
 long onRemove(int virtId);
 int assignVid(id_desc_t* desc);
