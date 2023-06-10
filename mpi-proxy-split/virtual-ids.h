@@ -10,7 +10,7 @@
   (id == null) ? null : descriptorToVirtual(type)
 
 #define VIRTUAL_TO_DESC(id, null) \
-  (id == null) ? NULL : virtualToDescriptor((int) id)
+  (id == null) ? NULL : virtualToDescriptor( *((int*)(&id)) )
 
 // NOTE this operation is now accomplished effectively with DESCRIPTOR_TO_VIRTUAL.
 // #define REAL_TO_VIRTUAL(id, null) \ 
