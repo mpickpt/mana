@@ -212,7 +212,7 @@ struct file_desc_t {
 struct comm_keyval_desc_t {
   int comm_keyval_desc_t real_id;
   int handle;
-}
+};
 
 union id_desc_t {
     comm_desc_t comm;
