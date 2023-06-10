@@ -168,7 +168,7 @@ id_desc_t* virtualToDescriptor(int virtId) {
 // Given int virtualId and realId of MPI size, update the descriptor referenced by virtualid, if it exists.
 // TODO If the referenced virtualID does not exist, create a descriptor for it.
 // Returns a reference to the descriptor created.
-long updateMapping(int virtId, long realId) { // HACK MPICH
+int updateMapping(int virtId, long realId) { // HACK MPICH
   id_desc_iterator it = idDescriptorTable.find(virtId);
   if (it != idDescriptorTable.end()) {
     id_desc_t* desc = idDescriptorTable[virtId]; // if doesn't exist?
