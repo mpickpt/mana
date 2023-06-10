@@ -233,7 +233,7 @@ typedef std::pair<int, ggid_desc_t*> ggid_desc_pair;
 
 long onRemove(int virtId);
 int assignVid(id_desc_t* desc);
-id_desc_t* updateMapping(int virtId, long realId);
+long updateMapping(int virtId, long realId);
 id_desc_t* virtualToDescriptor(int virtId);
 int descriptorToVirtual(id_desc_t* desc);
 id_desc_t* init_id_desc_t();
