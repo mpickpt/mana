@@ -31,7 +31,7 @@
 
 #define UPDATE_MAP(virtual_id, to_update, null, descriptor_type, to_update_type)	\
   ({ \
-    id_desc_iterator _UM_it = idDescriptorTable.find(*((int*)(&virtual_id)) virtual_id); \
+    id_desc_iterator _UM_it = idDescriptorTable.find(*((int*)(&virtual_id))); \
     to_update_type toReturn; \
     if (_UM_it != idDescriptorTable.end()) { \
       descriptor_type* desc = ((descriptor_type*)idDescriptorTable[*((int*)(&virtual_id))]); \
