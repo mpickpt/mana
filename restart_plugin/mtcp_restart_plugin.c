@@ -1,3 +1,4 @@
+#include <stdbool.h>
 #include <asm/prctl.h>
 #define _GNU_SOURCE // needed for MREMAP_MAYMOVE
 #include <sys/mman.h>
@@ -362,6 +363,20 @@ set_header_filepath(char* full_filename, char* restartDir)
   mtcp_strncat(full_filename, header_filename, mtcp_strlen(header_filename));
 }
 
+bool is_overlap(char *start1, char *end1, char *start2, char *end2) {
+  // Check if either memory region is NULL (set to 0).
+  if (start1 == NULL || start2 == NULL) {
+    return false;
+  }
+  // Check if the two memory regions are contiguous
+  if (end1 < start2 || end2 < start1) {
+    return false;
+  }
+  // The two memory regions overlap if the end of one region is
+  //   greater than or equal to the start of the other region
+  return end1 >= start2 || end2 >= start1;
+}
+
 #ifdef SINGLE_CART_REORDER
 int
 load_cartesian_properties(char *filename, CartesianProperties *cp)
@@ -473,7 +488,7 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
     start2 = rinfo->minHighMemStart;
     end2 = rinfo->minHighMemStart + 8 * MB;
     // Ignore region start2:end2 if it is overlapped with region start1:end1
-    if (start2 >= start1 && end2 <= end1) {
+    if (is_overlap(start1, end1, start2, end2)) {
       start2 = 0;
       end2 = 0;
     }
@@ -502,7 +517,7 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
     start2 = rinfo->minHighMemStart;
     end2 = rinfo->minHighMemStart + 8 * MB;
     // Ignore region start2:end2 if it is overlapped with region start1:end1
-    if (start2 >= start1 && end2 <= end1) {
+    if (is_overlap(start1, end1, start2, end2)) {
       start2 = 0;
       end2 = 0;
     }
@@ -613,7 +628,7 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
     start2 = rinfo->minHighMemStart;
     end2 = rinfo->minHighMemStart + 8 * MB;
     // Ignore region start2:end2 if it is overlapped with region start1:end1
-    if (start2 >= start1 && end2 <= end1) {
+    if (is_overlap(start1, end1, start2, end2)) {
       end2 = 0;
       start2 = 0;
     }
@@ -642,7 +657,7 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
     start2 = rinfo->minHighMemStart;
     end2 = rinfo->minHighMemStart + 8 * MB;
     // Ignore region start2:end2 if it is overlapped with region start1:end1
-    if (start2 >= start1 && end2 <= end1) {
+    if (is_overlap(start1, end1, start2,end2)) {
       end2 = 0;
       start2 = 0;
     }
