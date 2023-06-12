@@ -39,7 +39,7 @@
       descriptor_type* _RO_torem; \
       id_desc_iterator it = idDescriptorTable.find(virtual_id); \
       if (it != idDescriptorTable.end()) { \
-	 _RO_torem = it->second; \
+	_RO_torem = ((descriptor_type*)it->second);	   \
       } \
       idDescriptorTable.erase(virtual_id); \
       _RO_retval = _RO_torem->real_id; \
