@@ -150,11 +150,6 @@ id_desc_t* init_id_desc_t() {
   return NULL;
 }
 
-// Given id_desc_t, return the contained virtualid.
-int descriptorToVirtual(id_desc_t* desc) {
-  return ((comm_desc_t*)desc)->handle;
-}
-
 // Given int virtualid, return the contained id_desc_t if it exists.
 // Otherwise return NULL
 id_desc_t* virtualToDescriptor(int virtId) {
