@@ -145,11 +145,6 @@ file_desc_t* init_file_desc_t(MPI_File realFile) {
   return desc;
 }
 
-id_desc_t* init_id_desc_t() {
-  int vId = nextvId++;
-  return NULL;
-}
-
 // Given int virtualid, return the contained id_desc_t if it exists.
 // Otherwise return NULL
 id_desc_t* virtualToDescriptor(int virtId) {
@@ -158,16 +153,6 @@ id_desc_t* virtualToDescriptor(int virtId) {
     return it->second;
   }
   return NULL;
-}
-
-// Given id desc, get vid, fill out the vid handle, and map the desc.
-// Returns the vId assigned.
-int assignVid(id_desc_t* desc) {
-  int vId = nextvId++; // TODO
-  ((comm_desc_t*)desc)->handle = vId;
-
-  idDescriptorTable[vId] = desc;
-  return vId;
 }
 
 // Remove a descriptor by its virtualid.

@@ -23,15 +23,30 @@
 
 #define ADD_NEW(real_id, null, real_id_type, descriptor_type)		\
   ({ \
-  descriptor_type* _AD_desc = CONCAT(init_,descriptor_type)(real_id) \
-  int _AD_vId = nextvId++; \
-  _AD_desc->handle = _AD_vId; \
-  idDescriptorTable[_AD_vId] = _AD_vId; \
-  _AD_vId; \
+    descriptor_type* _AD_desc = CONCAT(init_,descriptor_type)(real_id) \
+    int _AD_vId = nextvId++; \
+    _AD_desc->handle = _AD_vId; \
+    idDescriptorTable[_AD_vId] = _AD_vId; \
+    _AD_vId; \
   )}
 
-#define REMOVE_OLD(virtual_id, null) \
-  (virtual_id == null) ? null : onRemove(virtual_id)
+#define REMOVE_OLD(virtual_id, null, descriptor_type, real_type)	\
+  ({ \
+    real_type _RO_retval; \
+    if (virtual_id == null) { \
+      _RO_retval = null; \
+    } else { \
+      descriptor_type _RO_torem; \
+      id_iterator it = idDescriptorTable.find(virtual_id); \
+      if (it != idDescriptorTable.end()) { \
+	 _RO_torem = it->second; \
+      } \
+      idDescriptorTable.erase(virtual_id); \
+      _RO_retval = _RO_torem->real_id; \
+      free(_RO_torem); \
+    }  \
+    _RO_retval; \
+  )}
 
 #define UPDATE_MAP(virtual_id, to_update, null, descriptor_type, to_update_type)	\
   ({ \
@@ -247,7 +262,6 @@ typedef std::pair<int, id_desc_t*> id_desc_pair;
 typedef std::pair<int, ggid_desc_t*> ggid_desc_pair;
 
 long onRemove(int virtId);
-int assignVid(id_desc_t* desc);
 id_desc_t* virtualToDescriptor(int virtId);
 id_desc_t* init_id_desc_t();
 datatype_desc_t* init_datatype_desc_t(MPI_Datatype realType);
