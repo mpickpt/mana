@@ -5,16 +5,14 @@
 
 #define CONCAT(a,b) a ## b
 
-// Writing these macros as ternary expressions means there is no overhead associated with extra function arguments.
-#define DESC_TO_VIRTUAL(id, null) \
-  (id == null) ? null : descriptorToVirtual(type)
+#define DESC_TO_VIRTUAL(desc)		\
+  ({ \
+   int _DTV_vId = (desc == NULL) ? 0 : desc->handle; \
+   _DTV_vId; \
+  })
 
 #define VIRTUAL_TO_DESC(id, null, desc_type)					\
   (id == null) ? NULL : ((desc_type*) virtualToDescriptor( *((int*)(&id)) ))
-
-// NOTE this operation is now accomplished effectively with DESCRIPTOR_TO_VIRTUAL.
-// #define REAL_TO_VIRTUAL(id, null) \ 
-//   (DESCRIPTOR_TO_VIRTUAL(id, null) == NULL) ? NULL : VIRTUAL_TO_DESCRIPTOR(id, null)
 
 #define VIRTUAL_TO_REAL(id, null, real_id_type, desc_type)    \
     ({                                              \
@@ -43,8 +41,8 @@
     toReturn; \
 })
 
-#define DESC_TO_VIRTUAL_FILE(id) \
-  DESC_TO_VIRTUAL(id, MPI_FILE_NULL) 
+#define DESC_TO_VIRTUAL_FILE(desc) \
+  DESC_TO_VIRTUAL(desc) 
 #define VIRTUAL_TO_DESC_FILE(id) \
   VIRTUAL_TO_DESC(id, MPI_FILE_NULL, file_desc_t)
 #define VIRTUAL_TO_REAL_FILE(id) \
@@ -56,8 +54,8 @@
 #define UPDATE_FILE_MAP(v, r) \
   UPDATE_MAP(v, r, MPI_FILE_NULL, file_desc_t, MPI_File)
 
-#define DESC_TO_VIRTUAL_COMM(id) \
-  DESC_TO_VIRTUAL(id, MPI_COMM_NULL) 
+#define DESC_TO_VIRTUAL_COMM(desc) \
+  DESC_TO_VIRTUAL(desc) 
 #define VIRTUAL_TO_DESC_COMM(id) \
   VIRTUAL_TO_DESC(id, MPI_COMM_NULL, comm_desc_t)
 #define VIRTUAL_TO_REAL_COMM(id) \
@@ -69,8 +67,8 @@
 #define UPDATE_COMM_MAP(v, r) \
   UPDATE_MAP(v, r, MPI_COMM_NULL, comm_desc_t, MPI_Comm)
 
-#define DESC_TO_VIRTUAL_GROUP(id) \
-  DESC_TO_VIRTUAL(id, MPI_GROUP_NULL) 
+#define DESC_TO_VIRTUAL_GROUP(desc) \
+  DESC_TO_VIRTUAL(desc) 
 #define VIRTUAL_TO_DESC_GROUP(id) \
   VIRTUAL_TO_DESC(id, MPI_GROUP_NULL, group_desc_t)
 #define VIRTUAL_TO_REAL_GROUP(id) \
@@ -82,8 +80,8 @@
 #define UPDATE_GROUP_MAP(v, r) \
   UPDATE_MAP(v, r, MPI_GROUP_NULL, group_desc_t, MPI_Group)
 
-#define DESC_TO_VIRTUAL_TYPE(id) \
-  DESC_TO_VIRTUAL(id, MPI_DATATYPE_NULL) 
+#define DESC_TO_VIRTUAL_TYPE(desc) \
+  DESC_TO_VIRTUAL(desc) 
 #define VIRTUAL_TO_DESC_TYPE(id) \
   VIRTUAL_TO_DESC(id, MPI_DATATYPE_NULL, datatype_desc_t)
 #define VIRTUAL_TO_REAL_TYPE(id) \
@@ -95,8 +93,8 @@
 #define UPDATE_TYPE_MAP(v, r) \
   UPDATE_MAP(v, r, MPI_DATATYPE_NULL, datatype_desc_t, MPI_Datatype)
 
-#define DESC_TO_VIRTUAL_OP(id) \
-  DESC_TO_VIRTUAL(id, MPI_OP_NULL) 
+#define DESC_TO_VIRTUAL_OP(desc) \
+  DESC_TO_VIRTUAL(desc) 
 #define VIRTUAL_TO_DESC_OP(id) \
   VIRTUAL_TO_DESC(id, MPI_OP_NULL, op_desc_t)
 #define VIRTUAL_TO_REAL_OP(id) \
@@ -108,8 +106,8 @@
 #define UPDATE_OP_MAP(v, r) \
   UPDATE_MAP(v, r, MPI_OP_NULL, op_desc_t, MPI_Op)
 
-#define DESC_TO_VIRTUAL_COMM_KEYVAL(id) \
-  DESC_TO_VIRTUAL(id, 0) 
+#define DESC_TO_VIRTUAL_COMM_KEYVAL(desc) \
+  DESC_TO_VIRTUAL(desc) 
 #define VIRTUAL_TO_DESC_COMM_KEYVAL(id) \
   VIRTUAL_TO_DESC(id, 0, comm_keyval_desc_t)
 #define VIRTUAL_TO_REAL_COMM_KEYVAL(id) \
@@ -121,8 +119,8 @@
 #define UPDATE_COMM_KEYVAL_MAP(v, r) \
   UPDATE_MAP(v, r, 0, comm_keyval_desc_t, int)
 
-#define DESC_TO_VIRTUAL_REQUEST(id) \
-  DESC_TO_VIRTUAL(id, MPI_REQUEST_NULL) 
+#define DESC_TO_VIRTUAL_REQUEST(desc) \
+  DESC_TO_VIRTUAL(desc) 
 #define VIRTUAL_TO_DESC_REQUEST(id) \
   VIRTUAL_TO_DESC(id, MPI_REQUEST_NULL, request_desc_t)
 #define VIRTUAL_TO_REAL_REQUEST(id) \
@@ -245,7 +243,6 @@ typedef std::pair<int, ggid_desc_t*> ggid_desc_pair;
 long onRemove(int virtId);
 int assignVid(id_desc_t* desc);
 id_desc_t* virtualToDescriptor(int virtId);
-int descriptorToVirtual(id_desc_t* desc);
 id_desc_t* init_id_desc_t();
 datatype_desc_t* init_datatype_desc_t(MPI_Datatype realType);
 op_desc_t* init_op_desc_t(MPI_Op realOp);
