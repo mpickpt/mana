@@ -5,9 +5,9 @@
 
 #define CONCAT(a,b) a ## b
 
-#define DESC_TO_VIRTUAL(desc)		\
+#define DESC_TO_VIRTUAL(desc, null, real_type)		\
   ({ \
-   int _DTV_vId = (desc == NULL) ? 0 : desc->handle; \
+    real_type _DTV_vId = (desc == NULL) ? null : desc->handle; \
    _DTV_vId; \
   })
 
@@ -22,7 +22,13 @@
      })
 
 #define ADD_NEW(real_id, null, real_id_type, descriptor_type)		\
-  (real_id == null) ? null : ((real_id_type)assignVid((union id_desc_t*) CONCAT(init_,descriptor_type)(real_id)))
+  ({ \
+  descriptor_type* _AD_desc = CONCAT(init_,descriptor_type)(real_id) \
+  int _AD_vId = nextvId++; \
+  _AD_desc->handle = _AD_vId; \
+  idDescriptorTable[_AD_vId] = _AD_vId; \
+  _AD_vId; \
+  )}
 
 #define REMOVE_OLD(virtual_id, null) \
   (virtual_id == null) ? null : onRemove(virtual_id)
