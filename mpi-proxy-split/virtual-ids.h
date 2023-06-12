@@ -51,15 +51,15 @@
 #define UPDATE_MAP(virtual_id, to_update, null, descriptor_type, to_update_type)	\
   ({ \
     id_desc_iterator _UM_it = idDescriptorTable.find(*((int*)(&virtual_id))); \
-    to_update_type toReturn; \
+    to_update_type _UM_retval; \
     if (_UM_it != idDescriptorTable.end()) { \
       descriptor_type* desc = ((descriptor_type*)idDescriptorTable[*((int*)(&virtual_id))]); \
       desc->real_id = to_update; \
-      toReturn = virtual_id; \
+      _UM_retval = virtual_id; \
     } else { 		     \
-      toReturn = null; \
+      _UM_retval = null; \
     } \
-    toReturn; \
+    _UM_retval; \
 })
 
 #define DESC_TO_VIRTUAL_FILE(desc) \
