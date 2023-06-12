@@ -36,7 +36,7 @@
     if (virtual_id == null) { \
       _RO_retval = null; \
     } else { \
-      descriptor_type _RO_torem; \
+      descriptor_type* _RO_torem; \
       id_iterator it = idDescriptorTable.find(virtual_id); \
       if (it != idDescriptorTable.end()) { \
 	 _RO_torem = it->second; \
