@@ -110,11 +110,22 @@ comm_desc_t* init_comm_desc_t(MPI_Comm realComm) {
   return desc;
 }
 
+void destroy_comm_desc_t(comm_desc_t* desc) {
+  free(desc->ranks);
+  ggid_desc_t* tmp = desc->ggid_desc;
+  free(desc);
+}
+
 group_desc_t* init_group_desc_t(MPI_Group realGroup) {
   group_desc_t* desc = ((group_desc_t*)malloc(sizeof(group_desc_t)));
   desc->real_id = realGroup;
   desc->ranks = NULL;
   return desc;
+}
+
+void destroy_group_desc_t(group_desc_t* group) {
+  free(group->ranks);
+  free(group);
 }
 
 request_desc_t* init_request_desc_t(MPI_Request realReq) {
@@ -125,11 +136,20 @@ request_desc_t* init_request_desc_t(MPI_Request realReq) {
   return desc;
 }
 
+void destroy_request_desc_t(request_desc_t* request) {
+  free(request);
+}
+
 op_desc_t* init_op_desc_t(MPI_Op realOp) {
   op_desc_t* desc = ((op_desc_t*)malloc(sizeof(op_desc_t)));
   desc->real_id = realOp;
   desc->user_fn = NULL;
   return desc;
+}
+
+void destroy_op_desc_t(op_desc_t* op) {
+  free(op->user_fn); // TODO
+  free(op);
 }
 
 datatype_desc_t* init_datatype_desc_t(MPI_Datatype realType) {
@@ -148,10 +168,23 @@ datatype_desc_t* init_datatype_desc_t(MPI_Datatype realType) {
   return desc;
 }
 
+void destroy_datatype_desc_t(datatype_desc_t* datatype) {
+  free(datatype->integers); // TODO
+  free(datatype->addresses);
+  free(datatype->large_counts);
+  free(datatype->datatypes);
+  free(datatype->combiner);
+  free(datatype);
+}
+
 file_desc_t* init_file_desc_t(MPI_File realFile) {
   file_desc_t* desc = ((file_desc_t*)malloc(sizeof(file_desc_t)));
   desc->real_id = realFile;
   return desc;
+}
+
+void destroy_file_desc_t(file_desc_t* file) {
+  free(file);
 }
 
 // Given int virtualid, return the contained id_desc_t if it exists.
