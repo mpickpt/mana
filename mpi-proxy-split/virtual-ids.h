@@ -23,7 +23,7 @@
 
 #define ADD_NEW(real_id, null, real_id_type, descriptor_type)		\
   ({ \
-    descriptor_type* _AD_desc = CONCAT(init_,descriptor_type)(real_id) \
+    descriptor_type* _AD_desc = CONCAT(init_,descriptor_type)(real_id); \
     int _AD_vId = nextvId++; \
     _AD_desc->handle = _AD_vId; \
     idDescriptorTable[_AD_vId] = _AD_vId; \
