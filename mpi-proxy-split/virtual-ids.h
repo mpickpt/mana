@@ -26,7 +26,7 @@
     descriptor_type* _AD_desc = CONCAT(init_,descriptor_type)(real_id); \
     int _AD_vId = nextvId++; \
     _AD_desc->handle = _AD_vId; \
-    idDescriptorTable[_AD_vId] = _AD_desc; \
+    idDescriptorTable[_AD_vId] = ((union id_desc_t*) _AD_desc);	\
     _AD_vId; \
   )}
 
