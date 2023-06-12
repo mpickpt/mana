@@ -256,6 +256,8 @@ union id_desc_t {
 
 extern std::map<int, id_desc_t*> idDescriptorTable;
 extern std::map<int, ggid_desc_t*> ggidDescriptorTable; 
+extern int base;
+extern int nextvId;
 typedef typename std::map<int, id_desc_t*>::iterator id_desc_iterator;
 typedef typename std::map<int, ggid_desc_t*>::iterator ggid_desc_iterator;
 typedef std::pair<int, id_desc_t*> id_desc_pair;
