@@ -154,19 +154,3 @@ id_desc_t* virtualToDescriptor(int virtId) {
   }
   return NULL;
 }
-
-// Remove a descriptor by its virtualid.
-// Returns the real id unmapped in the descriptor, which should fit into a long.
-long onRemove(int virtId) {
-  id_desc_t* desc;
-
-  id_iterator it = idDescriptorTable.find(virtId);
-  if (it != idDescriptorTable.end()) {
-    desc = it->second;
-  }
-  idDescriptorTable.erase(virtId);
-
-  long realId = ((comm_desc_t *)vType)->real_id; // HACK MPICH
-  free(vType);
-  return realId;
-}
