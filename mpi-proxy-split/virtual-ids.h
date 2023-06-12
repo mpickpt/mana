@@ -27,7 +27,7 @@
     int _AD_vId = nextvId++; \
     _AD_desc->handle = _AD_vId; \
     idDescriptorTable[_AD_vId] = ((union id_desc_t*) _AD_desc);	\
-    _AD_vId; \
+    *((real_id_type*)&_AD_vId);						\
   })
 
 #define REMOVE_OLD(virtual_id, null, descriptor_type, real_type)	\
