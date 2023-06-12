@@ -139,7 +139,7 @@ request_desc_t* init_request_desc_t(MPI_Request realReq) {
   request_desc_t* desc = ((request_desc_t*)malloc(sizeof(request_desc_t)));
   desc->real_id = realReq;
   desc->request_kind = NULL;
-  desc->status = 0;
+  MPI_Request_get_status(realReq, NULL, desc->status);
   return desc;
 }
 
