@@ -42,7 +42,7 @@ typedef typename std::map<int, ggid_desc_t*>::iterator ggid_desc_iterator;
 
 // Per Yao Xu, MANA does not require the thread safety offered by DMTCP's VirtualIdTable. We use std::map.
 std::map<int, id_desc_t*> idDescriptorTable; // int vId -> id_desc_t*, which contains rId.
-std::map<int, ggid_desc_t*> ggidDescriptorTable; // int ggid -> ggid_desc_t*
+std::map<int, ggid_desc_t*> ggidDescriptorTable; // int ggid -> ggid_desc_t*, which contains CVC information.
 
 // vid generation mechanism.
 int base = 1;
@@ -82,6 +82,8 @@ int getggid(MPI_Comm comm, int worldRank, int commSize, int* rbuf) {
   return ggid;
 }
 
+// This is a descriptor initializer. Its job is to write a descriptor for a real MPI Communicator.
+// This means making MPI calls that obtain metadata about this MPI communicator.
 comm_desc_t* init_comm_desc_t(MPI_Comm realComm) {
   int worldRank, commSize;
   MPI_Comm_rank(MPI_COMM_WORLD, &worldRank);
@@ -111,6 +113,8 @@ comm_desc_t* init_comm_desc_t(MPI_Comm realComm) {
   return desc;
 }
 
+// This is a communicator descriptor destructor.
+// Its job is to free the communicator descriptor (but NOT the real communicator, or related, itself)
 void destroy_comm_desc_t(comm_desc_t* desc) {
   free(desc->ranks);
   ggid_desc_t* tmp = desc->ggid_desc;
