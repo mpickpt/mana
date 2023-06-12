@@ -56,7 +56,7 @@
       } \
       idDescriptorTable.erase(virtual_id); \
       _RO_retval = _RO_torem->real_id; \
-      free(_RO_torem); \
+      CONCAT(destroy_,descriptor_type)(_RO_torem); \
     }  \
     _RO_retval; \
   })
@@ -277,13 +277,21 @@ typedef std::pair<int, id_desc_t*> id_desc_pair;
 typedef std::pair<int, ggid_desc_t*> ggid_desc_pair;
 
 id_desc_t* virtualToDescriptor(int virtId);
-id_desc_t* init_id_desc_t();
+
 datatype_desc_t* init_datatype_desc_t(MPI_Datatype realType);
 op_desc_t* init_op_desc_t(MPI_Op realOp);
 request_desc_t* init_request_desc_t(MPI_Request realReq);
 group_desc_t* init_group_desc_t(MPI_Group realGroup);
 comm_desc_t* init_comm_desc_t(MPI_Comm realComm);
 file_desc_t* init_file_desc_t(MPI_File realFile);
+
+void destroy_datatype_desc_t(datatype_desc_t* datatype);
+void destroy_op_desc_t(op_desc_t* op);
+void destroy_request_desc_t(request_desc_t* request);
+void destroy_group_desc_t(group_desc_t* group);
+void destroy_comm_desc_t(comm_desc_t* comm);
+void destroy_file_desc_t(file_desc_t* file);
+
 int getggid(MPI_Comm comm);
 int hash(int i);
 
