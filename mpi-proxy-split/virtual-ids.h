@@ -28,7 +28,7 @@
     _AD_desc->handle = _AD_vId; \
     idDescriptorTable[_AD_vId] = ((union id_desc_t*) _AD_desc);	\
     _AD_vId; \
-  )}
+  })
 
 #define REMOVE_OLD(virtual_id, null, descriptor_type, real_type)	\
   ({ \
@@ -46,7 +46,7 @@
       free(_RO_torem); \
     }  \
     _RO_retval; \
-  )}
+  })
 
 #define UPDATE_MAP(virtual_id, to_update, null, descriptor_type, to_update_type)	\
   ({ \
