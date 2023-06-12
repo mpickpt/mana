@@ -5,6 +5,19 @@
 
 #define CONCAT(a,b) a ## b
 
+#ifndef MPI_LH_CALL
+#define MPI_LH_CALL(call, __VA_ARGS) \
+  ({ \
+    DMTCP_PLUGIN_DISABLE_CKPT();
+    JUMP_TO_LOWER_HALF(lh_info.fsaddr); \
+    NEXT_FUNC(call)(__VA_ARGS); \
+    RETURN_TO_UPPER_HALF(); \
+    DMTCP_PLUGIN_ENABLE_CKPT(); \
+  })
+#endif
+
+// TODO MPI_LH_CALL(Allgather, &worldRank, 1, MPI_INT, rbuf, 1, MPI_INT, realComm);
+
 #define DESC_TO_VIRTUAL(desc, null, real_type)		\
   ({ \
     real_type _DTV_vId = (desc == NULL) ? null : desc->handle; \
