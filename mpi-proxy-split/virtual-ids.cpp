@@ -22,6 +22,7 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 #include <map>
+#include <vector>
 
 #include <mpi.h>
 #include <stdlib.h>
@@ -119,7 +120,13 @@ void destroy_comm_desc_t(comm_desc_t* desc) {
 group_desc_t* init_group_desc_t(MPI_Group realGroup) {
   group_desc_t* desc = ((group_desc_t*)malloc(sizeof(group_desc_t)));
   desc->real_id = realGroup;
-  desc->ranks = NULL;
+  int groupSize;
+  MPI_Group_size(realGroup, &groupSize);
+  int* ranks = ((int*)malloc(sizeof(int) * groupSize));
+  for (int i = 0; i < groupSize; i++) {
+    ranks[i] = i;
+  }
+  desc->ranks = ranks;
   return desc;
 }
 
