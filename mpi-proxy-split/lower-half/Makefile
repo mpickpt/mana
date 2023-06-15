@@ -27,7 +27,7 @@ DMTCP_INCLUDE=${DMTCP_ROOT}/include
 JALIB_INCLUDE=${DMTCP_ROOT}/jalib
 PLUGIN_INCLUDE=${PLUGIN_ROOT}
 
-override CFLAGS += -fPIC -I${DMTCP_INCLUDE}
+override CFLAGS += -fPIC -I${DMTCP_INCLUDE} -g3 -O0
 override CXXFLAGS += -fPIC -I${DMTCP_INCLUDE} -I${JALIB_INCLUDE} \
                      -I${DMTCP_ROOT}/src
 
@@ -75,13 +75,13 @@ ${PROXY_BIN}: ${PROXY_OBJS} ${LIBPROXY}.a ${STATIC_GETHOSTBYNAME}
 	if ${MPICC} -v 2>&1 | grep -q 'MPICH version'; then \
 	  rm -f tmp.sh; \
 	  ${MPICC} -show ${PROXY_LD_FLAGS} ${TEXTSEG_ADDR_FLAG} -o $@ -Wl,-start-group \
-	    $^ ${MPI_LD_FLAG} -lrt -lpthread -lc -Wl,-end-group | \
+	    $^ ${MPI_LD_FLAG} -lrt -lpthread -lc -ldl -Wl,-end-group | \
 	    sed -e 's^-lunwind ^ ^'> tmp.sh; \
 	  sh tmp.sh; \
 	  rm -f tmp.sh; \
 	elif ${STATIC_LIBS}; then \
 	  ${MPICC} ${PROXY_LD_FLAGS} ${TEXTSEG_ADDR_FLAG} -o $@ -Wl,-start-group \
-            $^ ${MPI_LD_FLAG} `cat static_libs.txt` -Wl,--end-group; \
+            $^ ${MPI_LD_FLAG} `cat static_libs.txt` -ldl -Wl,--end-group; \
 	else \
 	  ${MPICC} ${PROXY_LD_FLAGS} ${TEXTSEG_ADDR_FLAG} -o $@ -Wl,-start-group \
             $^ ${MPI_LD_FLAG} -lrt -lpthread -lc -ldl -Wl,-end-group; \
@@ -91,13 +91,13 @@ ${PROXY_BIN_DEFADDR}: ${PROXY_OBJS} ${LIBPROXY}.a ${STATIC_GETHOSTBYNAME}
 	if ${MPICC} -v 2>&1 | grep -q 'MPICH version'; then \
 	  rm -f tmp.sh; \
 	  ${MPICC} -show ${PROXY_LD_FLAGS} -o $@ -Wl,-start-group \
-	    $^ ${MPI_LD_FLAG} -lrt -lpthread -lc -Wl,-end-group | \
+	    $^ ${MPI_LD_FLAG} -lrt -lpthread -lc -ldl -Wl,-end-group | \
 	    sed -e 's^-lunwind ^ ^'> tmp.sh; \
 	  sh tmp.sh; \
 	  rm -f tmp.sh; \
 	elif ${STATIC_LIBS}; then \
 	  ${MPICC} ${PROXY_LD_FLAGS} -o $@ -Wl,-start-group \
-            $^ ${MPI_LD_FLAG} `cat static_libs.txt` -Wl,--end-group; \
+            $^ ${MPI_LD_FLAG} `cat static_libs.txt` -ldl -Wl,--end-group; \
 	else \
 	  ${MPICC} ${PROXY_LD_FLAGS} -o $@ -Wl,-start-group \
 	  $^ ${MPI_LD_FLAG} -lrt -lpthread -lc -ldl -Wl,-end-group; \
