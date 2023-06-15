@@ -34,6 +34,7 @@
 #include "jconvert.h"
 #include "split_process.h"
 #include "virtual-ids.h"
+#include "lower_half_api.h"
 
 
 // #include "jassert.h"
@@ -41,12 +42,12 @@
 // #include "seq_num.h"
 // #include "mpi_nextfunc.h"
 // #include "virtual-ids.h"
-#include "record-replay.h"
+// #include "record-replay.h"
 
 
 
 // may be needed?
-using namespace dmtcp_mpi;
+// using namespace dmtcp_mpi;
 
 #define MAX_VIRTUAL_ID 999
 
