@@ -146,7 +146,7 @@
   UPDATE_MAP(v, r, MPI_OP_NULL, op_desc_t, MPI_Op)
 
 // TODO check with gene if we still need vid<->rid for comm_keyval
-#define DESC_TO_VIRTUAL_COMM_KEYVAL(desc) \ 
+#define DESC_TO_VIRTUAL_COMM_KEYVAL(desc) \
   DESC_TO_VIRTUAL(desc, 0, int) 
 #define VIRTUAL_TO_DESC_COMM_KEYVAL(id) \
   VIRTUAL_TO_DESC(id, 0, comm_keyval_desc_t)
