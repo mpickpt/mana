@@ -164,7 +164,7 @@ op_desc_t* init_op_desc_t(MPI_Op realOp) {
 }
 
 void destroy_op_desc_t(op_desc_t* op) {
-  free(op->user_fn); // TODO
+  // free(op->user_fn); // TODO
   free(op);
 }
 
