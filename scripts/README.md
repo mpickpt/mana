@@ -7,7 +7,7 @@ __author__ : Rajat Bisht
 								/home/<username>/RB_automate_Mana)
 
 1. runt he following command for submitting a request for Mana applciation:
-	$ sbatch tmp_mana_run.script
+	$ sbatch mana_run.script
 
 2. this will output the JOBID associated with the job request. Use the following command to cross check:
 	$ squeue -u <username>
