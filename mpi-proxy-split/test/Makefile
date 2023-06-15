@@ -25,6 +25,8 @@ DEMO_PORT=7787
 ## Reordering the tests:
 # Several tests are excluded from this Makefile because they are redundant:
 # multi_send_recv, send_recv, send_recv_many
+# Comment out FILES_FORTRAN if you don't have an mmpifort compiler.
+FILES_FORTRAN= f_ibarrier wave_mpi day1_mpi quad_mpi poisson_nonblock_mpi
 FILES=mpi_hello_world \
       hello_mpi_init_thread Sendrecv_test Gatherv_test \
       keyval_test file_test Scatterv_test Gather_test \
@@ -38,8 +40,8 @@ FILES=mpi_hello_world \
       Abort_test Allreduce_test Alltoall_test Alltoallv_test \
       Allgather_test Group_size_rank Type_commit_contiguous \
       Irecv_test Alloc_mem sendrecv_replace_test \
-      f_ibarrier Type_hvector_test Type_vector_test \
-      wave_mpi day1_mpi quad_mpi poisson_nonblock_mpi \
+      Type_hvector_test Type_vector_test \
+      ${FILES_FORTRAN} \
       send_recv_loop large_async_p2p \
 	  File_read_write_test File_characteristics_test File_size_test \
 	  File_read_write_all_test \
