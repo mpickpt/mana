@@ -36,9 +36,6 @@
 #include "virtual-ids.h"
 #include "lower_half_api.h"
 
-#include "record-replay.h"
-using namespace dmtcp_mpi;
-
 // #include "jassert.h"
 // #include "kvdb.h"
 // #include "seq_num.h"
