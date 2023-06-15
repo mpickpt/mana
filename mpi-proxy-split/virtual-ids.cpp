@@ -40,6 +40,10 @@
 typedef typename std::map<int, id_desc_t*>::iterator id_desc_iterator;
 typedef typename std::map<int, ggid_desc_t*>::iterator ggid_desc_iterator;
 
+// TODO Go through the descriptors one by one and see what's up.
+// Allgather, local<->global rank function old ggid code
+// seq_num
+
 // Per Yao Xu, MANA does not require the thread safety offered by DMTCP's VirtualIdTable. We use std::map.
 std::map<int, id_desc_t*> idDescriptorTable; // int vId -> id_desc_t*, which contains rId.
 std::map<int, ggid_desc_t*> ggidDescriptorTable; // int ggid -> ggid_desc_t*, which contains CVC information.
@@ -71,7 +75,7 @@ int getggid(MPI_Comm comm, int worldRank, int commSize, int* rbuf) {
   DMTCP_PLUGIN_DISABLE_CKPT();
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   NEXT_FUNC(Allgather)(&worldRank, 1, MPI_INT,
-			rbuf, 1, MPI_INT, realComm);
+			rbuf, 1, MPI_INT, comm);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
 
@@ -140,10 +144,11 @@ void destroy_group_desc_t(group_desc_t* group) {
 }
 
 request_desc_t* init_request_desc_t(MPI_Request realReq) {
-  request_desc_t* desc = ((request_desc_t*)malloc(sizeof(request_desc_t)));
+  request_desc_t* desc = ((request_desc_t*)malloc(sizeof(request_desc_t))); // FIXME
   desc->real_id = realReq;
-  desc->request_kind = NULL;
-  MPI_Request_get_status(realReq, NULL, desc->status);
+  // desc->request_kind = NULL; Maybe not needed
+			       // MPI_Request_get_status(realReq, NULL, desc->status);
+  // TODO no need to init status (MPI standard)
   return desc;
 }
 
@@ -163,19 +168,29 @@ void destroy_op_desc_t(op_desc_t* op) {
   free(op);
 }
 
+// TODO mana_launch -i SECONDS
+// Or mana_coordinator
+
 datatype_desc_t* init_datatype_desc_t(MPI_Datatype realType) {
   datatype_desc_t* desc = ((datatype_desc_t*)malloc(sizeof(datatype_desc_t)));
   desc->real_id = realType;
+  // 5.1.13 decoding a datatype
+  // MPI_TYPE_GET_ENVELOPE pass to
+  // MPI_Type_get_contents
 
   desc->num_integers = 0;
   desc->integers = NULL;
+
   desc->num_addresses = 0;
   desc->addresses = NULL;
+
   desc->num_large_counts = 0;
   desc->large_counts = NULL;
+
   desc->num_datatypes = 0;
   desc->datatypes = NULL;
-  desc->combiner = NULL;
+
+  desc->combiner = NULL; // TODO ?
   return desc;
 }
 
@@ -187,6 +202,8 @@ void destroy_datatype_desc_t(datatype_desc_t* datatype) {
   free(datatype->combiner);
   free(datatype);
 }
+
+// srun -n PROC cmd
 
 file_desc_t* init_file_desc_t(MPI_File realFile) {
   file_desc_t* desc = ((file_desc_t*)malloc(sizeof(file_desc_t)));
@@ -207,3 +224,5 @@ id_desc_t* virtualToDescriptor(int virtId) {
   }
   return NULL;
 }
+
+// TODO when checkpointing, make a function to save all metadata
