@@ -35,6 +35,19 @@
 #include "split_process.h"
 #include "virtual-ids.h"
 
+
+// #include "jassert.h"
+// #include "kvdb.h"
+// #include "seq_num.h"
+// #include "mpi_nextfunc.h"
+// #include "virtual-ids.h"
+#include "record-replay.h"
+
+
+
+// may be needed?
+using namespace dmtcp_mpi;
+
 #define MAX_VIRTUAL_ID 999
 
 typedef typename std::map<int, id_desc_t*>::iterator id_desc_iterator;
