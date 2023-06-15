@@ -2,6 +2,11 @@
 #define VIRTUAL_ID_H
 
 #include <mpi.h>
+#include "virtualidtable.h"
+#include "jassert.h"
+#include "jconvert.h"
+#include "split_process.h"
+#include "dmtcp.h"
 
 #define CONCAT(a,b) a ## b
 
@@ -134,13 +139,14 @@
 #define VIRTUAL_TO_REAL_OP(id) \
   VIRTUAL_TO_REAL(id, MPI_OP_NULL, MPI_Op, op_desc_t)
 #define ADD_NEW_OP(id) \
-  ADD_NEW(id, MPI_OP_NULL, MPI_Op, op_desc_t)
+  ADD_NEW(id, MPI_OP_NULL, MPI_Op, op_desc_t) // TODO OP_create and use VIRT_TO_DESC.
 #define REMOVE_OLD_OP(id) \
   REMOVE_OLD(id, MPI_OP_NULL, op_desc_t, MPI_Op)
 #define UPDATE_OP_MAP(v, r) \
   UPDATE_MAP(v, r, MPI_OP_NULL, op_desc_t, MPI_Op)
 
-#define DESC_TO_VIRTUAL_COMM_KEYVAL(desc) \
+// TODO check with gene if we still need vid<->rid for comm_keyval
+#define DESC_TO_VIRTUAL_COMM_KEYVAL(desc) \ 
   DESC_TO_VIRTUAL(desc, 0, int) 
 #define VIRTUAL_TO_DESC_COMM_KEYVAL(id) \
   VIRTUAL_TO_DESC(id, 0, comm_keyval_desc_t)
@@ -247,7 +253,7 @@ struct file_desc_t {
 struct comm_keyval_desc_t {
   int real_id;
   int handle;
-};
+}; // VID keyval not needed at all
 
 union id_desc_t {
     comm_desc_t comm;
