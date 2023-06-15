@@ -471,6 +471,11 @@ getUhVdsoLdAddr()
 void
 updateVdsoLinkmapEntry(void * l_ld_addr)
 {
+  if (l_ld_addr == NULL) {
+    // The lower-half link map did not have a link to "vdso".
+    // So, we can skip patching the lower-half link map.
+    return;
+  }
   void *uh_l_ld_vdso = getUhVdsoLdAddr();
   // now update it in the lower-half's linkmap
   *(uint64_t *)l_ld_addr = (uint64_t)uh_l_ld_vdso;
