@@ -53,7 +53,7 @@ void commit_finish(MPI_Comm comm, bool passthrough);
 
 int twoPhaseCommit(MPI_Comm comm, std::function<int(void)>doRealCollectiveComm);
 void drain_mpi_collective();
-void share_seq_nums(std::map<unsigned int, unsigned long> &target);
+void share_seq_nums();
 int check_seq_nums(bool exclusive);
 int print_seq_nums();
 void seq_num_init();
