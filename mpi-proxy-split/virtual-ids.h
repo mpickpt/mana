@@ -116,7 +116,15 @@
 #define VIRTUAL_TO_DESC_COMM(id) \
   VIRTUAL_TO_DESC(id, MPI_COMM_NULL, comm_desc_t)
 #define VIRTUAL_TO_REAL_COMM(id) \
-  VIRTUAL_TO_REAL(id, MPI_COMM_NULL, MPI_Comm, comm_desc_t)
+  ({ \
+    MPI_Comm _VTR_C_retval; \
+    if (id != MPI_COMM_WORLD) { \
+      _VTR_C_retval = VIRTUAL_TO_REAL(id, MPI_COMM_NULL, MPI_Comm, comm_desc_t); \
+    } else { \
+      _VTR_C_retval = MPI_COMM_WORLD; \
+    } \
+    _VTR_C_retval; \
+  })
 #define ADD_NEW_COMM(id) \
   ADD_NEW(id, MPI_COMM_NULL, MPI_Comm, comm_desc_t)
 #define REMOVE_OLD_COMM(id) \
