@@ -228,9 +228,17 @@ void destroy_file_desc_t(file_desc_t* file) {
   free(file);
 }
 
+void print_id_descriptors() {
+  printf("Printing id_descriptors:\n")
+  for (id_desc_pair pair : idDescriptorTable) {
+    printf("%i\n" pair.first);
+  }
+}
+
 // Given int virtualid, return the contained id_desc_t if it exists.
 // Otherwise return NULL
 id_desc_t* virtualToDescriptor(int virtId) {
+  print_id_descriptors();
   id_desc_iterator it = idDescriptorTable.find(virtId);
   if (it != idDescriptorTable.end()) {
     return it->second;
