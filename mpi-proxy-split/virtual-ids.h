@@ -45,14 +45,21 @@
 
 #define ADD_NEW(real_id, null, real_id_type, descriptor_type)		\
   ({ \
-      printf("Enter add_new\n"); \
+    real_id_type retval; \
+    printf("Enter add_new\n"); \
     fflush(stdout); \
-    descriptor_type* _AD_desc = CONCAT(init_,descriptor_type)(real_id); \
-    int _AD_vId = nextvId++; \
-    printf("Assigned VID: %i\n", _AD_vId); \
-    _AD_desc->handle = _AD_vId; \
-    idDescriptorTable[_AD_vId] = ((union id_desc_t*) _AD_desc);	\
-    *((real_id_type*)&_AD_vId);						\
+    descriptor_type* _AD_desc; \
+    if (real_id != null) { \
+        _AD_desc = CONCAT(init_,descriptor_type)(real_id);	\
+        int _AD_vId = nextvId++; \
+        printf("Assigned VID: %i\n", _AD_vId); \
+        _AD_desc->handle = _AD_vId; \
+        idDescriptorTable[_AD_vId] = ((union id_desc_t*) _AD_desc);	\
+        retval = *((real_id_type*)&_AD_vId);						\
+    } else { \
+      retval = null; \
+    } \
+    retval; \
   })
 
 #define REMOVE_OLD(virtual_id, null, descriptor_type, real_type)	\
