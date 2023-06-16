@@ -103,8 +103,19 @@ int getggid(MPI_Comm comm, int worldRank, int commSize, int* rbuf) {
 // This means making MPI calls that obtain metadata about this MPI communicator.
 comm_desc_t* init_comm_desc_t(MPI_Comm realComm) {
   int worldRank, commSize;
-  MPI_Comm_rank(MPI_COMM_WORLD, &worldRank);
-  MPI_Comm_size(realComm, &commSize);
+
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  NEXT_FUNC(Comm_rank)(MPI_COMM_WORLD, &worldRank); // Otherwise, we will attempt nonsensical devirtualization of MPI_COMM_WORLD.
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  NEXT_FUNC(Comm_size)(realComm, &commSize);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+
   int* ranks = ((int* )malloc(sizeof(int) * commSize));
 
   int ggid = getggid(realComm);
@@ -123,7 +134,12 @@ comm_desc_t* init_comm_desc_t(MPI_Comm realComm) {
   desc->size = commSize;
 
   int localRank;
-  MPI_Comm_rank(realComm, &localRank);
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  NEXT_FUNC(Comm_rank)(realComm, &localRank);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+
   desc->local_rank = localRank;
 
   desc->ranks = ranks;
