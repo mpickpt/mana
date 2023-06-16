@@ -102,9 +102,7 @@ int getggid(MPI_Comm comm, int worldRank, int commSize, int* rbuf) {
 // This is a descriptor initializer. Its job is to write a descriptor for a real MPI Communicator.
 // This means making MPI calls that obtain metadata about this MPI communicator.
 comm_desc_t* init_comm_desc_t(MPI_Comm realComm) {
-  printf("Initializing desc for %x \n", realComm);
-  fflush(stdout);
-  int worldRank, commSize, localRank;
+    int worldRank, commSize, localRank;
 
   DMTCP_PLUGIN_DISABLE_CKPT();
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
@@ -247,9 +245,7 @@ void print_id_descriptors() {
 // Given int virtualid, return the contained id_desc_t if it exists.
 // Otherwise return NULL
 id_desc_t* virtualToDescriptor(int virtId) {
-  printf("Devirtualizing: %x\n", virtId);
-  fflush(stdout);
-  print_id_descriptors();
+  // print_id_descriptors();
   id_desc_iterator it = idDescriptorTable.find(virtId);
   if (it != idDescriptorTable.end()) {
     return it->second;
