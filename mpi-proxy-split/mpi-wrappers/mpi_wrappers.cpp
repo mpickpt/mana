@@ -75,7 +75,7 @@ USER_DEFINED_WRAPPER(int, Init, (int *) argc, (char ***) argv) {
   recordPostMpiInitMaps();
 
   g_world_comm = ADD_NEW_COMM(g_world_comm);
-  SET_COMM(MPI_COMM_WORLD, MPI_COMM_WORLD);
+  SET_COMM(MPI_COMM_WORLD, MPI_COMM_WORLD); // We must be able to devirtualize MPI_COMM_WORLD to itself.
   LOG_CALL(restoreComms, Comm_dup, MPI_COMM_WORLD, g_world_comm);
   initialize_drain_send_recv();
   DMTCP_PLUGIN_ENABLE_CKPT();
