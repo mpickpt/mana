@@ -43,6 +43,7 @@
   ({ \
     descriptor_type* _AD_desc = CONCAT(init_,descriptor_type)(real_id); \
     int _AD_vId = nextvId++; \
+    printf("Assigned VID: %i\n", _AD_vId);
     _AD_desc->handle = _AD_vId; \
     idDescriptorTable[_AD_vId] = ((union id_desc_t*) _AD_desc);	\
     *((real_id_type*)&_AD_vId);						\
