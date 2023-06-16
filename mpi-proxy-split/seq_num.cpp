@@ -251,9 +251,7 @@ void upload_seq_num() {
   }
 }
 
-void
-download_targets(const char *db)
-{
+void download_targets() {
   int64_t max_seq = 0;
   unsigned int comm_ggid;
   for (ggid_desc_pair pair : ggidDescriptorTable) {
@@ -265,17 +263,10 @@ download_targets(const char *db)
   }
 }
 
-void
-share_seq_nums(int attemptId)
-{
-  char db[64] = { 0 };
-  char barrier[64] = { 0 };
-  snprintf(db, 63, "/plugin/MANA/comm-seq-max-%06d", attemptId);
-  snprintf(barrier, 63, "MANA-SHARE-SEQ-NUM-%06d", attemptId);
-
-  upload_seq_num(db);
-  dmtcp_global_barrier(barrier);
-  download_targets(db);
+void share_seq_nums() {
+  upload_seq_num();
+  dmtcp_global_barrier("mana/share-seq-num");
+  download_targets();
 }
 
 static bool
@@ -284,17 +275,17 @@ try_drain_mpi_collective(int attemptId)
   int round_num = 0;
   int64_t num_converged = 0;
   int64_t in_cs = 0;
-
-  for (int i = 0; i < MAX_DRAIN_ROUNDS; i++) {
-    char key[64] = { 0 };
-    char barrier_id[64] = { 0 };
-    char cs_id[64] = { 0 };
-    char converge_id[64] = { 0 };
-
-    snprintf(cs_id, 63, "/plugin/MANA/CRITICAL-SECTION-%06d", attemptId);
-    snprintf(converge_id, 63, "/plugin/MANA/CONVERGE-%06d", attemptId);
-    snprintf(barrier_id, 63, "MANA-PRESUSPEND-%06d-%06d", attemptId, round_num);
-    snprintf(key, 63, "round-%06d", round_num);
+  pthread_mutex_lock(&seq_num_lock);
+  ckpt_pending = true;
+  share_seq_nums();
+  pthread_mutex_unlock(&seq_num_lock);
+  while (1) {
+    char key[32] = {0};
+    char barrier_id[32] = {0};
+    constexpr const char *cs_id = "/plugin/MANA/CRITICAL-SECTION";
+    constexpr const char *converge_id = "/plugin/MANA/CONVERGE";
+    sprintf(barrier_id, "MANA-PRESUSPEND-%06d", round_num);
+    sprintf(key, "round-%06d", round_num);
 
     JASSERT(dmtcp::kvdb::request64(KVDBRequest::INCRBY, converge_id, key,
                                    check_seq_nums(false)) ==
