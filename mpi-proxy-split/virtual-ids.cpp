@@ -58,7 +58,7 @@ typedef typename std::map<int, ggid_desc_t*>::iterator ggid_desc_iterator;
 // seq_num
 
 // Per Yao Xu, MANA does not require the thread safety offered by DMTCP's VirtualIdTable. We use std::map.
-std::map<int, id_desc_t*> idDescriptorTable; // int vId -> id_desc_t*, which contains rId.
+std::map<int, id_desc_t*> idDescriptorTable = {{MPI_COMM_NULL, }}; // int vId -> id_desc_t*, which contains rId.
 std::map<int, ggid_desc_t*> ggidDescriptorTable; // int ggid -> ggid_desc_t*, which contains CVC information.
 
 // vid generation mechanism.
@@ -233,7 +233,7 @@ void destroy_file_desc_t(file_desc_t* file) {
 }
 
 void print_id_descriptors() {
-  printf("Printing id_descriptors:\n");
+  printf("Printing %ui id_descriptors:\n", idDescriptorTable.size());
   fflush(stdout);
   for (id_desc_pair pair : idDescriptorTable) {
     printf("%i\n", pair.first);
