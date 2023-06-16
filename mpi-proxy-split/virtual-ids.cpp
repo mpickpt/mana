@@ -237,6 +237,7 @@ void print_id_descriptors() {
   fflush(stdout);
   for (id_desc_pair pair : idDescriptorTable) {
     printf("%i\n", pair.first);
+    printf("%i\n", pair.second->real_id); // HACK
     fflush(stdout);
   }
 }
