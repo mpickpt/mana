@@ -26,6 +26,7 @@
 #define DESC_TO_VIRTUAL(desc, null, real_type)		\
   ({ \
     printf("Enter desc_to_virtual\n"); \
+    fflush(stdout); \
     real_type _DTV_vId = (desc == NULL) ? null : desc->handle; \
    _DTV_vId; \
   })
@@ -36,6 +37,7 @@
 #define VIRTUAL_TO_REAL(id, null, real_id_type, desc_type)    \
     ({                                              \
       printf("Enter virtual_to_real\n"); \
+    fflush(stdout); \
       desc_type* _VTR_tmp = VIRTUAL_TO_DESC(id, null, desc_type);			\
        real_id_type _VTR_id = (_VTR_tmp == NULL) ? null : _VTR_tmp->real_id; \
        _VTR_id; \
@@ -44,6 +46,7 @@
 #define ADD_NEW(real_id, null, real_id_type, descriptor_type)		\
   ({ \
       printf("Enter add_new\n"); \
+    fflush(stdout); \
     descriptor_type* _AD_desc = CONCAT(init_,descriptor_type)(real_id); \
     int _AD_vId = nextvId++; \
     printf("Assigned VID: %i\n", _AD_vId); \
@@ -55,6 +58,7 @@
 #define REMOVE_OLD(virtual_id, null, descriptor_type, real_type)	\
   ({ \
       printf("Enter remove_old\n"); \
+    fflush(stdout); \
     real_type _RO_retval; \
     if (virtual_id == null) { \
       _RO_retval = null; \
@@ -74,6 +78,7 @@
 #define UPDATE_MAP(virtual_id, to_update, null, descriptor_type, to_update_type)	\
   ({ \
       printf("Enter update_map\n"); \
+    fflush(stdout); \
     id_desc_iterator _UM_it = idDescriptorTable.find(*((int*)(&virtual_id))); \
     to_update_type _UM_retval; \
     if (_UM_it != idDescriptorTable.end()) { \
