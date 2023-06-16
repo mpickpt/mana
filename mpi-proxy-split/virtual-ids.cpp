@@ -243,6 +243,8 @@ void print_id_descriptors() {
 // Given int virtualid, return the contained id_desc_t if it exists.
 // Otherwise return NULL
 id_desc_t* virtualToDescriptor(int virtId) {
+  printf("Devirtualizing: %x\n", virtId);
+  fflush(stdout);
   print_id_descriptors();
   id_desc_iterator it = idDescriptorTable.find(virtId);
   if (it != idDescriptorTable.end()) {
