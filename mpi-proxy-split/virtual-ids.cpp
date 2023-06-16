@@ -231,7 +231,7 @@ void destroy_file_desc_t(file_desc_t* file) {
 void print_id_descriptors() {
   printf("Printing id_descriptors:\n");
   for (id_desc_pair pair : idDescriptorTable) {
-    printf("%i\n" pair.first);
+    printf("%i\n", pair.first);
   }
 }
 
