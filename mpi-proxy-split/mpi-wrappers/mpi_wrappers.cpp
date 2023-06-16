@@ -66,7 +66,6 @@ USER_DEFINED_WRAPPER(int, Init, (int *) argc, (char ***) argv) {
 
   recordPreMpiInitMaps();
 
-  // int uh_comm_world = MPI_COMM_WORLD;
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Init)(argc, argv);
   // Create a duplicate of MPI_COMM_WORLD for internal use.
@@ -76,7 +75,7 @@ USER_DEFINED_WRAPPER(int, Init, (int *) argc, (char ***) argv) {
   recordPostMpiInitMaps();
 
   g_world_comm = ADD_NEW_COMM(g_world_comm);
-  ADD_NEW_COMM(MPI_COMM_WORLD); // HACK LEONID
+  SET_COMM(MPI_COMM_WORLD, MPI_COMM_WORLD);
   LOG_CALL(restoreComms, Comm_dup, MPI_COMM_WORLD, g_world_comm);
   initialize_drain_send_recv();
   DMTCP_PLUGIN_ENABLE_CKPT();
