@@ -114,7 +114,7 @@ comm_desc_t* init_comm_desc_t(MPI_Comm realComm) {
 
   int* ranks = ((int* )malloc(sizeof(int) * commSize));
 
-  int ggid = getggid(realComm);
+  int ggid = getggid(realComm, worldRank, commSize, ranks);
   ggid_desc_iterator it = ggidDescriptorTable.find(ggid);
   comm_desc_t* desc = ((comm_desc_t*)malloc(sizeof(comm_desc_t)));
 
