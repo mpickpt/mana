@@ -43,7 +43,6 @@
 
 #define ADD_NEW(real_id, null, real_id_type, descriptor_type)		\
   ({ \
-
       printf("Enter add_new\n"); \
     descriptor_type* _AD_desc = CONCAT(init_,descriptor_type)(real_id); \
     int _AD_vId = nextvId++; \
@@ -55,7 +54,6 @@
 
 #define REMOVE_OLD(virtual_id, null, descriptor_type, real_type)	\
   ({ \
-
       printf("Enter remove_old\n"); \
     real_type _RO_retval; \
     if (virtual_id == null) { \
