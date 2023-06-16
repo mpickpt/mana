@@ -251,7 +251,7 @@ void upload_seq_num() {
   }
 }
 
-void download_targets(std::map<unsigned int, unsigned long> &target) {
+void download_targets() {
   int64_t max_seq = 0;
   unsigned int comm_ggid;
   for (ggid_desc_pair pair : ggidDescriptorTable) {
@@ -263,10 +263,10 @@ void download_targets(std::map<unsigned int, unsigned long> &target) {
   }
 }
 
-void share_seq_nums(std::map<unsigned int, unsigned long> &target) {
+void share_seq_nums() {
   upload_seq_num();
   dmtcp_global_barrier("mana/share-seq-num");
-  download_targets(target);
+  download_targets();
 }
 
 void drain_mpi_collective() {
@@ -275,7 +275,7 @@ void drain_mpi_collective() {
   int64_t in_cs = 0;
   pthread_mutex_lock(&seq_num_lock);
   ckpt_pending = true;
-  share_seq_nums(target);
+  share_seq_nums();
   pthread_mutex_unlock(&seq_num_lock);
   while (1) {
     char key[32] = {0};
