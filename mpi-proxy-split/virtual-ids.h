@@ -116,21 +116,20 @@
 #define VIRTUAL_TO_DESC_COMM(id) \
   VIRTUAL_TO_DESC(id, MPI_COMM_NULL, comm_desc_t)
 #define VIRTUAL_TO_REAL_COMM(id) \
-  ({ \
-    MPI_Comm _VTR_C_retval; \
-    if (id != MPI_COMM_WORLD) { \
-      _VTR_C_retval = VIRTUAL_TO_REAL(id, MPI_COMM_NULL, MPI_Comm, comm_desc_t); \
-    } else { \
-      _VTR_C_retval = MPI_COMM_WORLD; \
-    } \
-    _VTR_C_retval; \
-  })
+  VIRTUAL_TO_REAL(id, MPI_COMM_NULL, MPI_Comm, comm_desc_t); 
 #define ADD_NEW_COMM(id) \
   ADD_NEW(id, MPI_COMM_NULL, MPI_Comm, comm_desc_t)
 #define REMOVE_OLD_COMM(id) \
   REMOVE_OLD(id, MPI_COMM_NULL, file_desc_t, MPI_File)
 #define UPDATE_COMM_MAP(v, r) \
   UPDATE_MAP(v, r, MPI_COMM_NULL, comm_desc_t, MPI_Comm)
+// HACK
+#define SET_COMM(v, r) \
+  ({ \
+    comm_desc_t* desc = init_comm_desc_t(r); \
+    idDescriptorTable[v] = ((union id_desc_t*)desc);	     \
+  })
+
 
 #define DESC_TO_VIRTUAL_GROUP(desc) \
   DESC_TO_VIRTUAL(desc, MPI_GROUP_NULL, MPI_Group) 
