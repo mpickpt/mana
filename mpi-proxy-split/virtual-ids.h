@@ -130,6 +130,12 @@
   REMOVE_OLD(id, MPI_GROUP_NULL, group_desc_t, MPI_Group)
 #define UPDATE_GROUP_MAP(v, r) \
   UPDATE_MAP(v, r, MPI_GROUP_NULL, group_desc_t, MPI_Group)
+#define SET_GROUP(v, r) \ 
+  ({ \
+    group_desc_t* desc = init_group_desc_t(r); \
+    idDescriptorTable[v] = ((union id_desc_t*)desc); \
+  })
+
 
 #define DESC_TO_VIRTUAL_TYPE(desc) \
   DESC_TO_VIRTUAL(desc, MPI_DATATYPE_NULL, MPI_Datatype) 
