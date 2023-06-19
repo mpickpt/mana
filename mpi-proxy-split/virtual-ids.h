@@ -35,7 +35,7 @@
 #define VIRTUAL_TO_REAL(id, null, real_id_type, desc_type)    \
     ({                                              \
       desc_type* _VTR_tmp = VIRTUAL_TO_DESC(id, null, desc_type);			\
-       real_id_type _VTR_id = (_VTR_tmp == NULL) ? null : _VTR_tmp->real_id; \
+       real_id_type _VTR_id = (_VTR_tmp == NULL) ? id : _VTR_tmp->real_id; \
        _VTR_id; \
      })
 
@@ -112,11 +112,6 @@
   REMOVE_OLD(id, MPI_COMM_NULL, file_desc_t, MPI_File)
 #define UPDATE_COMM_MAP(v, r) \
   UPDATE_MAP(v, r, MPI_COMM_NULL, comm_desc_t, MPI_Comm)
-#define SET_COMM(v, r) \
-  ({ \
-    comm_desc_t* desc = init_comm_desc_t(r); \
-    idDescriptorTable[v] = ((union id_desc_t*)desc);	     \
-  })
 
 #define DESC_TO_VIRTUAL_GROUP(desc) \
   DESC_TO_VIRTUAL(desc, MPI_GROUP_NULL, MPI_Group) 
@@ -130,12 +125,6 @@
   REMOVE_OLD(id, MPI_GROUP_NULL, group_desc_t, MPI_Group)
 #define UPDATE_GROUP_MAP(v, r) \
   UPDATE_MAP(v, r, MPI_GROUP_NULL, group_desc_t, MPI_Group)
-#define SET_GROUP(v, r) \ 
-  ({ \
-    group_desc_t* desc = init_group_desc_t(r); \
-    idDescriptorTable[v] = ((union id_desc_t*)desc); \
-  })
-
 
 #define DESC_TO_VIRTUAL_TYPE(desc) \
   DESC_TO_VIRTUAL(desc, MPI_DATATYPE_NULL, MPI_Datatype) 
