@@ -146,7 +146,11 @@ group_desc_t* init_group_desc_t(MPI_Group realGroup) {
   group_desc_t* desc = ((group_desc_t*)malloc(sizeof(group_desc_t)));
   desc->real_id = realGroup;
   int groupSize;
-  MPI_Group_size(realGroup, &groupSize);
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  NEXT_FUNC(Group_size)(realGroup, &groupSize);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
   int* ranks = ((int*)malloc(sizeof(int) * groupSize));
   for (int i = 0; i < groupSize; i++) {
     ranks[i] = i;
@@ -245,7 +249,7 @@ void print_id_descriptors() {
 // Given int virtualid, return the contained id_desc_t if it exists.
 // Otherwise return NULL
 id_desc_t* virtualToDescriptor(int virtId) {
-  // print_id_descriptors();
+  print_id_descriptors();
   id_desc_iterator it = idDescriptorTable.find(virtId);
   if (it != idDescriptorTable.end()) {
     return it->second;
