@@ -104,13 +104,9 @@ int getggid(MPI_Comm comm, int worldRank, int commSize, int* rbuf) {
 comm_desc_t* init_comm_desc_t(MPI_Comm realComm) {
     int worldRank, commSize, localRank;
 
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  NEXT_FUNC(Comm_rank)(MPI_COMM_WORLD, &worldRank); // Otherwise, we will attempt nonsensical devirtualization of MPI_COMM_WORLD.
-  NEXT_FUNC(Comm_size)(realComm, &commSize);
-  NEXT_FUNC(Comm_rank)(realComm, &localRank);
-  RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  MPI_Comm_rank(MPI_COMM_WORLD, &worldRank);
+  MPI_Comm_size(realComm, &commSize);
+  MPI_Comm_rank(realComm, &localRank);
 
   int* ranks = ((int* )malloc(sizeof(int) * commSize));
 
@@ -249,7 +245,7 @@ void print_id_descriptors() {
 // Given int virtualid, return the contained id_desc_t if it exists.
 // Otherwise return NULL
 id_desc_t* virtualToDescriptor(int virtId) {
-  print_id_descriptors();
+  // print_id_descriptors();
   id_desc_iterator it = idDescriptorTable.find(virtId);
   if (it != idDescriptorTable.end()) {
     return it->second;
