@@ -23,6 +23,15 @@
 
 // TODO MPI_LH_CALL(Allgather, &worldRank, 1, MPI_INT, rbuf, 1, MPI_INT, realComm);
 
+// 0 - undefined
+// 1 - communicator
+// 2 - group
+// 3 - request
+// 4 - op
+// 5 - datatype
+// 6 - file
+// 7 - comm_keyval
+
 #define DESC_TO_VIRTUAL(desc, null, real_type)		\
   ({ \
     real_type _DTV_vId = (desc == NULL) ? null : desc->handle; \
