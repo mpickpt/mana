@@ -460,10 +460,6 @@ PMPI_IMPL(int, MPI_Comm_set_errhandler, MPI_Comm comm,
 PMPI_IMPL(int, MPI_Topo_test, MPI_Comm comm, int* status)
 PMPI_IMPL(int, MPI_Comm_split_type, MPI_Comm comm, int split_type, int key,
           MPI_Info info, MPI_Comm *newcomm)
-PMPI_IMPL(int, MPI_Attr_get, MPI_Comm comm, int keyval,
-          void *attribute_val, int *flag)
-PMPI_IMPL(int, MPI_Attr_delete, MPI_Comm comm, int keyval)
-PMPI_IMPL(int, MPI_Attr_put, MPI_Comm comm, int keyval, void *attribute_val)
 PMPI_IMPL(int, MPI_Comm_create_keyval,
           MPI_Comm_copy_attr_function * comm_copy_attr_fn,
           MPI_Comm_delete_attr_function * comm_delete_attr_fn,
