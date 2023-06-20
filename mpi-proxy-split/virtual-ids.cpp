@@ -50,6 +50,8 @@
 
 #define MAX_VIRTUAL_ID 999
 
+// TODO
+
 typedef typename std::map<int, id_desc_t*>::iterator id_desc_iterator;
 typedef typename std::map<int, ggid_desc_t*>::iterator ggid_desc_iterator;
 
@@ -253,4 +255,8 @@ id_desc_t* virtualToDescriptor(int virtId) {
   return NULL;
 }
 
-// TODO when checkpointing, make a function to save all metadata
+// For all descriptors, update the respective information.
+void update_descriptors() {
+  // iterate through descriptors
+
+}
