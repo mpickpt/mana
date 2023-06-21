@@ -164,12 +164,19 @@ if [ "$verbose" == 1 ]; then
 fi
 
 # TEMPORARY WORKAROUND:  set MPICH_SMP_SINGLE_COPY_OFF=1
-#   In VASP5 with RPA, it failed on restart, trying to copy to a
-#   /SYSV0* file (created by shmat or XPMEM), but mpi_plugin.cpp says that
-#   /SYSV0* is not saved at ckpt, and so its data is not saved and restored.
-#   NOTE: The upper half should not know about this file. Why do we
-#         need to restore pre-ckpt data on a new MPICH in the lower half? 
-#         (We could create xpmam plugin for DMTCP, but it shouldn't be needed.)
+#   As MANA matures, these environment variable settings will not longer
+#   be needed.  Use these only if you have mysterious segfaults due
+#   to corrupted memory layouts.
+#     Setting this should turn of the use of /SYSV0* memory segments
+#   for SysV shared memory in MPICH.  It turns out that it does not
+#   stop the many /dev/xpmem memory segments from being created if/when
+#   MPICH uses XPMEM.  To stop using XPMEM, set this other environment variable:
+#     MPICH_SMP_SINGLE_COPY_SIZE=81920  [units of bytes]
+#   This is a threshold, below which, it will _not_ create /dev/xpmem
+#   for shared memory communication.  If you still see too many
+#   /dev/xpmem segments, then raise the value 81920 still higher.
+#   The /dev/xpmem segments are created on demand when an MPI call
+#   needs to send/receive a large message.
 
 env LD_LIBRARY_PATH="$libdir:$LD_LIBRARY_PATH" \
     $dir/dmtcp_launch --mpi --coord-host $submissionHost \

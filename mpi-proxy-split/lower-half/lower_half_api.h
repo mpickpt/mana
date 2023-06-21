@@ -65,6 +65,7 @@ typedef struct __MmapInfo
   void *addr;   // Start address of mmapped region
   size_t len;   // Length (in bytes) of mmapped region
   int unmapped; // 1 if the region was unmapped; 0 otherwise
+  int dontuse;  // 1 if preexisting mmap in region (e.g., xpmem); 0 otherwise
   int guard;    // 1 if the region has additional guard pages around it; 0 otherwise
 } MmapInfo_t;
 
