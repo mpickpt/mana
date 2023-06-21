@@ -34,6 +34,11 @@
 // tracking of munmapped regions
 extern int __real___munmap(void *, size_t );
 
+#ifdef LIBMMAP_SO
+// Lower-half memory range to use; initialized in mmap64.c
+MemRange_t lh_memRange;
+#endif
+
 static inline int
 alignedWithLastPage(const void *haystackStart,
                const void *haystackEnd,
