@@ -69,6 +69,11 @@
 // Number of valid objects in the 'mmaps' list below
 int numRegions = 0;
 
+#ifdef LIBMMAP_SO
+// Lower-half memory range to use.
+MemRange_t lh_memRange = {0};
+#endif
+
 // List of regions mmapped by the lower half
 MmapInfo_t mmaps[MAX_TRACK] = {{0}};
 
@@ -167,13 +172,19 @@ __mmap64 (void *addr, size_t len, int prot, int flags, int fd, __off_t offset)
 {
   static int initialized = 0;
   if (!initialized) {
+#ifdef LIBMMAP_SO
+    int length = 100*1024*1024; // 100 MB
+    lh_memRange.start = mmap(NULL, length,
+                             PROT_NONE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
+    lh_memRange.end = lh_memRange.start + length;
+#else
     int length = lh_memRange.end - lh_memRange.start;
 # if 0
     // FIXME: After we copy into upper half, call mmap as below.
     //        But don't call this when lh_proxy first executes by itself.
     //        So, we need to recognize if we are executing lh_proxy
     //          or the target MPI application.
-# if HAS_MAP_FIXED_NOREPLACE
+#  if HAS_MAP_FIXED_NOREPLACE
     void *rc = mmap(lh_memRange.start, length,
                     PROT_NONE, MAP_PRIVATE|MAP_ANONYMOUS|MAP_FIXED_NOREPLACE,
                     -1, 0);
@@ -181,7 +192,7 @@ __mmap64 (void *addr, size_t len, int prot, int flags, int fd, __off_t offset)
       char msg[] = "*** Panic: MANA lower half: can't initialize lh_memRange\n";
       write(2, msg, sizeof(msg)); assert(rc == 0);
     }
-#else
+#  else
     void *rc = mmap(lh_memRange.start, length,
                     PROT_NONE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
     if (rc != lh_memRange.start) {
@@ -191,7 +202,7 @@ __mmap64 (void *addr, size_t len, int prot, int flags, int fd, __off_t offset)
       char msg[] = "*** Panic: MANA lower half: can't initialize lh_memRange\n";
       write(2, msg, sizeof(msg)); assert(rc != lh_memRange.start);
     }
-# endif
+#  endif
 # endif
 #endif
     initialized = 1;
@@ -336,14 +347,23 @@ __mmap64 (void *addr, size_t len, int prot, int flags, int fd, __off_t offset)
 // weak_alias (__mmap64, mmap64)
 // libc_hidden_def (__mmap64)
 
+#ifdef LIBMMAP_SO
+extern __typeof (__mmap64) mmap64 __attribute__ ((alias ("__mmap64")));
+#else
 extern __typeof (__mmap64) __mmap64 __attribute__ ((visibility ("hidden")));
 extern __typeof (__mmap64) mmap64 __attribute__ ((weak, alias ("__mmap64")));
+#endif
 
 #ifdef __OFF_T_MATCHES_OFF64_T
 // weak_alias (__mmap64, mmap)
 // weak_alias (__mmap64, __mmap)
 // libc_hidden_def (__mmap)
+# ifdef LIBMMAP_SO
+extern __typeof (__mmap64) mmap __attribute__ ((alias ("__mmap64")));
+extern __typeof (__mmap64) __mmap __attribute__ ((alias ("__mmap64")));
+# else
 extern __typeof (__mmap64) mmap __attribute__ ((weak, alias ("__mmap64")));
 extern __typeof (__mmap64) __mmap __attribute__ ((weak, alias ("__mmap64")));
 extern __typeof (__mmap) __mmap __attribute__ ((visibility ("hidden")));
+# endif
 #endif

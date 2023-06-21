@@ -106,6 +106,11 @@ ${PROXY_BIN_DEFADDR}: ${PROXY_OBJS} ${LIBPROXY}.a ${STATIC_GETHOSTBYNAME}
 ${LIBPROXY}.a: ${LIBPROXY_OBJS}
 	ar cr $@ $^
 
+check-mmap: libmmap.so
+	LD_PRELOAD=$$PWD/libmmap.so ls
+libmmap.so: mmap64.c munmap.c
+	${CC} -shared ${CFLAGS} -DLIBMMAP_SO -I. -g3 -O0 -fPIC -o libmmap.so $^
+
 install: ${PROXY_BIN} ${PROXY_BIN_DEFADDR} ${STATIC_GETHOSTBYNAME}
 	cp -f $^ ${MANA_ROOT}/bin/
 
@@ -115,6 +120,7 @@ tidy:
 
 clean: tidy
 	rm -f ${PROXY_BIN} ${PROXY_BIN_DEFADDR} ${LIBPROXY}.a ${PROXY_OBJS} ${LIBPROXY_OBJS}
+	rm -f libmmap.so
 	rm -f ${MANA_ROOT}/bin/${PROXY_BIN}
 	rm -f ${MANA_ROOT}/bin/${PROXY_BIN_DEFADDR}
 	if test -d gethostbyname-static; then \

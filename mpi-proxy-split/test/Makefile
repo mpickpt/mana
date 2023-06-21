@@ -26,7 +26,7 @@ DEMO_PORT=7787
 # Several tests are excluded from this Makefile because they are redundant:
 # multi_send_recv, send_recv, send_recv_many
 # Comment out FILES_FORTRAN if you don't have an mmpifort compiler.
-## FILES_FORTRAN= f_ibarrier wave_mpi day1_mpi quad_mpi poisson_nonblock_mpi
+FILES_FORTRAN= f_ibarrier wave_mpi day1_mpi quad_mpi poisson_nonblock_mpi
 FILES=mpi_hello_world \
       hello_mpi_init_thread Sendrecv_test Gatherv_test \
       keyval_test file_test Scatterv_test Gather_test \
