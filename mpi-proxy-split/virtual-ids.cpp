@@ -256,9 +256,9 @@ id_desc_t* virtualToDescriptor(int virtId) {
 }
 
 void init_comm_world() {
-  comm_desc_t* comm_world = malloc(sizeof(comm_desc_t));
+  comm_desc_t* comm_world = ((comm_desc_t*)malloc(sizeof(comm_desc_t)));
   comm_world->real_id = MPI_COMM_WORLD;
-  ggid_desc_t* comm_world_ggid = malloc(sizeof(ggid_desc_t));
+  ggid_desc_t* comm_world_ggid = ((ggid_desc_t*)malloc(sizeof(ggid_desc_t)));
   comm_world->ggid_desc = comm_world_ggid;
   comm_world_ggid->ggid = MPI_COMM_WORLD;
   comm_world_ggid->seq_num = 0;
