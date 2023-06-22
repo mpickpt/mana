@@ -263,7 +263,7 @@ void init_comm_world() {
   comm_world_ggid->ggid = MPI_COMM_WORLD;
   comm_world_ggid->seq_num = 0;
   comm_world_ggid->target_num = 0;
-  idDescriptorTable[MPI_COMM_WORLD] = comm_world;
+  idDescriptorTable[MPI_COMM_WORLD] = ((union id_desc_t*)comm_world);
 }
 
 // For all descriptors, update the respective information.
