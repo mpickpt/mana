@@ -111,26 +111,28 @@ check-%: ${TESTS_DUMMY}
 	sleep 10;
 check: ${TESTS_DUMMY}
 	for mpi_test in $^; do \
-          export DMTCP_CHECKPOINT_INTEVAL=5 \
 	  ${MAKE} tidy > /dev/null; \
 	  ${DMTCP_BIN}/dmtcp_command -q 2>/dev/null; \
 	  pkill -9 mana.exe; \
-	  pkill -9 mpirun; \
+	  pkill -9 srun; \
 	  echo ""; \
 	  echo ""; \
 	  echo '***' Testing "$$mpi_test" '***'; \
-	  mana_coordinator; \
-	  (sleep 10 && pkill -9 mana.exe && pkill -9 mpirun) & \
-	  mpirun -np 2 ./$$mpi_test; \
+	  ${DMTCP_BIN}/dmtcp_coordinator -q -q --exit-on-last --daemon; \
+	  (sleep 10 && pkill -9 mana.exe && pkill -9 srun) & \
+	  srun -n 2 ${DMTCP_BIN}/dmtcp_launch --no-gzip --join \
+                  --disable-dl-plugin --with-plugin \
+                  ${DMTCP_LIB}/libmana.so -i5 ./$$mpi_test; \
 	  sleep 10; \
 	  ${DMTCP_BIN}/dmtcp_command -q 2>/dev/null; \
 	  pkill -9 mana.exe; \
-	  pkill -9 mpirun; \
+	  pkill -9 srun; \
 	  echo ""; \
 	  echo '***' Restarting "$$mpi_test" '***'; \
-	  mana_coordinator; \
-	  (sleep 10 && pkill -9 mpirun) & \
-	  mpirun -np 2 mana_restart \
+	  ${DMTCP_BIN}/dmtcp_coordinator -q -q --exit-on-last --daemon; \
+	  (sleep 10 && pkill -9 srun) & \
+	  srun -n 2 ${DMTCP_BIN}/dmtcp_restart --join --mpi \
+	       ckpt_rank_*/ckpt_*.dmtcp; \
 	  sleep 10 \
 	  ${DMTCP_BIN}/dmtcp_command -q 2>/dev/null; \
 	  pkill -9 mana.exe; \
