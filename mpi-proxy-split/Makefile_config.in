@@ -4,6 +4,7 @@ MANA_USE_LH_FIXED_ADDRESS = @MANA_USE_LH_FIXED_ADDRESS@
 
 CFLAGS = @CFLAGS@
 CXXFLAGS = @CXXFLAGS@
+FFLAGS = ${CXXFLAGS} @FFLAGS@
 
 ifeq ($(findstring cori,$(PLATFORM)),cori)
 IS_CORI = 1
@@ -46,5 +47,6 @@ else
   MPI_LD_FLAG = -L$$HOME/mpich-static/usr/lib64 -lmpi -llzma -lz -lm -lxml2
   MPI_CFLAGS?= @CFLAGS@ -g3 -fPIC
   MPI_CXXFLAGS?= @CXXFLAGS@ -g3 -fPIC
+  MPI_FFLAGS = @FFLAGS@ -g3
   MPI_LDFLAGS?=
 endif
