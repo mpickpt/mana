@@ -7,7 +7,7 @@ AC_INIT([MANA],
 AC_PREREQ([2.60])
 # TODO(kapil): Add 'subdir-objects after automake 1.16 has been released.
 # AM_INIT_AUTOMAKE([foreign])
-AM_MAINTAINER_MODE
+# AM_MAINTAINER_MODE
 AC_CANONICAL_HOST
 AC_PROG_INSTALL
 # Automake uses 'ar cru' by default.  The 'ar' program then issues a warning.
@@ -30,6 +30,14 @@ AX_CHECK_COMPILE_FLAG([-std=gnu11],
                       [CFLAGS="${CFLAGS} -std=gnu11"],
                       [echo "C compiler cannot compile gnu11 code"; exit -1])
 
+dnl gfortran-10 errors out if argument mismatch
+dnl See if Fotran compiler supports -fallow-argument-mismatch for legacy code
+AC_LANG_PUSH([Fortran])
+AX_CHECK_COMPILE_FLAG([-fallow-argument-mismatch],
+                      [FFLAGS="${FFLAGS} -fallow-argument-mismatch"],
+                      [])
+AC_LANG_POP([Fortran])
+
 ac_configure_args="$ac_configure_args --with-mana-helper-dir=../restart_plugin"
 ac_configure_args="$ac_configure_args --disable-dlsym-wrapper"
 AC_CONFIG_SUBDIRS([dmtcp])
@@ -45,9 +53,9 @@ enable_option_checking=fatal
 if test -n "$ac_unrecognized_opts"; then
   case $enable_option_checking in
     no) ;;
-    fatal) { $as_echo "$as_me: error: unrecognized options: $ac_unrecognized_opts" >&2
+    fatal) { AS_ECHO(["$as_me: error: unrecognized options: $ac_unrecognized_opts"]) >&2
    { (exit 1); exit 1; }; } ;;
-    *)     $as_echo "$as_me: WARNING: unrecognized options: $ac_unrecognized_opts" >&2 ;;
+    *)     AS_ECHO(["$as_me: WARNING: unrecognized options: $ac_unrecognized_opts"]) >&2 ;;
   esac
 fi
 
@@ -68,6 +76,8 @@ if test "$use_debug" = "yes"; then
 else
   AC_SUBST([DEBUG], [no])
 fi
+
+AC_SUBST([FFLAGS], [$FFLAGS])
 
 # Keeping these DMTCP flags only for convenience.
 AC_ARG_ENABLE([timing])
