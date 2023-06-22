@@ -171,6 +171,8 @@ void commit_begin(MPI_Comm comm, bool passthrough) {
   while (ckpt_pending && check_seq_nums(passthrough)) {
     MPI_Status status;
     int flag;
+    printf("Enter IProbe\n");
+    fflush(stdout);
     MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, g_world_comm, &flag, &status);
     if (flag) {
       unsigned long new_target[2];
@@ -183,6 +185,8 @@ void commit_begin(MPI_Comm comm, bool passthrough) {
       unsigned int updated_comm = (unsigned int) new_target[0];
       unsigned long updated_target = new_target[1];
       ggid_desc_t* updated_comm_ggid_desc = ggidDescriptorTable[updated_comm];
+      printf("COMM_DESC ok\n");
+      fflush(stdout);
       if (updated_comm_ggid_desc->target_num < updated_target) {
 	updated_comm_ggid_desc->target_num = updated_target;
 #ifdef DEBUG_SEQ_NUM
