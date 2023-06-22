@@ -317,4 +317,6 @@ void destroy_file_desc_t(file_desc_t* file);
 int getggid(MPI_Comm comm);
 int hash(int i);
 
+void init_comm_world(); // This is required for the GGID algorithm.
+
 #endif // ifndef VIRTUAL_ID_H

@@ -78,7 +78,7 @@ int hash(int i) {
 // This consists of a hash of its integer ranks.
 // Returns ggid.
 int getggid(MPI_Comm comm, int worldRank, int commSize, int* rbuf) {
-  if (comm == MPI_COMM_NULL) {
+  if (comm == MPI_COMM_NULL || comm == MPI_COMM_WORLD) {
     return comm;
   }
   unsigned int ggid = 0;
@@ -253,6 +253,17 @@ id_desc_t* virtualToDescriptor(int virtId) {
     return it->second;
   }
   return NULL;
+}
+
+void init_comm_world() {
+  comm_desc_t* comm_world = malloc(sizeof(comm_desc_t));
+  comm_world->real_id = MPI_COMM_WORLD;
+  ggid_desc_t* comm_world_ggid = malloc(sizeof(ggid_desc_t));
+  comm_world->ggid_desc = comm_world_ggid;
+  comm_world_ggid->ggid = MPI_COMM_WORLD;
+  comm_world_ggid->seq_num = 0;
+  comm_world_ggid->target_num = 0;
+  idDescriptorTable[MPI_COMM_WORLD] = comm_world;
 }
 
 // For all descriptors, update the respective information.
