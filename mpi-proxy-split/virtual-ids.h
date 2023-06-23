@@ -33,6 +33,15 @@
 // 6 - file - 0x06000000
 // 7 - comm_keyval - 0x07000000
 
+#define UNDEFINED_MASK 0x00000000
+#define COMM_MASK 0x01000000
+#define GROUP_MASK 0x02000000
+#define REQUEST_MASK 0x03000000
+#define OP_MASK 0x04000000
+#define DATATYPE_MASK 0x05000000
+#define FILE_MASK 0x06000000
+#define COMM_KEYVAL_MASK 0x07000000
+
 #define DESC_TO_VIRTUAL(desc, null, real_type)		\
   ({ \
     real_type _DTV_vId = (desc == NULL) ? null : desc->handle; \
@@ -105,7 +114,7 @@
 #define VIRTUAL_TO_REAL_FILE(id) \
   VIRTUAL_TO_REAL(id, MPI_FILE_NULL, MPI_File, file_desc_t)
 #define ADD_NEW_FILE(id) \
-  ADD_NEW(id, MPI_FILE_NULL, MPI_File, file_desc_t, 0x06000000)
+  ADD_NEW(id, MPI_FILE_NULL, MPI_File, file_desc_t, FILE_MASK)
 #define REMOVE_OLD_FILE(id) \
   REMOVE_OLD(id, MPI_FILE_NULL, file_desc_t, MPI_File)
 #define UPDATE_FILE_MAP(v, r) \
@@ -118,7 +127,7 @@
 #define VIRTUAL_TO_REAL_COMM(id) \
   VIRTUAL_TO_REAL(id, MPI_COMM_NULL, MPI_Comm, comm_desc_t); 
 #define ADD_NEW_COMM(id) \
-  ADD_NEW(id, MPI_COMM_NULL, MPI_Comm, comm_desc_t, 0x01000000)
+  ADD_NEW(id, MPI_COMM_NULL, MPI_Comm, comm_desc_t, COMM_MASK)
 #define REMOVE_OLD_COMM(id) \
   REMOVE_OLD(id, MPI_COMM_NULL, file_desc_t, MPI_File)
 #define UPDATE_COMM_MAP(v, r) \
@@ -131,7 +140,7 @@
 #define VIRTUAL_TO_REAL_GROUP(id) \
   VIRTUAL_TO_REAL(id, MPI_GROUP_NULL, MPI_Group, group_desc_t)
 #define ADD_NEW_GROUP(id) \
-  ADD_NEW(id, MPI_GROUP_NULL, MPI_Group, group_desc_t, 0x02000000)
+  ADD_NEW(id, MPI_GROUP_NULL, MPI_Group, group_desc_t, GROUP_MASK)
 #define REMOVE_OLD_GROUP(id) \
   REMOVE_OLD(id, MPI_GROUP_NULL, group_desc_t, MPI_Group)
 #define UPDATE_GROUP_MAP(v, r) \
@@ -144,7 +153,7 @@
 #define VIRTUAL_TO_REAL_TYPE(id) \
   VIRTUAL_TO_REAL(id, MPI_DATATYPE_NULL, MPI_Datatype, datatype_desc_t)
 #define ADD_NEW_TYPE(id) \
-  ADD_NEW(id, MPI_DATATYPE_NULL, MPI_Datatype, datatype_desc_t, 0x05000000)
+  ADD_NEW(id, MPI_DATATYPE_NULL, MPI_Datatype, datatype_desc_t, DATATYPE_MASK)
 #define REMOVE_OLD_TYPE(id) \
   REMOVE_OLD(id, MPI_DATATYPE_NULL, datatype_desc_t, MPI_Datatype)
 #define UPDATE_TYPE_MAP(v, r) \
@@ -157,7 +166,7 @@
 #define VIRTUAL_TO_REAL_OP(id) \
   VIRTUAL_TO_REAL(id, MPI_OP_NULL, MPI_Op, op_desc_t)
 #define ADD_NEW_OP(id) \
-  ADD_NEW(id, MPI_OP_NULL, MPI_Op, op_desc_t, 0x04000000) // TODO OP_create and use VIRT_TO_DESC.
+  ADD_NEW(id, MPI_OP_NULL, MPI_Op, op_desc_t, OP_MASK) // TODO OP_create and use VIRT_TO_DESC.
 #define REMOVE_OLD_OP(id) \
   REMOVE_OLD(id, MPI_OP_NULL, op_desc_t, MPI_Op)
 #define UPDATE_OP_MAP(v, r) \
@@ -171,7 +180,7 @@
 #define VIRTUAL_TO_REAL_COMM_KEYVAL(id) \
   VIRTUAL_TO_REAL(id, 0, int, comm_keyval_desc_t)
 #define ADD_NEW_COMM_KEYVAL(id) \
-  ADD_NEW(id, 0, int, comm_keyval_desc_t, 0x07000000)
+  ADD_NEW(id, 0, int, comm_keyval_desc_t, COMM_KEYVAL_MASK)
 #define REMOVE_OLD_COMM_KEYVAL(id) \
   REMOVE_OLD(id, 0, comm_keyval_desc_t, int)
 #define UPDATE_COMM_KEYVAL_MAP(v, r) \
@@ -184,7 +193,7 @@
 #define VIRTUAL_TO_REAL_REQUEST(id) \
   VIRTUAL_TO_REAL(id, MPI_REQUEST_NULL, MPI_Request, request_desc_t)
 #define ADD_NEW_REQUEST(id) \
-  ADD_NEW(id, MPI_REQUEST_NULL, MPI_Request, request_desc_t, 0x03000000)
+  ADD_NEW(id, MPI_REQUEST_NULL, MPI_Request, request_desc_t, REQUEST_MASK)
 #define REMOVE_OLD_REQUEST(id) \
   REMOVE_OLD(id, MPI_REQUEST_NULL, request_desc_t, MPI_Request)
 #define UPDATE_REQUEST_MAP(v, r) \
