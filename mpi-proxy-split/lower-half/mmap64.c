@@ -30,7 +30,31 @@
 #include "mpi_copybits.h"
 #include <sys/syscall.h>
 
+// See the comment before resetMmappedList() of this file, which explains
+//   how this mmap wrapper is initialized from the upper half.
+// We want to record all mmap regions of the lower half.  These require
+//   interposing on mmap, munmap, mremap, shmat.
+//   FIXME:  We don't handle mremap or MAP_FIXED/MAP_FIXED_NOREPLACE or shmdt
+//           or shmctl, when called from the lower half.  We track the
+//           memory regions using mmaps[] _and_ shms[].
+//   FIXME:  We do not catch any changes in /proc/PID/maps due to ioctl.
+
 #define HAS_MAP_FIXED_NOREPLACE LINUX_VERSION_CODE >= KERNEL_VERSION(4, 17, 0)
+
+#ifdef __NR_mmap2
+# define LH_MMAP_CALL(addr, len, prot, flags, fd, offset) \
+           (void *)MMAP_CALL(mmap2, addr, len, prot, flags, fd, \
+                                    (off_t) (offset / MMAP2_PAGE_UNIT))
+#else
+# define LH_MMAP_CALL(addr, len, prot, flags, fd, offset) \
+           (void *)MMAP_CALL(mmap, addr, len, prot, flags, fd, offset)
+#endif
+
+// We write this into our rserved lh_memRange memory, to see if anyone
+//   modified our memory.
+// FIXME:  We don't restore CANARY_BYTE when we munmap memory.  But it's not
+//         a current problem.  We add mmap regions only at end of lh_memRange
+#define CANARY_BYTE ((char)0b10101010)
 
 #ifndef __set_errno
 # define __set_errno(Val) errno = (Val)
@@ -90,13 +114,63 @@ getMmappedList(int *num)
   return mmaps;
 }
 
+// When the parent started this child process, it then called
+//   split_process.cpp:startProxy() to write the lh_memRange
+//   start and end values.  We already read it here within
+//   first_constructor() in lh_proxy.
+// Then the parent copied the child process into the parent
+//   at split_process.cpp:read_lh_proxy_bits(pid_t().
+// Now we live in the parent process, and the upper half is calling
+//   split_process.cpp:initializeLowerHalf(), which is calling
+//   resetMmappedList() in this file.
 void
 resetMmappedList()
 {
+  // Alternatively, just do:  memset((void *)mmaps, 0, sizeof(mmaps));
   for (int i = 0; i < numRegions; i++) {
     memset(&mmaps[i], 0, sizeof(mmaps[i]));
   }
   numRegions = 0;
+
+#if 0
+  // FIXME:  @jiamingz9925 reports that this code causes MANA to fail after
+  //         launch in the MPI_INIT wrapper.  The relevant stack trace is:
+  // #4  recordPostMpiInitMaps () at mpi_plugin.cpp:154
+  // #5  0x00007f358481ff9f in MPI_Init (argc=0x7ffffc7ba804,
+  //                              argv=<optimized out>) at mpi_wrappers.cpp:74
+  // #6  0x00007f358481f98f in mpi_init_ (ierr=ierr@entry=0x7ffffc7ba82c)
+  //                                            at mpi_fortran_wrappers.cpp:606
+  // But the code can help for VASP/Si256, if this is commented out.
+  // Note that the code still does munmap() from this lh_memRange.
+  // But munmap() succeeds even if there is no mmap segment to unmap.
+
+  // We will reserve the lh_memRange memory, so no one can steal it from us.
+  size_t length = lh_memRange.end - lh_memRange.start;
+#if HAS_MAP_FIXED_NOREPLACE
+  void *rc = mmap(lh_memRange.start, length,
+             PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS|MAP_FIXED_NOREPLACE, -1, 0);
+  if (rc == MAP_FAILED) {
+    char msg[] = "*** Panic: MANA lower half: can't reserve lh_memRange"
+                 " using MAP_FIXED_NOREPLACE\n";
+    perror("mmap");
+    write(2, msg, sizeof(msg)); assert(rc == 0);
+  }
+#else
+  void *rc = mmap(lh_memRange.start, length,
+                  PROT_NONE, MAP_PRIVATE|MAP_ANONYMOUS|MAP_FIXED, -1, 0);
+  if (rc != lh_memRange.start) {
+    char msg[] = "*** Panic: MANA lower half: can't initialize lh_memRange\n";
+    perror("mmap");
+    if (rc != MAP_FAILED) {
+      munmap(rc, length);
+    }
+    write(2, msg, sizeof(msg)); assert(rc != lh_memRange.start);
+  }
+#endif
+  lh_memRange.start = rc;
+  memset(lh_memRange.start, CANARY_BYTE, length);
+  mprotect(lh_memRange.start, length, PROT_NONE);
+#endif
 }
 
 int
@@ -190,6 +264,7 @@ __mmap64 (void *addr, size_t len, int prot, int flags, int fd, __off_t offset)
                     -1, 0);
     if (rc == MAP_FAILED && errno == EEXIST) {
       char msg[] = "*** Panic: MANA lower half: can't initialize lh_memRange\n";
+      perror("mmap");
       write(2, msg, sizeof(msg)); assert(rc == 0);
     }
 #  else
@@ -264,40 +339,37 @@ __mmap64 (void *addr, size_t len, int prot, int flags, int fd, __off_t offset)
     totalLen += 2 * PAGE_SIZE;
   }
   while (1) {
-#ifdef __NR_mmap2
     if (addr) {
-      int rc = munmap(addr, totalLen);
+      // FIXME:  If libmpi o network called this with their own
+      //         MAP_FIXED or MAP_FIXED_NOREPLACE, we should pass
+      //         any errors back to them.
+      int rc = munmap(addr, totalLen); // munmap some of our reserved memory.
       if (rc == -1) {
         char msg[] = "*** Panic: MANA lower half: can't munmap a region.\n";
+        perror("munmap");
         write(2, msg, sizeof(msg)); assert(rc == 0);
       }
     }
-# define MMAP mmap2
-    ret = (void *) MMAP_CALL (MMAP, addr, totalLen, prot, flags, fd,
-                                    (off_t) (offset / MMAP2_PAGE_UNIT));
-#else
-# define MMAP mmap
-    ret = (void *) MMAP_CALL (MMAP, addr, totalLen, prot, flags, fd, offset);
-#endif
+    ret = LH_MMAP_CALL(addr, totalLen, prot, flags, fd, offset);
 
     if (ret == MAP_FAILED && errno == EEXIST) {
       // Someone stole our mmap slot (via ioctl?).  This can happen if
       //   a network or shared-memory library (e.g. xpmem) uses ioctl
       //   to allocate memory.  Look for the next available address.
       do { addr += PAGE_SIZE;
-         }
-      while ((void *)MMAP_CALL(MMAP, addr, PAGE_SIZE, PROT_NONE, MAP_PRIVATE,
-                               0, -1)
-             == MAP_FAILED);
+      } while (LH_MMAP_CALL(addr, PAGE_SIZE, PROT_NONE, MAP_PRIVATE, 0, -1)
+               == MAP_FAILED);
       nextFreeAddr = addr;
-      // FIXME:  We need to recognize dontuse everywhere.
+      // FIXME:  We need to recognize dontuse everywhere.  But it's not a
+//    //       current problem.  We add mmap regions only at end of lh_memRange.
       mmaps[getMmapIdx(ret)].dontuse = 1; // Skip past the stolen region.
       mmaps[getMmapIdx(ret)].len = addr-ret; // Set length of stolen region.
       addr = getNextAddr(len); // FIXME: Maybe we want getNextHugeAddr()
     } else {
+      // FIXME:  This appears to be for hugetlbfs with no backing store.
       break;
     }
-  }  // end of while loop using MMAP_CALL
+  }  // end of while loop using LH_MMAP_CALL
 
   // Accounting of the lower-half mmap regions
   // XXX (Rohan): Why are we doing this? Given that all the lower half memory

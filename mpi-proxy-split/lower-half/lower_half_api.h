@@ -99,8 +99,8 @@ typedef struct _LowerHalfInfo
 #endif
   void *parentStackStart; // Address to the start of the stack of the parent process (FIXME: Not currently used anywhere)
   void *updateEnvironFptr; // Pointer to updateEnviron() function in the lower half
-  void *getMmappedListFptr; // Pointer to getMmapedList() function in the lower half
-  void *resetMmappedListFptr; // Pointer to resetMmapedList() function in the lower half
+  void *getMmappedListFptr; // Pointer to getMmappedList() function in the lower half
+  void *resetMmappedListFptr; // Pointer to resetMmappedList() function in the lower half
   int numCoreRegions; // total number of core regions in the lower half
   void *getLhRegionsListFptr; // Pointer to getLhRegionsList() function in the lower half
   void *vdsoLdAddrInLinkMap; // vDSO's LD address in the lower half's linkmap
