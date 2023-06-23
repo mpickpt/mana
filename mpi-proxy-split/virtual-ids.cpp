@@ -260,6 +260,17 @@ datatype_desc_t* init_datatype_desc_t(MPI_Datatype realType) {
   return desc;
 }
 
+void update_datatype_desc_t(datatype_desc_t* datatype) {
+  MPI_Type_get_envelope(datatype->real_id, &datatype->num_integers, &datatype->num_addresses, &datatype->num_datatypes, &datatype->combiner); // Get the sizes of each array...
+  MPI_Type_get_contents(datatype->real_id, datatype->num_integers, datatype->num_addresses, datatype->num_datatypes, datatype->integers, datatype->addresses, datatype->datatypes);  // And get the contents of each array.
+}
+
+// TODO ensure I understand this correctly.
+void reconstruct_with_datatype_desc_t(datatype_desc_t* datatype) {
+  int count = datatype->num_integers + datatype->num_addresses + datatype->num_datatypes;
+  MPI_Type_create_struct(count, datatype->integers, datatype->addresses, datatype->datatypes, &datatype->real_id);
+}
+
 void destroy_datatype_desc_t(datatype_desc_t* datatype) {
   free(datatype->integers); // TODO
   free(datatype->addresses);
