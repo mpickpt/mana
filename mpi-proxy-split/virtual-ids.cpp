@@ -125,25 +125,48 @@ comm_desc_t* init_comm_desc_t(MPI_Comm realComm) {
     desc->ggid_desc = gd;
   }
   desc->real_id = realComm;
-  desc->size = commSize;
-  desc->local_rank = localRank;
+  // desc->size = commSize;
+  // desc->local_rank = localRank;
 
-  desc->ranks = ranks;
+  // desc->ranks = ranks;
   return desc;
 }
 
 // This is a communicator descriptor updater.
 // Its job is to fill out the descriptor with all relevant metadata information (typically at precheckpoint time),
 // which allows for O(1) reconstruction of the real id at restart time.
-void update_comm_desc_t(comm_desc_t* desc) {
 
+// TODO This may be inefficient because it causes repeated reconstruction of the respective group.
+// A more efficient design would link groups and comms, but would introduce complexity.
+void update_comm_desc_t(comm_desc_t* desc) {
+  MPI_Group group;
+  MPI_Comm_group(desc->real_id, &group);
+  int groupSize;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  NEXT_FUNC(Group_size)(desc->group, &groupSize);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+
+  int* local_ranks = ((int*)malloc(sizeof(int) * groupSize));
+  int* global_ranks = ((int*)malloc(sizeof(int) * groupSize));
+  for (int i = 0; i < groupSize; i++) {
+    local_ranks[i] = i;
+  }
+
+  MPI_Group_translate_ranks(group, groupSize, local_ranks, g_world_group, global_ranks);
+
+  desc->ranks = global_ranks;
+  desc->size = groupSize;
 }
 
 // This is a communicator descriptor reconstructor.
 // Its job is to take the metadata of the descriptor and re-create the communicator it describes.
 // It is typically called at restart time.
 void reconstruct_with_comm_desc_t(comm_desc_t* desc) {
-
+  MPI_Group group;
+  MPI_Group_incl(g_world_group, desc->size, desc->ranks, group);
+  MPI_Comm_create_group(MPI_COMM_WORLD, group, 0, &desc->real_id);
 }
 
 // This is a communicator descriptor destructor.
