@@ -159,10 +159,10 @@ check-integrated_dmtcp_text: tidy integrated_dmtcp_test
 # Argument mistmatch is a legacy feature that newer fortran compilers do not
 # allow, but is still used in two of our test cases
 %.exe: %.f90
-	$(MPIFORTRAN) -g3 -O0 -o $@ $< -fPIC -fallow-argument-mismatch
+	$(MPIFORTRAN) ${FFLAGS} -g3 -O0 -o $@ $<
 
 %.mana.exe: %.f90
-	$(MPIFORTRAN) -g3 -O0 -o $@ $< -fPIC -fallow-argument-mismatch \
+	$(MPIFORTRAN) ${FFLAGS} -g3 -O0 -o $@ $<
 	  ${LDFLAGS_DUMMY}
 
 %.exe: %.o
