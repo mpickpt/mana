@@ -1,4 +1,6 @@
 #include <sys/shm.h>
+#include <sys/mman.h>
+#include <unistd.h>
 #include <errno.h>
 #include <assert.h>
 #include <string.h>
@@ -32,6 +34,13 @@ __wrap_shmat(int shmid, const void *shmaddr, int shmflg)
       addr = getNextAddr(ds.shm_segsz);
       len = ds.shm_segsz;
     }
+  }
+  int rc = munmap(addr, len); // munmap some of our reserved memory.
+  if (rc == -1) {
+    char msg[] = "*** Panic: MANA lower half:"
+                 " can't munmap a region for shmat.\n";
+    perror("munmap");
+    write(2, msg, sizeof(msg)); assert(rc == 0);
   }
   void *ret = __real_shmat(shmid, addr, shmflg);
   if (ret != (void*)-1) {
