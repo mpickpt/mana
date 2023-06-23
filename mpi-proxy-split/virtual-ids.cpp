@@ -364,19 +364,19 @@ void update_descriptors() {
 	update_group_desc_t((group_desc_t*)pair.second);
 	break;
       case REQUEST_MASK:
-	update_request_desc_t((request_desc_t*)pair.second);
+	// update_request_desc_t((request_desc_t*)pair.second);
 	break;
       case OP_MASK:
-	// update_op_desc_t((op_desc_t*)pair.second);
+	// update_op_desc_t((op_desc_t*)pair.second); THIS IS CALLED ON INIT
 	break;
       case DATATYPE_MASK:
 	update_datatype_desc_t((datatype_desc_t*)pair.second);
 	break;
       case FILE_MASK:
-	update_file_desc_t((file_desc_t*)pair.second);
+	// update_file_desc_t((file_desc_t*)pair.second);
 	break;
       case COMM_KEYVAL_MASK:
-	update_comm_keyval_desc_t((comm_keyval_desc_t*)pair.second);
+	// update_comm_keyval_desc_t((comm_keyval_desc_t*)pair.second);
 	break;
     }
   }
