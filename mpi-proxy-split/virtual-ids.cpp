@@ -132,6 +132,20 @@ comm_desc_t* init_comm_desc_t(MPI_Comm realComm) {
   return desc;
 }
 
+// This is a communicator descriptor updater.
+// Its job is to fill out the descriptor with all relevant metadata information (typically at precheckpoint time),
+// which allows for O(1) reconstruction of the real id at restart time.
+void update_comm_desc_t(comm_desc_t* desc) {
+
+}
+
+// This is a communicator descriptor reconstructor.
+// Its job is to take the metadata of the descriptor and re-create the communicator it describes.
+// It is typically called at restart time.
+void reconstruct_with_comm_desc_t(comm_desc_t* desc) {
+
+}
+
 // This is a communicator descriptor destructor.
 // Its job is to free the communicator descriptor (but NOT the real communicator, or related, itself)
 void destroy_comm_desc_t(comm_desc_t* desc) {
@@ -155,6 +169,31 @@ group_desc_t* init_group_desc_t(MPI_Group realGroup) {
   }
   desc->ranks = ranks;
   return desc;
+}
+
+// Translate the local ranks of this group to global ranks, which are unique.
+void update_group_desc_t(group_desc_t* group) {
+  int groupSize;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  NEXT_FUNC(Group_size)(realGroup, &groupSize);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+
+  int* local_ranks = ((int*)malloc(sizeof(int) * groupSize));
+  int* global_ranks = ((int*)malloc(sizeof(int) * groupSize));
+  for (int i = 0; i < groupSize; i++) {
+    ranks[i] = i;
+  }
+
+  MPI_Group_translate_ranks(group->real_id, groupSize, local_ranks, g_world_group, global_ranks);
+
+  group->ranks = global_ranks;
+  group->size = groupSize;
+}
+
+void reconstruct_with_group_desc_t(group_desc_t* group) {
+  MPI_Group_incl(g_world_group, group->size, group->ranks, &group->real_id);
 }
 
 void destroy_group_desc_t(group_desc_t* group) {
@@ -268,6 +307,9 @@ void init_comm_world() {
 
 // For all descriptors, update the respective information.
 void update_descriptors() {
-  // iterate through descriptors
-
+  // iterate through descriptors. Determine the type from the vid_mask that we set in ADD_NEW.
+  for (id_desc_pair pair : idDescriptorTable) {
+    switch {
+    }
+  }
 }
