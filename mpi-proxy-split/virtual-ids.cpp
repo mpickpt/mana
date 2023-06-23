@@ -351,8 +351,31 @@ void init_comm_world() {
 void update_descriptors() {
   // iterate through descriptors. Determine the type from the vid_mask that we set in ADD_NEW.
   for (id_desc_pair pair : idDescriptorTable) {
-    switch {
-
+    // Grab the first byte
+    switch (pair.first & 0xFF000000) { 
+      case UNDEFINED_MASK:
+        break;
+      case COMM_MASK:
+	update_comm_desc_t((comm_desc_t*)pair.second);
+	break;
+      case GROUP_MASK:
+	update_group_desc_t((group_desc_t*)pair.second);
+	break;
+      case REQUEST_MASK:
+	update_request_desc_t((request_desc_t*)pair.second);
+	break;
+      case OP_MASK:
+	update_op_desc_t((op_desc_t*)pair.second);
+	break;
+      case DATATYPE_MASK:
+	update_datatype_desc_t((datatype_desc_t*)pair.second);
+	break;
+      case FILE_MASK:
+	update_file_desc_t((file_desc_t*)pair.second);
+	break;
+      case COMM_KEYVAL_MASK:
+	update_comm_keyval_desc_t((comm_keyval_desc_t*)pair.second);
+	break;
     }
   }
 }
