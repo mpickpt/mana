@@ -244,8 +244,11 @@ op_desc_t* init_op_desc_t(MPI_Op realOp) {
   return desc;
 }
 
-void update_op_desc_t(op_desc_t* op) {
-  // Nothing needs to be done here, all needed information is acquired at creation time.
+// This update function is special, for the information we need is only available at creation time, and not with MPI calls.
+// We manually invoke this function at creation time.
+void update_op_desc_t(op_desc_t* op, MPI_User_function* user_fn, int commute) {
+  op->user_fn = user_fn;
+  op->commute = commute;
 }
 
 void reconstruct_with_op_desc_t(op_desc_t* op) {
@@ -365,7 +368,7 @@ void update_descriptors() {
 	update_request_desc_t((request_desc_t*)pair.second);
 	break;
       case OP_MASK:
-	update_op_desc_t((op_desc_t*)pair.second);
+	// update_op_desc_t((op_desc_t*)pair.second);
 	break;
       case DATATYPE_MASK:
 	update_datatype_desc_t((datatype_desc_t*)pair.second);
