@@ -193,7 +193,7 @@
 #define VIRTUAL_TO_REAL_REQUEST(id) \
   VIRTUAL_TO_REAL(id, MPI_REQUEST_NULL, MPI_Request, request_desc_t)
 #define ADD_NEW_REQUEST(id) \
-  ADD_NEW(id, MPI_REQUEST_NULL, MPI_Request, request_desc_t, REQUEST_MASK)
+  ADD_NEW(id, MPI_REQUEST_NULL, MPI_Request, request_desc_t, 0x03000000)
 #define REMOVE_OLD_REQUEST(id) \
   REMOVE_OLD(id, MPI_REQUEST_NULL, request_desc_t, MPI_Request)
 #define UPDATE_REQUEST_MAP(v, r) \
