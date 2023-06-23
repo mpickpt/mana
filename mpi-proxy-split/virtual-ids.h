@@ -224,6 +224,7 @@ struct comm_desc_t {
 struct group_desc_t {
     MPI_Group real_id; // Real MPI group in the lower-half
     int handle; // A copy of the int type handle generated from the address of this struct
+    int size; // The size of this group in ranks.
     int *ranks; // list of ranks of the group.
     // unsigned int ggid; // Global Group ID
 };
@@ -315,6 +316,20 @@ void destroy_request_desc_t(request_desc_t* request);
 void destroy_group_desc_t(group_desc_t* group);
 void destroy_comm_desc_t(comm_desc_t* comm);
 void destroy_file_desc_t(file_desc_t* file);
+
+void update_datatype_desc_t(datatype_desc_t* datatype);
+void update_op_desc_t(op_desc_t* op);
+void update_request_desc_t(request_desc_t* request);
+void update_group_desc_t(group_desc_t* group);
+void update_comm_desc_t(comm_desc_t* comm);
+void update_file_desc_t(file_desc_t* file);
+
+void reconstruct_with_datatype_desc_t(datatype_desc_t* datatype);
+void reconstruct_with_op_desc_t(op_desc_t* op);
+void reconstruct_with_request_desc_t(request_desc_t* request);
+void reconstruct_with_group_desc_t(group_desc_t* group);
+void reconstruct_with_comm_desc_t(comm_desc_t* comm);
+void reconstruct_with_file_desc_t(file_desc_t* file);
 
 int getggid(MPI_Comm comm);
 int hash(int i);
