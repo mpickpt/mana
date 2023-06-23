@@ -102,7 +102,6 @@ int getggid(MPI_Comm comm, int worldRank, int commSize, int* rbuf) {
 }
 
 // This is a descriptor initializer. Its job is to write a descriptor for a real MPI Communicator.
-// This means making MPI calls that obtain metadata about this MPI communicator.
 comm_desc_t* init_comm_desc_t(MPI_Comm realComm) {
     int worldRank, commSize, localRank;
 
@@ -125,7 +124,7 @@ comm_desc_t* init_comm_desc_t(MPI_Comm realComm) {
     desc->ggid_desc = gd;
   }
   desc->real_id = realComm;
-  // desc->size = commSize;
+  // desc->size = commSize; 
   // desc->local_rank = localRank;
 
   // desc->ranks = ranks;
