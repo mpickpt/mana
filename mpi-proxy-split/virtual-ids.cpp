@@ -144,7 +144,7 @@ void update_comm_desc_t(comm_desc_t* desc) {
   int groupSize;
   DMTCP_PLUGIN_DISABLE_CKPT();
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  NEXT_FUNC(Group_size)(desc->group, &groupSize);
+  NEXT_FUNC(Group_size)(group, &groupSize);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
 
