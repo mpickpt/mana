@@ -206,7 +206,7 @@ void update_group_desc_t(group_desc_t* group) {
   int* local_ranks = ((int*)malloc(sizeof(int) * groupSize));
   int* global_ranks = ((int*)malloc(sizeof(int) * groupSize));
   for (int i = 0; i < groupSize; i++) {
-    ranks[i] = i;
+    local_ranks[i] = i;
   }
 
   MPI_Group_translate_ranks(group->real_id, groupSize, local_ranks, g_world_group, global_ranks);
