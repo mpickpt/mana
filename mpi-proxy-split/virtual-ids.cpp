@@ -221,6 +221,14 @@ op_desc_t* init_op_desc_t(MPI_Op realOp) {
   return desc;
 }
 
+void update_op_desc_t(op_desc_t* op) {
+  // Nothing needs to be done here, all needed information is acquired at creation time.
+}
+
+void reconstruct_with_op_desc_t(op_desc_t* op) {
+  MPI_Op_create(op->user_fn, op->commute, &op->real_id);
+}
+
 void destroy_op_desc_t(op_desc_t* op) {
   // free(op->user_fn); // TODO
   free(op);

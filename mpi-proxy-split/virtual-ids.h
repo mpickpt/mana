@@ -245,6 +245,7 @@ struct op_desc_t {
     MPI_Op real_id; // Real MPI operator in the lower-half
     int handle; // A copy of the int type handle generated from the address of this struct
     MPI_User_function *user_fn; // Function pointer to the user defined op function
+    int commute; // True if op is commutative.
 };
 
 struct datatype_desc_t {
