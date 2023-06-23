@@ -352,6 +352,7 @@ void update_descriptors() {
   // iterate through descriptors. Determine the type from the vid_mask that we set in ADD_NEW.
   for (id_desc_pair pair : idDescriptorTable) {
     switch {
+
     }
   }
 }
