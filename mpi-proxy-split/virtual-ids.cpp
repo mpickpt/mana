@@ -382,6 +382,7 @@ void update_descriptors() {
   }
 }
 
+// For all descriptors, set its real ID to the one uniquely described by its fields.
 void reconstruct_with_descriptors() {
   for (id_desc_pair pair : idDescriptorTable) {
     // Grab the first byte
