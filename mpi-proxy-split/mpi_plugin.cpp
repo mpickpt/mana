@@ -1196,6 +1196,9 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       drainSendRecv(); // p2p_drain_send_recv.cpp
       computeUnionOfCkptImageAddresses();
       dmtcp_global_barrier("MPI:save-mana-header-and-mpi-files");
+
+      update_descriptors();
+      
       const char *file = get_mana_header_file_name();
       save_mana_header(file);
       const char *file2 = get_mpi_file_filename();
@@ -1256,6 +1259,9 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       const char *file = get_mpi_file_filename();
       restore_mpi_files(file);
       dmtcp_local_barrier("MPI:Restore-MPI-Files");
+
+      reconstruct_with_descriptors();
+
       mana_state = RUNNING;
       printEventToStderr("EVENT_RESTART (done)");
       break;
