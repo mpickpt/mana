@@ -410,8 +410,11 @@ findLHMemRange(MemRange_t *lh_mem_range)
     // be loaded. So, it is better to reserve 2GB space for the lower half mmaps
     // near the next address instead of the previous address with a one-page
     // distance to avoid memory overlap.
-    if ((prev_addr_end + 2 * ONEGB + PAGE_SIZE) <= next_addr_start) {
-      lh_mem_range->start = (VA)next_addr_start - (2 * ONEGB + PAGE_SIZE) ;
+    // FIXME:  Changed 2GB to 8GB for larger region between lower and upper
+    //         half.  We should allocate 10 MB above lower half, with CANARY
+    //         and PROT_NONE, and test if the pages were disturbed in mmap().
+    if ((prev_addr_end + 8 * ONEGB + PAGE_SIZE) <= next_addr_start) {
+      lh_mem_range->start = (VA)next_addr_start - (8 * ONEGB + PAGE_SIZE) ;
       lh_mem_range->end = (VA)next_addr_start - PAGE_SIZE;
       is_set = true;
       break;
