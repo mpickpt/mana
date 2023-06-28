@@ -1,5 +1,5 @@
 **Contents:**
-- [General notes for building, testing and running on Cori supercomputer at NERSC:](#general-notes-for-building-testing-and-running-on-cori-supercomputer-at-nersc)
+- [General notes for building, testing and running on Perlmutter supercomputer at NERSC:](#general-notes-for-building-testing-and-running-on-perlmutter-supercomputer-at-nersc)
   - [1. Setting up MANA from its Github repository](#1-setting-up-mana-from-its-github-repository)
   - [2. Building MANA](#2-building-mana)
   - [3. Testing MANA](#3-testing-mana)
@@ -7,8 +7,8 @@
     - [3b. Checkpointing an MPI application](#3b-checkpointing-an-mpi-application)
     - [3c. Restarting an MPI application](#3c-restarting-an-mpi-application)
 - [Debugging internals of MANA:](#debugging-internals-of-mana)
-- [Building and testing on ordinary CentOS/Ubuntu (not the Cori supercomputer):](#building-and-testing-on-ordinary-centosubuntu-not-the-cori-supercomputer)
-  - [Building outside of Cori for MPICH:](#building-outside-of-cori-for-mpich)
+- [Building and testing on ordinary CentOS/Ubuntu (not the Perlmutter supercomputer):](#building-and-testing-on-ordinary-centosubuntu-not-the-perlmutter-supercomputer)
+  - [Building outside of Perlmutter for MPICH:](#building-outside-of-perlmutter-for-mpich)
 - [Testing and Running without Slurm](#testing-and-running-without-slurm)
 
 See [doc/mana-centos-tutorial.txt](../doc/mana-centos-tutorial.txt) for
@@ -17,7 +17,7 @@ Stream.
 
 ---
 
-# General notes for building, testing and running on Cori supercomputer at NERSC:
+# General notes for building, testing and running on Perlmutter supercomputer at NERSC:
 
 The main pointers for background information on MANA are:
 
@@ -48,42 +48,40 @@ See `man mana` or `nroff -man MANA_ROOT_DIR/manpages/mana.1` for the MANA man pa
 
 ## 2. Building MANA
 
-   On Cori, the following Cori-specific modules are currently incompatible with MANA.
+   On Perlmutter, unload a few modules which are incompatible with MANA. Not all or fhte modules are currently present.   We also need to load the PMI module.
    ```bash
-   $ module unload altd darshan craype-hugepages2M
-   ```
-   On Perlmutter, unload a few modules which are incompatible with MANA. We need to 
-load PMI module. 
-   ```bash
-   $module unload darshan Nsight-Compute Nsight-Systems cudatoolkit craype-accel-nvidia80 gpu
+   $ module unload cudatoolkit gpu craype-accel-nvidia80
+   $ module unload darshan Nsight-Compute Nsight-Systems
    $module load cray-pmi
    ```
-   Run the following to update submodules, configure and build.
+   Run the following to update the DMTCP submodule needed by MANA.  Then configure and build.
    ```bash
    $ git submodule update --init
    $ ./configure
    $ make -j mana
    ```
 
+   If you need to alter some configure options, you can edit and execute ./configure-mana.
+
 ## 3. Testing MANA
 
    For convenience, add the MANA bin directory to your PATH.
- 
+
    ```bash
    $ export PATH=$PATH:$MANA_ROOT/bin
    ```
-   
+
    Optionally, you can make this path persistent by doing:
 
    ```bash
    $ echo 'export PATH=$PATH:$MANA_ROOT/bin' >> ~/.bashrc
    ```
- 
-   On Cori, we need to allocate resources to run a job. The command above can be
-modified according to your needs.
+
+   On Perlmutter, we need to allocate resources to run a job. The command below
+can be modified according to your needs.
 
    ```bash
-   $ salloc -N 1 -C haswell -q interactive -t 01:00:00
+   $ salloc -N 1 -C cpu -q interactive -t 01:00:00
    ```
 
 There are many MPI test programs to use for testing MANA in the directory
@@ -256,7 +254,7 @@ The script `gdb-add-symbol-files-all` is a workaround that became necessary
 since Linux 3.10, when Linux created a backwards-incompatible change
 after which GDB has been failing to find the symbols for debugging.
 
-# Building and testing on ordinary CentOS/Ubuntu (not the Cori supercomputer):
+# Building and testing on ordinary CentOS/Ubuntu (not the Perlmutter supercomputer):
 
 Before going into details, there are a few prerequisites:
 
@@ -276,7 +274,7 @@ Before going into details, there are a few prerequisites:
     near future.
 
 3.  Note `MANA_ROOT_DIR/contrib/mpi-proxy-split/Makefile_configure.in`
-    for additional customization (for example, not Cori, not MPICH).
+    for additional customization (for example, not Perlmutter, not MPICH).
 
 4.  OPTIONAL: Probably the `configure` above suffices.  But if `mpicc -show`
     indicates a flag `-lxml2` anyway, then this will create a dependency on
@@ -286,9 +284,9 @@ Before going into details, there are a few prerequisites:
     (If you are missing `libxml2.a` and lack root privilege, try copying `libxml2.a`
      from some distro package, as described in [README.mpich-static](lower-half/README.mpich-static).)
 
-## Building outside of Cori for MPICH:
+## Building outside of Perlmutter for MPICH:
  If you have satisfied the prerequisites above, then do `make -j mana`
-and continue as for Cori, starting with the Cori instructions:
+and continue as for Perlmutter, starting with the Perlmutter instructions:
 
   ```bash
   $ git submodule update --init

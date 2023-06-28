@@ -169,7 +169,7 @@ check-integrated_dmtcp_text: tidy integrated_dmtcp_test
 	 $(MPICC) -o $@ $< ${MPI_LDFLAGS}
 
 %.mana.exe: %.o
-	 $(CC) -o $@ $< ${MPI_LDFLAGS} ${LDFLAGS_DUMMY}
+	 $(MPICC) -o $@ $< ${MPI_LDFLAGS} ${LDFLAGS_DUMMY}
 
 %.exe: %.cpp
 	$(MPICXX) -g3 -O0 -o $@ $< $(MPI_CXXFLAGS)

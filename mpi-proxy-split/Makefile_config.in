@@ -11,12 +11,12 @@ IS_CORI = 1
 endif
 # Mark the platform as Cori for a compute node.
 ifeq ($(findstring nid0,$(PLATFORM)),nid0)
-IS_CORI = 1
+IS_PERLMUTTER = 1
 endif
 # Perlmutter's login node starts with login keyword
 # FIXME: have less checks to find the platform
 ifeq ($(findstring login,$(PLATFORM)),login)
-IS_CORI = 1
+IS_PERLMUTTER = 1
 endif
 
 ifeq ($(findstring gert,$(PLATFORM)),gert)
@@ -33,12 +33,9 @@ ifeq ($(or $(IS_CORI),$(IS_GERTY)), 1)
   MPI_LDFLAGS?= -dynamic
 # This is needed, or else mana_coordinator.o becomes the default target.
 default2: default
-## On Cori at NERSC, MPICC is CC, which translates to icpc(ICC)-v19
-## But this .o file will be linked with src/dmtcp_coordinator.o, which
-##   is built with g++.  So, we use $(CXX) for compatibility.
-## An alternative is to use -O2, which inlines calls to memcpy.
 #mana_coordinator.o: mana_coordinator.cpp
 #	${CXX} ${CXXFLAGS} `CC --cray-print-opts=cflags` -c -o $@ $<
+## On Perlmutter, the generic settings of 'else' seem to work.
 else
   MPICC = mpicc
   MPICXX = mpic++ -std=c++14
