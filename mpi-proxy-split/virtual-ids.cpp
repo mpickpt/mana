@@ -140,7 +140,7 @@ void update_comm_desc_t(comm_desc_t* desc) {
 // It is typically called at restart time.
 void reconstruct_with_comm_desc_t(comm_desc_t* desc) {
   MPI_Group group;
-  MPI_Group_incl(g_world_group, desc->size, desc->ranks, group);
+  MPI_Group_incl(g_world_group, desc->size, desc->ranks, &group);
   MPI_Comm_create_group(MPI_COMM_WORLD, group, 0, &desc->real_id);
 }
 
