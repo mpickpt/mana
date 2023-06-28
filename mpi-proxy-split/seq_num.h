@@ -44,6 +44,9 @@ typedef struct __rank_state_t
 // Global communicator for MANA internal use
 extern MPI_Comm g_world_comm;
 
+// as above
+extern MPI_Group g_world_group;
+
 // extern std::map<unsigned int, unsigned long> seq_num;
 // extern std::map<unsigned int, unsigned long> target;
 
