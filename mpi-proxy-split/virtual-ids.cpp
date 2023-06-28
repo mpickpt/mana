@@ -251,7 +251,7 @@ datatype_desc_t* init_datatype_desc_t(MPI_Datatype realType) {
 }
 
 void update_datatype_desc_t(datatype_desc_t* datatype) {
-  MPI_Type_get_envelope(datatype->real_id, &datatype->num_integers, &datatype->num_addresses, &datatype->num_datatypes, &datatype->combiner); // Get the sizes of each array...
+  MPI_Type_get_envelope(datatype->real_id, datatype->num_integers, datatype->num_addresses, datatype->num_datatypes, &datatype->combiner); // Get the sizes of each array...
   MPI_Type_get_contents(datatype->real_id, datatype->num_integers, datatype->num_addresses, datatype->num_datatypes, datatype->integers, datatype->addresses, datatype->datatypes);  // And get the contents of each array.
 }
 
