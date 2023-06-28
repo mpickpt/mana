@@ -172,7 +172,7 @@ void update_group_desc_t(group_desc_t* group) {
   int groupSize;
   DMTCP_PLUGIN_DISABLE_CKPT();
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  NEXT_FUNC(Group_size)(realGroup, &groupSize);
+  NEXT_FUNC(Group_size)(group->real_id, &groupSize);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
 
