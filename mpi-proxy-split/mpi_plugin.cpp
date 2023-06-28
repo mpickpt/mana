@@ -1174,7 +1174,8 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       setCartesianCommunicator(lh_info.getCartesianCommunicatorFptr);
 #endif
       dmtcp_global_barrier("MPI:restoreMpiLogState");
-      restoreMpiLogState(); // record-replay.cpp
+      // restoreMpiLogState(); // record-replay.cpp
+      reconstruct_with_descriptors();
       dmtcp_global_barrier("MPI:record-replay.cpp-void");
       replayMpiP2pOnRestart(); // p2p_log_replay.cpp
       dmtcp_local_barrier("MPI:p2p_log_replay.cpp-void");
@@ -1183,8 +1184,6 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       const char *file = get_mpi_file_filename();
       restore_mpi_files(file);
       dmtcp_local_barrier("MPI:Restore-MPI-Files");
-
-      reconstruct_with_descriptors();
 
       mana_state = RUNNING;
       break;
