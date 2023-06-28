@@ -118,6 +118,10 @@ comm_desc_t* init_comm_desc_t(MPI_Comm realComm) {
 void update_comm_desc_t(comm_desc_t* desc) {
   MPI_Group group;
   MPI_Comm_group(desc->real_id, &group);
+#ifdef
+  printf("update_comm_desc group: %x", group);
+  fflush(stdout);
+#endif
   int groupSize;
   DMTCP_PLUGIN_DISABLE_CKPT();
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
