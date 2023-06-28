@@ -269,7 +269,7 @@ struct datatype_desc_t {
     int *num_large_counts;
     int *large_counts;
     int *num_datatypes;
-    int *datatypes;
+    MPI_Datatype *datatypes; // hmmm.. hierarchical restore?
     int *combiner;
 };
 
