@@ -341,6 +341,9 @@ void reconstruct_with_group_desc_t(group_desc_t* group);
 void reconstruct_with_comm_desc_t(comm_desc_t* comm);
 void reconstruct_with_file_desc_t(file_desc_t* file);
 
+void update_descriptors();
+void reconstruct_with_descriptors();
+
 int getggid(MPI_Comm comm);
 int hash(int i);
 
