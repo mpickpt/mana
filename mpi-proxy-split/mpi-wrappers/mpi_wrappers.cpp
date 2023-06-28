@@ -70,6 +70,7 @@ USER_DEFINED_WRAPPER(int, Init, (int *) argc, (char ***) argv) {
   retval = NEXT_FUNC(Init)(argc, argv);
   // Create a duplicate of MPI_COMM_WORLD for internal use.
   NEXT_FUNC(Comm_dup)(MPI_COMM_WORLD, &g_world_comm);
+  NEXT_FUNC(Comm_group)(MPI_COMM_WORLD, &g_world_group);
   RETURN_TO_UPPER_HALF();
 
   recordPostMpiInitMaps();
