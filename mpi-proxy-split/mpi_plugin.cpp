@@ -1175,8 +1175,8 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 #endif
       dmtcp_global_barrier("MPI:restoreMpiLogState");
       // restoreMpiLogState(); // record-replay.cpp
-      reconstruct_with_descriptors();
-      dmtcp_global_barrier("MPI:record-replay.cpp-void");
+      reconstruct_with_descriptors(); // virtual-ids
+      dmtcp_global_barrier("MPI:virtual-ids.cpp-void");
       replayMpiP2pOnRestart(); // p2p_log_replay.cpp
       dmtcp_local_barrier("MPI:p2p_log_replay.cpp-void");
       seq_num_reset(RESTART);
