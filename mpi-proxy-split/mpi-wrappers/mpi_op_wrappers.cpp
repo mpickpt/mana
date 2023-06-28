@@ -44,7 +44,7 @@ USER_DEFINED_WRAPPER(int, Op_create,
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS && MPI_LOGGING()) {
     MPI_Op virtOp = ADD_NEW_OP(*op);
-    update_op_desc_t(VIRTUAL_TO_DESC(virtOp), user_fn, commute);
+    update_op_desc_t(VIRTUAL_TO_DESC_OP(virtOp), user_fn, commute);
     *op = virtOp;
     LOG_CALL(restoreOps, Op_create, user_fn, commute, virtOp);
   }
