@@ -123,11 +123,7 @@ void update_comm_desc_t(comm_desc_t* desc) {
   fflush(stdout);
 #endif
   int groupSize;
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  NEXT_FUNC(Group_size)(group, &groupSize);
-  RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  MPI_Group_size(group, &groupSize);
 
   int* local_ranks = ((int*)malloc(sizeof(int) * groupSize));
   int* global_ranks = ((int*)malloc(sizeof(int) * groupSize));
