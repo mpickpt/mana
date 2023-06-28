@@ -172,7 +172,7 @@ group_desc_t* init_group_desc_t(MPI_Group realGroup) {
 // Translate the local ranks of this group to global ranks, which are unique.
 void update_group_desc_t(group_desc_t* group) {
   int groupSize;
-#ifdef
+#ifdef DEBUG_VIDS
   printf("update_group_desc_t group: %x\n", group->real_id);
   fflush(stdout);
 #endif
