@@ -346,9 +346,17 @@ void update_descriptors() {
       case UNDEFINED_MASK:
         break;
       case COMM_MASK:
+#ifdef DEBUG_VIDS
+	printf("update_comm\n");
+	fflush(stdout);
+#endif
 	update_comm_desc_t((comm_desc_t*)pair.second);
 	break;
       case GROUP_MASK:
+#ifdef DEBUG_VIDS
+	printf("update_group\n");
+	fflush(stdout);
+#endif
 	update_group_desc_t((group_desc_t*)pair.second);
 	break;
       case REQUEST_MASK:
@@ -358,6 +366,10 @@ void update_descriptors() {
 	// update_op_desc_t((op_desc_t*)pair.second); THIS IS CALLED ON INIT
 	break;
       case DATATYPE_MASK:
+#ifdef DEBUG_VIDS
+	printf("update_datatype\n");
+	fflush(stdout);
+#endif
 	update_datatype_desc_t((datatype_desc_t*)pair.second);
 	break;
       case FILE_MASK:
