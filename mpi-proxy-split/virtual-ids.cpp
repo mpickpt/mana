@@ -36,6 +36,8 @@
 #include "virtual-ids.h"
 #include "lower_half_api.h"
 
+#include "seq_num.h"
+
 #define MAX_VIRTUAL_ID 999
 
 typedef typename std::map<int, id_desc_t*>::iterator id_desc_iterator;
