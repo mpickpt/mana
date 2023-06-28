@@ -265,7 +265,7 @@ struct datatype_desc_t {
     int *num_integers;
     int *integers;
     int *num_addresses;
-    int *addresses;
+    MPI_Aint *addresses;
     int *num_large_counts;
     int *large_counts;
     int *num_datatypes;
