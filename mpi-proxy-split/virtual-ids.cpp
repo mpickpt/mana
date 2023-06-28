@@ -40,6 +40,8 @@
 
 #define MAX_VIRTUAL_ID 999
 
+#define DEBUG_VIDS
+
 typedef typename std::map<int, id_desc_t*>::iterator id_desc_iterator;
 typedef typename std::map<int, ggid_desc_t*>::iterator ggid_desc_iterator;
 
@@ -296,6 +298,9 @@ void print_id_descriptors() {
 // Otherwise return NULL
 id_desc_t* virtualToDescriptor(int virtId) {
   // print_id_descriptors();
+#ifdef DEBUG_VIDS
+  print_id_descriptors();
+#endif
   id_desc_iterator it = idDescriptorTable.find(virtId);
   if (it != idDescriptorTable.end()) {
     return it->second;
