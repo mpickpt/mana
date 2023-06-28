@@ -328,7 +328,7 @@ void destroy_comm_desc_t(comm_desc_t* comm);
 void destroy_file_desc_t(file_desc_t* file);
 
 void update_datatype_desc_t(datatype_desc_t* datatype);
-void update_op_desc_t(op_desc_t* op);
+void update_op_desc_t(op_desc_t* op, MPI_User_function* user_fn, int commute);
 void update_request_desc_t(request_desc_t* request);
 void update_group_desc_t(group_desc_t* group);
 void update_comm_desc_t(comm_desc_t* comm);
