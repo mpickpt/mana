@@ -86,6 +86,10 @@ int getggid(MPI_Comm comm, int worldRank, int commSize, int* rbuf) {
 // This is a descriptor initializer. Its job is to write an initial descriptor for a real MPI Communicator.
 comm_desc_t* init_comm_desc_t(MPI_Comm realComm) {
     int worldRank, commSize, localRank;
+#ifdef DEBUG_VIDS
+    printf("init_comm_desc_t realComm: %x\n", realComm);
+    fflush(stdout);
+#endif
 
   MPI_Comm_rank(MPI_COMM_WORLD, &worldRank);
   MPI_Comm_size(realComm, &commSize);
@@ -118,8 +122,10 @@ comm_desc_t* init_comm_desc_t(MPI_Comm realComm) {
 void update_comm_desc_t(comm_desc_t* desc) {
   MPI_Group group;
   MPI_Comm_group(desc->real_id, &group);
+#ifdef DEBUG_VIDS
   printf("update_comm_desc group: %x\n", group);
   fflush(stdout);
+#endif
   int groupSize;
   MPI_Group_size(group, &groupSize);
 
@@ -141,6 +147,10 @@ void update_comm_desc_t(comm_desc_t* desc) {
 void reconstruct_with_comm_desc_t(comm_desc_t* desc) {
   MPI_Group group;
   MPI_Group_incl(g_world_group, desc->size, desc->ranks, &group);
+#ifdef DEBUG_VIDS
+  printf("reconstruct_comm_desc_t: %x\n", group);
+  fflush(stdout);
+#endif
   MPI_Comm_create_group(MPI_COMM_WORLD, group, 0, &desc->real_id);
 }
 
@@ -156,6 +166,10 @@ group_desc_t* init_group_desc_t(MPI_Group realGroup) {
   group_desc_t* desc = ((group_desc_t*)malloc(sizeof(group_desc_t)));
   desc->real_id = realGroup;
   int groupSize;
+#ifdef DEBUG_VIDS
+  printf("init_group_desc_t: %x\n", realGroup);
+  fflush(stdout);
+#endif
   DMTCP_PLUGIN_DISABLE_CKPT();
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   NEXT_FUNC(Group_size)(realGroup, &groupSize);
@@ -172,8 +186,10 @@ group_desc_t* init_group_desc_t(MPI_Group realGroup) {
 // Translate the local ranks of this group to global ranks, which are unique.
 void update_group_desc_t(group_desc_t* group) {
   int groupSize;
+#ifdef DEBUG_VIDS
   printf("update_group_desc_t group: %x\n", group->real_id);
   fflush(stdout);
+#endif
   MPI_Group_size(group->real_id, &groupSize);
 
   int* local_ranks = ((int*)malloc(sizeof(int) * groupSize));
@@ -189,6 +205,10 @@ void update_group_desc_t(group_desc_t* group) {
 }
 
 void reconstruct_with_group_desc_t(group_desc_t* group) {
+#ifdef DEBUG_VIDS
+  printf("reconstruct_with_group_desc_t group: %x\n", group->real_id);
+  fflush(stdout);
+#endif
   MPI_Group_incl(g_world_group, group->size, group->ranks, &group->real_id);
 }
 
@@ -284,8 +304,7 @@ void print_id_descriptors() {
   printf("Printing %u id_descriptors:\n", idDescriptorTable.size());
   fflush(stdout);
   for (id_desc_pair pair : idDescriptorTable) {
-    printf("%i\n", pair.first);
-    printf("%u %i\n", ((comm_desc_t*)pair.second)->real_id, ((comm_desc_t*)pair.second)->real_id); // HACK
+    printf("%x\n", pair.first);
     fflush(stdout);
   }
 }
@@ -293,7 +312,6 @@ void print_id_descriptors() {
 // Given int virtualid, return the contained id_desc_t if it exists.
 // Otherwise return NULL
 id_desc_t* virtualToDescriptor(int virtId) {
-  // print_id_descriptors();
 #ifdef DEBUG_VIDS
   print_id_descriptors();
 #endif
@@ -317,6 +335,10 @@ void init_comm_world() {
 
 // For all descriptors, update the respective information.
 void update_descriptors() {
+#ifdef DEBUG_VIDS
+  printf("update_descriptors\n");
+  fflush(stdout);
+#endif
   // iterate through descriptors. Determine the type from the vid_mask that we set in ADD_NEW.
   for (id_desc_pair pair : idDescriptorTable) {
     // Grab the first byte
@@ -350,6 +372,10 @@ void update_descriptors() {
 
 // For all descriptors, set its real ID to the one uniquely described by its fields.
 void reconstruct_with_descriptors() {
+#ifdef DEBUG_VIDS
+  printf("update_descriptors\n");
+  fflush(stdout);
+#endif
   for (id_desc_pair pair : idDescriptorTable) {
     // Grab the first byte
     switch (pair.first & 0xFF000000) { 
