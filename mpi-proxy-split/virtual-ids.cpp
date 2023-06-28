@@ -257,7 +257,7 @@ void update_datatype_desc_t(datatype_desc_t* datatype) {
 
 // TODO ensure I understand this correctly.
 void reconstruct_with_datatype_desc_t(datatype_desc_t* datatype) {
-  int count = datatype->num_integers + datatype->num_addresses + datatype->num_datatypes;
+  int count = *datatype->num_integers + *datatype->num_addresses + *datatype->num_datatypes;
   MPI_Type_create_struct(count, datatype->integers, datatype->addresses, datatype->datatypes, &datatype->real_id);
 }
 
