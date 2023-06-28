@@ -22,6 +22,7 @@ extern int g_world_rank;
 extern int g_world_size;
 // Global communicator for MANA internal use
 MPI_Comm g_world_comm;
+MPI_Group g_world_group;
 extern int p2p_deterministic_skip_save_request;
 volatile bool ckpt_pending;
 int converged;
