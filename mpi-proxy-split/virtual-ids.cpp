@@ -118,10 +118,8 @@ comm_desc_t* init_comm_desc_t(MPI_Comm realComm) {
 void update_comm_desc_t(comm_desc_t* desc) {
   MPI_Group group;
   MPI_Comm_group(desc->real_id, &group);
-#ifdef DEBUG_VIDS
-  printf("update_comm_desc group: %x", group);
+  printf("update_comm_desc group: %x\n", group);
   fflush(stdout);
-#endif
   int groupSize;
   MPI_Group_size(group, &groupSize);
 
