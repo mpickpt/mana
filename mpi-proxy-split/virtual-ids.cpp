@@ -149,6 +149,10 @@ void reconstruct_with_comm_desc_t(comm_desc_t* desc) {
   printf("reconstruct_comm_desc_t comm: %x\n", desc->real_id);
   fflush(stdout);
 #endif
+  // g_world_comm, an MPI_COMM_WORLD in the lower half which we save as a real id.
+  if (desc->real_id == 0x84000000) { 
+    return;
+  }
   MPI_Group group;
   MPI_Group_incl(g_world_group, desc->size, desc->ranks, &group);
   MPI_Comm_create_group(MPI_COMM_WORLD, group, 0, &desc->real_id);
