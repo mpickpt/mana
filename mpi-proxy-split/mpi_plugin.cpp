@@ -903,6 +903,8 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 
     case DMTCP_EVENT_PRECHECKPOINT: {
       printEventToStderr("EVENT_PRECHECKPOINT (drain send/recv)");
+      update_descriptors();
+      dmtcp_global_barrier("MPI:update-resource-descriptors");
       recordMpiInitMaps();
       recordOpenFds();
       dmtcp_local_barrier("MPI:GetLocalRankInfo");
@@ -917,9 +919,6 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       // computeUnionOfCkptImageAddresses();
       dmtcp_global_barrier("MPI:save-mana-header-and-mpi-files");
 
-      update_descriptors();
-      dmtcp_global_barrier("MPI:update-resource-descriptors");
-      
       const char *file = get_mana_header_file_name();
       save_mana_header(file);
       const char *file2 = get_mpi_file_filename();
