@@ -918,6 +918,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       dmtcp_global_barrier("MPI:save-mana-header-and-mpi-files");
 
       update_descriptors();
+      dmtcp_global_barrier("MPI:update-resource-descriptors");
       
       const char *file = get_mana_header_file_name();
       save_mana_header(file);
