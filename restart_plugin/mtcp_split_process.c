@@ -289,6 +289,15 @@ setLhMemRange(RestoreInfo *rinfo)
 #if !defined(MANA_USE_LH_FIXED_ADDRESS)
     lh_mem_range.start = (VA)area.addr - TWO_GB;
     lh_mem_range.end = (VA)area.addr - ONE_GB;
+    // High memory region occupies more than 1GB below stack region.
+    // Use minHighMemStart to set lower half memory range.
+    // Plugin_hook reserves region that ends 4GB below high memory region
+    // (See mtcp_plugin_hook). LH reserved 1GB size region that ends at 1GB
+    // below (high memory start - 4GB), so 5GB below high memory.
+    if (lh_mem_range.end > (VA) rinfo->minHighMemStart) {
+      lh_mem_range.end = rinfo->minHighMemStart - 5 * ONE_GB;
+      lh_mem_range.start = lh_mem_range.end - 1 * ONE_GB;
+    }
 #else
     lh_mem_range.start = 0x2aab00000000;
     lh_mem_range.end =   0x2aab00000000 + ONE_GB;
