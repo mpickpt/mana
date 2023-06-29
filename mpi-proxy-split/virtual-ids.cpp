@@ -145,12 +145,12 @@ void update_comm_desc_t(comm_desc_t* desc) {
 // Its job is to take the metadata of the descriptor and re-create the communicator it describes.
 // It is typically called at restart time.
 void reconstruct_with_comm_desc_t(comm_desc_t* desc) {
-  MPI_Group group;
-  MPI_Group_incl(g_world_group, desc->size, desc->ranks, &group);
 #ifdef DEBUG_VIDS
-  printf("reconstruct_comm_desc_t: %x\n", group);
+  printf("reconstruct_comm_desc_t comm: %x\n", desc->real_id);
   fflush(stdout);
 #endif
+  MPI_Group group;
+  MPI_Group_incl(g_world_group, desc->size, desc->ranks, &group);
   MPI_Comm_create_group(MPI_COMM_WORLD, group, 0, &desc->real_id);
 }
 
