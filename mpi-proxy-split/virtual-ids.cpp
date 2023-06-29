@@ -385,7 +385,7 @@ void update_descriptors() {
 // For all descriptors, set its real ID to the one uniquely described by its fields.
 void reconstruct_with_descriptors() {
 #ifdef DEBUG_VIDS
-  printf("update_descriptors\n");
+  printf("reconstruct_with_descriptors\n");
   fflush(stdout);
 #endif
   for (id_desc_pair pair : idDescriptorTable) {
@@ -394,18 +394,34 @@ void reconstruct_with_descriptors() {
       case UNDEFINED_MASK:
         break;
       case COMM_MASK:
+#ifdef DEBUG_VIDS
+	printf("recon_comm\n");
+	fflush(stdout);
+#endif
 	reconstruct_with_comm_desc_t((comm_desc_t*)pair.second);
 	break;
       case GROUP_MASK:
+#ifdef DEBUG_VIDS
+	printf("recon_group\n");
+	fflush(stdout);
+#endif
 	reconstruct_with_group_desc_t((group_desc_t*)pair.second);
 	break;
       case REQUEST_MASK:
 	// update_request_desc_t((request_desc_t*)pair.second);
 	break;
       case OP_MASK:
+#ifdef DEBUG_VIDS
+	printf("recon_op\n");
+	fflush(stdout);
+#endif
 	reconstruct_with_op_desc_t((op_desc_t*)pair.second);
 	break;
       case DATATYPE_MASK:
+#ifdef DEBUG_VIDS
+	printf("recon_datatype\n");
+	fflush(stdout);
+#endif
 	reconstruct_with_datatype_desc_t((datatype_desc_t*)pair.second);
 	break;
       case FILE_MASK:
