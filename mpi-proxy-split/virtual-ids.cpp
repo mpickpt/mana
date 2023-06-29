@@ -174,11 +174,7 @@ group_desc_t* init_group_desc_t(MPI_Group realGroup) {
   printf("init_group_desc_t: %x\n", realGroup);
   fflush(stdout);
 #endif
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  NEXT_FUNC(Group_size)(realGroup, &groupSize);
-  RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  MPI_Group_size(realGroup, &groupSize);
   int* ranks = ((int*)malloc(sizeof(int) * groupSize));
   for (int i = 0; i < groupSize; i++) {
     ranks[i] = i;
@@ -213,7 +209,13 @@ void reconstruct_with_group_desc_t(group_desc_t* group) {
   printf("reconstruct_with_group_desc_t group: %x\n", group->real_id);
   fflush(stdout);
 #endif
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   MPI_Group_incl(g_world_group, group->size, group->ranks, &group->real_id);
+  // NEXT_FUNC(Allgather)(&worldRank, 1, MPI_INT,
+  // rbuf, 1, MPI_INT, comm);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
 }
 
 void destroy_group_desc_t(group_desc_t* group) {
