@@ -211,9 +211,7 @@ void reconstruct_with_group_desc_t(group_desc_t* group) {
 #endif
   DMTCP_PLUGIN_DISABLE_CKPT();
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  MPI_Group_incl(g_world_group, group->size, group->ranks, &group->real_id);
-  // NEXT_FUNC(Allgather)(&worldRank, 1, MPI_INT,
-  // rbuf, 1, MPI_INT, comm);
+  NEXT_FUNC(Group_incl)(g_world_group, group->size, group->ranks, &group->real_id);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
 }
