@@ -154,8 +154,13 @@ void reconstruct_with_comm_desc_t(comm_desc_t* desc) {
     return;
   }
   MPI_Group group;
-  MPI_Group_incl(g_world_group, desc->size, desc->ranks, &group);
-  MPI_Comm_create_group(MPI_COMM_WORLD, group, 0, &desc->real_id);
+
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  NEXT_FUNC(Group_incl)(g_world_group, desc->size, desc->ranks, &group);
+  NEXT_FUNC(Comm_create_group)(MPI_COMM_WORLD, group, 0, &desc->real_id);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
 }
 
 // This is a communicator descriptor destructor.
