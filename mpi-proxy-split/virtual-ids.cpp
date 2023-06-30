@@ -121,7 +121,13 @@ comm_desc_t* init_comm_desc_t(MPI_Comm realComm) {
 // A more efficient design would link groups and comms, but would introduce complexity.
 void update_comm_desc_t(comm_desc_t* desc) {
   MPI_Group group;
-  MPI_Comm_group(desc->real_id, &group);
+
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  NEXT_FUNC(Comm_group)(desc->real_id, &group);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+
 #ifdef DEBUG_VIDS
   printf("update_comm_desc group: %x\n", group);
   fflush(stdout);
