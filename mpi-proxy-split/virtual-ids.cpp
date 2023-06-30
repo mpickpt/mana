@@ -167,10 +167,12 @@ void reconstruct_with_comm_desc_t(comm_desc_t* desc) {
   if (desc->real_id == 0x84000000) { 
     return;
   }
-  MPI_Group group;
+
+  // We recreate the communicator with the reconstructed group and MPI_COMM_WORLD.
 
   DMTCP_PLUGIN_DISABLE_CKPT();
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  MPI_Group group;
   NEXT_FUNC(Group_incl)(g_world_group, desc->size, desc->ranks, &group);
   NEXT_FUNC(Comm_create_group)(MPI_COMM_WORLD, group, 0, &desc->real_id);
   RETURN_TO_UPPER_HALF();
