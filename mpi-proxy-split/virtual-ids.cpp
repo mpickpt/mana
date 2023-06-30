@@ -167,7 +167,7 @@ void destroy_comm_desc_t(comm_desc_t* desc) {
 }
 
 group_desc_t* init_group_desc_t(MPI_Group realGroup) {
-  DMTCP_PLUGIN_DISABLE_CHECKPOINT();
+  DMTCP_PLUGIN_DISABLE_CKPT();
   group_desc_t* desc = ((group_desc_t*)malloc(sizeof(group_desc_t)));
   desc->real_id = realGroup;
   int groupSize;
@@ -182,7 +182,7 @@ group_desc_t* init_group_desc_t(MPI_Group realGroup) {
   }
   desc->ranks = ranks;
   return desc;
-  DMTCP_PLUGIN_ENABLE_CHECKPOINT();
+  DMTCP_PLUGIN_ENABLE_CKPT();
 }
 
 // Translate the local ranks of this group to global ranks, which are unique.
