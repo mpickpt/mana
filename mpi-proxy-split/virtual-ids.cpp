@@ -136,6 +136,8 @@ void update_comm_desc_t(comm_desc_t* desc) {
   NEXT_FUNC(Comm_group)(desc->real_id, &group);
   RETURN_TO_UPPER_HALF();
 
+  desc->size = groupSize;
+
 #ifdef DEBUG_VIDS
   printf("update_comm_desc group: %x\n", group);
   fflush(stdout);
@@ -158,7 +160,6 @@ void update_comm_desc_t(comm_desc_t* desc) {
   DMTCP_PLUGIN_ENABLE_CKPT();
 
   desc->ranks = global_ranks;
-  desc->size = groupSize;
 }
 
 // This is a communicator descriptor reconstructor.
