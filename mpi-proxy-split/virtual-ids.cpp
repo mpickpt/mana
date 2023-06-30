@@ -126,7 +126,6 @@ void update_comm_desc_t(comm_desc_t* desc) {
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   NEXT_FUNC(Comm_group)(desc->real_id, &group);
   RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
 
 #ifdef DEBUG_VIDS
   printf("update_comm_desc group: %x\n", group);
@@ -141,7 +140,6 @@ void update_comm_desc_t(comm_desc_t* desc) {
     local_ranks[i] = i;
   }
 
-  DMTCP_PLUGIN_DISABLE_CKPT();
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   NEXT_FUNC(Group_translate_ranks)(group, groupSize, local_ranks, g_world_group, global_ranks);
   RETURN_TO_UPPER_HALF();
