@@ -349,4 +349,6 @@ int hash(int i);
 
 void init_comm_world(); // This is required for the GGID algorithm.
 
+void reinit_global_dups();
+
 #endif // ifndef VIRTUAL_ID_H
