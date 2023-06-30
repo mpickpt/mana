@@ -210,15 +210,15 @@ void reconstruct_with_group_desc_t(group_desc_t* group) {
   printf("reconstruct_with_group_desc_t g_world_group: %x\n", g_world_group);
   fflush(stdout);
 #endif
-  int errno = 0;
+  int error_number = 0;
   // DMTCP_PLUGIN_DISABLE_CKPT();
   // JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   // NEXT_FUNC(Group_incl)(g_world_group, group->size, group->ranks, &group->real_id);
   // RETURN_TO_UPPER_HALF();
   // DMTCP_PLUGIN_ENABLE_CKPT();
-  errno = MPI_Group_incl(g_world_group, group->size, group->ranks, &group->real_id);
+  error_number = MPI_Group_incl(g_world_group, group->size, group->ranks, &group->real_id);
 #ifdef
-  printf("reconstruct_with_group_desc_t errno: %i\n", errno);
+  printf("reconstruct_with_group_desc_t error_number: %i\n", error_number);
   fflush(stdout);
 #endif
 }
