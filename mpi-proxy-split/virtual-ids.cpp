@@ -217,7 +217,7 @@ void reconstruct_with_group_desc_t(group_desc_t* group) {
   // RETURN_TO_UPPER_HALF();
   // DMTCP_PLUGIN_ENABLE_CKPT();
   error_number = MPI_Group_incl(g_world_group, group->size, group->ranks, &group->real_id);
-#ifdef
+#ifdef DEBUG_VIDS
   printf("reconstruct_with_group_desc_t error_number: %i\n", error_number);
   fflush(stdout);
 #endif
