@@ -441,4 +441,13 @@ void reconstruct_with_descriptors() {
 
 // This function needs to be called on a restart in order to re-initialize internal duplications of constants (which are not themselves constant), such as MPI_COMM_WORLD->g_world_comm, and Group_Incl(MPI_COMM_WORLD)->g_world_group.
 void reinit_global_dups() {
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  NEXT_FUNC(Comm_dup)(MPI_COMM_WORLD, &g_world_comm);
+  NEXT_FUNC(Comm_group)(MPI_COMM_WORLD, &g_world_group);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+
+  g_world_comm = ADD_NEW_COMM(g_world_comm);
+  g_world_group = ADD_NEW_GROUP(g_world_group);
 }
