@@ -210,11 +210,12 @@ void reconstruct_with_group_desc_t(group_desc_t* group) {
   printf("reconstruct_with_group_desc_t g_world_group: %x\n", g_world_group);
   fflush(stdout);
 #endif
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  NEXT_FUNC(Group_incl)(g_world_group, group->size, group->ranks, &group->real_id);
-  RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  // DMTCP_PLUGIN_DISABLE_CKPT();
+  // JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  // NEXT_FUNC(Group_incl)(g_world_group, group->size, group->ranks, &group->real_id);
+  // RETURN_TO_UPPER_HALF();
+  // DMTCP_PLUGIN_ENABLE_CKPT();
+  MPI_Group_incl(g_world_group, group->size, group->ranks, &group->real_id);
 }
 
 void destroy_group_desc_t(group_desc_t* group) {
@@ -441,6 +442,10 @@ void reconstruct_with_descriptors() {
 
 // This function needs to be called on a restart in order to re-initialize internal duplications of constants (which are not themselves constant), such as MPI_COMM_WORLD->g_world_comm, and Group_Incl(MPI_COMM_WORLD)->g_world_group.
 void reinit_global_dups() {
+#ifdef DEBUG_VIDS
+  printf("Reinitializing globals.\n");
+  fflush(stdout);
+#endif
   DMTCP_PLUGIN_DISABLE_CKPT();
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   NEXT_FUNC(Comm_dup)(MPI_COMM_WORLD, &g_world_comm);
