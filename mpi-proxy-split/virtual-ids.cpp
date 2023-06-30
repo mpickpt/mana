@@ -155,12 +155,20 @@ void update_comm_desc_t(comm_desc_t* desc) {
 void reconstruct_with_comm_desc_t(comm_desc_t* desc) {
 #ifdef DEBUG_VIDS
   printf("reconstruct_comm_desc_t comm: %x -> %x\n", desc->handle, desc->real_id);
+
+  fflush(stdout);
   printf("reconstruct_with_comm_desc_t comm size: %x\n", desc->size);
+
+  fflush(stdout);
   printf("reconstruct_with_comm_desc_t ranks:");
+
+  fflush(stdout);
   for (int i = 0; i < desc->size; i++) {
     printf(" %i", desc->ranks[i]);
   }
   printf("\n");
+
+  fflush(stdout);
   fflush(stdout);
 #endif
   // g_world_comm, an MPI_COMM_WORLD in the lower half which we save as a real id.
