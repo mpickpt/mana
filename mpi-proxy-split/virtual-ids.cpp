@@ -132,7 +132,10 @@ void update_comm_desc_t(comm_desc_t* desc) {
   fflush(stdout);
 #endif
   int groupSize;
-  MPI_Group_size(group, &groupSize);
+
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  NEXT_FUNC(Group_size)(group, &groupSize);
+  RETURN_TO_UPPER_HALF();
 
   int* local_ranks = ((int*)malloc(sizeof(int) * groupSize));
   int* global_ranks = ((int*)malloc(sizeof(int) * groupSize));
