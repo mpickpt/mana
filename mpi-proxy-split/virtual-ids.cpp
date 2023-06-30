@@ -92,8 +92,17 @@ comm_desc_t* init_comm_desc_t(MPI_Comm realComm) {
 #endif
 
   MPI_Comm_rank(MPI_COMM_WORLD, &worldRank);
-  MPI_Comm_size(realComm, &commSize);
-  MPI_Comm_rank(realComm, &localRank);
+
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  NEXT_FUNC(Comm_size)(realComm, &commSize);
+  NEXT_FUNC(Comm_rank)(realComm, &localRank);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+
+
+
+
 
   int* ranks = ((int* )malloc(sizeof(int) * commSize));
 
