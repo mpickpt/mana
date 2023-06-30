@@ -217,8 +217,8 @@ void reconstruct_with_group_desc_t(group_desc_t* group) {
   // RETURN_TO_UPPER_HALF();
   // DMTCP_PLUGIN_ENABLE_CKPT();
   DMTCP_PLUGIN_DISABLE_CKPT();
-  error_number = JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  NEXT_FUNC(Group_incl)(g_world_group, group->size, group->ranks, &group->real_id);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  error_number = NEXT_FUNC(Group_incl)(g_world_group, group->size, group->ranks, &group->real_id);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
   // MPI_Group_incl(g_world_group, group->size, group->ranks, &group->real_id);
