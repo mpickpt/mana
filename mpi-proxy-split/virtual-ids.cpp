@@ -154,7 +154,13 @@ void update_comm_desc_t(comm_desc_t* desc) {
 // It is typically called at restart time.
 void reconstruct_with_comm_desc_t(comm_desc_t* desc) {
 #ifdef DEBUG_VIDS
-  printf("reconstruct_comm_desc_t comm: %x\n", desc->real_id);
+  printf("reconstruct_comm_desc_t comm: %x -> %x\n", desc->handle, desc->real_id);
+  printf("reconstruct_with_comm_desc_t comm size: %x\n", desc->size);
+  printf("reconstruct_with_comm_desc_t ranks:");
+  for (int i = 0; i < desc->size; i++) {
+    printf(" %i", desc->ranks[i]);
+  }
+  printf("\n");
   fflush(stdout);
 #endif
   // g_world_comm, an MPI_COMM_WORLD in the lower half which we save as a real id.
