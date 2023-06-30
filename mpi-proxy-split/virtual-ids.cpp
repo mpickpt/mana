@@ -433,6 +433,8 @@ void update_descriptors() {
       case COMM_KEYVAL_MASK:
 	// update_comm_keyval_desc_t((comm_keyval_desc_t*)pair.second);
 	break;
+      default:
+	break;
     }
   }
 }
@@ -484,6 +486,8 @@ void reconstruct_with_descriptors() {
 	break;
       case COMM_KEYVAL_MASK:
 	// update_comm_keyval_desc_t((comm_keyval_desc_t*)pair.second);
+	break;
+      default:
 	break;
     }
   }
