@@ -216,7 +216,12 @@ void reconstruct_with_group_desc_t(group_desc_t* group) {
   // NEXT_FUNC(Group_incl)(g_world_group, group->size, group->ranks, &group->real_id);
   // RETURN_TO_UPPER_HALF();
   // DMTCP_PLUGIN_ENABLE_CKPT();
-  error_number = MPI_Group_incl(g_world_group, group->size, group->ranks, &group->real_id);
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  error_number = JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  NEXT_FUNC(Group_incl)(g_world_group, group->size, group->ranks, &group->real_id);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  // MPI_Group_incl(g_world_group, group->size, group->ranks, &group->real_id);
 #ifdef DEBUG_VIDS
   printf("reconstruct_with_group_desc_t error_number: %i\n", error_number);
   fflush(stdout);
@@ -459,5 +464,5 @@ void reinit_global_dups() {
   DMTCP_PLUGIN_ENABLE_CKPT();
 
   g_world_comm = ADD_NEW_COMM(g_world_comm);
-  g_world_group = ADD_NEW_GROUP(g_world_group);
+  // g_world_group = ADD_NEW_GROUP(g_world_group);
 }
