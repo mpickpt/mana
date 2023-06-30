@@ -1252,8 +1252,9 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       dmtcp_global_barrier("MPI:restoreMpiLogState");
       // restoreMpiLogState(); // record-replay.cpp
       reinit_global_dups();
+      dmtcp_global_barrier("MPI:reinit_global_dups");
       reconstruct_with_descriptors(); // virtual-ids
-      dmtcp_global_barrier("MPI:virtual-ids.cpp-void");
+      dmtcp_global_barrier("MPI:reconstruct_with_descriptors");
       printf("Reconstruct complete\n");
       fflush(stdout);
 
