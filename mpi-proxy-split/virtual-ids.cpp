@@ -206,7 +206,7 @@ void update_group_desc_t(group_desc_t* group) {
 
 void reconstruct_with_group_desc_t(group_desc_t* group) {
 #ifdef DEBUG_VIDS
-  printf("reconstruct_with_group_desc_t group: %x\n", group->real_id);
+  printf("reconstruct_with_group_desc_t group: %x -> %x\n", group->handle, group->real_id);
   printf("reconstruct_with_group_desc_t g_world_group: %x\n", g_world_group);
   fflush(stdout);
 #endif
