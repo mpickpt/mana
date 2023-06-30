@@ -22,7 +22,7 @@ endif
 ifeq ($(findstring gert,$(PLATFORM)),gert)
 IS_GERTY = 1
 endif
-ifeq ($(or $(IS_CORI),$(IS_GERTY)), 1)
+ifeq ($(or $(IS_CORI),$(IS_GERTY), $(IS_PERLMUTTER)), 1)
   MPICC = cc
   MPICXX = CC -std=c++14
   MPIFORTRAN = ftn
