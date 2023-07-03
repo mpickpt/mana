@@ -465,6 +465,7 @@ void update_descriptors() {
 void reconstruct_with_descriptors() {
 #ifdef DEBUG_VIDS
   printf("reconstruct_with_descriptors\n");
+  print_id_descriptors();
   fflush(stdout);
 #endif
   for (id_desc_pair pair : idDescriptorTable) {
