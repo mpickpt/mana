@@ -461,6 +461,39 @@ void update_descriptors() {
   }
 }
 
+
+// This function needs to be called on a restart in order to re-initialize internal duplications of constants (which are not themselves constant), such as MPI_COMM_WORLD->g_world_comm, and Comm_group(MPI_COMM_WORLD)->g_world_group.
+void prepare_reconstruction() {
+#ifdef DEBUG_VIDS
+  printf("Prepare reconstruction.\n");
+  fflush(stdout);
+#endif
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  NEXT_FUNC(Comm_group)(MPI_COMM_WORLD, &g_world_group);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  // HACK
+
+  // g_world_group = ADD_NEW_GROUP(g_world_group);
+}
+
+// the hope is that we don't need to use the CVC algorithm (which is why we require g_world_comm to be defined) until reconstruction is complete.
+void finalize_reconstruction() {
+#ifdef DEBUG_VIDS
+  printf("Finalize reconstruction.\n");
+  fflush(stdout);
+#endif
+
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  NEXT_FUNC(Comm_dup)(MPI_COMM_WORLD, &g_world_comm);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+
+  g_world_comm = ADD_NEW_COMM(g_world_comm);
+}
+
 // For all descriptors, set its real ID to the one uniquely described by its fields.
 void reconstruct_with_descriptors() {
   prepare_reconstruction();
@@ -516,36 +549,4 @@ void reconstruct_with_descriptors() {
     }
   }
   finalize_reconstruction();
-}
-
-// This function needs to be called on a restart in order to re-initialize internal duplications of constants (which are not themselves constant), such as MPI_COMM_WORLD->g_world_comm, and Comm_group(MPI_COMM_WORLD)->g_world_group.
-void prepare_reconstruction() {
-#ifdef DEBUG_VIDS
-  printf("Prepare reconstruction.\n");
-  fflush(stdout);
-#endif
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  NEXT_FUNC(Comm_group)(MPI_COMM_WORLD, &g_world_group);
-  RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
-  // HACK
-
-  // g_world_group = ADD_NEW_GROUP(g_world_group);
-}
-
-// the hope is that we don't need to use the CVC algorithm (which is why we require g_world_comm to be defined) until reconstruction is complete.
-void post_reconstruction() {
-#ifdef DEBUG_VIDS
-  printf("Finalize reconstruction.\n");
-  fflush(stdout);
-#endif
-
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  NEXT_FUNC(Comm_dup)(MPI_COMM_WORLD, &g_world_comm);
-  RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
-
-  g_world_comm = ADD_NEW_COMM(g_world_comm);
 }
