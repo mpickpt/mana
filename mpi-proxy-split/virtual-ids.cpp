@@ -424,7 +424,7 @@ void update_descriptors() {
         break;
       case COMM_MASK:
 #ifdef DEBUG_VIDS
-	printf("update_comm\n");
+	printf("update_comm -> %x\n", pair.first);
 	fflush(stdout);
 #endif
 	update_comm_desc_t((comm_desc_t*)pair.second);
