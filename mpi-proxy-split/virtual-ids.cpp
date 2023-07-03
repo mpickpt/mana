@@ -141,7 +141,7 @@ void update_comm_desc_t(comm_desc_t* desc) {
   printf("update_comm_desc group: %x\n", group);
   fflush(stdout);
 #endif
-  int groupSize;
+  int groupSize = 0;
 
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   NEXT_FUNC(Group_size)(group, &groupSize);
