@@ -40,7 +40,7 @@
 
 #define MAX_VIRTUAL_ID 999
 
-#define DEBUG_VIDS
+// #define DEBUG_VIDS
 
 typedef typename std::map<int, id_desc_t*>::iterator id_desc_iterator;
 typedef typename std::map<int, ggid_desc_t*>::iterator ggid_desc_iterator;
