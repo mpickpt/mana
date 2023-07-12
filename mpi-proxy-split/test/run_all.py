@@ -5,7 +5,7 @@ import argparse
 import sys
 import os
 
-tests = {
+deep_tests = {
     'Allgather_test': {'itr': 1000000, 'ranks': 4},
     'Alloc_mem': {'itr': 20, 'ranks': 2},
     'Allreduce_test': {'itr': 1000000000, 'ranks': 4},
@@ -49,6 +49,51 @@ tests = {
     'two-phase-commit-2': {'itr': 60, 'ranks': 4}
 }
 
+shallow_tests = {
+    'Allgather_test': {'itr': 1000000, 'ranks': 4},
+    'Alloc_mem': {'itr': 20, 'ranks': 2},
+    'Allreduce_test': {'itr': 1000000000, 'ranks': 4},
+    'Alltoall_test': {'itr': 1000000000, 'ranks': 4},
+    'Alltoallv_test': {'itr': 1000000000, 'ranks': 4},
+    'Barrier_test': {'itr': 12, 'ranks': 4},
+    'Bcast_test': {'itr': 800000, 'ranks': 4},
+    'Cart_map_test': {'itr': 100000000, 'ranks': 4},
+    'Cart_sub_test': {'itr': 100000000, 'ranks': 6},
+    'Cartdim_get_test': {'itr': 100000000, 'ranks': 12},
+    'Comm_dup_test': {'itr': 60, 'ranks': 4},
+    'Comm_get_attr_test': {'itr': 60, 'ranks': 2},
+    'Comm_split_test': {'itr': 60, 'ranks': 4},
+    'Gather_test': {'itr': 100000000, 'ranks': 3},
+    'Gatherv_test': {'itr': 100000000, 'ranks': 4},
+    'Group_size_rank': {'itr': 100000000, 'ranks': 4},
+    'Ibarrier_test': {'itr': 10, 'ranks': 4},
+    'Ibcast_test': {'itr': 100000000, 'ranks': 4},
+    'Ibcast_test1': {'itr': 100000000, 'ranks': 4, 'args': -1},
+    'Ibcast_test2': {'itr': 100000000, 'ranks': 4, 'args': -2},
+    'Initialized_test': {'itr': 100000000, 'ranks': 4},
+    'Irecv_test': {'itr': 12, 'ranks': 2},
+    'Isend_test': {'itr': 12, 'ranks': 2},
+    'Reduce_test': {'itr': 100000000, 'ranks': 4},
+    'Scan_test': {'itr': 100000000, 'ranks': 4},
+    'Scatter_test': {'itr': 100000000, 'ranks': 3},
+    'Scatter_test': {'itr': 100000000, 'ranks': 4},
+    'Sendrecv_test': {'itr': 100000000, 'ranks': 3},
+    'Testany_test': {'itr': 10, 'ranks': 3},
+    'Type_commit_contiguous': {'itr': 10, 'ranks': 4},
+    'Type_hvector_test': {'itr': 100000000, 'ranks': 2},
+    'Type_vector_test': {'itr': 100000000, 'ranks': 2},
+    'Waitall_test': {'itr': 10, 'ranks': 4},
+    'Waitany_test': {'itr': 10, 'ranks': 4},
+    'file_test': {'itr': 100000000, 'ranks': 2},
+    'keyval_test': {'itr': 12, 'ranks': 4},
+    'large_async_p2p': {'itr': 12, 'ranks': 2},
+    'send_recv_loop': {'itr': 12, 'ranks': 3},
+    'sendrecv_replace_test': {'itr': 100000000, 'ranks': 3},
+    'two-phase-commit-1': {'itr': 60, 'ranks': 4},
+    'two-phase-commit-2': {'itr': 60, 'ranks': 4}
+}
+
+
 # Custom argparser to eprint error message
 class CustomParser(argparse.ArgumentParser):
     def error(self, message):
@@ -67,6 +112,7 @@ def main():
                          path to mana folder', default='', required=False)
     parser.add_argument('-r','--mpirun', help='Use mpirun instead \
                          of srun', action="store_true")
+    parser.add_argument('-s', '--shallow', help='Use a shallow test profile, run every test just once', action="store_true")
 
     args = parser.parse_args()
     mana = args.mana_root
@@ -79,6 +125,7 @@ def main():
     num_tests = 0
     num_passed = 0
     failed = []
+    tests = shallow_tests if args.shallow else deep_tests
 
     for test in tests:
         print(f'Running test {test}:', end=" ")
