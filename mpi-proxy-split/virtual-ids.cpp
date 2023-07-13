@@ -42,6 +42,8 @@
 
 // #define DEBUG_VIDS
 
+// TODO I use an explicitly integer virtual id, which under macro reinterpretation will fit into an int64 pointer.
+// This should be fine if no real MPI Type is smaller than an int32.
 typedef typename std::map<int, id_desc_t*>::iterator id_desc_iterator;
 typedef typename std::map<int, ggid_desc_t*>::iterator ggid_desc_iterator;
 
@@ -99,10 +101,6 @@ comm_desc_t* init_comm_desc_t(MPI_Comm realComm) {
   NEXT_FUNC(Comm_rank)(realComm, &localRank);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
-
-
-
-
 
   int* ranks = ((int* )malloc(sizeof(int) * commSize));
 
@@ -185,7 +183,7 @@ void reconstruct_with_comm_desc_t(comm_desc_t* desc) {
   fflush(stdout);
   fflush(stdout);
 #endif
-  // g_world_comm, an MPI_COMM_WORLD in the lower half which we save as a real id.
+  // HACK MPI_COMM_WORLD in the LH.
   if (desc->real_id == 0x84000000) { 
     return;
   }
@@ -210,7 +208,6 @@ void destroy_comm_desc_t(comm_desc_t* desc) {
 }
 
 group_desc_t* init_group_desc_t(MPI_Group realGroup) {
-  // DMTCP_PLUGIN_DISABLE_CKPT();
   group_desc_t* desc = ((group_desc_t*)malloc(sizeof(group_desc_t)));
   desc->real_id = realGroup;
   int groupSize;
@@ -235,11 +232,11 @@ group_desc_t* init_group_desc_t(MPI_Group realGroup) {
   desc->size = groupSize;
 
   return desc;
-  // DMTCP_PLUGIN_ENABLE_CKPT();
 }
 
 // Translate the local ranks of this group to global ranks, which are unique.
 void update_group_desc_t(group_desc_t* group) {
+  // TODO What happens when we call for a checkpoint while a checkpoint is already occurring? 
   DMTCP_PLUGIN_DISABLE_CKPT();
   int groupSize;
 #ifdef DEBUG_VIDS
@@ -278,22 +275,11 @@ void reconstruct_with_group_desc_t(group_desc_t* group) {
   printf("reconstruct_with_group_desc_t g_world_group: %x\n", g_world_group);
   fflush(stdout);
 #endif
-  int error_number = 0;
-  // DMTCP_PLUGIN_DISABLE_CKPT();
-  // JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  // NEXT_FUNC(Group_incl)(g_world_group, group->size, group->ranks, &group->real_id);
-  // RETURN_TO_UPPER_HALF();
-  // DMTCP_PLUGIN_ENABLE_CKPT();
   DMTCP_PLUGIN_DISABLE_CKPT();
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  error_number = NEXT_FUNC(Group_incl)(g_world_group, group->size, group->ranks, &group->real_id);
+  NEXT_FUNC(Group_incl)(g_world_group, group->size, group->ranks, &group->real_id);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
-  // MPI_Group_incl(g_world_group, group->size, group->ranks, &group->real_id);
-#ifdef DEBUG_VIDS
-  printf("reconstruct_with_group_desc_t error_number: %i\n", error_number);
-  fflush(stdout);
-#endif
 }
 
 void destroy_group_desc_t(group_desc_t* group) {
@@ -302,6 +288,8 @@ void destroy_group_desc_t(group_desc_t* group) {
 }
 
 // TODO Currently not supported.
+// "The support of non-blocking collective commmunication is still not merged into the main branch.
+// But you can ignore MPI Request for now."
 request_desc_t* init_request_desc_t(MPI_Request realReq) {
   request_desc_t* desc = ((request_desc_t*)malloc(sizeof(request_desc_t))); // FIXME
   desc->real_id = realReq;
@@ -427,9 +415,7 @@ void update_descriptors() {
   printf("update_descriptors\n");
   fflush(stdout);
 #endif
-  // iterate through descriptors. Determine the type from the vid_mask that we set in ADD_NEW.
   for (id_desc_pair pair : idDescriptorTable) {
-    // Grab the first byte
     switch (pair.first & 0xFF000000) { 
       case UNDEFINED_MASK:
         break;
@@ -451,7 +437,8 @@ void update_descriptors() {
 	// update_request_desc_t((request_desc_t*)pair.second);
 	break;
       case OP_MASK:
-	// update_op_desc_t((op_desc_t*)pair.second); THIS IS CALLED ON INIT
+	// update_op_desc_t((op_desc_t*)pair.second);
+	// HACK: This must be called on init. see update_op_desc
 	break;
       case DATATYPE_MASK:
 #ifdef DEBUG_VIDS
@@ -472,8 +459,6 @@ void update_descriptors() {
   }
 }
 
-
-// This function needs to be called on a restart in order to re-initialize internal duplications of constants (which are not themselves constant), such as MPI_COMM_WORLD->g_world_comm, and Comm_group(MPI_COMM_WORLD)->g_world_group.
 void prepare_reconstruction() {
 #ifdef DEBUG_VIDS
   printf("Prepare reconstruction.\n");
@@ -484,12 +469,10 @@ void prepare_reconstruction() {
   NEXT_FUNC(Comm_group)(MPI_COMM_WORLD, &g_world_group);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
-  // HACK
-
-  // g_world_group = ADD_NEW_GROUP(g_world_group);
+  // g_world_group is a real id to avoid a lookup.
 }
 
-// the hope is that we don't need to use the CVC algorithm (which is why we require g_world_comm to be defined) until reconstruction is complete.
+// AFAIK, we don't need to use the CVC algorithm (which is why we require g_world_comm to be defined) until reconstruction is complete.
 void finalize_reconstruction() {
 #ifdef DEBUG_VIDS
   printf("Finalize reconstruction.\n");

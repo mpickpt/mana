@@ -10,19 +10,6 @@
 
 #define CONCAT(a,b) a ## b
 
-/* #ifndef MPI_LH_CALL */
-/* #define MPI_LH_CALL(call, __VA_ARGS) \ */
-/*   ({ \ */
-/*     DMTCP_PLUGIN_DISABLE_CKPT(); */
-/*     JUMP_TO_LOWER_HALF(lh_info.fsaddr); \ */
-/*     NEXT_FUNC(call)(__VA_ARGS); \ */
-/*     RETURN_TO_UPPER_HALF(); \ */
-/*     DMTCP_PLUGIN_ENABLE_CKPT(); \ */
-/*   }) */
-/* #endif */
-
-// TODO MPI_LH_CALL(Allgather, &worldRank, 1, MPI_INT, rbuf, 1, MPI_INT, realComm);
-
 // num - type - VID MASK
 // 0 - undefined - 0x00000000
 // 1 - communicator - 0x01000000
@@ -282,7 +269,7 @@ struct file_desc_t {
 struct comm_keyval_desc_t {
   int real_id;
   int handle;
-}; // VID keyval not needed at all
+}; // TODO VID keyval not needed at all
 
 union id_desc_t {
     comm_desc_t comm;
@@ -347,6 +334,6 @@ void reconstruct_with_descriptors();
 int getggid(MPI_Comm comm);
 int hash(int i);
 
-void init_comm_world(); // This is required for the GGID algorithm.
+void init_comm_world(); // This is required for the CVC algorithm.
 
 #endif // ifndef VIRTUAL_ID_H
