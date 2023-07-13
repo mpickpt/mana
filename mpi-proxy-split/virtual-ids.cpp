@@ -351,7 +351,6 @@ void update_datatype_desc_t(datatype_desc_t* datatype) {
   DMTCP_PLUGIN_ENABLE_CKPT();
 }
 
-// TODO ensure I understand this correctly.
 void reconstruct_with_datatype_desc_t(datatype_desc_t* datatype) {
   int count = *datatype->num_integers + *datatype->num_addresses + *datatype->num_datatypes;
   MPI_Type_create_struct(count, datatype->integers, datatype->addresses, datatype->datatypes, &datatype->real_id);
