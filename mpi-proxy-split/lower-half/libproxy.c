@@ -352,7 +352,7 @@ void first_constructor()
     lh_info.getLhRegionsListFptr = (void*)&getLhRegionsList;
     lh_info.vdsoLdAddrInLinkMap = getVdsoPointerInLinkMap();
     DLOG(INFO, "startText: %p, endText: %p, endOfHeap; %p\n",
-        lh_info.startText, lh_info.endText, lh_info.endOfHeap);
+         lh_info.startText, lh_info.endText, lh_info.endOfHeap);
     // Write lh_info to stdout, for mtcp_split_process.c to read.
     write(1, &lh_info, sizeof lh_info);
     // Write LH core regions list to stdout, for the parent process to read.

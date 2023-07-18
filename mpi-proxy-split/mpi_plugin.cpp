@@ -150,8 +150,13 @@ void recordPostMpiInitMaps()
     // Now remove those mappings that existed before Mpi_Init.
     JASSERT(preMpiInitMaps != nullptr);
     while (preMpiInitMaps->getNextArea(&area)) {
+      if (area.addr == lh_info.memRange.start) {
+        continue;
+      }
+
       if (mpiInitLhAreas->find(area.addr) != mpiInitLhAreas->end()) {
-        JWARNING(mpiInitLhAreas->at(area.addr) == area.size)(area.addr)(area.size);
+        JWARNING(mpiInitLhAreas->at(area.addr) == area.size)
+                ((void *)area.addr)(area.size);
         mpiInitLhAreas->erase(area.addr);
       } else {
         // Check if a region has the same end addr. E.g., thread stack grew.
