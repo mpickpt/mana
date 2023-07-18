@@ -271,7 +271,7 @@ void download_targets(std::map<int, ggid_desc_t*> &ggidDescriptorTable) {
 void share_seq_nums(std::map<int, ggid_desc_t*> &ggidDescriptorTable) {
   upload_seq_num();
   dmtcp_global_barrier("mana/share-seq-num");
-  download_targets(ggidDesciptorTable);
+  download_targets(ggidDescriptorTable);
 }
 
 void drain_mpi_collective() {
