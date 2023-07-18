@@ -201,7 +201,7 @@ void commit_begin(MPI_Comm comm, bool passthrough) {
     comm_ggid_desc->seq_num++;
   pthread_mutex_unlock(&seq_num_lock);
 #ifdef DEBUG_SEQ_NUM
-  // print_seq_nums();
+  print_seq_nums();
   printf("Enter desc-check, comm is %x\n", comm);
   fflush(stdout);
 #endif
