@@ -39,6 +39,12 @@
 //           memory regions using mmaps[] _and_ shms[].
 //   FIXME:  We do not catch any changes in /proc/PID/maps due to ioctl.
 
+// FIXME: When we know this works, remove this preprocessor variable and make
+// this permanent.  Right now, this causes us to reserve the lh_mem_range
+// in two places (during launch and during restart).  We should refactor
+// to do this in only one place.
+#define RESERVE_LH_MEM_RANGE
+
 #define HAS_MAP_FIXED_NOREPLACE LINUX_VERSION_CODE >= KERNEL_VERSION(4, 17, 0)
 
 #ifdef __NR_mmap2
@@ -132,23 +138,14 @@ resetMmappedList()
   }
   numRegions = 0;
 
-#if 0
-  // FIXME:  @jiamingz9925 reports that this code causes MANA to fail after
-  //         launch in the MPI_INIT wrapper.  The relevant stack trace is:
-  // #4  recordPostMpiInitMaps () at mpi_plugin.cpp:154
-  // #5  0x00007f358481ff9f in MPI_Init (argc=0x7ffffc7ba804,
-  //                              argv=<optimized out>) at mpi_wrappers.cpp:74
-  // #6  0x00007f358481f98f in mpi_init_ (ierr=ierr@entry=0x7ffffc7ba82c)
-  //                                            at mpi_fortran_wrappers.cpp:606
-  // But the code can help for VASP/Si256, if this is commented out.
-  // Note that the code still does munmap() from this lh_memRange.
-  // But munmap() succeeds even if there is no mmap segment to unmap.
-
+#ifdef RESERVE_LH_MEM_RANGE
   // We will reserve the lh_memRange memory, so no one can steal it from us.
   size_t length = lh_memRange.end - lh_memRange.start;
 #if HAS_MAP_FIXED_NOREPLACE
-  void *rc = mmap(lh_memRange.start, length,
-             PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS|MAP_FIXED_NOREPLACE, -1, 0);
+  // Use inline syscall here, to avoid our __mmap64 wrapper.
+  void *rc = LH_MMAP_CALL(lh_memRange.start, length,
+                          PROT_WRITE,
+                          MAP_PRIVATE|MAP_ANONYMOUS|MAP_FIXED_NOREPLACE, -1, 0);
   if (rc == MAP_FAILED) {
     char msg[] = "*** Panic: MANA lower half: can't reserve lh_memRange"
                  " using MAP_FIXED_NOREPLACE\n";
@@ -156,8 +153,9 @@ resetMmappedList()
     write(2, msg, sizeof(msg)); assert(rc == 0);
   }
 #else
-  void *rc = mmap(lh_memRange.start, length,
-                  PROT_NONE, MAP_PRIVATE|MAP_ANONYMOUS|MAP_FIXED, -1, 0);
+  void *rc = LH_MMAP_CALL(lh_memRange.start, length,
+                          PROT_NONE,
+                          MAP_PRIVATE|MAP_ANONYMOUS|MAP_FIXED, -1, 0);
   if (rc != lh_memRange.start) {
     char msg[] = "*** Panic: MANA lower half: can't initialize lh_memRange\n";
     perror("mmap");
@@ -253,13 +251,14 @@ __mmap64 (void *addr, size_t len, int prot, int flags, int fd, __off_t offset)
     lh_memRange.end = lh_memRange.start + length;
 #else
     int length = lh_memRange.end - lh_memRange.start;
+
 # if 0
     // FIXME: After we copy into upper half, call mmap as below.
     //        But don't call this when lh_proxy first executes by itself.
     //        So, we need to recognize if we are executing lh_proxy
     //          or the target MPI application.
 #  if HAS_MAP_FIXED_NOREPLACE
-    void *rc = mmap(lh_memRange.start, length,
+    void *rc = LH_MMAP_CALL(lh_memRange.start, length,
                     PROT_NONE, MAP_PRIVATE|MAP_ANONYMOUS|MAP_FIXED_NOREPLACE,
                     -1, 0);
     if (rc == MAP_FAILED && errno == EEXIST) {
@@ -268,7 +267,7 @@ __mmap64 (void *addr, size_t len, int prot, int flags, int fd, __off_t offset)
       write(2, msg, sizeof(msg)); assert(rc == 0);
     }
 #  else
-    void *rc = mmap(lh_memRange.start, length,
+    void *rc = LH_MMAP_CALL(lh_memRange.start, length,
                     PROT_NONE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
     if (rc != lh_memRange.start) {
       if (rc != MAP_FAILED) {
