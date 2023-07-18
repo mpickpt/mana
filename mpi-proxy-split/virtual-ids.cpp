@@ -518,6 +518,7 @@ void reconstruct_with_descriptors() {
 	// update_request_desc_t((request_desc_t*)pair.second);
 	break;
       case OP_MASK:
+	// TODO does MPI_COMM_WORLD mask resolve to this?
 #ifdef DEBUG_VIDS
 	printf("recon_op\n");
 	fflush(stdout);
