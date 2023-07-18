@@ -53,10 +53,18 @@ splitProcess(RestoreInfo *rinfo)
   compileProxy();
 #endif
   DPRINTF("Initializing Lower-Half Proxy");
+  // In startProxy, we fork a child process and exec to lh_proxy.
+  // The child process enters libproxy.c:first_constructor() of lh_proxy.
+  // We write rinfo.pluginInfo.memRange to stdin of child process, which
+  //   gets copied into lh_info.memRange, inside lh_proxy (see lower-half dir.).
+  // We then read from stdout of child process to populate rinfo.pluginInfo
+  //   with all fields from lh_info.
   pid_t childpid = startProxy(rinfo);
   int ret = -1;
   if (childpid > 0) {
     // Parent has read from pipefd_out; child is ready.
+    // We then "copy the bits" of the child process into our (parent's) space.
+    // We then kill the child process.
     ret = read_lh_proxy_bits(rinfo, childpid, rinfo->argv[0]);
     mtcp_sys_kill(childpid, SIGKILL);
     mtcp_sys_wait4(childpid, NULL, 0, NULL);
