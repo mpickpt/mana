@@ -233,13 +233,13 @@ void commit_finish(MPI_Comm comm, bool passthrough) {
       RETURN_TO_UPPER_HALF();
       unsigned int updated_comm = (unsigned int) new_target[0];
       unsigned long updated_target = new_target[1];
-      ggid_desc_t* updated_comm_ggid_desc = ggidDescriptorTable[updated_comm];
-      // TODO existence check?
-      if (updated_comm_ggid_desc->target_num < updated_target) {
-	updated_comm_ggid_desc->target_num = updated_target;
+      // ggid_desc_t* updated_comm_ggid_desc = ggidDescriptorTable[updated_comm];
+      ggid_desc_iterator it = ggidDescriptorTable.find(updated_comm);
+      if (it != ggidDescriptorTable.end() && it->second->target_num < updated_target) {
+	it->second->target_num = updated_target;
 #ifdef DEBUG_SEQ_NUM
         printf("rank %d received new target comm %u seq %lu target %lu\n",
-	       g_world_rank, updated_comm, updated_comm_ggid_desc->seq_num, updated_target);
+	       g_world_rank, updated_comm, it->second->seq_num, updated_target);
         fflush(stdout);
 #endif
       }
