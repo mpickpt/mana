@@ -256,7 +256,7 @@ void upload_seq_num() {
   }
 }
 
-void download_targets() {
+void download_targets(std::map<int, ggid_desc_t*> &ggidDescriptorTable) {
   int64_t max_seq = 0;
   unsigned int comm_ggid;
   for (ggid_desc_pair pair : ggidDescriptorTable) {
@@ -268,10 +268,10 @@ void download_targets() {
   }
 }
 
-void share_seq_nums() {
+void share_seq_nums(std::map<int, ggid_desc_t*> &ggidDescriptorTable) {
   upload_seq_num();
   dmtcp_global_barrier("mana/share-seq-num");
-  download_targets();
+  download_targets(ggidDesciptorTable);
 }
 
 void drain_mpi_collective() {
@@ -280,7 +280,7 @@ void drain_mpi_collective() {
   int64_t in_cs = 0;
   pthread_mutex_lock(&seq_num_lock);
   ckpt_pending = true;
-  share_seq_nums();
+  share_seq_nums(ggidDescriptorTable);
   pthread_mutex_unlock(&seq_num_lock);
   while (1) {
     char key[32] = {0};
