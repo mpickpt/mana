@@ -172,8 +172,6 @@ void commit_begin(MPI_Comm comm, bool passthrough) {
   while (ckpt_pending && check_seq_nums(passthrough)) {
     MPI_Status status;
     int flag;
-    printf("Enter IProbe\n");
-    fflush(stdout);
     MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, g_world_comm, &flag, &status);
     if (flag) {
       unsigned long new_target[2];
