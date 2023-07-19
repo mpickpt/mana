@@ -351,7 +351,7 @@ initializeLowerHalf(RestoreInfo *rinfo)
   updateVdsoLinkmapEntry(rinfo->currentVdsoStart,
                          rinfo->pluginInfo.vdsoLdAddrInLinkMap);
   JUMP_TO_LOWER_HALF(rinfo->pluginInfo.fsaddr);
-  resetMmaps();
+  (*resetMmaps)();
   // Set the auxiliary vector to correspond to the values of the lower half
   // (which is statically linked, unlike the upper half). Without this, glibc
   // will get confused during the initialization.
