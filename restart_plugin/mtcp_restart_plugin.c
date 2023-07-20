@@ -696,15 +696,31 @@ mtcp_plugin_skip_memory_region_munmap(Area *area, RestoreInfo *rinfo)
   LhCoreRegions_t *lh_regions_list = NULL;
   int total_lh_regions = lh_info->numCoreRegions;
 
+  if (regionContains(rinfo->pluginInfo.memRange.start,
+                     rinfo->pluginInfo.memRange.end,
+                     area->addr, area->endAddr)) {
+    return 1;
+  }
+
+  // FIXME: Delete code for USE_LH_MMAPS_ARRAY when it's clear it's not needed.
+#ifdef USE_LH_MMAPS_ARRAY
   MmapInfo_t *g_list = NULL;
+#endif
   int g_numMmaps = 0;
   int i = 0;
 
+#ifdef USE_LH_MMAPS_ARRAY
   getMmappedList_t fnc = (getMmappedList_t)lh_info->getMmappedListFptr;
-  // FIXME: use assert(fnc) instread.
+  // FIXME: use assert(fnc) instead.
   if (fnc) {
+    // This is the mmaps[] array, but only for those regions that are mapped.
+    // Now that the __mmap64 wrapper occupies the entire
+    //   rinfo->pluginInfo.memRange, we should skip unmapping the
+    //   entire memRange, and not just the regions of mmaps[].
     g_list = fnc(&g_numMmaps);
   }
+#endif
+
   if (mtcp_strstr(area->name, "/dev/shm/mpich") ||
       mtcp_strstr(area->name, "/dev/zero") ||
       mtcp_strstr(area->name, "/dev/kgni") ||
@@ -714,6 +730,8 @@ mtcp_plugin_skip_memory_region_munmap(Area *area, RestoreInfo *rinfo)
     return 1;
   }
 
+  // FROM: lh_proxy:mpi-proxy-split/lower-half/libproxy.c :
+  //   "For a static LH, mark all the regions till heap as core regions."
   getLhRegionsList_t core_fnc = (getLhRegionsList_t)lh_info->getLhRegionsListFptr;
   if (core_fnc) {
     lh_regions_list = core_fnc(&total_lh_regions);
@@ -726,7 +744,8 @@ mtcp_plugin_skip_memory_region_munmap(Area *area, RestoreInfo *rinfo)
     }
   }
 
-  // FIXME: use assert(g_list) instread.
+#ifdef USE_LH_MMAPS_ARRAY
+  // FIXME: use assert(g_list) instead.
   if (!g_list) return 0;
 
   for (i = 0; i < g_numMmaps; i++) {
@@ -740,5 +759,7 @@ mtcp_plugin_skip_memory_region_munmap(Area *area, RestoreInfo *rinfo)
                               lhMmapStart, lhMmapEnd)) {
     }
   }
+#endif
+
   return 0;
 }
