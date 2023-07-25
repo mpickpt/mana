@@ -751,6 +751,16 @@ mtcp_plugin_skip_memory_region_munmap(Area *area, RestoreInfo *rinfo)
     }
   }
 
+/**
+ * InitializeLowerHalf and later we mmap a new lower half memory region which is not one of core region of child lh_proxy.
+ * We need to skip unmapping this region as well.
+*/
+#define LOWER_BOUNDARY 0x1000000000
+  if (area->addr >= (char *)lh_regions_list[total_lh_regions - 1].end_addr &&
+      area->endAddr <= (char *)LOWER_BOUNDARY) {
+    return 1;
+  }
+
 #ifdef USE_LH_MMAPS_ARRAY
   // FIXME: use assert(g_list) instead.
   if (!g_list) return 0;
