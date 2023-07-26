@@ -16,6 +16,11 @@
 #include "../dmtcp/src/mtcp/mtcp_sys.h"
 #endif
 
+// Using both methods to skip unmapping lower-half mmap'ed regions
+// In theory, just one of these techniques should suffice.
+#define USE_LH_MMAPS_ARRAY
+#define USE_LOWER_BOUNDARY
+
 # define GB (uint64_t)(1024 * 1024 * 1024)
 #define ROUNDADDRUP(addr, size) ((addr + size - 1) & ~(size - 1))
 
@@ -702,7 +707,9 @@ mtcp_plugin_skip_memory_region_munmap(Area *area, RestoreInfo *rinfo)
     return 1;
   }
 
-  // FIXME: Delete code for USE_LH_MMAPS_ARRAY when it's clear it's not needed.
+  // FIXME: Delete and substitute better code for USE_LH_MMAPS_ARRAY,
+  //        that will be aware of mremap, shmat, ioctl, etc.
+  //        SEE: mpi-proxy-split/mpi_plugin.cpp for recordPreMpiInitMaps()/Post
 #ifdef USE_LH_MMAPS_ARRAY
   MmapInfo_t *g_list = NULL;
 #endif
@@ -710,6 +717,18 @@ mtcp_plugin_skip_memory_region_munmap(Area *area, RestoreInfo *rinfo)
   int i = 0;
 
 #ifdef USE_LH_MMAPS_ARRAY
+  /* FIXME: lower-half tracks two kinds of memory regions:
+   *:       (a) libproxy.c:getLhRegionsList() (also called 'core' regions:
+   *              the initial mmap'ed regions of the lh_proxy child process)
+   *        (b) mmap64.c:getMmappedList() (based on the interposition by
+   *              lh_proxy on mmap/munmap (but not mremap, shmat, ioctl, etc.)
+   *       We should skip unmapping any of these regions (and more)
+   *       when mtcp_restart.c unmaps all regions and restores the upper half.
+   *       FIXME:  We need a better scheme:  Maybe based on
+   *                 mpi-proxy-split/mpi_plugin.cpp.  We jump to lower-half
+   *                 both for initializeLowerHalf() and for mtcp_plugin_hook,
+   *                 when it calls MPI_Init via getRank().
+   */
   getMmappedList_t fnc = (getMmappedList_t)lh_info->getMmappedListFptr;
   // FIXME: use assert(fnc) instead.
   if (fnc) {
@@ -755,11 +774,13 @@ mtcp_plugin_skip_memory_region_munmap(Area *area, RestoreInfo *rinfo)
  * InitializeLowerHalf and later we mmap a new lower half memory region which is not one of core region of child lh_proxy.
  * We need to skip unmapping this region as well.
 */
-#define LOWER_BOUNDARY 0x1000000000
+#ifdef USE_LOWER_BOUNDARY
+# define LOWER_BOUNDARY 0x1000000000
   if (area->addr >= (char *)lh_regions_list[total_lh_regions - 1].end_addr &&
       area->endAddr <= (char *)LOWER_BOUNDARY) {
     return 1;
   }
+#endif
 
 #ifdef USE_LH_MMAPS_ARRAY
   // FIXME: use assert(g_list) instead.
