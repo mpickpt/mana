@@ -108,10 +108,18 @@ USER_DEFINED_WRAPPER(int, Init_thread, (int *) argc, (char ***) argv,
 // FIXME: See the comment in the wrapper function, defined
 // later in the file.
 // DEFINE_FNC(int, Finalize, (void))
-DEFINE_FNC(double, Wtime, (void))
 DEFINE_FNC(int, Finalized, (int *) flag)
 DEFINE_FNC(int, Get_processor_name, (char *) name, (int *) resultlen)
 DEFINE_FNC(int, Initialized, (int *) flag)
+
+USER_DEFINED_WRAPPER(double, Wtime, (void))
+{
+  struct timespec tp;
+  clock_gettime(CLOCK_REALTIME, &tp);
+  double nsec = (double)0.001 *0.001 *0.001;
+  double ret = tp.tv_sec + tp.tv_nsec * nsec;
+  return ret;
+}
 
 USER_DEFINED_WRAPPER(int, Finalize, (void))
 {
