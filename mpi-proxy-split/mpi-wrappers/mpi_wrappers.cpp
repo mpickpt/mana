@@ -19,6 +19,7 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include <time.h>
 #include "mpi.h"
 #include "mpi_plugin.h"  // lh_info declared via lower_half_api.h
 #include "config.h"
