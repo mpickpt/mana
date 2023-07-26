@@ -122,7 +122,7 @@ if [ "$verbose" == 1 ]; then
   set -x
 fi
 
-$dir/dmtcp_restart  --mpi --join-coordinator \
+exec $dir/dmtcp_restart  --mpi --join-coordinator \
                     --coord-host $submissionHost --coord-port $submissionPort \
                     $options
 
