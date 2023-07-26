@@ -178,8 +178,8 @@ fi
 #   The /dev/xpmem segments are created on demand when an MPI call
 #   needs to send/receive a large message.
 
-env LD_LIBRARY_PATH="$libdir:$LD_LIBRARY_PATH" \
-    $dir/dmtcp_launch --mpi --coord-host $submissionHost \
+exec env LD_LIBRARY_PATH="$libdir:$LD_LIBRARY_PATH" \
+    $dir/dmtcp_launch --coord-host $submissionHost \
           --coord-port $submissionPort --no-gzip \
           --join-coordinator --disable-dl-plugin \
           --with-plugin $libdir/libmana.so $options
