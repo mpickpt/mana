@@ -103,13 +103,14 @@ if [ "$SITE" = "nersc" ]; then
     echo "********************************************************"
     echo ""
   fi
-elif [ -z "$MPI_LOCALNRANKS" ]; then
-  echo ""
-  echo "**********************************************************"
-  echo "* MPI_LOCALNRANKS env. var. not detected.                *"
-  echo "* Did you forget to run mana_restart with mpirun -np XX? *"
-  echo "**********************************************************"
-  echo ""
+### OBSOLETE:  UPDATE OR DELETE:
+## elif [ -z "$MPI_LOCALNRANKS" ]; then
+##   echo ""
+##   echo "**********************************************************"
+##   echo "* MPI_LOCALNRANKS env. var. not detected.                *"
+##   echo "* Did you forget to run mana_restart with mpirun -np XX? *"
+##   echo "**********************************************************"
+##   echo ""
 fi
 
 # If not verbose, use --quiet option

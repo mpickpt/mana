@@ -9,7 +9,7 @@
 # MPID_Init(246).......: channel initialization failed
 # MPID_Init(647).......:  PMI2 init failed: 1
 # bin/mana_launch: line 48: 15391 Aborted
-# $dir/dmtcp_launch $options -h $host --no-gzip --join --disable-dl-plugin --with-plugin $PWD/lib/dmtcp/libmana.so "$target"
+# $dir/dmtcp_launch $options -h $host --no-gzip --join --disable-dl-plugin --with-plugin $PWD/lib/dmtcp/libmana.so "$target_app"
 
 # FIXME: USER FORGOT TO USE srun and there is no salloc (detect and report error?):
 # + bin/dmtcp_launch 10 -i --mpi -h cori03 --no-gzip --join --disable-dl-plugin --with-plugin /global/homes/g/gdc0/mana-rohgarg-orig/lib/dmtcp/libmana.so contrib/mpi-proxy-split/test/ping_pong.mana.exe
@@ -28,6 +28,7 @@ if [ -z "$1" ]; then
 fi
 
 options=""
+target_app=""
 help=0
 verbose=0
 srun_sbatch_found=0
@@ -43,9 +44,13 @@ while [ -n "$1" ]; do
       echo "$0: --ckptdir $2: Checkpoint directory doesn't exist"
       exit 9
     fi
-    options="$options $1" 
+    options="$options $1 $2"
+    shift
   else
+    # other flags, options, and target_app executable
     options="$options $1"
+    # The last word will be the target_app.
+    target_app="$1"
   fi
   shift
 done
@@ -69,7 +74,7 @@ if [ "$SITE" = "nersc" ]; then
     echo "SLURM_JOB_ID env variable not set; No salloc/sbatch jobs running?"
     exit 2
   fi
-  
+
   if [ "$srun_sbatch_found" -eq 1 ]; then
     echo ""
     echo "  *** Usage: srun/sbatch ... mana_launch ... MPI_EXECUTABLE ..."
@@ -113,8 +118,7 @@ fi
 # write up, refer to Section 4 of mpi-proxy-split/doc/nimrod-build-tutorial.txt).
 # A temporary workaround is to swap the memory addresses of NIMROD and lh_proxy,
 # which requires a specially built version of lh_proxy.
-app_name="`echo $options | head -n1 | xargs basename`"
-if echo $app_name | grep -q nimrod ; then
+if echo $target_app | grep -q nimrod ; then
   export USE_LH_PROXY_DEFADDR=1
 fi
 
@@ -123,6 +127,15 @@ if [ "$verbose" == 0 ]; then
 fi
 
 libdir="`dirname $0`/../lib/dmtcp"
+
+if [ -z "$SLURM_JOB_ID" ]; then
+  echo ""
+  echo "*******************************************************"***
+  echo "* Launching MANA job.  If using more than one rank, do:  *"
+  echo "*   'srun ... mana_launch ... MPI_TARGET ...', or sbatch *"
+  echo "*******************************************************"***
+  echo ""
+fi
 
 if [ "$SITE" = "nersc" ]; then
   if [ -z "$SLURM_NTASKS" ]; then
@@ -133,13 +146,14 @@ if [ "$SITE" = "nersc" ]; then
     echo "*******************************************************"
     echo ""
   fi
-elif [ -z "$MPI_LOCALNRANKS" ]; then
-  echo ""
-  echo "**********************************************************"
-  echo "* MPI_LOCALNRANKS env. var. not detected.                *"
-  echo "* Did you forget to run mana_restart with mpirun -np XX? *"
-  echo "**********************************************************"
-  echo ""
+### OBSOLETE:  UPDATE OR DELETE:
+## elif [ -z "$MPI_LOCALNRANKS" ]; then
+##   echo ""
+##   echo "**********************************************************"
+##   echo "* MPI_LOCALNRANKS env. var. not detected.                *"
+##   echo "* Did you forget to run mana_restart with mpirun -np XX? *"
+##   echo "**********************************************************"
+##   echo ""
 fi
 
 # Set a dummy SLURM_JOB_ID when MANA is not launched under Slurm. It is to
@@ -156,7 +170,7 @@ fi
 # FIXME: Should we detect if the MANA job was not linked with libmpistub.so
 #        and point the user toward dmtcp_launch/dmtcp_restart?
 #        Since mana_launch includes the MANA plugin, it's not for non-MPI jobs.
-# if ldd "$target" | grep -q libmpistub.so; then
+# if ldd "$target_app" | grep -q libmpistub.so; then
 # fi
 
 if [ "$verbose" == 1 ]; then
