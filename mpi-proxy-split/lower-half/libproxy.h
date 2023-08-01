@@ -402,6 +402,7 @@ do {                                                                           \
   MACRO(Win_wait), \
   MACRO(Wtick), \
   MACRO(Wtime), \
+  MACRO(MANA_Internal), \
   MACRO(Aint_diff),
 
 #endif // define _LIBPROXY_H

@@ -174,6 +174,34 @@ USER_DEFINED_WRAPPER(int, Get_address, (const void *) location,
   return retval;
 }
 
+// FOR DEBUGGING ONLY:
+// This defines a call to MPI_MANA_Internal in the lower half, which
+//   is especially useful in debugging restart.  It is called
+//   from mpi-proxy-split/mpi_plugin.cpp, just before doing record-replay.
+// In mpi-proxy-split/lower-half, redefine MPI_MANA_Internal()
+//   to do whatever is desired.  Then do:
+//   rm bin/lh_proxy
+//   module list # Verify the correct 'module' settings
+//   make -j mana
+//   bin/mana_coordinator
+//   bin/mana_restart
+// If desired, add 'int dummy=1; shile(dummy);' inside MPI_MANA_Internal()
+//   for interactive debbugging
+USER_DEFINED_WRAPPER(int, MANA_Internal, (char *) dummy)
+{
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  retval = NEXT_FUNC(MANA_Internal)(dummy);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  if (retval != 0) {
+    fprintf(stderr, "**** MPI_NANA_Internal returned: %d\n", retval);
+    fflush(stdout);
+  }
+  return retval;
+}
+
 PMPI_IMPL(int, MPI_Init, int *argc, char ***argv)
 PMPI_IMPL(int, MPI_Finalize, void)
 PMPI_IMPL(int, MPI_Finalized, int *flag)

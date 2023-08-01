@@ -478,7 +478,8 @@ typedef int (*libcFptr_t) (int (*main) (int, char **, char ** MAIN_AUXVEC_DECL),
   MACRO(Win_unlock_all) \
   MACRO(Win_wait) \
   MACRO(Wtick) \
-  MACRO(Wtime)
+  MACRO(Wtime) \
+  MACRO(MANA_Internal)
 
 #define GENERATE_ENUM(ENUM) MPI_Fnc_##ENUM,
 #define GENERATE_FNC_PTR(FNC) &MPI_##FNC,
