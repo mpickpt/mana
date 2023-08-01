@@ -60,6 +60,8 @@
 #include "protectedfds.h"
 #include "procselfmaps.h"
 
+extern "C" int MPI_MANA_Internal(char *dummy);
+
 using namespace dmtcp;
 using dmtcp::kvdb::KVDBRequest;
 using dmtcp::kvdb::KVDBResponse;
@@ -1085,6 +1087,10 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       updateVdsoLinkmapEntry(lh_info.vdsoLdAddrInLinkMap);
       dmtcp_local_barrier("MPI:Reset-Drain-Send-Recv-Counters");
       resetDrainCounters(); // p2p_drain_send_recv.cpp
+      char str[1];
+      MPI_MANA_Internal(str); // This does nothing.  Modify in lower-half
+                             // for easy debugging of lower half during restart.
+                             // See definition in mpi-wrappers/mpi_wrappers.cpp
       mana_state = RESTART_REPLAY;
 #ifdef SINGLE_CART_REORDER
       dmtcp_global_barrier("MPI:setCartesianCommunicator");

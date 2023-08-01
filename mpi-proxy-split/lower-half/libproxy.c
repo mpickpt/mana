@@ -46,6 +46,8 @@
 #include "../cartesian.h"
 #endif
 
+extern int MPI_MANA_Internal(char *dummy);
+
 #include "libproxy.h"
 #include "mpi_copybits.h"
 #include "procmapsutils.h"
@@ -241,6 +243,13 @@ getVdsoPointerInLinkMap()
     map = map->l_next;
   }
   return NULL;
+}
+
+
+// This does nothing, unless modified.  See mpi-wrappers/mpi_wrappers.cpp for
+// its definition, and how to use it for debugging lower half during restart.
+int MPI_MANA_Internal(char *dummy) {
+  return 0;
 }
 
 #ifdef SINGLE_CART_REORDER
