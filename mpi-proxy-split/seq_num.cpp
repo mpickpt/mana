@@ -197,6 +197,9 @@ void commit_begin(MPI_Comm comm, bool passthrough) {
   }
   pthread_mutex_lock(&seq_num_lock);
   current_phase = IN_CS;
+  // 2023-07-28 what happens when this is NULL?
+  //   unsigned int comm_gid = VirtualGlobalCommId::instance().getGlobalId(comm);
+
   ggid_desc_t* comm_ggid_desc = VIRTUAL_TO_DESC_COMM(comm)->ggid_desc;
     comm_ggid_desc->seq_num++;
   pthread_mutex_unlock(&seq_num_lock);
