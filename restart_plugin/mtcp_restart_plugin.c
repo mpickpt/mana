@@ -721,13 +721,20 @@ mtcp_plugin_skip_memory_region_munmap(Area *area, RestoreInfo *rinfo)
   }
 #endif
 
+  // NOTE: Check /proc/self/maps after lh_proxy copied over and MPI_INIT
+  //       A future O/S may have new "special" memory regoins to add here.
   if (mtcp_strstr(area->name, "/dev/shm/mpich") ||
       mtcp_strstr(area->name, "/dev/zero") ||
       mtcp_strstr(area->name, "/dev/kgni") ||
       mtcp_strstr(area->name, "/dev/xpmem") ||
       mtcp_strstr(area->name, "/dev/shm") ||
-      mtcp_strstr(area->name, "/SYS")) {
+      mtcp_strstr(area->name, "/SYS") ||
+      mtcp_strstr(area->name, "/anon_hugepage")) {
     return 1;
+  }
+  if (mtcp_strstr(area->name, "/dev/")) {
+    mtcp_printf("*** WARNING: " __FILE__ ": Consider skipping munmap of %s\n",
+                area->name);
   }
 
   // FROM: lh_proxy:mpi-proxy-split/lower-half/libproxy.c :
