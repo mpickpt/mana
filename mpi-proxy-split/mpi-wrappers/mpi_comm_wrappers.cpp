@@ -367,6 +367,60 @@ USER_DEFINED_WRAPPER(int, Comm_split_type, (MPI_Comm) comm, (int) split_type,
   return retval;
 }
 
+USER_DEFINED_WRAPPER(int, Attr_get, (MPI_Comm) comm, (int) keyval,
+                     (void*) attribute_val, (int*) flag)
+{
+  JWARNING(false).Text(
+    "Use of MPI_Attr_get is deprecated - use MPI_Comm_get_attr instead");
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+  int realCommKeyval = VIRTUAL_TO_REAL_COMM_KEYVAL(keyval);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  retval = NEXT_FUNC(Attr_get)(realComm, realCommKeyval, attribute_val, flag);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return retval;
+}
+
+USER_DEFINED_WRAPPER(int, Attr_delete, (MPI_Comm) comm, (int) keyval)
+{
+
+  JWARNING(false).Text(
+    "Use of MPI_Attr_delete is deprecated - use MPI_Comm_delete_attr instead");
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+  int realCommKeyval = VIRTUAL_TO_REAL_COMM_KEYVAL(keyval);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  retval = NEXT_FUNC(Attr_delete)(realComm, realCommKeyval);
+  RETURN_TO_UPPER_HALF();
+  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
+    LOG_CALL(restoreComms, Attr_delete, comm, keyval);
+  }
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return retval;
+}
+
+USER_DEFINED_WRAPPER(int, Attr_put, (MPI_Comm) comm,
+                     (int) keyval, (void*) attribute_val)
+{
+  JWARNING(false).Text(
+    "Use of MPI_Attr_put is deprecated - use MPI_Comm_set_attr instead");
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+  int realCommKeyval = VIRTUAL_TO_REAL_COMM_KEYVAL(keyval);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  retval = NEXT_FUNC(Attr_put)(realComm, realCommKeyval, attribute_val);
+  RETURN_TO_UPPER_HALF();
+  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
+    LOG_CALL(restoreComms, Attr_put, comm, keyval, attribute_val);
+  }
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return retval;
+}
+
 USER_DEFINED_WRAPPER(int, Comm_create_keyval,
                      (MPI_Comm_copy_attr_function *) comm_copy_attr_fn,
                      (MPI_Comm_delete_attr_function *) comm_delete_attr_fn,
