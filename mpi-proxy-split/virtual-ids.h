@@ -249,13 +249,13 @@ struct datatype_desc_t {
     MPI_Datatype real_id; // Real MPI type in the lower-half
     int handle; // A copy of the int type handle generated from the address of this struct
     // Components of user-defined datatype.
-    int *num_integers;
+    int num_integers;
     int *integers;
-    int *num_addresses;
+    int num_addresses;
     MPI_Aint *addresses;
-    int *num_large_counts;
+    int num_large_counts;
     int *large_counts;
-    int *num_datatypes;
+    int num_datatypes;
     MPI_Datatype *datatypes; // hmmm.. hierarchical restore?
     int *combiner;
 };
