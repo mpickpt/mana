@@ -257,7 +257,7 @@ struct datatype_desc_t {
     int *large_counts;
     int num_datatypes;
     MPI_Datatype *datatypes; // hmmm.. hierarchical restore?
-    int *combiner;
+    int combiner;
 };
 
 struct file_desc_t {

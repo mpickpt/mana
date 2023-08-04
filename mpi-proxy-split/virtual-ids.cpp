@@ -338,14 +338,14 @@ datatype_desc_t* init_datatype_desc_t(MPI_Datatype realType) {
   desc->num_datatypes = 0;
   desc->datatypes = NULL;
 
-  desc->combiner = NULL;
+  desc->combiner = 0;
   return desc;
 }
 
 void update_datatype_desc_t(datatype_desc_t* datatype) {
   DMTCP_PLUGIN_DISABLE_CKPT();
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  NEXT_FUNC(Type_get_envelope)(datatype->real_id, &datatype->num_integers, &datatype->num_addresses, &datatype->num_datatypes, datatype->combiner); // Get the sizes of each array...
+  NEXT_FUNC(Type_get_envelope)(datatype->real_id, &datatype->num_integers, &datatype->num_addresses, &datatype->num_datatypes, &datatype->combiner); // Get the sizes of each array...
   NEXT_FUNC(Type_get_contents)(datatype->real_id, datatype->num_integers, datatype->num_addresses, datatype->num_datatypes, datatype->integers, datatype->addresses, datatype->datatypes);  // And get the contents of each array.
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
