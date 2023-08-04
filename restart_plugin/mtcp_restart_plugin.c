@@ -20,7 +20,7 @@
 // In theory, just one of these techniques should suffice.
 #define USE_LH_MMAPS_ARRAY
 #define USE_LOWER_BOUNDARY
-
+#define DEBUG_CONFLICT
 # define GB (uint64_t)(1024 * 1024 * 1024)
 #define ROUNDADDRUP(addr, size) ((addr + size - 1) & ~(size - 1))
 
@@ -64,6 +64,16 @@ reserveUpperHalfMemoryRegionsForCkptImgs(char *start1, char *end1,
                          -1, 0);
     MTCP_ASSERT(addr == start2);
   }
+#ifdef DEBUG_CONFLICT
+  char *start3 = 0x7ffff6dcc000;
+  char *end3 = 0x7ffff7ff4000;
+
+  const size_t len3 = end3 - start3;
+
+  void *addr3 = mmap_fixed_noreplace(start3, len3,
+                             PROT_WRITE | PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED,
+                             -1, 0);
+#endif
 }
 
 static void
@@ -778,6 +788,12 @@ mtcp_plugin_skip_memory_region_munmap(Area *area, RestoreInfo *rinfo)
 # define LOWER_BOUNDARY 0x1000000000
   if (area->addr >= (char *)lh_regions_list[total_lh_regions - 1].end_addr &&
       area->endAddr <= (char *)LOWER_BOUNDARY) {
+    return 1;
+  }
+#endif
+
+#ifdef DEBUG_CONFLICT
+  if (area->addr >= 0x7ffff6dcc000 && area->addr <= 0x7ffff7ff4000) {
     return 1;
   }
 #endif
