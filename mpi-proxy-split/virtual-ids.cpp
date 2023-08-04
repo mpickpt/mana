@@ -361,7 +361,6 @@ void destroy_datatype_desc_t(datatype_desc_t* datatype) {
   free(datatype->addresses);
   free(datatype->large_counts);
   free(datatype->datatypes);
-  free(datatype->combiner);
   free(datatype);
 }
 
