@@ -355,10 +355,29 @@ void update_datatype_desc_t(datatype_desc_t* datatype) {
 }
 
 void reconstruct_with_datatype_desc_t(datatype_desc_t* datatype) {
+  // TODO this probably needs a switch statement over COMBINER
+  // Type_vector_test has: datatype: num_integers: 2, num_addresses: 1, num_datatypes: 1  
+  // But MPI_Type_create_struct expects an equal amount of each. This doesn't work.
+  // Our datatype is created like:
+  // MPI_Type_vector(BUFFER_SIZE, 1, BUFFER_SIZE, MPI_INIT, &column_type);
+  // Where column_type is outparam.
+  // BUFFER_SIZE is 100 here.
+  // Count, blocklen, stride, type.
+  // Here, we might say that count, blocklen are int, stride is addr, type is type. 2 1 1.
   int count = datatype->num_integers + datatype->num_addresses + datatype->num_datatypes;
   DMTCP_PLUGIN_DISABLE_CKPT();
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  NEXT_FUNC(Type_create_struct)(count, datatype->integers, datatype->addresses, datatype->datatypes, &datatype->real_id);
+  switch (datatype->combiner) {
+	  case MPI_COMBINER_VECTOR:
+		  NEXT_FUNC(Type_vector)(datatype->integers[0], datatype->integers[1], datatype->addresses[0], datatype->datatypes[0], &datatype->real_id);
+		  break;
+	  case MPI_COMBINER_STRUCT:
+		  // here, all arrays have equal len.
+  		  NEXT_FUNC(Type_create_struct)(datatype->num_integers, datatype->integers, datatype->addresses, datatype->datatypes, &datatype->real_id);
+		  break;
+	  default:
+		  break;
+  }
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
 }
