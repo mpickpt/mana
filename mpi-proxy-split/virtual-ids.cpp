@@ -375,9 +375,14 @@ void reconstruct_with_datatype_desc_t(datatype_desc_t* datatype) {
 		  // here, all arrays have equal len.
   		  NEXT_FUNC(Type_create_struct)(datatype->num_integers, datatype->integers, datatype->addresses, datatype->datatypes, &datatype->real_id);
 		  break;
+	  case MPI_COMBINER_HVECTOR:
+		  // TODO just a guess.
+		  NEXT_FUNC(Type_hvector)(datatype->integers[0], datatype->integers[1], datatype->addresses[0], datatype->datatypes[0], &datatype->real_id);
 	  default:
 		  break;
   }
+  // TODO is this needed?
+  NEXT_FUNC(Type_commit)(&datatype->real_id);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
 }
