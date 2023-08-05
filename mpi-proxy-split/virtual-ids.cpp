@@ -356,7 +356,11 @@ void update_datatype_desc_t(datatype_desc_t* datatype) {
 
 void reconstruct_with_datatype_desc_t(datatype_desc_t* datatype) {
   int count = datatype->num_integers + datatype->num_addresses + datatype->num_datatypes;
-  MPI_Type_create_struct(count, datatype->integers, datatype->addresses, datatype->datatypes, &datatype->real_id);
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  NEXT_FUNC(Type_create_struct)(count, datatype->integers, datatype->addresses, datatype->datatypes, &datatype->real_id);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
 }
 
 void destroy_datatype_desc_t(datatype_desc_t* datatype) {
