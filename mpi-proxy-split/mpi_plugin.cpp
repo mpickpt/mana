@@ -152,13 +152,8 @@ void recordPostMpiInitMaps()
     // Now remove those mappings that existed before Mpi_Init.
     JASSERT(preMpiInitMaps != nullptr);
     while (preMpiInitMaps->getNextArea(&area)) {
-      if (area.addr == lh_info.memRange.start) {
-        continue;
-      }
-
       if (mpiInitLhAreas->find(area.addr) != mpiInitLhAreas->end()) {
-        JWARNING(mpiInitLhAreas->at(area.addr) == area.size)
-                ((void *)area.addr)(area.size);
+        JWARNING(mpiInitLhAreas->at(area.addr) == area.size)(area.addr)(area.size);
         mpiInitLhAreas->erase(area.addr);
       } else {
         // Check if a region has the same end addr. E.g., thread stack grew.
@@ -393,6 +388,17 @@ isLhRegion(const ProcMapsArea *area)
       isLhMpiInitRegion(area)) {
     return true;
   }
+  /******************************************************************
+   * FIXME:                                                         *
+   *   So far, the upper-half example programs don't create their   *
+   *   own /anon_hugepage.  That could change in the future.        *
+   *   For now, isLhRegion(&area) is always true for /anon_hugepage *
+   *   /anon_hugepage created by ioctl in MPI_Init, and so we can't *
+   *   easily interpose on it.                                      *
+   ******************************************************************/
+  if (strstr(area->name, "/anon_hugepage")) {
+    return true;
+  }
   return false;
 }
 
@@ -420,12 +426,17 @@ dmtcp_skip_memory_region_ckpting(const ProcMapsArea *area)
     return 1;
   }
 
+  if (strstr(area->name, "/anon_hugepage")) {
+    JTRACE("Ignoring /anon_hugepage region")(area->name)((void*)area->addr);
+    return 1;
+  }
+
   return 0;
 }
 
- EXTERNC int
- dmtcp_skip_truncate_file_at_restart(const char* path)
- {
+EXTERNC int
+dmtcp_skip_truncate_file_at_restart(const char* path)
+{
   constexpr const char* P2P_LOG_MSG = "p2p_log_%d.txt";
   constexpr const char* P2P_LOG_REQUEST = "p2p_log_request_%d.txt";
   char p2p_log_name[100];
@@ -669,14 +680,11 @@ computeUnionOfCkptImageAddresses()
   void *minLibsStart = NULL;
   void *libsEnd = NULL;
   void *maxLibsEnd = NULL;
-  void *highMemStart = NULL;
+  void *highMemStart = 0x0;
   void *minHighMemStart = NULL;
   void *minAddrBeyondHeap = NULL;
   void *maxAddrBeyondHeap = NULL;
 
-  // We discover the last address that the kernel had mapped:
-  // ASSUMPTIONS:  Target app is not using mmap
-  // ASSUMPTIONS:  Kernel does not go back and fill previos gap after munmap
   // TODO: Add a heuristic-based approach to locate the hole between libs+mmap
   //       and bin+heap.
   libsStart = mmap(NULL, 4096, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
@@ -685,33 +693,43 @@ computeUnionOfCkptImageAddresses()
 
   // Preprocess memory regions as needed.
   while (procSelfMaps.getNextArea(&area)) {
+    // FIXME: This is a hack.  But if 'isLhRegion()' is accurate, then
+   //         this should suffice.
+    if (area.addr < libsStart && area.addr > heapAddr && !isLhRegion(&area)) {
+      libsStart = area.addr;
+    }
     if (Util::strEndsWith(area.name, ".so") ||
         ((strstr(area.name, ".so.") != NULL) &&
           !Util::strStartsWith(area.name, "/var/lib"))) {
-      if (libsStart > area.addr) {
+      if (area.addr < libsStart) {
         libsStart = area.addr;
       }
+      // FIXME:  The upper half may include addresses beyond last lib*.so file
+      // NOTE: In VASP, we've seen:  [vvar], [vdso], lib/ld.so, [stack], argv/env/auxv, [vsyscall]
+      //  Normally, we see:  lib/ld.so, [vvar], [vdso], [stack], argv/env/auxv, [vsyscall]
+      // NOTE: /anon_hugepage is created by MPI_Init and placed as high as
+      //       possible on Perlmutter.  At launch, this is _below_ all the
+      //       libraries, since MPI_Init is called after loading all libraries.
+      //       But on restart, we create lower-half first.  We will reserve all
+      //       of upper half, and so force /anon_hugepage again to lower addr.
       libsEnd = area.endAddr;
     }
 
     // Set mtcpHdr->highMemStart if possible.
-    // highMemStart not currently used.  We could change the constant logic.
-    if (highMemStart == NULL && area.addr > HIGH_ADDR_START) {
-      highMemStart = area.addr;
+#if 0
+    if (highMemStart == 0x0 && libsEnd > (VA)0x0 && area.addr > libsEnd &&
+        !isLhRegion(&area))
+#else
+    if (strcmp(area.name, "[stack]") == 0)
+#endif
+    {
+      highMemStart = area.addr; // This should be the start of the stack.
     }
 
-    if (area.addr > heapAddr &&
-        !isLhRegion(&area) &&
-        // /anon_hugepage regions are in the range 0x10000000000. We don't know
-        // for sure where these regions are  coming from. For now, we don't want
-        // to include them in libs-start addr calculations because libs are in
-        // the addr range 0x155000000000 and we can't possibly resserve huge
-        // memory chunks including both.
-        !strstr(area.name, "/anon_hugepage")) {
+    if (area.addr > heapAddr && !isLhRegion(&area)) {
       if (minAddrBeyondHeap == nullptr) {
         minAddrBeyondHeap = area.addr;
       }
-
       if (strcmp(area.name, "[vsyscall]") != 0) {
         maxAddrBeyondHeap = area.endAddr;
       }
