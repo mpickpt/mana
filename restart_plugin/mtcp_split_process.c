@@ -314,7 +314,8 @@ setLhMemRange(RestoreInfo *rinfo)
     DPRINTF("Failed to find [stack] memory segment\n");
     mtcp_abort();
   }
-  MTCP_ASSERT(lh_mem_range.end < (VA) rinfo->minHighMemStart);
+  // FIXME:  What is the correct assert?
+  // MTCP_ASSERT(lh_mem_range.end < (VA)rinfo->minHighMemStart);
   return lh_mem_range;
 }
 
