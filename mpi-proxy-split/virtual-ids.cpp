@@ -371,23 +371,18 @@ void reconstruct_with_op_desc_t(op_desc_t* op) {
 		    NEXT_FUNC(Type_vector)(datatype->integers[0], datatype->integers[1], datatype->addresses[0], datatype->datatypes[0], &datatype->real_id);
 		    break;
 	    case MPI_COMBINER_HVECTOR:
-		    // TODO just a guess.
 		    NEXT_FUNC(Type_hvector)(datatype->integers[0], datatype->integers[1], datatype->addresses[0], datatype->datatypes[0], &datatype->real_id);
 		    break;
 	    case MPI_COMBINER_INDEXED:
-		  // Here, the integers in the envelope are split into two arrays.
-		  int count = datatype->num_integers / 2;
-                  NEXT_FUNC(Type_indexed)(count, datatype->integers, datatype->integers + count, datatype->datatypes[0], &datatype->real_id);
-                  break;
-	  case MPI_COMBINER_STRUCT:
-		  // here, all arrays have equal len.
-  		  NEXT_FUNC(Type_create_struct)(datatype->num_integers, datatype->integers, datatype->addresses, datatype->datatypes, &datatype->real_id);
-		  break;
-		  //case MPI_COMBINER_HINDEXED:
-                  //NEXT_FUNC(Type_indexed)(datatype->num_integers, datatype->integers, datatypes->addresses, datatype->datatypes[0], &datatype->real_id);
-                  //break;
+		    // Here, the integers in the envelope are split into two arrays.
+		    int count = datatype->num_integers / 2;
+                    NEXT_FUNC(Type_indexed)(count, datatype->integers, datatype->integers + count, datatype->datatypes[0], &datatype->real_id);
+                    break;
+	    case MPI_COMBINER_STRUCT:
+  		    NEXT_FUNC(Type_create_struct)(datatype->num_integers, datatype->integers, datatype->addresses, datatype->datatypes, &datatype->real_id);
+		    break;
 	  default:
-		  break;
+		    break;
   }
   // TODO is this needed?
   NEXT_FUNC(Type_commit)(&datatype->real_id);
