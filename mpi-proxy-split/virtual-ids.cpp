@@ -315,75 +315,74 @@ void update_op_desc_t(op_desc_t* op, MPI_User_function* user_fn, int commute) {
 }
 
 void reconstruct_with_op_desc_t(op_desc_t* op) {
-  MPI_Op_create(op->user_fn, op->commute, &op->real_id);
-}
+    MPI_Op_create(op->user_fn, op->commute, &op->real_id);
+    }
 
-void destroy_op_desc_t(op_desc_t* op) {
-  free(op);
-}
+    void destroy_op_desc_t(op_desc_t* op) {
+    free(op);
+    }
 
-datatype_desc_t* init_datatype_desc_t(MPI_Datatype realType) {
-  datatype_desc_t* desc = ((datatype_desc_t*)malloc(sizeof(datatype_desc_t)));
-  desc->real_id = realType;
+    datatype_desc_t* init_datatype_desc_t(MPI_Datatype realType) {
+    datatype_desc_t* desc = ((datatype_desc_t*)malloc(sizeof(datatype_desc_t)));
+    desc->real_id = realType;
 
-  desc->num_integers = 0;
-  desc->integers = NULL;
+    desc->num_integers = 0;
+    desc->integers = NULL;
 
-  desc->num_addresses = 0;
-  desc->addresses = NULL;
+    desc->num_addresses = 0;
+    desc->addresses = NULL;
 
-  desc->num_large_counts = 0;
-  desc->large_counts = NULL;
+    desc->num_large_counts = 0;
+    desc->large_counts = NULL;
 
-  desc->num_datatypes = 0;
-  desc->datatypes = NULL;
+    desc->num_datatypes = 0;
+    desc->datatypes = NULL;
 
-  desc->combiner = 0;
-  return desc;
-}
+    desc->combiner = 0;
+    return desc;
+    }
 
-void update_datatype_desc_t(datatype_desc_t* datatype) {
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  NEXT_FUNC(Type_get_envelope)(datatype->real_id, &datatype->num_integers, &datatype->num_addresses, &datatype->num_datatypes, &datatype->combiner);
-  datatype->integers = ((int*)malloc(sizeof(int) * datatype->num_integers));
-  datatype->addresses = ((MPI_Aint*)malloc(sizeof(MPI_Aint) * datatype->num_addresses));
-  datatype->datatypes = ((MPI_Datatype*)malloc(sizeof(MPI_Datatype) * datatype->num_datatypes));
-  NEXT_FUNC(Type_get_contents)(datatype->real_id, datatype->num_integers, datatype->num_addresses, datatype->num_datatypes, datatype->integers, datatype->addresses, datatype->datatypes);
-  RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
-}
+    void update_datatype_desc_t(datatype_desc_t* datatype) {
+    DMTCP_PLUGIN_DISABLE_CKPT();
+    JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+    NEXT_FUNC(Type_get_envelope)(datatype->real_id, &datatype->num_integers, &datatype->num_addresses, &datatype->num_datatypes, &datatype->combiner);
+    datatype->integers = ((int*)malloc(sizeof(int) * datatype->num_integers));
+    datatype->addresses = ((MPI_Aint*)malloc(sizeof(MPI_Aint) * datatype->num_addresses));
+    datatype->datatypes = ((MPI_Datatype*)malloc(sizeof(MPI_Datatype) * datatype->num_datatypes));
+    NEXT_FUNC(Type_get_contents)(datatype->real_id, datatype->num_integers, datatype->num_addresses, datatype->num_datatypes, datatype->integers, datatype->addresses, datatype->datatypes);
+    RETURN_TO_UPPER_HALF();
+    DMTCP_PLUGIN_ENABLE_CKPT();
+    }
 
-void reconstruct_with_datatype_desc_t(datatype_desc_t* datatype) {
-  // TODO this probably needs a switch statement over COMBINER
-  // Type_vector_test has: datatype: num_integers: 2, num_addresses: 1, num_datatypes: 1  
-  // But MPI_Type_create_struct expects an equal amount of each. This doesn't work.
-  // Our datatype is created like:
-  // MPI_Type_vector(BUFFER_SIZE, 1, BUFFER_SIZE, MPI_INIT, &column_type);
-  // Where column_type is outparam.
-  // BUFFER_SIZE is 100 here.
-  // Count, blocklen, stride, type.
-  // Here, we might say that count, blocklen are int, stride is addr, type is type. 2 1 1.
-  int count = datatype->num_integers + datatype->num_addresses + datatype->num_datatypes;
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  switch (datatype->combiner) {
-	  case MPI_COMBINER_VECTOR:
-		  NEXT_FUNC(Type_vector)(datatype->integers[0], datatype->integers[1], datatype->addresses[0], datatype->datatypes[0], &datatype->real_id);
-		  break;
+    void reconstruct_with_datatype_desc_t(datatype_desc_t* datatype) {
+    // TODO this probably needs a switch statement over COMBINER
+    // Type_vector_test has: datatype: num_integers: 2, num_addresses: 1, num_datatypes: 1  
+    // But MPI_Type_create_struct expects an equal amount of each. This doesn't work.
+    // Our datatype is created like:
+    // MPI_Type_vector(BUFFER_SIZE, 1, BUFFER_SIZE, MPI_INIT, &column_type);
+    // Where column_type is outparam.
+    // BUFFER_SIZE is 100 here.
+    // Count, blocklen, stride, type.
+    // Here, we might say that count, blocklen are int, stride is addr, type is type. 2 1 1.
+    DMTCP_PLUGIN_DISABLE_CKPT();
+    JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+    switch (datatype->combiner) {
+	    case MPI_COMBINER_VECTOR:
+		    NEXT_FUNC(Type_vector)(datatype->integers[0], datatype->integers[1], datatype->addresses[0], datatype->datatypes[0], &datatype->real_id);
+		    break;
+	    case MPI_COMBINER_HVECTOR:
+		    // TODO just a guess.
+		    NEXT_FUNC(Type_hvector)(datatype->integers[0], datatype->integers[1], datatype->addresses[0], datatype->datatypes[0], &datatype->real_id);
+		    break;
+	    case MPI_COMBINER_INDEXED:
+		  // Here, the integers in the envelope are split into two arrays.
+		  int count = datatype->num_integers / 2;
+                  NEXT_FUNC(Type_indexed)(count, datatype->integers, datatype->integers + count, datatype->datatypes[0], &datatype->real_id);
+                  break;
 	  case MPI_COMBINER_STRUCT:
 		  // here, all arrays have equal len.
   		  NEXT_FUNC(Type_create_struct)(datatype->num_integers, datatype->integers, datatype->addresses, datatype->datatypes, &datatype->real_id);
 		  break;
-	  case MPI_COMBINER_HVECTOR:
-		  // TODO just a guess.
-		  NEXT_FUNC(Type_hvector)(datatype->integers[0], datatype->integers[1], datatype->addresses[0], datatype->datatypes[0], &datatype->real_id);
-		  break;
-          case MPI_COMBINER_INDEXED:
-	    // Here, the integers in the envelope are split into two arrays.
-	    int count = datatype->num_integers / 2;
-                  NEXT_FUNC(Type_indexed)(count, datatype->integers, datatype->integers + count, datatype->datatypes[0], &datatype->real_id);
-                  break;
 		  //case MPI_COMBINER_HINDEXED:
                   //NEXT_FUNC(Type_indexed)(datatype->num_integers, datatype->integers, datatypes->addresses, datatype->datatypes[0], &datatype->real_id);
                   //break;
