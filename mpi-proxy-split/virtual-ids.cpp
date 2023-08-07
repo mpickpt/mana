@@ -380,11 +380,13 @@ void reconstruct_with_datatype_desc_t(datatype_desc_t* datatype) {
 		  NEXT_FUNC(Type_hvector)(datatype->integers[0], datatype->integers[1], datatype->addresses[0], datatype->datatypes[0], &datatype->real_id);
 		  break;
           case MPI_COMBINER_INDEXED:
-                  NEXT_FUNC(Type_indexed)(datatype->num_integers, datatype->integers, datatype->addresses, datatype->datatypes[0], &datatype->real_id);
+	    // Here, the integers in the envelope are split into two arrays.
+	    int count = datatype->num_integers / 2;
+                  NEXT_FUNC(Type_indexed)(count, datatype->integers, datatype->integers + count, datatype->datatypes[0], &datatype->real_id);
                   break;
-          case MPI_COMBINER_HINDEXED:
-                  NEXT_FUNC(Type_indexed)(datatype->num_integers, datatype->integers, datatypes->addresses, datatype->datatypes[0], &datatype->real_id);
-                  break;
+		  //case MPI_COMBINER_HINDEXED:
+                  //NEXT_FUNC(Type_indexed)(datatype->num_integers, datatype->integers, datatypes->addresses, datatype->datatypes[0], &datatype->real_id);
+                  //break;
 	  default:
 		  break;
   }
