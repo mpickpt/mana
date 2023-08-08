@@ -96,8 +96,6 @@ ProcSelfMaps *postMpiInitMaps = nullptr;
 map<void*, size_t> *mpiInitLhAreas = nullptr;
 void *heapAddr = nullptr;
 
-// #define DEBUG
-
 #undef dmtcp_skip_memory_region_ckpting
 // High memory could start at 0x7ffc00000000 on Perlmutter
 const VA HIGH_ADDR_START = (VA)0x7ffc00000000;
@@ -118,14 +116,20 @@ regionContains(const void *haystackStart,
   return needleStart >= haystackStart && needleEnd <= haystackEnd;
 }
 
+// These are called from the MPI_Init wrapper in mpi-wrappers/mpi_wrappers.cpp
+// FIXME: But during restart, MPI_Init is called from getRankFptr (aka getRank),
+//        which calls MPI_Init before MPI_Comm_rank.  If this is a
+//        restarted process (not a 'launch' process), then these functions
+//        are not called, and we miss recording the ioctl of /anon_hugepage .
+//          To fix this, restart_plugin needs to call this after getRankFptr,
+//        and simply record all memory regions as part of the lower half.
+//        Note that restart_plugin is part of mtcp_restart (no libc available).
 void recordPreMpiInitMaps()
 {
   if (preMpiInitMaps != nullptr) {
     return;
   }
-
   mpiInitLhAreas = new map<void*, size_t>();
-
   preMpiInitMaps = new ProcSelfMaps();
 }
 
@@ -134,9 +138,7 @@ void recordPostMpiInitMaps()
   if (postMpiInitMaps != nullptr) {
     return;
   }
-
   postMpiInitMaps = new ProcSelfMaps();
-
   ProcMapsArea area;
 
   {
@@ -144,7 +146,8 @@ void recordPostMpiInitMaps()
     const void *procSelfMapsData = postMpiInitMaps->getData();
 
     while (postMpiInitMaps->getNextArea(&area)) {
-      if (!regionContains(area.addr, area.endAddr, procSelfMapsData, procSelfMapsData)) {
+      if (!regionContains(area.addr, area.endAddr,
+                          procSelfMapsData, procSelfMapsData)) {
         mpiInitLhAreas->insert(std::make_pair(area.addr, area.size));;
       }
     }
@@ -153,7 +156,8 @@ void recordPostMpiInitMaps()
     JASSERT(preMpiInitMaps != nullptr);
     while (preMpiInitMaps->getNextArea(&area)) {
       if (mpiInitLhAreas->find(area.addr) != mpiInitLhAreas->end()) {
-        JWARNING(mpiInitLhAreas->at(area.addr) == area.size)(area.addr)(area.size);
+        JWARNING(mpiInitLhAreas->at(area.addr) == area.size)(area.addr)
+                (area.size);
         mpiInitLhAreas->erase(area.addr);
       } else {
         // Check if a region has the same end addr. E.g., thread stack grew.
@@ -173,7 +177,8 @@ void recordMpiInitMaps()
 {
   string workerPath("/worker/" + string(dmtcp_get_uniquepid_str()));
   //kvdb::set(workerPath, "ProcSelfMaps_PreMpiInit", preMpiInitMaps->getData());
-  //kvdb::set(workerPath, "ProcSelfMaps_PostMpiInit", postMpiInitMaps->getData());
+  //kvdb::set(workerPath, "ProcSelfMaps_PostMpiInit",
+  //          postMpiInitMaps->getData());
 
   ProcMapsArea area;
   ProcSelfMaps maps;
@@ -209,7 +214,8 @@ void recordMpiInitMaps()
       void *lhMmapStart = g_list[i].addr;
       void *lhMmapEnd = (VA)g_list[i].addr + g_list[i].len;
       if (!g_list[i].unmapped) {
-        o << std::hex << (uint64_t) lhMmapStart << "-" << (uint64_t) lhMmapEnd << "\n";
+        o << std::hex << (uint64_t)lhMmapStart << "-" << (uint64_t)lhMmapEnd
+          << "\n";
       }
     }
     kvdb::set(workerPath, "ProcSelfMaps_LhCoreRegionsGList", o.str());
@@ -359,7 +365,8 @@ isLhMmapRegion(const ProcMapsArea *area)
     void *lhMmapStart = g_list[i].addr;
     void *lhMmapEnd = (VA)g_list[i].addr + g_list[i].len;
     if (!g_list[i].unmapped &&
-        regionContains(lhMmapStart, (void*) ROUND_UP(lhMmapEnd), area->addr, area->endAddr)) {
+        regionContains(lhMmapStart,
+                       (void*)ROUND_UP(lhMmapEnd), area->addr, area->endAddr)) {
       return true;
     }
   }
@@ -475,8 +482,8 @@ string GetBacktrace()
       size_t buflen = sizeof(buf);
       buf[0] = '\0';
       if (info.dli_sname) {
-        char *demangled =
-          abi::__cxa_demangle(info.dli_sname, buf, &buflen, &status);
+        //  WAS: 'char *demangled =' (but compiler issues 'not used' warning.
+        abi::__cxa_demangle(info.dli_sname, buf, &buflen, &status);
         if (status != 0) {
           strncpy(buf, info.dli_sname, sizeof(buf) - 1);
         }
