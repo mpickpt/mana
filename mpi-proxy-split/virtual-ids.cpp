@@ -360,9 +360,6 @@ void reconstruct_with_op_desc_t(op_desc_t* op) {
     }
 
     void reconstruct_with_datatype_desc_t(datatype_desc_t* datatype) {
-      if (datatype->is_freed) {
-	return;
-      }
     DMTCP_PLUGIN_DISABLE_CKPT();
     JUMP_TO_LOWER_HALF(lh_info.fsaddr);
     switch (datatype->combiner) {
