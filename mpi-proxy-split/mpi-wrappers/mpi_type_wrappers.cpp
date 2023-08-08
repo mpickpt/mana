@@ -49,6 +49,7 @@ USER_DEFINED_WRAPPER(int, Type_free, (MPI_Datatype *) type)
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   datatype_desc_t datatypeDescriptor = VIRTUAL_TO_DESC_TYPE(*type);
+  update_datatype_desc_t(datatypeDescriptor);
   MPI_Datatype realType = datatypeDescriptor->real_id;
   //MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(*type);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
