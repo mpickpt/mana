@@ -363,15 +363,6 @@ void reconstruct_with_op_desc_t(op_desc_t* op) {
       if (datatype->is_freed) {
 	return;
       }
-    // TODO this probably needs a switch statement over COMBINER
-    // Type_vector_test has: datatype: num_integers: 2, num_addresses: 1, num_datatypes: 1  
-    // But MPI_Type_create_struct expects an equal amount of each. This doesn't work.
-    // Our datatype is created like:
-    // MPI_Type_vector(BUFFER_SIZE, 1, BUFFER_SIZE, MPI_INIT, &column_type);
-    // Where column_type is outparam.
-    // BUFFER_SIZE is 100 here.
-    // Count, blocklen, stride, type.
-    // Here, we might say that count, blocklen are int, stride is addr, type is type. 2 1 1.
     DMTCP_PLUGIN_DISABLE_CKPT();
     JUMP_TO_LOWER_HALF(lh_info.fsaddr);
     switch (datatype->combiner) {
