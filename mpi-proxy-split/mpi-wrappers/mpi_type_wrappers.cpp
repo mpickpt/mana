@@ -48,7 +48,9 @@ USER_DEFINED_WRAPPER(int, Type_free, (MPI_Datatype *) type)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(*type);
+  datatype_desc_t datatypeDescriptor = VIRTUAL_TO_DESC_TYPE(*type);
+  MPI_Datatype realType = datatypeDescriptor->real_id;
+  //MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(*type);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Type_free)(&realType);
   RETURN_TO_UPPER_HALF();
@@ -58,6 +60,7 @@ USER_DEFINED_WRAPPER(int, Type_free, (MPI_Datatype *) type)
     // have been created using this type.
     //
     // realType = REMOVE_OLD_TYPE(*type);
+    datatypeDescriptor->is_freed = true;
     LOG_CALL(restoreTypes, Type_free, *type);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();

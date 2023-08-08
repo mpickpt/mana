@@ -339,10 +339,15 @@ void reconstruct_with_op_desc_t(op_desc_t* op) {
     desc->datatypes = NULL;
 
     desc->combiner = 0;
+    desc->is_freed = false;
     return desc;
     }
 
     void update_datatype_desc_t(datatype_desc_t* datatype) {
+      if (datatype->is_freed) {
+	// If the datatype described has been freed, it will segfault here.
+	return;
+      }
     DMTCP_PLUGIN_DISABLE_CKPT();
     JUMP_TO_LOWER_HALF(lh_info.fsaddr);
     NEXT_FUNC(Type_get_envelope)(datatype->real_id, &datatype->num_integers, &datatype->num_addresses, &datatype->num_datatypes, &datatype->combiner);
