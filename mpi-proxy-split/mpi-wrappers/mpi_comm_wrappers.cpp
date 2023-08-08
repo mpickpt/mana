@@ -211,7 +211,7 @@ USER_DEFINED_WRAPPER(int, Comm_free, (MPI_Comm *) comm)
     // might have been created using this comm.
     //
     // 2023-08-07 No longer.
-    realComm = REMOVE_OLD_COMM(*comm);
+    REMOVE_OLD_COMM(*comm);
     CLEAR_COMM_LOGS(*comm);
     active_comms.erase(*comm);
 
