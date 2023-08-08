@@ -360,6 +360,9 @@ void reconstruct_with_op_desc_t(op_desc_t* op) {
     }
 
     void reconstruct_with_datatype_desc_t(datatype_desc_t* datatype) {
+      if (datatype->is_freed) {
+	return;
+      }
     // TODO this probably needs a switch statement over COMBINER
     // Type_vector_test has: datatype: num_integers: 2, num_addresses: 1, num_datatypes: 1  
     // But MPI_Type_create_struct expects an equal amount of each. This doesn't work.
