@@ -210,8 +210,9 @@ USER_DEFINED_WRAPPER(int, Comm_free, (MPI_Comm *) comm)
     // we'll need to replay this call to reconstruct any other comms that
     // might have been created using this comm.
     //
-    // realComm = REMOVE_OLD_COMM(*comm);
-    // CLEAR_COMM_LOGS(*comm);
+    // 2023-08-07 No longer.
+    realComm = REMOVE_OLD_COMM(*comm);
+    CLEAR_COMM_LOGS(*comm);
     active_comms.erase(*comm);
 
     // unsigned int gid = VirtualGlobalCommId::instance().getGlobalId(*comm); TODO TODO
