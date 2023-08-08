@@ -258,6 +258,8 @@ struct datatype_desc_t {
     int num_datatypes;
     MPI_Datatype *datatypes; // hmmm.. hierarchical restore?
     int combiner;
+    // if is_freed is true, then we should not update the descriptor on a checkpoint.
+    bool is_freed;
 };
 
 struct file_desc_t {
