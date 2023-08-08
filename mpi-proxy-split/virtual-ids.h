@@ -116,7 +116,7 @@
 #define ADD_NEW_COMM(id) \
   ADD_NEW(id, MPI_COMM_NULL, MPI_Comm, comm_desc_t, COMM_MASK)
 #define REMOVE_OLD_COMM(id) \
-  REMOVE_OLD(id, MPI_COMM_NULL, file_desc_t, MPI_Comm)
+  REMOVE_OLD(id, MPI_COMM_NULL, comm_desc_t, MPI_Comm)
 #define UPDATE_COMM_MAP(v, r) \
   UPDATE_MAP(v, r, MPI_COMM_NULL, comm_desc_t, MPI_Comm)
 
