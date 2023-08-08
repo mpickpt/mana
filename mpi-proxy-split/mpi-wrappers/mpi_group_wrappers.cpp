@@ -81,9 +81,9 @@ USER_DEFINED_WRAPPER(int, Group_free, (MPI_Group *) group)
     // NOTE: We cannot remove the old group, since we'll need
     // to replay this call to reconstruct any comms that might
     // have been created using this group.
-    //
-    // realGroup = REMOVE_OLD_GROUP(*group);
-    // CLEAR_GROUP_LOGS(*group);
+    // 2023-08-08 Groups can be recreated in O(1) time, so this isn't true.
+    REMOVE_OLD_GROUP(*group);
+    CLEAR_GROUP_LOGS(*group);
     LOG_CALL(restoreGroups, Group_free, *group);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
