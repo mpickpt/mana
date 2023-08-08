@@ -87,16 +87,15 @@ int getggid(MPI_Comm comm, int worldRank, int commSize, int* rbuf) {
 
 // This is a descriptor initializer. Its job is to write an initial descriptor for a real MPI Communicator.
 comm_desc_t* init_comm_desc_t(MPI_Comm realComm) {
-    int worldRank, commSize, localRank;
+    int commSize, localRank;
 #ifdef DEBUG_VIDS
     printf("init_comm_desc_t realComm: %x\n", realComm);
     fflush(stdout);
 #endif
 
-  MPI_Comm_rank(MPI_COMM_WORLD, &worldRank);
-
   DMTCP_PLUGIN_DISABLE_CKPT();
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  NEXT_FUNC(Comm_rank)(MPI_COMM_WORLD, &worldRank);
   NEXT_FUNC(Comm_size)(realComm, &commSize);
   NEXT_FUNC(Comm_rank)(realComm, &localRank);
   RETURN_TO_UPPER_HALF();
@@ -116,7 +115,10 @@ comm_desc_t* init_comm_desc_t(MPI_Comm realComm) {
     ggidDescriptorTable[ggid] = gd;
     desc->ggid_desc = gd;
   }
+
+  free(ranks);
   desc->real_id = realComm;
+  desc->ranks = NULL;
   return desc;
 }
 
@@ -158,6 +160,7 @@ void update_comm_desc_t(comm_desc_t* desc) {
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
 
+  free(local_ranks);
   desc->ranks = global_ranks;
 }
 
@@ -203,6 +206,8 @@ void reconstruct_with_comm_desc_t(comm_desc_t* desc) {
 // Its job is to free the communicator descriptor (but NOT the real communicator, or related, itself)
 void destroy_comm_desc_t(comm_desc_t* desc) {
   free(desc->ranks);
+  // If we destroy tons of communicators, this will leak memory.
+  // A form of reference counting may be good but we need to ensure no race conditions.
   ggid_desc_t* tmp = desc->ggid_desc;
   free(desc);
 }
@@ -228,6 +233,7 @@ group_desc_t* init_group_desc_t(MPI_Group realGroup) {
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
 
+  free(ranks);
   desc->ranks = global_ranks;
   desc->size = groupSize;
 
@@ -258,6 +264,7 @@ void update_group_desc_t(group_desc_t* group) {
   NEXT_FUNC(Group_translate_ranks)(group->real_id, groupSize, local_ranks, g_world_group, global_ranks);
   RETURN_TO_UPPER_HALF();
 
+  free(local_ranks);
   group->ranks = global_ranks;
   group->size = groupSize;
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -315,8 +322,12 @@ void update_op_desc_t(op_desc_t* op, MPI_User_function* user_fn, int commute) {
 }
 
 void reconstruct_with_op_desc_t(op_desc_t* op) {
-    MPI_Op_create(op->user_fn, op->commute, &op->real_id);
-    }
+    DMTCP_PLUGIN_DISABLE_CKPT();
+    JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+    NEXT_FUNC(Op_create)(op->user_fn, op->commute, &op->real_id);
+    RETURN_TO_UPPER_HALF();
+    DMTCP_PLUGIN_ENABLE_CKPT();
+}
 
     void destroy_op_desc_t(op_desc_t* op) {
     free(op);
@@ -344,6 +355,7 @@ void reconstruct_with_op_desc_t(op_desc_t* op) {
     }
 
     void update_datatype_desc_t(datatype_desc_t* datatype) {
+      // TODO this will fail for doubly-derived datatypes, for the real id given in datatype->datatypes will not be constant after a checkpoint-restart.
       if (datatype->is_freed) {
 	// If the datatype described has been freed, it will segfault here.
 	return;
