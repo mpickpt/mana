@@ -689,31 +689,45 @@ computeUnionOfCkptImageAddresses()
   void *maxLibsEnd = NULL;
   void *highMemStart = 0x0;
   void *minHighMemStart = NULL;
+  void *lhEnd = 0x0; // lower bound for actual lhEnd
   void *minAddrBeyondHeap = NULL;
   void *maxAddrBeyondHeap = NULL;
 
-  // TODO: Add a heuristic-based approach to locate the hole between libs+mmap
-  //       and bin+heap.
-  libsStart = mmap(NULL, 4096, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-  JASSERT(libsStart != MAP_FAILED);
+  // This is an upper bound on libsStart.  But if there is a hole in the
+  //   upper-half memory layout, then this oculd be a _very_ high upper bound.
+  libsStart = (char *)mmap(NULL, 4096, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS,
+                           -1, 0);
+  JASSERT((void *)libsStart != MAP_FAILED);
   munmap(libsStart, 4096);
 
   // Preprocess memory regions as needed.
+  bool foundLhMmapRegion = false;
   while (procSelfMaps.getNextArea(&area)) {
-    // FIXME: This is a hack.  But if 'isLhRegion()' is accurate, then
-   //         this should suffice.
-    if (area.addr < libsStart && area.addr > heapAddr && !isLhRegion(&area)) {
-      libsStart = area.addr;
+    if (isLhMmapRegion(&area)) {
+      foundLhMmapRegion = true;
     }
-    if (Util::strEndsWith(area.name, ".so") ||
-        ((strstr(area.name, ".so.") != NULL) &&
-          !Util::strStartsWith(area.name, "/var/lib"))) {
-      if (area.addr < libsStart) {
-        libsStart = area.addr;
-      }
+    // ASSUMPTION:  LAYOUT: upperHalfExecutable, lh_proxy, lhMmapRegion,
+    //                 /anon_hugepage (if ioctl from MPI_Init), upperHalfLibs
+    // NOTE: In VASP, we've seen:
+    //          [vvar], [vdso], lib/ld.so, [stack], argv/env/auxv, [vsyscall]
+    //  Normally, we see:
+    //          lib/ld.so, [vvar], [vdso], [stack], argv/env/auxv, [vsyscall]
+    if (foundLhMmapRegion && area.addr < libsStart && !isLhRegion(&area)) {
+      libsStart = area.addr;
+    } else if (isLhRegion(&area) && area.addr < libsStart) {
+      // libsStart is an upper bound, but at worst, it's in middle of uh libs
+      lhEnd = area.endAddr;  // lower bound on lhEnd
+    }
+    // If this area looks like a lib*.so or lib*.so.*, then it's a library.
+    // Set libsEnd to the endAddress of the last library.
+    if (!isLhRegion(&area) &&
+         ( Util::strEndsWith(area.name, ".so") ||
+           ( strstr(area.name, ".so.") != NULL &&
+             // Why is this needed?  What is an example of "/var/lib/*.so.*"?
+             ! Util::strStartsWith(area.name, "/var/lib")))) {
       // FIXME:  The upper half may include addresses beyond last lib*.so file
-      // NOTE: In VASP, we've seen:  [vvar], [vdso], lib/ld.so, [stack], argv/env/auxv, [vsyscall]
-      //  Normally, we see:  lib/ld.so, [vvar], [vdso], [stack], argv/env/auxv, [vsyscall]
+      //         We're looking for the gap between [libsStart, libsEnd]
+      //         and [minHighMem, end_of_memory_in_restart_plugin]
       // NOTE: /anon_hugepage is created by MPI_Init and placed as high as
       //       possible on Perlmutter.  At launch, this is _below_ all the
       //       libraries, since MPI_Init is called after loading all libraries.
@@ -723,17 +737,24 @@ computeUnionOfCkptImageAddresses()
     }
 
     // Set mtcpHdr->highMemStart if possible.
-#if 0
-    if (highMemStart == 0x0 && libsEnd > (VA)0x0 && area.addr > libsEnd &&
-        !isLhRegion(&area))
-#else
+    // restart_plugin will remap [vvar] and [vdso] out of way when
+    // we reserve memory before calling MPI_Init.  And [vsyscall] always
+    // comes after [stack].  So, beginning of [stack] should be highMemStart.
+    // FIXME:  However, during restart, [stack] is the lower-half stack.
+    //         What we really want here is minStackStart.
+    //         Or else, we can simply reserve [libsStart, highMemStart],
+    //         but that would be too large a region to mmap.
     if (strcmp(area.name, "[stack]") == 0)
-#endif
     {
       highMemStart = area.addr; // This should be the start of the stack.
     }
 
-    if (area.addr > heapAddr && !isLhRegion(&area)) {
+    // FIXME:  We are no longer using min/maxAddrBeyondHeap.
+    //         Given that heapAddr is poorly defined between launch and restart,
+    //         we shoul delete this code and all min/maxAddrBeyondHeap,
+    //         when we're convinced it's not needed.
+    if (area.addr > heapAddr &&
+        !isLhRegion(&area)) {
       if (minAddrBeyondHeap == nullptr) {
         minAddrBeyondHeap = area.addr;
       }
@@ -743,16 +764,21 @@ computeUnionOfCkptImageAddresses()
     }
   }
 
-  // Adjust libsStart to make 4GB space.
+  JASSERT(lhEnd < libsStart)(lhEnd)(libsStart);
+  // Adjust libsStart to make 4GB of space in which to grow.
   void *origLibsStart = libsStart;
-  if (minAddrBeyondHeap != nullptr) {
-    libsStart = MIN(libsStart, minAddrBeyondHeap);
+  char *libsStartTmp = (char *)libsStart; // Stupid C++; Error if 'void *'
+  if ((uint64_t)((char *)lhEnd - libsStartTmp) > 5*ONEGB) {
+    libsStartTmp = libsStartTmp - 4*ONEGB;
+    // Round down to multiple of ONEGB:  Easy to recognize address.
+    libsStartTmp = (char *)((uint64_t)libsStartTmp & (uint64_t)(~(ONEGB-1)));
+  } else { // Else choose libsStart halfway between lhEnd and current libsStart
+    libsStartTmp = libsStartTmp - (libsStartTmp - (char *)lhEnd)/2;
   }
+  libsStart = libsStartTmp;
 
-  // Avoid making libsStart negative.
-  if ((int64_t) libsStart > 4 * ONEGB) {
-    libsStart = (void *)((uint64_t)libsStart - 4 * ONEGB);
-  }
+  JTRACE("Layout of memory regions during ckpt")
+        ((void *)lhEnd)((void *)libsStart)(origLibsStart);
 
   string workerPath("/worker/" + string(dmtcp_get_uniquepid_str()));
   string origLibsStartStr = jalib::XToString(origLibsStart);
