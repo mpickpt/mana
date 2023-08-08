@@ -118,6 +118,7 @@ comm_desc_t* init_comm_desc_t(MPI_Comm realComm) {
 
   free(ranks);
   desc->real_id = realComm;
+  desc->local_rank = localRank;
   desc->ranks = NULL;
   return desc;
 }
