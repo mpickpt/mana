@@ -20,6 +20,19 @@
 #include "mtcp_header.h"
 #include "mtcp_split_process.h"
 
+// ****** NOTE:  This macro should be set the same in mtcp_split_process.c
+//               both in the mpi-proxy-split and the restart_plugin directories.
+//               We chose the fixed addresses below to hopefully conflict
+//               with nothing.  Because it's an artificial address, it should
+//               stand out, if it causes an address conflict.
+// FIXME: Using this variable is dangerous.  On MANA 'launch', the target
+//         application is loaded, with its libraries, before the lower half
+//         is called and initialized via getRankFptr(), which calls MPI_Init.
+//         If the target app chose to load its libraries at these addresses,
+//         then they will conflict with our lower half regions.  We should
+//         eventually dynamically choose this address in setLhMemRange.
+#define MANA_USE_LH_FIXED_ADDRESS
+
 int mtcp_sys_errno;
 LowerHalfInfo_t lh_info;
 // FIXME:  The value of pdlsym must be passed from mtcp_restart to
@@ -263,12 +276,12 @@ setLhMemRange()
 
   int found = getMappedArea(&area, "[stack]");
   if (found) {
-#if !defined(MANA_USE_LH_FIXED_ADDRESS)
-    lh_mem_range.start = (VA)area.addr - TWO_GB;
-    lh_mem_range.end = (VA)area.addr - ONE_GB;
-#else
+#ifdef MANA_USE_LH_FIXED_ADDRESS
     lh_mem_range.start = 0x2aab00000000;
     lh_mem_range.end =   0x2aab00000000 + ONE_GB;
+#else
+    lh_mem_range.start = (VA)area.addr - TWO_GB;
+    lh_mem_range.end = (VA)area.addr - ONE_GB;
 #endif
   } else {
     DPRINTF("Failed to find [stack] memory segment\n");
