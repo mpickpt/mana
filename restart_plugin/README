@@ -1,6 +1,6 @@
 When ./configure-mana is called in MANA, it calls ./configure, which
 in turn configures the DMTCP submodule as:
-  ./configure ... --enable-debug CFLAGS=-fno-stack-protector CXXFLAGS=-fno-stack-protector MPI_BIN=/usr/local/bin ...  MANA_USE_LH_FIXED_ADDRESS=1 --with-mana-helper-dir=../restart_plugin --disable-dlsym-wrapper ...
+  ./configure ... --enable-debug CFLAGS=-fno-stack-protector CXXFLAGS=-fno-stack-protector MPI_BIN=/usr/local/bin ...  --with-mana-helper-dir=../restart_plugin --disable-dlsym-wrapper ...
 
 Hence, '--with-mana-helper-dir' above points to this directory.
 

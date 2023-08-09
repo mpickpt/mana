@@ -29,8 +29,7 @@ fi
              MPI_LD_FLAG=-lmpich \
              MPI_CFLAGS= \
              MPI_CXXFLAGS= \
-             MPI_LDFLAGS= \
-             MANA_USE_LH_FIXED_ADDRESS=1
+             MPI_LDFLAGS=
 
 # NOTE:  To make it work, two changes were needed:
 # ===============================================================
