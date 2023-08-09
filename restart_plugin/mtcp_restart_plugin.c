@@ -454,6 +454,7 @@ get_rank_corresponding_to_coordinates(int comm_old_size, int ndims, int *coords)
   return -1;
 }
 
+// This is part of '#ifdef SINGLE_CART_REORDER'
 void
 mtcp_plugin_hook(RestoreInfo *rinfo)
 {
@@ -477,28 +478,45 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
   total_reserved_fds = reserve_fds_upper_half(reserved_fds);
 
   // Refer to "blocked memory" in MANA Plugin Documentation for the addresses
-  // FIXME:  Rewrite this logic more carefully.
+  // We assume that libs and mmap calls grow downward in memory.
   char *start1, *start2, *end1, *end2;
-  if (rinfo->maxLibsEnd + 1 * GB < rinfo->minHighMemStart  /* end of stack of upper half */) {
-    start1 = rinfo->minLibsStart;    // first lib (ld.so) of upper half
-    // lh_info.memRange is the memory region for the mmaps of the lower half.
-    // Apparently lh_info.memRange is a region between 1 GB and 2 GB below
-    //   the end of stack in the lower half.
-    // One gigabyte below those mmaps of the lower half, we are creating space
-    //   for the GNI driver data, to be created when the GNI library runs.
-    // This says that we have to reserve only up to the mtcp_restart stack.
-    end1 = rinfo->pluginInfo.memRange.start - 1 * GB;
-    // Reserve 8MB above min high memory region. That should include
-    // stack memory region.
-    start2 = rinfo->minHighMemStart;
+  if (rinfo->maxLibsEnd + 1 * GB < rinfo->minHighMemStart /* end of stack of upper half */) {
+    // minLibsStart was chosen with extra space below, for future libs, mmap.
+    start1 = rinfo->minLibsStart;    // first lib of upper half
+    // Either lh_info.memRange is a region between 1 GB and 2 GB below
+    //   the end of stack in the lower half; or else it is at an unusual
+    //   address for which we hope there is no address conflict.
+    //   The latter holds if USE_LH_FIXED_ADDRESS was defined in
+    //   mtcp_split_process.c, in both restart_plugin and mpi-proxy-split dirs.
+    end1 = rinfo->maxLibsEnd;
+
+    // Reserve 8MB above min high memory region. That should include space for
+    // stack, argv, env, auxvec.
+    start2 = rinfo->minHighMemStart - 1 * GB; // Allow for stack to grow
     end2 = rinfo->minHighMemStart + 8 * MB;
     // Ignore region start2:end2 if it is overlapped with region start1:end1
     if (is_overlap(start1, end1, start2, end2)) {
+      if (end1 < end2) { end1 = end2; }
       start2 = 0;
       end2 = 0;
     }
+
+    // Verify that the lower half and the restored upper half don't conflict
+    if (is_overlap(start1, end1,
+                   rinfo->pluginInfo.memRange.start,
+                   rinfo->pluginInfo.memRange.end)) {
+      MTCP_PRINTF(getMappedArea("uh libs and lower half memRange overlap\n");
+      mtcp_abort();
+    }
+    if (is_overlap(start2, end2,
+                   rinfo->pluginInfo.memRange.start,
+                   rinfo->pluginInfo.memRange.end)) {
+      MTCP_PRINTF("uh stack and lower half memRange overlap\n");
+      mtcp_abort();
+    }
   } else {
-    // On standard Ubuntu/CentOS libs are mmap'ed downward in memory.
+    MTCP_PRINTF("*** MANA: Using unstable code in MANA.  Check Line %d\n",
+                __LINE__);
     // Allow an extra 1 GB for future upper-half libs and mmaps to be loaded.
     // FIXME:  Will the GNI driver data be allocated below start1?
     //         If so, fix this to block more than a 1 GB address range.
@@ -551,7 +569,7 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
 #endif
     typedef int (*getCoordinatesFptr_t)(CartesianProperties *, int *, int);
     JUMP_TO_LOWER_HALF(rinfo->pluginInfo.fsaddr);
-    // MPI_Init is called here. GNI memory areas will be loaded by MPI_Init.
+    // MPI_Init is called here. Network memory areas will be loaded by MPI_Init.
     // Also, MPI_Cart_create will be called to restore cartesian topology.
     // Based on the coordinates, checkpoint image will be restored instead of
     // world rank.
@@ -571,7 +589,7 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
   } else {
     typedef int (*getRankFptr_t)(void);
     JUMP_TO_LOWER_HALF(rinfo->pluginInfo.fsaddr);
-    // MPI_Init is called here. GNI memory areas will be loaded by MPI_Init.
+    // MPI_Init is called here. Network memory areas will be loaded by MPI_Init.
     world_rank =
       ((getRankFptr_t)rinfo->pluginInfo.getRankFptr)(m_header.init_flag);
     RETURN_TO_UPPER_HALF();
@@ -617,28 +635,45 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
   total_reserved_fds = reserve_fds_upper_half(reserved_fds);
 
   // Refer to "blocked memory" in MANA Plugin Documentation for the addresses
-  // FIXME:  Rewrite this logic more carefully.
+  // We assume that libs and mmap calls grow downward in memory.
   char *start1, *start2, *end1, *end2;
   if (rinfo->maxLibsEnd + 1 * GB < rinfo->minHighMemStart /* end of stack of upper half */) {
-    start1 = rinfo->minLibsStart;    // first lib (ld.so) of upper half
-    // lh_info.memRange is the memory region for the mmaps of the lower half.
-    // Apparently lh_info.memRange is a region between 1 GB and 2 GB below
-    //   the end of stack in the lower half.
-    // One gigabyte below those mmaps of the lower half, we are creating space
-    //   for the GNI driver data, to be created when the GNI library runs.
-    // This says that we have to reserve only up to the mtcp_restart stack.
-    end1 = rinfo->pluginInfo.memRange.start - 1 * GB;
-    // Reserve 8MB above min high memory region. That should include
-    // stack memory region.
-    start2 = rinfo->minHighMemStart;
+    // minLibsStart was chosen with extra space below, for future libs, mmap.
+    start1 = rinfo->minLibsStart;    // first lib of upper half
+    // Either lh_info.memRange is a region between 1 GB and 2 GB below
+    //   the end of stack in the lower half; or else it is at an unusual
+    //   address for which we hope there is no address conflict.
+    //   The latter holds if USE_LH_FIXED_ADDRESS was defined in
+    //   mtcp_split_process.c, in both restart_plugin and mpi-proxy-split dirs.
+    end1 = rinfo->maxLibsEnd;
+
+    // Reserve 8MB above min high memory region. That should include space for
+    // stack, argv, env, auxvec.
+    start2 = rinfo->minHighMemStart - 1 * GB; // Allow for stack to grow
     end2 = rinfo->minHighMemStart + 8 * MB;
     // Ignore region start2:end2 if it is overlapped with region start1:end1
     if (is_overlap(start1, end1, start2, end2)) {
-      end2 = 0;
+      if (end1 < end2) { end1 = end2; }
       start2 = 0;
+      end2 = 0;
+    }
+
+    // Verify that the lower half and the restored upper half don't conflict
+    if (is_overlap(start1, end1,
+                   rinfo->pluginInfo.memRange.start,
+                   rinfo->pluginInfo.memRange.end)) {
+      MTCP_PRINTF("uh libs and lower half memRange overlap\n");
+      mtcp_abort();
+    }
+    if (is_overlap(start2, end2,
+                   rinfo->pluginInfo.memRange.start,
+                   rinfo->pluginInfo.memRange.end)) {
+      MTCP_PRINTF("uh stack and lower half memRange overlap\n");
+      mtcp_abort();
     }
   } else {
-    // On standard Ubuntu/CentOS libs are mmap'ed downward in memory.
+    MTCP_PRINTF("*** MANA: Using unstable code in MANA.  Check Line %d\n",
+                __LINE__);
     // Allow an extra 1 GB for future upper-half libs and mmaps to be loaded.
     // FIXME:  Will the GNI driver data be allocated below start1?
     //         If so, fix this to block more than a 1 GB address range.
@@ -662,9 +697,9 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
     start2 = rinfo->minHighMemStart;
     end2 = rinfo->minHighMemStart + 8 * MB;
     // Ignore region start2:end2 if it is overlapped with region start1:end1
-    if (is_overlap(start1, end1, start2,end2)) {
-      end2 = 0;
+    if (is_overlap(start1, end1, start2, end2)) {
       start2 = 0;
+      end2 = 0;
     }
   }
 
