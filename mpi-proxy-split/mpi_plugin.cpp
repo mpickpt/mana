@@ -103,6 +103,7 @@ const VA HIGH_ADDR_START = (VA)0x7ffc00000000;
 static bool isLhDevice(const ProcMapsArea *area);
 static bool isLhCoreRegion(const ProcMapsArea *area);
 static bool isLhMmapRegion(const ProcMapsArea *area);
+// FIXME:  isLhMpiInitRegion operates only in a 'launch' process, not 'restart'
 static bool isLhMpiInitRegion(const ProcMapsArea *area);
 static bool isLhRegion(const ProcMapsArea *area);
 
@@ -327,13 +328,17 @@ logCkptFileFds()
 static bool
 isLhDevice(const ProcMapsArea *area)
 {
+  // FIXME:  An MPI application might also create /dev/zero in upper half.
   if (strstr(area->name, "/dev/zero") ||
       strstr(area->name, "/dev/kgni") ||
-      /* DMTCP SysVIPC plugin should be able to C/R this correctly */
+      /* DMTCP SysVIPC plugin should be able to C/R this correctly
+       * And if it's created by lower half, we hope it goes through mmap,
+       * and so it will be recognized by isLhMmapRegion().
+       */
       // strstr(area->name, "/SYSV") ||
       strstr(area->name, "/dev/xpmem") ||
       // strstr(area->name, "xpmem") ||
-      // strstr(area->name, "hugetlbfs") ||
+      // strstr(area->name, "hugetlbfs" /* Obsolete:  From Cori */) ||
       strstr(area->name, "/dev/shm")) {
     return true;
   }
@@ -374,6 +379,7 @@ isLhMmapRegion(const ProcMapsArea *area)
   return false;
 }
 
+// FIXME:  isLhMpiInitRegion operates only in a 'launch' process, not 'restart'
 static bool
 isLhMpiInitRegion(const ProcMapsArea *area)
 {
