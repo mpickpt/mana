@@ -700,7 +700,7 @@ computeUnionOfCkptImageAddresses()
   void *maxAddrBeyondHeap = NULL;
 
   // This is an upper bound on libsStart.  But if there is a hole in the
-  //   upper-half memory layout, then this oculd be a _very_ high upper bound.
+  //   upper-half memory layout, then this could be a _very_ high upper bound.
   libsStart = (char *)mmap(NULL, 4096, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS,
                            -1, 0);
   JASSERT((void *)libsStart != MAP_FAILED);
@@ -708,6 +708,7 @@ computeUnionOfCkptImageAddresses()
 
   // Preprocess memory regions as needed.
   bool foundLhMmapRegion = false;
+  void *prev_addr_end = NULL;
   while (procSelfMaps.getNextArea(&area)) {
     if (isLhMmapRegion(&area)) {
       foundLhMmapRegion = true;
@@ -741,23 +742,33 @@ computeUnionOfCkptImageAddresses()
       //       of upper half, and so force /anon_hugepage again to lower addr.
       libsEnd = area.endAddr;
     }
-
     // Set mtcpHdr->highMemStart if possible.
     // restart_plugin will remap [vvar] and [vdso] out of way when
     // we reserve memory before calling MPI_Init.  And [vsyscall] always
     // comes after [stack].  So, beginning of [stack] should be highMemStart.
-    // FIXME:  However, during restart, [stack] is the lower-half stack.
-    //         What we really want here is minStackStart.
-    //         Or else, we can simply reserve [libsStart, highMemStart],
-    //         but that would be too large a region to mmap.
+    /**
+     * FIXME: We want to set highMemStart to beginning of '[stack]' region.
+     *         On a second restart, '[stack]' is no longer labeled.
+     *         So, we guess that it's the next memory segment after libsEnd.
+     *         We should at least verify that '$sp' is in this memory region.
+     * FIXME: A more robust fix is to remember the stack segment at the
+     *         time of first checkpoint using the "[stack]" label.  This can
+     *         be done inside this file.  Then we can save that as a
+     *         static global variable, update it in case the stack grew,
+     *         and then re-use that information here, during a second restart.
+     *  if (strcmp(area.name, "[stack]") == 0)
+     */
+    if (prev_addr_end != NULL && prev_addr_end == libsEnd)
+    {
+      highMemStart = area.addr; // This should be the start of the stack.
+    }
     if (strcmp(area.name, "[stack]") == 0)
     {
       highMemStart = area.addr; // This should be the start of the stack.
     }
-
     // FIXME:  We are no longer using min/maxAddrBeyondHeap.
     //         Given that heapAddr is poorly defined between launch and restart,
-    //         we shoul delete this code and all min/maxAddrBeyondHeap,
+    //         we should delete this code and all min/maxAddrBeyondHeap,
     //         when we're convinced it's not needed.
     if (area.addr > heapAddr &&
         !isLhRegion(&area)) {
@@ -768,6 +779,7 @@ computeUnionOfCkptImageAddresses()
         maxAddrBeyondHeap = area.endAddr;
       }
     }
+    prev_addr_end = area.endAddr;
   }
 
   JASSERT(lhEnd < libsStart)(lhEnd)(libsStart);
@@ -794,7 +806,6 @@ computeUnionOfCkptImageAddresses()
   string minAddrBeyondHeapStr = jalib::XToString(minAddrBeyondHeap);
   string maxAddrBeyondHeapStr = jalib::XToString(maxAddrBeyondHeap);
   string highMemStartStr = jalib::XToString(highMemStart);
-
   kvdb::set(workerPath, "MANA_heapAddr", heapAddrStr);
   kvdb::set(workerPath, "MANA_libsStart_Orig", origLibsStartStr);
   kvdb::set(workerPath, "MANA_libsStart", libsStartStr);
@@ -920,8 +931,8 @@ restore_mpi_files(const char *filename)
 {
   int fd = open(filename, O_RDONLY, 0755);
 
-  // It's fine if the file doesnt exist, this just means there's no files
-  // to be restored
+  // It's fine if the file doesn't exist. This just means there's no files
+  // to be restored.
   if (fd == -1) {
     return;
   }
