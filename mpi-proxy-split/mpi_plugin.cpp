@@ -708,6 +708,7 @@ computeUnionOfCkptImageAddresses()
 
   // Preprocess memory regions as needed.
   bool foundLhMmapRegion = false;
+  string prev_area_name = "";
   while (procSelfMaps.getNextArea(&area)) {
     if (isLhMmapRegion(&area)) {
       foundLhMmapRegion = true;
@@ -741,7 +742,6 @@ computeUnionOfCkptImageAddresses()
       //       of upper half, and so force /anon_hugepage again to lower addr.
       libsEnd = area.endAddr;
     }
-
     // Set mtcpHdr->highMemStart if possible.
     // restart_plugin will remap [vvar] and [vdso] out of way when
     // we reserve memory before calling MPI_Init.  And [vsyscall] always
@@ -750,9 +750,18 @@ computeUnionOfCkptImageAddresses()
     //         What we really want here is minStackStart.
     //         Or else, we can simply reserve [libsStart, highMemStart],
     //         but that would be too large a region to mmap.
+    /**
+     * @FIXME: During restart, we will hide the name of [stack], this makes us hard
+     * to decide where minHighMemStart shuold be.
+     * I(Jiaming Zhang) used a temporary fix to locate the minHighMemStart by location
+     * of /lib64/ld-2.31.so. This is hardcoding and needs a refactory.
+    */
     if (strcmp(area.name, "[stack]") == 0)
     {
       highMemStart = area.addr; // This should be the start of the stack.
+    }else if (!prev_area_name.empty() && !prev_area_name.compare("/lib64/ld-2.31.so"))
+    {
+      highMemStart = area.addr;
     }
 
     // FIXME:  We are no longer using min/maxAddrBeyondHeap.
@@ -768,6 +777,7 @@ computeUnionOfCkptImageAddresses()
         maxAddrBeyondHeap = area.endAddr;
       }
     }
+    prev_area_name = string(area.name);
   }
 
   JASSERT(lhEnd < libsStart)(lhEnd)(libsStart);
@@ -794,7 +804,6 @@ computeUnionOfCkptImageAddresses()
   string minAddrBeyondHeapStr = jalib::XToString(minAddrBeyondHeap);
   string maxAddrBeyondHeapStr = jalib::XToString(maxAddrBeyondHeap);
   string highMemStartStr = jalib::XToString(highMemStart);
-
   kvdb::set(workerPath, "MANA_heapAddr", heapAddrStr);
   kvdb::set(workerPath, "MANA_libsStart_Orig", origLibsStartStr);
   kvdb::set(workerPath, "MANA_libsStart", libsStartStr);
