@@ -157,7 +157,7 @@ void recordPostMpiInitMaps()
     JASSERT(preMpiInitMaps != nullptr);
     while (preMpiInitMaps->getNextArea(&area)) {
       if (mpiInitLhAreas->find(area.addr) != mpiInitLhAreas->end()) {
-        JWARNING(mpiInitLhAreas->at(area.addr) == area.size)(area.addr)
+        JWARNING(mpiInitLhAreas->at(area.addr) == area.size)((void *)area.addr)
                 (area.size);
         mpiInitLhAreas->erase(area.addr);
       } else {
