@@ -2,6 +2,9 @@
 #include <asm/prctl.h>
 #define _GNU_SOURCE // needed for MREMAP_MAYMOVE
 #include <sys/mman.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <sys/prctl.h>
 #include <sys/auxv.h>
 #include <mtcp_util.h>
@@ -15,6 +18,8 @@
 #include "../mpi-proxy-split/cartesian.h"
 #include "../dmtcp/src/mtcp/mtcp_sys.h"
 #endif
+
+#define HAS_MAP_FIXED_NOREPLACE LINUX_VERSION_CODE >= KERNEL_VERSION(4, 17, 0) 
 
 // Using both methods to skip unmapping lower-half mmap'ed regions
 // In theory, just one of these techniques should suffice.
@@ -54,6 +59,22 @@ reserveUpperHalfMemoryRegionsForCkptImgs(char *start1, char *end1,
   const size_t len1 = end1 - start1;
   const size_t len2 = end2 - start2;
 
+// FIXME:  Replace '#if' in DMTCP definition of 'mmap_fixed_noreplace' w/ '#if'
+//         and continue to use mmap_fixed_noreplace(..., ...| MAP_FIXED, ...)
+//         and DMTCP definition can replace MAP_FIXED by MAP_FIXED_NOREPLACE.
+#if HAS_MAP_FIXED_NOREPLACE
+  int fd = mtcp_sys_open2("/dev/zero", O_RDONLY);
+  void *addr = mtcp_sys_mmap(start1, len1, PROT_NONE,
+                             MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED_NOREPLACE,
+                             fd, 0);
+  MTCP_ASSERT(addr == start1);
+  if (len2 > 0) {
+    addr = mtcp_sys_mmap(start2, len2, PROT_NONE,
+                         MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED_NOREPLACE,
+                         fd, 0);
+    MTCP_ASSERT(addr == start2);
+  }
+#else
   void *addr = mmap_fixed_noreplace(start1, len1,
                              PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED,
                              -1, 0);
@@ -64,6 +85,7 @@ reserveUpperHalfMemoryRegionsForCkptImgs(char *start1, char *end1,
                          -1, 0);
     MTCP_ASSERT(addr == start2);
   }
+#endif
 }
 
 static void
