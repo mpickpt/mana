@@ -21,6 +21,9 @@
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <sys/mman.h>
 #include <stdio.h>
 #include <assert.h>
@@ -143,9 +146,17 @@ resetMmappedList()
   size_t length = lh_memRange.end - lh_memRange.start;
 #if HAS_MAP_FIXED_NOREPLACE
   // Use inline syscall here, to avoid our __mmap64 wrapper.
+  // FIXME:  Keep only the "dev/zero" '#else' when it's been tested.
+# if 0
   void *rc = LH_MMAP_CALL(lh_memRange.start, length,
                           PROT_WRITE,
                           MAP_PRIVATE|MAP_ANONYMOUS|MAP_FIXED_NOREPLACE, -1, 0);
+# else
+  int fd = open("/dev/zero", O_RDONLY);
+  void *rc = LH_MMAP_CALL(lh_memRange.start, length,
+                          PROT_NONE,
+                          MAP_SHARED|MAP_ANONYMOUS|MAP_FIXED_NOREPLACE, fd, 0);
+# endif
   if (rc == MAP_FAILED) {
     char msg[] = "*** Panic: MANA lower half: can't reserve lh_memRange"
                  " using MAP_FIXED_NOREPLACE\n";
@@ -166,7 +177,9 @@ resetMmappedList()
   }
 #endif
   lh_memRange.start = rc;
-  memset(lh_memRange.start, CANARY_BYTE, length);
+  // FIXME:  If large mmap is based on "/dev/zero", then memset CANARY_BYT
+  //         only later, when mmap64 takes a piece.of it.
+  // memset(lh_memRange.start, CANARY_BYTE, length);
   mprotect(lh_memRange.start, length, PROT_NONE);
 #endif
 }
