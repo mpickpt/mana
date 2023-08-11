@@ -752,9 +752,9 @@ computeUnionOfCkptImageAddresses()
     //         but that would be too large a region to mmap.
     /**
      * @FIXME: During restart, we will hide the name of [stack], this makes us hard
-     * to decide where minHighMemStart shuold be.
-     * I(Jiaming Zhang) used a temporary fix to locate the minHighMemStart by location
-     * of /lib64/ld-2.31.so. This is hardcoding and needs a refactory.
+     * to decide where minHighMemStart should be.
+     * Now we used a temporary fix to locate the minHighMemStart by location
+     * of last library from upperhalf. This is hardcoding and needs a refactory.
     */
     if (prev_addr_end != NULL && prev_addr_end == libsEnd)
     {
