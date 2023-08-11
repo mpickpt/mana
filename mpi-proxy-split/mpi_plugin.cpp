@@ -708,7 +708,7 @@ computeUnionOfCkptImageAddresses()
 
   // Preprocess memory regions as needed.
   bool foundLhMmapRegion = false;
-  string prev_area_name = "";
+  void *prev_addr_end = NULL;
   while (procSelfMaps.getNextArea(&area)) {
     if (isLhMmapRegion(&area)) {
       foundLhMmapRegion = true;
@@ -756,14 +756,14 @@ computeUnionOfCkptImageAddresses()
      * I(Jiaming Zhang) used a temporary fix to locate the minHighMemStart by location
      * of /lib64/ld-2.31.so. This is hardcoding and needs a refactory.
     */
+    if (prev_addr_end != NULL && prev_addr_end == libsEnd)
+    {
+      highMemStart = area.addr; // This should be the start of the stack.
+    }
     if (strcmp(area.name, "[stack]") == 0)
     {
       highMemStart = area.addr; // This should be the start of the stack.
-    }else if (!prev_area_name.empty() && !prev_area_name.compare("/lib64/ld-2.31.so"))
-    {
-      highMemStart = area.addr;
     }
-
     // FIXME:  We are no longer using min/maxAddrBeyondHeap.
     //         Given that heapAddr is poorly defined between launch and restart,
     //         we shoul delete this code and all min/maxAddrBeyondHeap,
@@ -777,7 +777,7 @@ computeUnionOfCkptImageAddresses()
         maxAddrBeyondHeap = area.endAddr;
       }
     }
-    prev_area_name = string(area.name);
+    prev_addr_end = area.endAddr;
   }
 
   JASSERT(lhEnd < libsStart)(lhEnd)(libsStart);
