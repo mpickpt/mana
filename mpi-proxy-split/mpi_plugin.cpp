@@ -509,6 +509,8 @@ static struct sigaction userSignalHandlers[MaxSignals] = {0};
 void
 mana_signal_sa_handler_wrapper(int signum)
 {
+int dummy=1;
+while(dummy);
   unsigned long fsbase = getFS();
 
   DmtcpMutexLock(&g_upper_half_fsbase_lock);
