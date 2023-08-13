@@ -502,7 +502,12 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
   // Refer to "blocked memory" in MANA Plugin Documentation for the addresses
   // We assume that libs and mmap calls grow downward in memory.
   char *start1, *start2, *end1, *end2;
-  if (rinfo->maxLibsEnd + 1 * GB < rinfo->minHighMemStart /* end of stack of upper half */) {
+# if 1
+  /*
+   * FIXME:  Remove '# else' and make this the only branch.
+   * if (1 || (rinfo->maxLibsEnd + 1 * GB < rinfo->minHighMemStart)) // end of stack of upper half
+   */
+  {
     // minLibsStart was chosen with extra space below, for future libs, mmap.
     start1 = rinfo->minLibsStart;    // first lib of upper half
     // Either lh_info.memRange is a region between 1 GB and 2 GB below
@@ -523,11 +528,44 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
       end2 = 0;
     }
 
+    // ADJUST THE [start2, end2] AROUND THE LOWER-HALF STACK:
+    // The lower-half stack is present.  We will restore the upper-half
+    // stack later, while restoring the upper half.  We may have an
+    // address conflict, since [start2, end2] contains the upper-half
+    // stack, and we wish to reserve that memory before allowing MPI_Init
+    // to install extra memory (/dev/xpmem, /anon_hugepage, etc.).
+    //     We could temporarily move it somewhere else
+    // (similar to remap_vdso_and_vvar_regions()), and stop using
+    // local variables
+    // until we releaseUpperHalfMemoryRegionsForCkptImgs().
+    // Instead, we assume MPI_Init will not want to mmap above lh stack.
+    Area stack_area;
+    MTCP_ASSERT(getMappedArea(&stack_area, "[stack]") == 1);
+    if (is_overlap(start2, end2, stack_area.addr, stack_area.endAddr)) {
+      if (start2 < stack_area.addr) {
+        if (end2 > stack_area.endAddr) {
+          MTCP_PRINTF("*** MANA: uh stack area surrounds lh stack area.\n"
+                      "***       Will hope for the best:  See Line %d\n",
+                      __LINE__);
+        }
+        end2 = stack_area.addr;
+      } else if (start2 == stack_area.addr) {
+        start2 = stack_area.endAddr;
+        if (start2 >= end2) { // If we raised start2 by too much:
+          start2 = end2 = 0;
+        }
+      }
+    } else if (end1 > stack_area.addr && start1 == 0 && end1 == 0) {
+      // Else we merged [start2, end2] into [start1, end1, and now
+      // there is an overlap of [start1,end1] with the stack.
+      end1 = stack_area.addr;
+    }
+
     // Verify that the lower half and the restored upper half don't conflict
     if (is_overlap(start1, end1,
                    rinfo->pluginInfo.memRange.start,
                    rinfo->pluginInfo.memRange.end)) {
-      MTCP_PRINTF(getMappedArea("uh libs and lower half memRange overlap\n");
+      MTCP_PRINTF("uh libs and lower half memRange overlap\n");
       mtcp_abort();
     }
     if (is_overlap(start2, end2,
@@ -536,7 +574,10 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
       MTCP_PRINTF("uh stack and lower half memRange overlap\n");
       mtcp_abort();
     }
-  } else {
+  }
+# else
+   // FIXME:  Remove this '# else' branch when MANA is stable
+   else {
     MTCP_PRINTF("*** MANA: Using unstable code in MANA.  Check Line %d\n",
                 __LINE__);
     // Allow an extra 1 GB for future upper-half libs and mmaps to be loaded.
@@ -557,8 +598,8 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
     Area stack_area;
     MTCP_ASSERT(getMappedArea(&stack_area, "[stack]") == 1);
     end1 = MIN(stack_area.endAddr - 4 * GB, rinfo->minHighMemStart - 4 * GB);
-    // Reserve 8MB above min high memory region. That should include
-    // stack memory region.
+    // Reserve 8MB above min high memory region. That should include space for
+    // stack, argv, env, auxvec.
     start2 = rinfo->minHighMemStart;
     end2 = rinfo->minHighMemStart + 8 * MB;
     // Ignore region start2:end2 if it is overlapped with region start1:end1
@@ -567,6 +608,8 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
       end2 = 0;
     }
   }
+  // FIXME:  End of '#if 1'; Remove '# else' branch when the code is stable.
+# endif
 
   reserveUpperHalfMemoryRegionsForCkptImgs(start1, end1, start2, end2);
 
@@ -586,9 +629,9 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
     int coords[MAX_CART_PROP_SIZE];
     CartesianProperties cp;
     MTCP_ASSERT(load_cartesian_properties(filename, &cp) == 0);
-#if 0
+# if 0
     print(&CartesianProperties);
-#endif
+# endif
     typedef int (*getCoordinatesFptr_t)(CartesianProperties *, int *, int);
     JUMP_TO_LOWER_HALF(rinfo->pluginInfo.fsaddr);
     // MPI_Init is called here. Network memory areas will be loaded by MPI_Init.
@@ -599,13 +642,13 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
       ((getCoordinatesFptr_t)
       rinfo->pluginInfo.getCoordinatesFptr)(&cp, coords, m_header.init_flag);
     RETURN_TO_UPPER_HALF();
-#if 0
+# if 0
     MTCP_PRINTF("\nWorld Rank: %d \n: ", world_rank);
     int i;
     MTCP_PRINTF("\nMy Coordinates: ");
     for (i = 0; i < cp.ndims; i++)
       MTCP_PRINTF("%d, ", coords[i]);
-#endif
+# endif
     ckpt_image_rank_to_be_restored =
     get_rank_corresponding_to_coordinates(cp.comm_old_size, cp.ndims, coords, m_header.init_flag);
   } else {
@@ -628,12 +671,14 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
       getCkptImageByRank(ckpt_image_rank_to_be_restored, rinfo->argv),
       PATH_MAX);
   }
+
   MTCP_PRINTF("[Rank: %d] Choosing ckpt image: %s\n",
               ckpt_image_rank_to_be_restored, rinfo->ckptImage);
 }
 
 #else
 
+  // This is the 'else' branch of '#ifdef SINGLE_CART_REORDER'
 void
 mtcp_plugin_hook(RestoreInfo *rinfo)
 {
@@ -659,7 +704,12 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
   // Refer to "blocked memory" in MANA Plugin Documentation for the addresses
   // We assume that libs and mmap calls grow downward in memory.
   char *start1, *start2, *end1, *end2;
-  if (rinfo->maxLibsEnd + 1 * GB < rinfo->minHighMemStart /* end of stack of upper half */) {
+# if 1
+  /*
+   * FIXME:  Remove '# else' and make this the only branch.
+   * if (1 || (rinfo->maxLibsEnd + 1 * GB < rinfo->minHighMemStart)) // end of stack of upper half
+   */
+  {
     // minLibsStart was chosen with extra space below, for future libs, mmap.
     start1 = rinfo->minLibsStart;    // first lib of upper half
     // Either lh_info.memRange is a region between 1 GB and 2 GB below
@@ -680,6 +730,39 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
       end2 = 0;
     }
 
+    // ADJUST THE [start2, end2] AROUND THE LOWER-HALF STACK:
+    // The lower-half stack is present.  We will restore the upper-half
+    // stack later, while restoring the upper half.  We may have an
+    // address conflict, since [start2, end2] contains the upper-half
+    // stack, and we wish to reserve that memory before allowing MPI_Init
+    // to install extra memory (/dev/xpmem, /anon_hugepage, etc.).
+    //     We could temporarily move it somewhere else
+    // (similar to remap_vdso_and_vvar_regions()), and stop using
+    // local variables
+    // until we releaseUpperHalfMemoryRegionsForCkptImgs().
+    // Instead, we assume MPI_Init will not want to mmap above lh stack.
+    Area stack_area;
+    MTCP_ASSERT(getMappedArea(&stack_area, "[stack]") == 1);
+    if (is_overlap(start2, end2, stack_area.addr, stack_area.endAddr)) {
+      if (start2 < stack_area.addr) {
+        if (end2 > stack_area.endAddr) {
+          MTCP_PRINTF("*** MANA: uh stack area surrounds lh stack area.\n"
+                      "***       Will hope for the best:  See Line %d\n",
+                      __LINE__);
+        }
+        end2 = stack_area.addr;
+      } else if (start2 == stack_area.addr) {
+        start2 = stack_area.endAddr;
+        if (start2 >= end2) { // If we raised start2 by too much:
+          start2 = end2 = 0;
+        }
+      }
+    } else if (end1 > stack_area.addr && start2 == 0 && end2 == 0) {
+      // Else we merged [start2, end2] into [start1, end1, and now
+      // there is an overlap of [start1,end1] with the stack.
+      end1 = stack_area.addr;
+    }
+
     // Verify that the lower half and the restored upper half don't conflict
     if (is_overlap(start1, end1,
                    rinfo->pluginInfo.memRange.start,
@@ -693,7 +776,10 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
       MTCP_PRINTF("uh stack and lower half memRange overlap\n");
       mtcp_abort();
     }
-  } else {
+  }
+# else
+   // FIXME:  Remove this '# else' branch when MANA is stable
+   else {
     MTCP_PRINTF("*** MANA: Using unstable code in MANA.  Check Line %d\n",
                 __LINE__);
     // Allow an extra 1 GB for future upper-half libs and mmaps to be loaded.
@@ -714,8 +800,8 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
     Area stack_area;
     MTCP_ASSERT(getMappedArea(&stack_area, "[stack]") == 1);
     end1 = MIN(stack_area.endAddr - 4 * GB, rinfo->minHighMemStart - 4 * GB);
-    // Reserve 8MB above min high memory region. That should include
-    // stack memory region.
+    // Reserve 8MB above min high memory region. That should include space for
+    // stack, argv, env, auxvec.
     start2 = rinfo->minHighMemStart;
     end2 = rinfo->minHighMemStart + 8 * MB;
     // Ignore region start2:end2 if it is overlapped with region start1:end1
@@ -724,6 +810,8 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
       end2 = 0;
     }
   }
+  // FIXME:  End of '#if 1'; Remove '# else' branch when the code is stable.
+# endif
 
   char full_filename[PATH_MAX];
   set_header_filepath(full_filename, rinfo->restartDir);
@@ -735,20 +823,23 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
   reserveUpperHalfMemoryRegionsForCkptImgs(start1, end1, start2, end2);
   JUMP_TO_LOWER_HALF(rinfo->pluginInfo.fsaddr);
 
-  // MPI_Init is called here. GNI memory areas will be loaded by MPI_Init.
+  // MPI_Init is called here. Networrk memory areas will be loaded by MPI_Init.
   rank = ((getRankFptr_t)rinfo->pluginInfo.getRankFptr)(m_header.init_flag);
   RETURN_TO_UPPER_HALF();
   releaseUpperHalfMemoryRegionsForCkptImgs(start1, end1, start2, end2);
   unreserve_fds_upper_half(reserved_fds,total_reserved_fds);
 
-  if(getCkptImageByDir(rinfo, rinfo->ckptImage, 512, rank) == -1) {
-      mtcp_strncpy(rinfo->ckptImage,  getCkptImageByRank(rank, rinfo->argv), PATH_MAX);
+  if (getCkptImageByDir(rinfo, rinfo->ckptImage, 512, rank) == -1) {
+      mtcp_strncpy(rinfo->ckptImage,
+      getCkptImageByRank(rank, rinfo->argv),
+      PATH_MAX);
   }
 
   MTCP_PRINTF("[Rank: %d] Choosing ckpt image: %s\n", rank, rinfo->ckptImage);
   //ckptImage = getCkptImageByRank(rank, argv);
   //MTCP_PRINTF("[Rank: %d] Choosing ckpt image: %s\n", rank, ckptImage);
 }
+// This is the '#endif' for '#else' of '#ifdef SINGLE_CART_REORDER'
 #endif
 
 int
