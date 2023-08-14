@@ -77,7 +77,9 @@ USER_DEFINED_WRAPPER(int, Init, (int *) argc, (char ***) argv) {
 
   recordPostMpiInitMaps();
 
-  g_world_comm = ADD_NEW_COMM(g_world_comm);
+  // g_world_comm = ADD_NEW_COMM(g_world_comm);
+
+  g_world_comm = get_vcomm_internal(g_world_comm);
   init_comm_world();
   LOG_CALL(restoreComms, Comm_dup, MPI_COMM_WORLD, g_world_comm);
   initialize_drain_send_recv();
