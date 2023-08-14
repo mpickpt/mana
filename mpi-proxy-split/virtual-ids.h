@@ -338,6 +338,6 @@ int hash(int i);
 
 void init_comm_world(); // This is required for the CVC algorithm.
 
-MPI_Comm get_vcomm_internal(MPI_comm realComm); // As is this.
+MPI_Comm get_vcomm_internal(MPI_Comm realComm); // As is this.
 
 #endif // ifndef VIRTUAL_ID_H
