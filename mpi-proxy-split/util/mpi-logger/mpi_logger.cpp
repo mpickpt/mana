@@ -445,13 +445,6 @@ int MPI_Reduce(const void *sendbuf, void *recvbuf, int count, MPI_Datatype datat
     sendbuf = MPI_IN_PLACE;
     is_fortran_mpi_in_place = true;
   }
-#if 0
-  static bool fortran_mpi_in_place_addr_found = false;
-  if (!fortran_mpi_in_place_addr_found) {
-    fprintf(stderr, "***FORTRAN MPI IN PLACE: %p\n", FORTRAN_MPI_IN_PLACE);
-    fortran_mpi_in_place_addr_found = true;
-  }
-#endif
 #if ENABLE_LOGGER_PRINT
   int comm_rank = -1;
   int comm_size = -1;
@@ -482,11 +475,6 @@ int MPI_Reduce(const void *sendbuf, void *recvbuf, int count, MPI_Datatype datat
         *((unsigned char *)recvbuf + 3), *((unsigned char *)recvbuf + 4),
         *((unsigned char *)recvbuf + 5), *((unsigned char *)recvbuf + 6),
         *((unsigned char *)recvbuf + 7), Reduce_counter);
-#if 0
-  if (is_fortran_mpi_in_place) {
-    fprintf(stderr, "***Send buffer is FORTRAN_MPI_IN_PLACE\n");
-  }
-#endif
 #endif
   int retval = 0;
   retval = NEXT_FNC(MPI_Reduce)(sendbuf, recvbuf, count, datatype, op, root, comm);
