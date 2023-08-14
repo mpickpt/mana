@@ -126,17 +126,6 @@ void get_op_string(MPI_Op op, char *buf)
       break;
   }
 }
-#if 0
-int get_buffer_checksum(int* buffer, int size) { 
-  int words = size / 4;
-  int checksum = 0;
-  int i = 0;
-  for (i = 0; i < words; i++) {
-    checksum = checksum ^ *(buffer + i);
-  }
-  return checksum;
-}
-#endif
 #endif
 
 #endif

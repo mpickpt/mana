@@ -1,0 +1,22 @@
+# MPI-LOGGER
+The purpose of mpi-logger is to intercept MPI calls from a native program
+without involving running MANA.</br>
+In situations where the MPI application is close to deterministic
+(e.g., one rank, or multiple ranks communicating in a deterministic pattern),
+this tool helps find where the calls to MPI functions in MANA don't reflect
+the correct semantics.</br>
+
+## To build MPI-Logger
+To build, go to ./mpi-proxy-split/util/mpi-logger and run `make`
+
+## To use MPI-Logger
+To run, use LD_PRELOAD to preload the generated .so file before you run.
+```
+Loaded with environment variables.
+
+srun <srun arguments> env LD_PRELOAD=$PATH_TO_FILE/liblogger.so <user program>
+```
+
+## To edit MPI-Logger
+To edit which MPI calls areintercepted or what content (e.g., which arguments) 
+gets printed, edit ./mpi-proxy-split/util/mpi-logger/mpi_logger.cpp.
