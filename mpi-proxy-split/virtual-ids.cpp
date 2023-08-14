@@ -112,6 +112,9 @@ comm_desc_t* init_comm_desc_t(MPI_Comm realComm) {
   } else {
     ggid_desc_t* gd = ((ggid_desc_t *) malloc(sizeof(ggid_desc_t)));
     gd->ggid = ggid;
+    // TODO maybe this is wrong.
+    gd->target_num = 0;
+    gd->seq_num = 0;
     ggidDescriptorTable[ggid] = gd;
     desc->ggid_desc = gd;
   }
@@ -121,6 +124,36 @@ comm_desc_t* init_comm_desc_t(MPI_Comm realComm) {
   desc->local_rank = localRank;
   desc->ranks = NULL;
   return desc;
+}
+
+// HACK This function exists to call a communicator construction /without/ mutating the ggidDescriptorTable. This is ugly and probably should be changed later.
+MPI_Comm get_vcomm_internal(MPI_Comm realComm) {
+  int worldRank, commSize, localRank;
+#ifdef DEBUG_VIDS
+    printf("init_comm_desc_t realComm: %x\n", realComm);
+    fflush(stdout);
+#endif
+
+  comm_desc_t* desc = ((comm_desc_t*)malloc(sizeof(comm_desc_t)));
+
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  NEXT_FUNC(Comm_rank)(MPI_COMM_WORLD, &worldRank);
+  NEXT_FUNC(Comm_size)(realComm, &commSize);
+  NEXT_FUNC(Comm_rank)(realComm, &localRank);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+
+  desc->real_id = realComm;
+  desc->local_rank = localRank;
+  desc->ranks = NULL;
+
+  int vid = nextvId++;
+  vid = vid | COMM_MASK;
+  idDescriptorTable[vid] = ((union id_desc_t*) desc);
+
+  MPI_Comm retval = *((MPI_Comm*)&vid);
+  return retval;
 }
 
 // This is a communicator descriptor updater.
@@ -450,6 +483,7 @@ void init_comm_world() {
   comm_world_ggid->seq_num = 0;
   comm_world_ggid->target_num = 0;
   idDescriptorTable[MPI_COMM_WORLD] = ((union id_desc_t*)comm_world);
+  ggidDescriptorTable[MPI_COMM_WORLD] = comm_world_ggid;
 }
 
 // For all descriptors, update the respective information.
@@ -586,5 +620,5 @@ void reconstruct_with_descriptors() {
 	break;
     }
   }
-  finalize_reconstruction();
+  // finalize_reconstruction();
 }
