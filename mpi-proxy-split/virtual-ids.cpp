@@ -149,6 +149,9 @@ MPI_Comm get_vcomm_internal(MPI_Comm realComm) {
   desc->ranks = NULL;
   desc->size = commSize;
 
+  // This should NOT be in the ggidDescTable.
+  desc->ggid_desc = NULL;
+
   int vid = nextvId++;
   vid = vid | COMM_MASK;
   idDescriptorTable[vid] = ((union id_desc_t*) desc);
@@ -249,7 +252,10 @@ void destroy_comm_desc_t(comm_desc_t* desc) {
   free(desc->ranks);
   // If we destroy tons of communicators, this will leak memory.
   // A form of reference counting may be good but we need to ensure no race conditions.
-  ggid_desc_t* tmp = desc->ggid_desc;
+  // ggid_desc_t* tmp = desc->ggid_desc;
+
+  // HACK WARNING Strictly speaking, freeing ggid_desc unconditionally is incorrect. But I want to test a theory, if this is causing memory misalignment.
+  free(desc->ggid_desc);
   free(desc);
 }
 
