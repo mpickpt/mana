@@ -497,7 +497,7 @@ USER_DEFINED_WRAPPER(int, Comm_create_group, (MPI_Comm) comm,
 }
 
 PMPI_IMPL(int, MPI_Comm_size, MPI_Comm comm, int *world_size)
-PMPI_IMPL(int, MPI_Comm_rank, MPI_Group group, int *world_rank)
+PMPI_IMPL(int, MPI_Comm_rank, MPI_Comm comm, int *world_rank)
 PMPI_IMPL(int, MPI_Abort, MPI_Comm comm, int errorcode)
 PMPI_IMPL(int, MPI_Comm_create, MPI_Comm comm, MPI_Group group,
           MPI_Comm *newcomm)

@@ -27,7 +27,7 @@ int MPI_Scatterv(const void* sendbuf, const int* sendcounts, const int* displs, 
 int MPI_Scan(const void* sendbuf, void* recvbuf, int count, MPI_Datatype datatype, MPI_Op op, MPI_Comm comm);
 
 int MPI_Comm_size(MPI_Comm comm, int* world_size);
-int MPI_Comm_rank(MPI_Group group, int* world_rank);
+int MPI_Comm_rank(MPI_Comm comm, int* world_rank);
 int MPI_Abort(MPI_Comm comm, int errorcode);
 int MPI_Comm_split(MPI_Comm comm, int color, int key, MPI_Comm* newcomm);
 int MPI_Comm_dup(MPI_Comm comm, MPI_Comm* newcomm);
