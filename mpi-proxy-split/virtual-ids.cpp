@@ -499,7 +499,7 @@ void print_id_descriptors() {
 // Otherwise return NULL
 id_desc_t* virtualToDescriptor(int virtId) {
 #ifdef DEBUG_VIDS
-  print_id_descriptors();
+  // print_id_descriptors();
 #endif
   id_desc_iterator it = idDescriptorTable.find(virtId);
   if (it != idDescriptorTable.end()) {
