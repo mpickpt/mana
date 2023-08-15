@@ -147,7 +147,7 @@ MPI_Comm get_vcomm_internal(MPI_Comm realComm) {
   desc->real_id = realComm;
   desc->local_rank = localRank;
   desc->ranks = NULL;
-  desc->size = size;
+  desc->size = commSize;
 
   int vid = nextvId++;
   vid = vid | COMM_MASK;
