@@ -392,7 +392,7 @@ void reconstruct_with_op_desc_t(op_desc_t* op) {
     void update_datatype_desc_t(datatype_desc_t* datatype) {
       // TODO this will fail for doubly-derived datatypes, for the real id given in datatype->datatypes will not be constant after a checkpoint-restart.
       if (datatype->is_freed) {
-	// If the datatype described has been freed, it will segfault here.
+	// If the real datatype described has been freed in the lower half, MPI will be angry.
 	return;
       }
       
@@ -425,6 +425,7 @@ void reconstruct_with_op_desc_t(op_desc_t* op) {
 	    if (datatype->is_freed) {
 		    return;
 	    }
+	    int indexed_count = datatype->num_integers / 2;
     DMTCP_PLUGIN_DISABLE_CKPT();
     JUMP_TO_LOWER_HALF(lh_info.fsaddr);
     switch (datatype->combiner) {
@@ -436,11 +437,8 @@ void reconstruct_with_op_desc_t(op_desc_t* op) {
 		    break;
 	    case MPI_COMBINER_INDEXED:
 		    // Here, the integers in the envelope are split into two arrays.
-	      {
-		    int count = datatype->num_integers / 2;
-                    NEXT_FUNC(Type_indexed)(count, datatype->integers, datatype->integers + count, datatype->datatypes[0], &datatype->real_id);
+                    NEXT_FUNC(Type_indexed)(indexed_count, datatype->integers, datatype->integers + count, datatype->datatypes[0], &datatype->real_id);
                     break;
-	      }
 	    case MPI_COMBINER_STRUCT:
   		    NEXT_FUNC(Type_create_struct)(datatype->num_integers, datatype->integers, datatype->addresses, datatype->datatypes, &datatype->real_id);
 		    break;
