@@ -566,22 +566,6 @@ void prepare_reconstruction() {
   // g_world_group is a real id to avoid a lookup.
 }
 
-// AFAIK, we don't need to use the CVC algorithm (which is why we require g_world_comm to be defined) until reconstruction is complete.
-void finalize_reconstruction() {
-#ifdef DEBUG_VIDS
-  printf("Finalize reconstruction.\n");
-  fflush(stdout);
-#endif
-
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  NEXT_FUNC(Comm_dup)(MPI_COMM_WORLD, &g_world_comm);
-  RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
-
-  g_world_comm = ADD_NEW_COMM(g_world_comm);
-}
-
 // For all descriptors, set its real ID to the one uniquely described by its fields.
 void reconstruct_with_descriptors() {
   prepare_reconstruction();
@@ -637,5 +621,4 @@ void reconstruct_with_descriptors() {
 	break;
     }
   }
-  // finalize_reconstruction();
 }
