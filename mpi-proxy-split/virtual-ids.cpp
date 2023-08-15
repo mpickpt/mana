@@ -147,6 +147,7 @@ MPI_Comm get_vcomm_internal(MPI_Comm realComm) {
   desc->real_id = realComm;
   desc->local_rank = localRank;
   desc->ranks = NULL;
+  desc->size = size;
 
   int vid = nextvId++;
   vid = vid | COMM_MASK;
@@ -221,7 +222,7 @@ void reconstruct_with_comm_desc_t(comm_desc_t* desc) {
   fflush(stdout);
 #endif
   // HACK MPI_COMM_WORLD in the LH.
-  if (desc->real_id == 0x84000000) { 
+  if (desc->real_id == 0x84000000 || desc->real_id == MPI_COMM_WORLD) { 
     return;
   }
 
