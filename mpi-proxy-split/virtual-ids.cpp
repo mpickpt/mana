@@ -395,12 +395,27 @@ void reconstruct_with_op_desc_t(op_desc_t* op) {
 	// If the datatype described has been freed, it will segfault here.
 	return;
       }
+      
+      // Free the existing memory, if it is not NULL. (i.e., from an older checkpoint)
+      free(datatype->integers);
+      free(datatype->addresses);
+      free(datatype->datatypes);
+      datatype->integers = NULL;
+      datatype->addresses = NULL;
+      datatype->datatypes = NULL;
+
     DMTCP_PLUGIN_DISABLE_CKPT();
+
     JUMP_TO_LOWER_HALF(lh_info.fsaddr);
     NEXT_FUNC(Type_get_envelope)(datatype->real_id, &datatype->num_integers, &datatype->num_addresses, &datatype->num_datatypes, &datatype->combiner);
+    RETURN_TO_UPPER_HALF();
+
+    // Use the malloc in the upper-half.
     datatype->integers = ((int*)malloc(sizeof(int) * datatype->num_integers));
     datatype->addresses = ((MPI_Aint*)malloc(sizeof(MPI_Aint) * datatype->num_addresses));
     datatype->datatypes = ((MPI_Datatype*)malloc(sizeof(MPI_Datatype) * datatype->num_datatypes));
+
+    JUMP_TO_LOWER_HALF(lh_info.fsaddr);
     NEXT_FUNC(Type_get_contents)(datatype->real_id, datatype->num_integers, datatype->num_addresses, datatype->num_datatypes, datatype->integers, datatype->addresses, datatype->datatypes);
     RETURN_TO_UPPER_HALF();
     DMTCP_PLUGIN_ENABLE_CKPT();
