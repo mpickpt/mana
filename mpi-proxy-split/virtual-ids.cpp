@@ -164,6 +164,12 @@ MPI_Comm get_vcomm_internal(MPI_Comm realComm) {
 // TODO This may be inefficient because it causes repeated reconstruction of the respective group.
 // A more efficient design would link groups and comms, but would introduce complexity.
 void update_comm_desc_t(comm_desc_t* desc) {
+
+  // Cleanup from a previous CKPT, if one occured.
+  free(desc->ranks);
+  desc->ranks = NULL;
+
+
   MPI_Group group;
 
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -279,6 +285,11 @@ group_desc_t* init_group_desc_t(MPI_Group realGroup) {
 void update_group_desc_t(group_desc_t* group) {
   // TODO What happens when we call for a checkpoint while a checkpoint is already occurring? 
   DMTCP_PLUGIN_DISABLE_CKPT();
+
+  // Cleanup from a previous checkpoint.
+  free(group->ranks);
+  group->ranks = NULL;
+
   int groupSize;
 #ifdef DEBUG_VIDS
   printf("update_group_desc_t group: %x\n", group->real_id);
