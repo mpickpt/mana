@@ -199,8 +199,15 @@ getNextAddr(size_t len)
   // Move the pointer to the next free address
   nextFreeAddr = (char*)curr + ROUND_UP(len) + PAGE_SIZE;
 
+  if (nextFreeAddr > lh_memRange.end) {
+    char msg[] = "*** Panic: MANA lower half memory ran out of space\n"
+                 "    Raise 'lh_mem_range.end' in "
+                 "restart_plugin/mtcp_split_process.c\n";
+    write(2, msg, sizeof(msg)); assert(rc == 0);
+  }
   // Assert if we have gone past the end of the lower half memory range
   assert(nextFreeAddr <= lh_memRange.end);
+
   return curr;
 }
 
