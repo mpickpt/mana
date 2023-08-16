@@ -1120,15 +1120,16 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       dmtcp_global_barrier("MPI:Register-local-sends-and-receives");
       mana_state = CKPT_P2P;
       registerLocalSendsAndRecvs(); // p2p_drain_send_recv.cpp
-      dmtcp_global_barrier("MPI:registerLocalSendsRecvs");
-      drainSendRecv(); // p2p_drain_send_recv.cpp
       dmtcp_global_barrier("MPI:drainSendRecv");
+      drainSendRecv(); // p2p_drain_send_recv.cpp
 
-      computeUnionOfCkptImageAddresses();
-      dmtcp_global_barrier("MPI:save-mana-header-and-mpi-files");
-
-      update_descriptors();
       dmtcp_global_barrier("MPI:update-resource-descriptors");
+      update_descriptors();
+
+      dmtcp_global_barrier("MPI:ckpt-image-union");
+      computeUnionOfCkptImageAddresses();
+
+      dmtcp_global_barrier("MPI:save-mana-header-and-mpi-files");
 
       const char *file = get_mana_header_file_name();
       save_mana_header(file);
