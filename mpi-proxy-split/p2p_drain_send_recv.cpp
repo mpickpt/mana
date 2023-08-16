@@ -95,6 +95,7 @@ registerLocalSendsAndRecvs()
 
   // Free resources
   MPI_Comm_free_internal(&mana_comm);
+  MPI_Group_free_internal(&group_world);
 }
 
 // status was received by MPI_Iprobe
