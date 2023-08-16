@@ -45,6 +45,7 @@ extern int MPI_Comm_create_group_internal(MPI_Comm comm, MPI_Group group,
 extern int MPI_Comm_free_internal(MPI_Comm *comm);
 extern int MPI_Comm_group_internal(MPI_Comm comm, MPI_Group *group);
 extern int MPI_Group_free_internal(MPI_Group *group);
+extern int MPI_Comm_internal_vgroup(MPI_Comm comm, MPI_Group *group);
 int *g_sendBytesByRank; // Number of bytes sent to other ranks
 int *g_rsendBytesByRank; // Number of bytes sent to other ranks by MPI_rsend
 int *g_bytesSentToUsByRank; // Number of bytes other ranks sent to us
