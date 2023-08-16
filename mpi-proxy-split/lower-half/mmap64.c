@@ -150,7 +150,7 @@ resetMmappedList()
     char msg[] = "*** Panic: MANA lower half: can't reserve lh_memRange"
                  " using MAP_FIXED_NOREPLACE\n";
     perror("mmap");
-    write(2, msg, sizeof(msg)); assert(rc == 0);
+    write(2, msg, sizeof(msg)); assert(rc != MAP_FAILED);
   }
 #else
   void *rc = LH_MMAP_CALL(lh_memRange.start, length,
@@ -162,7 +162,7 @@ resetMmappedList()
     if (rc != MAP_FAILED) {
       munmap(rc, length);
     }
-    write(2, msg, sizeof(msg)); assert(rc != lh_memRange.start);
+    write(2, msg, sizeof(msg)); assert(rc == lh_memRange.start);
   }
 #endif
   lh_memRange.start = rc;
@@ -203,7 +203,7 @@ getNextAddr(size_t len)
     char msg[] = "*** Panic: MANA lower half memory ran out of space\n"
                  "    Raise 'lh_mem_range.end' in "
                  "restart_plugin/mtcp_split_process.c\n";
-    write(2, msg, sizeof(msg)); assert(rc == 0);
+    write(2, msg, sizeof(msg));
   }
   // Assert if we have gone past the end of the lower half memory range
   assert(nextFreeAddr <= lh_memRange.end);
@@ -271,7 +271,7 @@ __mmap64 (void *addr, size_t len, int prot, int flags, int fd, __off_t offset)
     if (rc == MAP_FAILED && errno == EEXIST) {
       char msg[] = "*** Panic: MANA lower half: can't initialize lh_memRange\n";
       perror("mmap");
-      write(2, msg, sizeof(msg)); assert(rc == 0);
+      write(2, msg, sizeof(msg)); assert(rc != MAP_FAILED);
     }
 #  else
     void *rc = LH_MMAP_CALL(lh_memRange.start, length,
@@ -281,7 +281,7 @@ __mmap64 (void *addr, size_t len, int prot, int flags, int fd, __off_t offset)
         munmap(rc, length);
       }
       char msg[] = "*** Panic: MANA lower half: can't initialize lh_memRange\n";
-      write(2, msg, sizeof(msg)); assert(rc != lh_memRange.start);
+      write(2, msg, sizeof(msg)); assert(rc == lh_memRange.start);
     }
 #  endif
 # endif
