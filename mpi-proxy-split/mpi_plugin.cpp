@@ -46,7 +46,6 @@
 #include "split_process.h"
 #include "p2p_log_replay.h"
 #include "p2p_drain_send_recv.h"
-#include "record-replay.h"
 #include "seq_num.h"
 #include "mpi_nextfunc.h"
 #include "virtual-ids.h"

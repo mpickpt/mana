@@ -52,6 +52,4 @@
         ! FIXME: MPI_ARGV_NULL is a CHARACTER(1) in mpich-gnu, not supported
         ! in MANA
         ! call get_fortran_arrays_helper(MPI_ARGVS_NULL)
-        call get_fortran_constants_helper(MPI_UNWEIGHTED)
-        call get_fortran_constants_helper(MPI_WEIGHTS_EMPTY)
       end subroutine get_fortran_constants

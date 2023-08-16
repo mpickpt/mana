@@ -11,7 +11,6 @@
 #undef JUMP_TO_LOWER_HALF
 #undef RETURN_TO_UPPER_HALF
 
-using namespace dmtcp_mpi;
 
 class CartTests : public ::testing::Test
 {

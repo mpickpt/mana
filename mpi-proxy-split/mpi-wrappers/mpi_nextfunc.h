@@ -95,6 +95,12 @@
     return retval;                                                             \
   }
 
+#ifdef __cplusplus
+#define EXTERNC extern "C"
+#else
+#define EXTERNC
+#endif
+
 #define USER_DEFINED_WRAPPER(rettype, name, args...)                           \
   EXTERNC rettype MPI_##name(APPLY(PAIR, args))
 

@@ -9,7 +9,6 @@ int MPI_Accumulate(const void *origin_addr, int origin_count,
 int MPI_Add_error_class(int *errorclass);
 int MPI_Add_error_code(int errorclass, int *errorcode);
 int MPI_Add_error_string(int errorcode, const char *string);
-int MPI_Address(const void *location, MPI_Aint *address);
 int MPI_Iallgather(const void *sendbuf, int sendcount,
                             MPI_Datatype sendtype, void *recvbuf, int recvcount,
                             MPI_Datatype recvtype, MPI_Comm comm,
@@ -76,11 +75,6 @@ int MPI_Comm_spawn_multiple(int count, char *array_of_commands[], char **array_o
 int MPI_Comm_test_inter(MPI_Comm comm, int *flag);
 int MPI_Compare_and_swap(const void *origin_addr, const void *compare_addr, void *result_addr, MPI_Datatype datatype, int target_rank, MPI_Aint target_disp, MPI_Win win);
 
-int MPI_Errhandler_create(MPI_Handler_function *function, MPI_Errhandler *errhandler);
-
-int MPI_Errhandler_free(MPI_Errhandler *errhandler);
-int MPI_Errhandler_get(MPI_Comm comm, MPI_Errhandler *errhandler);
-int MPI_Errhandler_set(MPI_Comm comm, MPI_Errhandler errhandler);
 int MPI_Exscan(const void *sendbuf, void *recvbuf, int count, MPI_Datatype datatype, MPI_Op op, MPI_Comm comm);
 int MPI_Fetch_and_op(const void *origin_addr, void *result_addr, MPI_Datatype datatype, int target_rank, MPI_Aint target_disp, MPI_Op op, MPI_Win win);
 int MPI_Iexscan(const void *sendbuf, void *recvbuf, int count, MPI_Datatype datatype, MPI_Op op, MPI_Comm comm, MPI_Request *request);
@@ -226,7 +220,6 @@ int MPI_Type_create_keyval(MPI_Type_copy_attr_function *type_copy_attr_fn, MPI_T
 int MPI_Type_create_indexed_block(int count, int blocklength, const int array_of_displacements[], MPI_Datatype oldtype, MPI_Datatype *newtype);
 int MPI_Type_create_subarray(int ndims, const int size_array[], const int subsize_array[], const int start_array[], int order, MPI_Datatype oldtype, MPI_Datatype *newtype);
 int MPI_Type_delete_attr(MPI_Datatype type, int type_keyval);
-int MPI_Type_extent(MPI_Datatype type, MPI_Aint *extent);
 int MPI_Type_free_keyval(int *type_keyval);
 
 int MPI_Type_get_attr(MPI_Datatype type, int type_keyval, void *attribute_val, int *flag);
@@ -236,11 +229,9 @@ int MPI_Type_get_extent_x(MPI_Datatype type, MPI_Count *lb, MPI_Count *extent);
 int MPI_Type_get_name(MPI_Datatype type, char *type_name, int *resultlen);
 int MPI_Type_get_true_extent(MPI_Datatype datatype, MPI_Aint *true_lb, MPI_Aint *true_extent);
 int MPI_Type_get_true_extent_x(MPI_Datatype datatype, MPI_Count *true_lb, MPI_Count *true_extent);
-int MPI_Type_lb(MPI_Datatype type, MPI_Aint *lb);
 int MPI_Type_match_size(int typeclass, int size, MPI_Datatype *type);
 int MPI_Type_set_attr(MPI_Datatype type, int type_keyval, void *attr_val);
 int MPI_Type_set_name(MPI_Datatype type, const char *type_name);
-int MPI_Type_ub(MPI_Datatype mtype, MPI_Aint *ub);
 int MPI_Unpack(const void *inbuf, int insize, int *position, void *outbuf, int outcount, MPI_Datatype datatype, MPI_Comm comm);
 int MPI_Unpublish_name(const char *service_name, MPI_Info info, const char *port_name);
 int MPI_Unpack_external (const char datarep[], const void *inbuf, MPI_Aint insize, MPI_Aint *position, void *outbuf, int outcount, MPI_Datatype datatype);

@@ -27,10 +27,8 @@
 #include "jfilesystem.h"
 #include "protectedfds.h"
 #include "mpi_nextfunc.h"
-#include "record-replay.h"
 #include "virtual-ids.h"
 
-using namespace dmtcp_mpi;
 
 
 USER_DEFINED_WRAPPER(int, Op_create,
@@ -42,11 +40,10 @@ USER_DEFINED_WRAPPER(int, Op_create,
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Op_create)(user_fn, commute, op);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
+  if (retval == MPI_SUCCESS) {
     MPI_Op virtOp = ADD_NEW_OP(*op);
     update_op_desc_t(VIRTUAL_TO_DESC_OP(virtOp), user_fn, commute);
     *op = virtOp;
-    LOG_CALL(restoreOps, Op_create, user_fn, commute, virtOp);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -63,12 +60,11 @@ USER_DEFINED_WRAPPER(int, Op_free, (MPI_Op*) op)
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Op_free)(&realOp);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
+  if (retval == MPI_SUCCESS) {
     // NOTE: We cannot remove the old op, since we'll need
     // to replay this call to reconstruct any new op that might
     // have been created using this op.
     REMOVE_OLD_OP(*op);
-    LOG_CALL(restoreOps, Op_free, *op);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
