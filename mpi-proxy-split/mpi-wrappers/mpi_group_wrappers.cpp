@@ -50,6 +50,23 @@ USER_DEFINED_WRAPPER(int, Comm_group, (MPI_Comm) comm, (MPI_Group *) group)
   return retval;
 }
 
+int
+MPI_Comm_internal_vgroup(MPI_Comm comm, MPI_Group *group)
+{
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  retval = NEXT_FUNC(Comm_group)(realComm, group);
+  RETURN_TO_UPPER_HALF();
+  if (retval == MPI_SUCCESS) {
+    MPI_Group virtGroup = ADD_NEW_GROUP(*group);
+    *group = virtGroup;
+  }
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return retval;
+}
+
 USER_DEFINED_WRAPPER(int, Group_size, (MPI_Group) group, (int *) size)
 {
   int retval;
