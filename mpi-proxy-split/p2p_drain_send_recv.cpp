@@ -69,6 +69,16 @@ initialize_drain_send_recv()
   active_comms.insert(MPI_COMM_SELF);
 }
 
+// FIXME: The top of this file reads:
+
+// FIXME: These three internal functions were added to avoid record and replay.
+// Since we no longer record MPI_Comm and MPI_Group related functions, these
+// internal functions can be removed.
+
+// Therefore, this function is written under the assumption that, in using our own wrapper functions
+// (as in the user program), the resulting virtual id allocations will not cause updating and reconstructing.
+// So, maybe this function should now be written under the assumption that it will, if the wrappers are used.
+// Leonid Belyaev
 void
 registerLocalSendsAndRecvs()
 {
