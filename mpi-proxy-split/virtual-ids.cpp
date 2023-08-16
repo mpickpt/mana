@@ -262,6 +262,9 @@ void destroy_comm_desc_t(comm_desc_t* desc) {
 group_desc_t* init_group_desc_t(MPI_Group realGroup) {
   group_desc_t* desc = ((group_desc_t*)malloc(sizeof(group_desc_t)));
   desc->real_id = realGroup;
+  desc->ranks = NULL;
+  desc->size = 0;
+  /*
   int groupSize;
 #ifdef DEBUG_VIDS
   printf("init_group_desc_t: %x\n", realGroup);
@@ -283,6 +286,7 @@ group_desc_t* init_group_desc_t(MPI_Group realGroup) {
   free(ranks);
   desc->ranks = global_ranks;
   desc->size = groupSize;
+  */
 
   return desc;
 }
