@@ -17,7 +17,6 @@
 #undef RETURN_TO_UPPER_HALF
 #undef NEXT_FUNC
 
-using namespace dmtcp_mpi;
 
 static dmtcp::LookupService lsObj;
 proxyDlsym_t pdlsym = NULL;

@@ -69,11 +69,11 @@
       _RO_retval = null; \
     } else { \
       descriptor_type* _RO_torem; \
-      id_desc_iterator it = idDescriptorTable.find(virtual_id); \
+      id_desc_iterator it = idDescriptorTable.find(*(int*)virtual_id); \
       if (it != idDescriptorTable.end()) { \
 	_RO_torem = ((descriptor_type*)it->second);	   \
       } \
-      idDescriptorTable.erase(virtual_id); \
+      idDescriptorTable.erase(*(int*)virtual_id); \
       _RO_retval = _RO_torem->real_id; \
       CONCAT(destroy_,descriptor_type)(_RO_torem); \
     }  \

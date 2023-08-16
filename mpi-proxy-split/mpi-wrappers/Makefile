@@ -18,7 +18,6 @@ LIBWRAPPER_OBJS = mpi_p2p_wrappers.o mpi_collective_wrappers.o \
                   mpi_unimplemented_wrappers.o mpi_fortran_wrappers.o \
                   mpi_wrappers.o get_fortran_constants.o fortran_constants.o \
                   mpi_win_wrappers.o mpi_file_wrappers.o mpi_error_wrappers.o \
-                  p2p-deterministic.o
 
 
 # Modify if your MANA_ROOT is located elsewhere.
@@ -57,9 +56,6 @@ mpi_unimplemented_wrappers.cpp: generate-mpi-unimplemented-wrappers.py \
 
 .c.o:
 	${MPICC} ${CFLAGS} -c -o $@ $<
-
-mana_p2p_update_logs: mana_p2p_update_logs.c
-	${MPICC} ${CFLAGS} -o $@ $<
 
 .cpp.o: ../virtual-ids.h
 	${MPICXX} ${CXXFLAGS} -c -o $@ $<
@@ -136,7 +132,7 @@ tidy:
 	rm -f *~ .*.swp dmtcp_restart_script*.sh ckpt_*.dmtcp
 	rm -rf ckpt_rank_*
 
-install: libmpistub.so mana_p2p_update_logs
+install: libmpistub.so 
 	cp -f libmpistub.so ${MANA_ROOT}/lib/dmtcp/
 	cd ${MANA_ROOT}/lib/dmtcp && \
 		ln -sf libmpistub.so libmpich_intel.so.3.0.1 && \
@@ -146,7 +142,6 @@ install: libmpistub.so mana_p2p_update_logs
 	cd ${MANA_ROOT}/lib/dmtcp && \
 		ln -sf libmpistub.so libpmi.so.0.5.0 && \
 		ln -sf libpmi.so.0.5.0 libpmi.so.0
-	cp -f mana_p2p_update_logs ${MANA_ROOT}/bin/
 
 clean: tidy
 	rm -f ${LIBWRAPPER_OBJS}

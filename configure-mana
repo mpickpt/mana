@@ -26,7 +26,7 @@ fi
              MPICXX='${MPI_BIN}/mpic++' \
              MPIFORTRAN='${MPI_BIN}/mpifort' \
              MPIRUN='${MPI_BIN}/mpirun -iface '${MPI_ETHERNET_INTERFACE} \
-             MPI_LD_FLAG=-lmpich \
+             MPI_LD_FLAG=-lmpi \
              MPI_CFLAGS= \
              MPI_CXXFLAGS= \
              MPI_LDFLAGS=

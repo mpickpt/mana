@@ -26,6 +26,7 @@
 
 #include <mpi.h>
 #include <stdlib.h>
+#include <stdint.h>
 
 #include "dmtcp.h"
 
@@ -39,6 +40,9 @@
 #include "seq_num.h"
 
 #define MAX_VIRTUAL_ID 999
+
+MPI_Comm WORLD_COMM = MPI_COMM_WORLD;
+MPI_Comm NULL_COMM = MPI_COMM_NULL;
 
 // #define DEBUG_VIDS
 
@@ -66,8 +70,8 @@ int hash(int i) {
 // OUT: rbuf
 // Returns ggid.
 int getggid(MPI_Comm comm, int worldRank, int commSize, int* rbuf) {
-  if (comm == MPI_COMM_NULL || comm == MPI_COMM_WORLD) {
-    return comm;
+  if (comm == NULL_COMM || comm == WORLD_COMM) {
+    return (intptr_t)comm;
   }
   unsigned int ggid = 0;
 
@@ -95,7 +99,7 @@ comm_desc_t* init_comm_desc_t(MPI_Comm realComm) {
 
   DMTCP_PLUGIN_DISABLE_CKPT();
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  NEXT_FUNC(Comm_rank)(MPI_COMM_WORLD, &worldRank);
+  NEXT_FUNC(Comm_rank)(WORLD_COMM, &worldRank);
   NEXT_FUNC(Comm_size)(realComm, &commSize);
   NEXT_FUNC(Comm_rank)(realComm, &localRank);
   RETURN_TO_UPPER_HALF();
@@ -188,7 +192,7 @@ void reconstruct_with_comm_desc_t(comm_desc_t* desc) {
   fflush(stdout);
 #endif
   // HACK MPI_COMM_WORLD in the LH.
-  if (desc->real_id == 0x84000000) { 
+  if (desc->real_id == (void*)0x84000000) { 
     return;
   }
 
@@ -198,7 +202,7 @@ void reconstruct_with_comm_desc_t(comm_desc_t* desc) {
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   MPI_Group group;
   NEXT_FUNC(Group_incl)(g_world_group, desc->size, desc->ranks, &group);
-  NEXT_FUNC(Comm_create_group)(MPI_COMM_WORLD, group, 0, &desc->real_id);
+  NEXT_FUNC(Comm_create_group)(WORLD_COMM, group, 0, &desc->real_id);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
 }
@@ -334,7 +338,7 @@ void reconstruct_with_op_desc_t(op_desc_t* op) {
     free(op);
     }
 
-    datatype_desc_t* init_datatype_desc_t(MPI_Datatype realType) {
+datatype_desc_t* init_datatype_desc_t(MPI_Datatype realType) {
     datatype_desc_t* desc = ((datatype_desc_t*)malloc(sizeof(datatype_desc_t)));
     desc->real_id = realType;
 
@@ -355,50 +359,10 @@ void reconstruct_with_op_desc_t(op_desc_t* op) {
     return desc;
     }
 
-    void update_datatype_desc_t(datatype_desc_t* datatype) {
-      // TODO this will fail for doubly-derived datatypes, for the real id given in datatype->datatypes will not be constant after a checkpoint-restart.
-      if (datatype->is_freed) {
-	// If the datatype described has been freed, it will segfault here.
-	return;
-      }
-    DMTCP_PLUGIN_DISABLE_CKPT();
-    JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-    NEXT_FUNC(Type_get_envelope)(datatype->real_id, &datatype->num_integers, &datatype->num_addresses, &datatype->num_datatypes, &datatype->combiner);
-    datatype->integers = ((int*)malloc(sizeof(int) * datatype->num_integers));
-    datatype->addresses = ((MPI_Aint*)malloc(sizeof(MPI_Aint) * datatype->num_addresses));
-    datatype->datatypes = ((MPI_Datatype*)malloc(sizeof(MPI_Datatype) * datatype->num_datatypes));
-    NEXT_FUNC(Type_get_contents)(datatype->real_id, datatype->num_integers, datatype->num_addresses, datatype->num_datatypes, datatype->integers, datatype->addresses, datatype->datatypes);
-    RETURN_TO_UPPER_HALF();
-    DMTCP_PLUGIN_ENABLE_CKPT();
-    }
+void update_datatype_desc_t(datatype_desc_t* datatype) {
+}
 
-    void reconstruct_with_datatype_desc_t(datatype_desc_t* datatype) {
-    DMTCP_PLUGIN_DISABLE_CKPT();
-    JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-    switch (datatype->combiner) {
-	    case MPI_COMBINER_VECTOR:
-		    NEXT_FUNC(Type_vector)(datatype->integers[0], datatype->integers[1], datatype->addresses[0], datatype->datatypes[0], &datatype->real_id);
-		    break;
-	    case MPI_COMBINER_HVECTOR:
-		    NEXT_FUNC(Type_hvector)(datatype->integers[0], datatype->integers[1], datatype->addresses[0], datatype->datatypes[0], &datatype->real_id);
-		    break;
-	    case MPI_COMBINER_INDEXED:
-		    // Here, the integers in the envelope are split into two arrays.
-	      {
-		    int count = datatype->num_integers / 2;
-                    NEXT_FUNC(Type_indexed)(count, datatype->integers, datatype->integers + count, datatype->datatypes[0], &datatype->real_id);
-                    break;
-	      }
-	    case MPI_COMBINER_STRUCT:
-  		    NEXT_FUNC(Type_create_struct)(datatype->num_integers, datatype->integers, datatype->addresses, datatype->datatypes, &datatype->real_id);
-		    break;
-	  default:
-		    break;
-  }
-  // TODO is this needed?
-  NEXT_FUNC(Type_commit)(&datatype->real_id);
-  RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+void reconstruct_with_datatype_desc_t(datatype_desc_t* datatype) {
 }
 
 void destroy_datatype_desc_t(datatype_desc_t* datatype) {
@@ -443,13 +407,13 @@ id_desc_t* virtualToDescriptor(int virtId) {
 
 void init_comm_world() {
   comm_desc_t* comm_world = ((comm_desc_t*)malloc(sizeof(comm_desc_t)));
-  comm_world->real_id = MPI_COMM_WORLD;
+  comm_world->real_id = WORLD_COMM;
   ggid_desc_t* comm_world_ggid = ((ggid_desc_t*)malloc(sizeof(ggid_desc_t)));
   comm_world->ggid_desc = comm_world_ggid;
-  comm_world_ggid->ggid = MPI_COMM_WORLD;
+  comm_world_ggid->ggid = (intptr_t)WORLD_COMM;
   comm_world_ggid->seq_num = 0;
   comm_world_ggid->target_num = 0;
-  idDescriptorTable[MPI_COMM_WORLD] = ((union id_desc_t*)comm_world);
+  idDescriptorTable[(intptr_t)WORLD_COMM] = ((union id_desc_t*)comm_world);
 }
 
 // For all descriptors, update the respective information.
@@ -509,7 +473,7 @@ void prepare_reconstruction() {
 #endif
   DMTCP_PLUGIN_DISABLE_CKPT();
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  NEXT_FUNC(Comm_group)(MPI_COMM_WORLD, &g_world_group);
+  NEXT_FUNC(Comm_group)(WORLD_COMM, &g_world_group);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
   // g_world_group is a real id to avoid a lookup.
@@ -524,7 +488,7 @@ void finalize_reconstruction() {
 
   DMTCP_PLUGIN_DISABLE_CKPT();
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  NEXT_FUNC(Comm_dup)(MPI_COMM_WORLD, &g_world_comm);
+  NEXT_FUNC(Comm_dup)(WORLD_COMM, &g_world_comm);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
 

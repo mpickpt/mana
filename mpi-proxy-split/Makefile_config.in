@@ -22,7 +22,7 @@ ifeq ($(or $(IS_CORI),$(IS_GERTY), $(IS_PERLMUTTER)), 1)
   MPICC = cc
   MPICXX = CC -std=c++14
   MPIFORTRAN = ftn
-  MPI_LD_FLAG = -lmpich
+  MPI_LD_FLAG = -L$$HOME/openmpi-5.0.0rc12/build/lib -lmpi
   MPIRUN = srun
   MPI_CFLAGS?= @CFLAGS@ -g3 -fPIC
   MPI_CXXFLAGS?= @CXXFLAGS@ -g3 -fPIC
