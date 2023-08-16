@@ -28,16 +28,16 @@
 #include "protectedfds.h"
 
 #include "mpi_nextfunc.h"
-#include "record-replay.h"
 #include "virtual-ids.h"
 #ifdef SINGLE_CART_REORDER
-#include "two-phase-algo.h"
 #include "seq_num.h"
 #include "../cartesian.h"
 #endif
 #include "p2p_drain_send_recv.h"
 
-using namespace dmtcp_mpi;
+#undef  EXTERNC
+#define EXTERNC
+
 
 USER_DEFINED_WRAPPER(int, Cart_coords, (MPI_Comm) comm, (int) rank,
                      (int) maxdims, (int*) coords)
@@ -65,6 +65,10 @@ USER_DEFINED_WRAPPER(int, Cart_get, (MPI_Comm) comm, (int) maxdims,
   return retval;
 }
 
+extern "C" int foo(double a) {
+  return 0;
+}
+
 USER_DEFINED_WRAPPER(int, Cart_map, (MPI_Comm) comm, (int) ndims,
                      (const int*) dims, (const int*) periods, (int *) newrank)
 {
@@ -75,11 +79,6 @@ USER_DEFINED_WRAPPER(int, Cart_map, (MPI_Comm) comm, (int) ndims,
   // FIXME: Need to virtualize this newrank??
   retval = NEXT_FUNC(Cart_map)(realComm, ndims, dims, periods, newrank);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
-    FncArg ds = CREATE_LOG_BUF(dims, ndims * sizeof(int));
-    FncArg ps = CREATE_LOG_BUF(periods, ndims * sizeof(int));
-    LOG_CALL(restoreCarts, Cart_map, comm, ndims, ds, ps, newrank);
-  }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -107,10 +106,6 @@ USER_DEFINED_WRAPPER(int, Cart_shift, (MPI_Comm) comm, (int) direction,
   retval = NEXT_FUNC(Cart_shift)(realComm, direction,
                                  disp, rank_source, rank_dest);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
-    LOG_CALL(restoreCarts, Cart_shift, comm, direction,
-             disp, *rank_source, *rank_dest);
-  }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -125,15 +120,11 @@ USER_DEFINED_WRAPPER(int, Cart_sub, (MPI_Comm) comm,
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Cart_sub)(realComm, remain_dims, new_comm);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
-    int ndims = 0;
-    MPI_Cartdim_get(comm, &ndims);
+  if (retval == MPI_SUCCESS) {
     MPI_Comm virtComm = ADD_NEW_COMM(*new_comm);
     // VirtualGlobalCommId::instance().createGlobalId(virtComm); TODO This is done on comm creation.
     *new_comm = virtComm;
     active_comms.insert(virtComm);
-    FncArg rs = CREATE_LOG_BUF(remain_dims, ndims * sizeof(int));
-    LOG_CALL(restoreCarts, Cart_sub, comm, ndims, rs, virtComm);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -200,16 +191,11 @@ USER_DEFINED_WRAPPER(int, Cart_create, (MPI_Comm)old_comm, (int)ndims,
                     g_cartesian_properties.ndims,
                     g_cartesian_properties.coordinates);
 
-    if (retval == MPI_SUCCESS && MPI_LOGGING()) {
+    if (retval == MPI_SUCCESS) {
       MPI_Comm virtComm = ADD_NEW_COMM(*comm_cart);
       // VirtualGlobalCommId::instance().createGlobalId(virtComm); TODO We now do this on creation/addition.
       *comm_cart = virtComm;
       active_comms.insert(virtComm);
-
-      FncArg ds = CREATE_LOG_BUF(dims, ndims * sizeof(int));
-      FncArg ps = CREATE_LOG_BUF(periods, ndims * sizeof(int));
-      LOG_CALL(restoreCarts, Cart_create, old_comm, ndims, ds, ps, reorder,
-               virtComm);
     }
     DMTCP_PLUGIN_ENABLE_CKPT();
     return retval;
@@ -249,15 +235,11 @@ USER_DEFINED_WRAPPER(int, Cart_create, (MPI_Comm) old_comm, (int) ndims,
   retval = NEXT_FUNC(Cart_create)(realComm, ndims, dims,
                                   periods, reorder, comm_cart);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
+  if (retval == MPI_SUCCESS) {
     MPI_Comm virtComm = ADD_NEW_COMM(*comm_cart);
     // VirtualGlobalCommId::instance().createGlobalId(virtComm); TODO We now do this on creation/addition.
     *comm_cart = virtComm;
     active_comms.insert(virtComm);
-    FncArg ds = CREATE_LOG_BUF(dims, ndims * sizeof(int));
-    FncArg ps = CREATE_LOG_BUF(periods, ndims * sizeof(int));
-    LOG_CALL(restoreCarts, Cart_create, old_comm, ndims,
-             ds, ps, reorder, virtComm);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
