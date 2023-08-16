@@ -216,7 +216,7 @@ void reconstruct_with_comm_desc_t(comm_desc_t* desc) {
   printf("reconstruct_comm_desc_t comm: %x -> %x\n", desc->handle, desc->real_id);
 
   fflush(stdout);
-  printf("reconstruct_with_comm_desc_t comm size: %x\n", desc->size);
+  printf("reconstruct_with_comm_desc_t comm size: 0x%x\n", desc->size);
 
   fflush(stdout);
   printf("reconstruct_with_comm_desc_t ranks:");
@@ -510,7 +510,8 @@ id_desc_t* virtualToDescriptor(int virtId) {
 
 void init_comm_world() {
   comm_desc_t* comm_world = ((comm_desc_t*)malloc(sizeof(comm_desc_t)));
-  comm_world->real_id = MPI_COMM_WORLD;
+  // HACK As it stands, this is the constant MPI_COMM_WORLD in the lower half.
+  comm_world->real_id = 0x84000000;
   ggid_desc_t* comm_world_ggid = ((ggid_desc_t*)malloc(sizeof(ggid_desc_t)));
   comm_world->ggid_desc = comm_world_ggid;
   comm_world_ggid->ggid = MPI_COMM_WORLD;
