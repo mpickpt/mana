@@ -28,7 +28,6 @@
 #include "jfilesystem.h"
 #include "protectedfds.h"
 
-#include "record-replay.h"
 #include "p2p_log_replay.h"
 #include "p2p_drain_send_recv.h"
 #include "mpi_plugin.h"
@@ -109,10 +108,9 @@ USER_DEFINED_WRAPPER(int, Test, (MPI_Request*) request,
 #endif
   }
   LOG_POST_Test(request, statusPtr);
-  if (retval == MPI_SUCCESS && *flag && MPI_LOGGING()) {
+  if (retval == MPI_SUCCESS && *flag) {
     clearPendingRequestFromLog(*request);
     REMOVE_OLD_REQUEST(*request);
-    LOG_REMOVE_REQUEST(*request); // remove from record-replay log
     *request = MPI_REQUEST_NULL;
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -296,11 +294,9 @@ USER_DEFINED_WRAPPER(int, Waitany, (int) count,
           }
         }
 
-        if (MPI_LOGGING()) {
           clearPendingRequestFromLog(local_array_of_requests[i]);
           REMOVE_OLD_REQUEST(local_array_of_requests[i]);
           local_array_of_requests[i] = MPI_REQUEST_NULL;
-        }
 
         *local_index = i;
 
@@ -363,10 +359,9 @@ USER_DEFINED_WRAPPER(int, Wait, (MPI_Request*) request, (MPI_Status*) status)
     if (p2p_deterministic_skip_save_request == 0) {
       if (flag) LOG_POST_Wait(request, statusPtr);
     }
-    if (flag && MPI_LOGGING()) {
+    if (flag) {
       clearPendingRequestFromLog(*request); // Remove from g_nonblocking_calls
       REMOVE_OLD_REQUEST(*request); // Remove from virtual id
-      LOG_REMOVE_REQUEST(*request); // Remove from record-replay log
       *request = MPI_REQUEST_NULL;
     }
     DMTCP_PLUGIN_ENABLE_CKPT();

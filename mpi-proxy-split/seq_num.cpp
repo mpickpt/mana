@@ -10,9 +10,7 @@
 #include "seq_num.h"
 #include "mpi_nextfunc.h"
 #include "virtual-ids.h"
-#include "record-replay.h"
 
-using namespace dmtcp_mpi;
 using dmtcp::kvdb::KVDBRequest;
 using dmtcp::kvdb::KVDBResponse;
 
@@ -34,6 +32,9 @@ reset_type_t reset_type;
 pthread_mutex_t seq_num_lock;
 sem_t user_thread_sem;
 sem_t ckpt_thread_sem;
+
+extern MPI_Comm WORLD_COMM;
+extern MPI_Comm NULL_COMM;
 
 /* Freepass implemented using semaphore to avoid the following situation:
 *  T1: current_phase = STOP_BEFORE_CS;
@@ -118,7 +119,7 @@ int check_seq_nums(bool exclusive) {
 
 int twoPhaseCommit(MPI_Comm comm,
                    std::function<int(void)>doRealCollectiveComm) {
-  if (!MPI_LOGGING() || comm == MPI_COMM_NULL) {
+  if (comm != NULL_COMM) {
     return doRealCollectiveComm(); // lambda function: already captured args
   }
 

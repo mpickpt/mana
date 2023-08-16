@@ -31,7 +31,6 @@
 #include "protectedfds.h"
 #include "mpi_nextfunc.h"
 #include "virtual-ids.h"
-#include "record-replay.h"
 // To support MANA_P2P_LOG and MANA_P2P_REPLAY:
 #include "p2p-deterministic.h"
 
@@ -203,7 +202,7 @@ USER_DEFINED_WRAPPER(int, Irecv,
     // FIXME:  In the wrappers for MPI_Waitany/Waitsome/Testany/Testsome
     //    We should add a comment that MPI_REQUEST_FAKE_NULL can occr,
     //    and that the details are in the comments for the MPI_Irecv wrapper.
-    MPI_Request virtRequest = ADD_NEW_REQUEST(MPI_REQUEST_NULL+1);
+    MPI_Request virtRequest = ADD_NEW_REQUEST(MPI_REQUEST_NULL);
     UPDATE_REQUEST_MAP(virtRequest, MPI_REQUEST_NULL);
     *request = virtRequest;
     retval = MPI_SUCCESS;
