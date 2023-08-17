@@ -50,8 +50,10 @@ USER_DEFINED_WRAPPER(int, Comm_group, (MPI_Comm) comm, (MPI_Group *) group)
   return retval;
 }
 
+// Calls MPI_Comm_group to define a new group for internal purposes.
+// See: p2p_drain_send_recv.cpp
 int
-MPI_Comm_internal_vgroup(MPI_Comm comm, MPI_Group *group)
+MPI_Comm_internal_virt_group(MPI_Comm comm, MPI_Group *group)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
