@@ -186,18 +186,6 @@
 #define UPDATE_REQUEST_MAP(v, r) \
   UPDATE_MAP(v, r, MPI_REQUEST_NULL, request_desc_t, MPI_Request)
 
-#ifndef NEXT_FUNC
-# define NEXT_FUNC(func)                                                       \
-  ({                                                                           \
-    static __typeof__(&MPI_##func)_real_MPI_## func =                          \
-                                                (__typeof__(&MPI_##func)) - 1; \
-    if (_real_MPI_ ## func == (__typeof__(&MPI_##func)) - 1) {                 \
-      _real_MPI_ ## func = (__typeof__(&MPI_##func))pdlsym(MPI_Fnc_##func);    \
-    }                                                                          \
-    _real_MPI_ ## func;                                                        \
-  })
-#endif // ifndef NEXT_FUNC
-
 struct ggid_desc_t {
   int ggid; // hashing results of communicator members
 
