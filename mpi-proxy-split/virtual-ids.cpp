@@ -41,6 +41,15 @@
 
 #define MAX_VIRTUAL_ID 999
 
+#ifdef STANDALONE_VIDS
+#undef DMTCP_PLUGIN_DISABLE_CKPT
+#undef DMTCP_PLUGIN_ENABLE_CKPT
+#undef JUMP_TO_LOWER_HALF
+#undef RETURN_TO_UPPER_HALF
+#undef NEXT_FUNC
+#define NEXT_FUNC(args) MPI_##args
+#endif
+
 // #define DEBUG_VIDS
 
 // TODO I use an explicitly integer virtual id, which under macro reinterpretation will fit into an int64 pointer.
