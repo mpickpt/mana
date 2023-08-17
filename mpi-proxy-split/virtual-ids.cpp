@@ -37,6 +37,7 @@
 #include "lower_half_api.h"
 
 #include "seq_num.h"
+#include "mpi_nextfunc.h"
 
 #define MAX_VIRTUAL_ID 999
 
