@@ -599,7 +599,8 @@ void prepare_reconstruction() {
   NEXT_FUNC(Comm_group)(MPI_COMM_WORLD, &g_world_group);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
-  // g_world_group is a real id to avoid a lookup.
+  // g_world_group is a real id to avoid a lookup. We're just using
+  // the "set of ranks" property of groups here.
 }
 
 // For all descriptors, set its real ID to the one uniquely described by its fields.
