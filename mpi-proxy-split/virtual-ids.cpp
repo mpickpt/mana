@@ -112,7 +112,9 @@ comm_desc_t* init_comm_desc_t(MPI_Comm realComm) {
   } else {
     ggid_desc_t* gd = ((ggid_desc_t *) malloc(sizeof(ggid_desc_t)));
     gd->ggid = ggid;
-    // TODO maybe this is wrong.
+    // TODO What should the initial values be?
+    // Either way, if the CVC algorithm sets its own initial values
+    // later, these will be overwritten.
     gd->target_num = 0;
     gd->seq_num = 0;
     ggidDescriptorTable[ggid] = gd;
