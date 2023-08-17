@@ -101,7 +101,14 @@ int getggid(MPI_Comm comm, int worldRank, int commSize, int* rbuf) {
   return ggid;
 }
 
-// This is a descriptor initializer. Its job is to write an initial descriptor for a real MPI Communicator.
+// This is a descriptor initializer. Its job is to write an initial
+// descriptor for a real MPI Communicator.
+
+// We need to initialize the ggid_descriptor, because in order to
+// checkpoint, we need to use the CVC algorithm to get out of the
+// lower half everywhere.
+// To do that, we need to use the LH to gather information.
+// So, init_comm_desc is more expensive.
 comm_desc_t* init_comm_desc_t(MPI_Comm realComm) {
   int worldRank, commSize, localRank;
 #ifdef DEBUG_VIDS
