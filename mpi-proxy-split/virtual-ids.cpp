@@ -369,8 +369,10 @@ op_desc_t* init_op_desc_t(MPI_Op realOp) {
   return desc;
 }
 
-// This update function is special, for the information we need is only available at creation time, and not with MPI calls.
-// We manually invoke this function at creation time.
+// This update function is special, for the information we need is
+// only available at creation time, and not with MPI calls.  We
+// manually invoke this function at creation time. Mercifully, there
+// is only one way to create a new operator, AFAIK.
 void update_op_desc_t(op_desc_t* op, MPI_User_function* user_fn, int commute) {
   op->user_fn = user_fn;
   op->commute = commute;
@@ -384,11 +386,11 @@ void reconstruct_with_op_desc_t(op_desc_t* op) {
     DMTCP_PLUGIN_ENABLE_CKPT();
 }
 
-    void destroy_op_desc_t(op_desc_t* op) {
+void destroy_op_desc_t(op_desc_t* op) {
     free(op);
-    }
+}
 
-    datatype_desc_t* init_datatype_desc_t(MPI_Datatype realType) {
+datatype_desc_t* init_datatype_desc_t(MPI_Datatype realType) {
     datatype_desc_t* desc = ((datatype_desc_t*)malloc(sizeof(datatype_desc_t)));
     desc->real_id = realType;
 
@@ -407,9 +409,9 @@ void reconstruct_with_op_desc_t(op_desc_t* op) {
     desc->combiner = 0;
     desc->is_freed = false;
     return desc;
-    }
+}
 
-    void update_datatype_desc_t(datatype_desc_t* datatype) {
+void update_datatype_desc_t(datatype_desc_t* datatype) {
       // TODO this will fail for doubly-derived datatypes, for the real id given in datatype->datatypes will not be constant after a checkpoint-restart.
       if (datatype->is_freed) {
 	// If the real datatype described has been freed in the lower half, MPI will be angry.
@@ -439,13 +441,13 @@ void reconstruct_with_op_desc_t(op_desc_t* op) {
     NEXT_FUNC(Type_get_contents)(datatype->real_id, datatype->num_integers, datatype->num_addresses, datatype->num_datatypes, datatype->integers, datatype->addresses, datatype->datatypes);
     RETURN_TO_UPPER_HALF();
     DMTCP_PLUGIN_ENABLE_CKPT();
-    }
+}
 
-    void reconstruct_with_datatype_desc_t(datatype_desc_t* datatype) {
-	    if (datatype->is_freed) {
-		    return;
-	    }
-	    int indexed_count = datatype->num_integers / 2;
+void reconstruct_with_datatype_desc_t(datatype_desc_t* datatype) {
+    if (datatype->is_freed) {
+	return;
+    }
+    int indexed_count = datatype->num_integers / 2;
     DMTCP_PLUGIN_DISABLE_CKPT();
     JUMP_TO_LOWER_HALF(lh_info.fsaddr);
     switch (datatype->combiner) {
