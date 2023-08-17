@@ -29,6 +29,149 @@
 #define FILE_MASK 0x06000000
 #define COMM_KEYVAL_MASK 0x07000000
 
+struct ggid_desc_t {
+  int ggid; // hashing results of communicator members
+
+  unsigned long seq_num;
+
+  unsigned long target_num;
+};
+
+struct comm_desc_t {
+    MPI_Comm real_id; // Real MPI communicator in the lower-half
+    int handle; // A copy of the int type handle generated from the address of this struct
+    ggid_desc_t* ggid_desc; // A ggid_t structure, containing CVC information for this communicator.
+    int size; // Size of this communicator
+    int local_rank; // local rank number of this communicator
+    int *ranks; // list of ranks of the group.
+
+    // struct virt_group_t *group; // Or should this field be a pointer to virt_group_t?
+};
+
+struct group_desc_t {
+    MPI_Group real_id; // Real MPI group in the lower-half
+    int handle; // A copy of the int type handle generated from the address of this struct
+    int size; // The size of this group in ranks.
+    int *ranks; // list of ranks of the group.
+    // unsigned int ggid; // Global Group ID
+};
+
+enum mpi_request_kind {
+  COLLECTIVE,
+  PEER_TO_PEER
+};
+
+struct request_desc_t {
+    MPI_Request real_id; // Real MPI request in the lower-half
+    int handle; // A copy of the int type handle generated from the address of this struct
+    mpi_request_kind request_kind; // P2P request or collective request
+    MPI_Status* status; // Real MPI status in the lower-half
+};
+
+struct op_desc_t {
+    MPI_Op real_id; // Real MPI operator in the lower-half
+    int handle; // A copy of the int type handle generated from the address of this struct
+    MPI_User_function *user_fn; // Function pointer to the user defined op function
+    int commute; // True if op is commutative.
+};
+
+struct datatype_desc_t {
+  // TODO add mpi type identifier field virtual class
+    MPI_Datatype real_id; // Real MPI type in the lower-half
+    int handle; // A copy of the int type handle generated from the address of this struct
+    // Components of user-defined datatype.
+    int num_integers;
+    int *integers;
+    int num_addresses;
+    MPI_Aint *addresses;
+    int num_large_counts;
+    int *large_counts;
+    int num_datatypes;
+    MPI_Datatype *datatypes; // hmmm.. hierarchical restore?
+    int combiner;
+    // if is_freed is true, then we should not update the descriptor on a checkpoint.
+    bool is_freed;
+};
+
+struct file_desc_t {
+  MPI_File real_id;
+  int handle;
+  // TODO We probably want to save something else too.
+};
+
+struct comm_keyval_desc_t {
+  int real_id;
+  int handle;
+}; // TODO VID keyval not needed at all
+
+union id_desc_t {
+    comm_desc_t comm;
+    group_desc_t group;
+    request_desc_t request;
+    op_desc_t op;
+    datatype_desc_t datatype;
+    file_desc_t file;
+    comm_keyval_desc_t comm_keyval;
+
+  operator comm_desc_t () const { return comm; }
+  operator group_desc_t () const { return group; }
+  operator request_desc_t () const { return request; }
+  operator op_desc_t () const { return op; }
+  operator datatype_desc_t () const { return datatype; }
+  operator file_desc_t () const { return file; }
+  operator comm_keyval_desc_t () const { return comm_keyval; }
+};
+
+extern std::map<int, id_desc_t*> idDescriptorTable;
+extern std::map<int, ggid_desc_t*> ggidDescriptorTable; 
+extern int base;
+extern int nextvId;
+typedef typename std::map<int, id_desc_t*>::iterator id_desc_iterator;
+typedef typename std::map<int, ggid_desc_t*>::iterator ggid_desc_iterator;
+typedef std::pair<int, id_desc_t*> id_desc_pair;
+typedef std::pair<int, ggid_desc_t*> ggid_desc_pair;
+
+id_desc_t* virtualToDescriptor(int virtId);
+
+datatype_desc_t* init_datatype_desc_t(MPI_Datatype realType);
+op_desc_t* init_op_desc_t(MPI_Op realOp);
+request_desc_t* init_request_desc_t(MPI_Request realReq);
+group_desc_t* init_group_desc_t(MPI_Group realGroup);
+comm_desc_t* init_comm_desc_t(MPI_Comm realComm);
+file_desc_t* init_file_desc_t(MPI_File realFile);
+
+void destroy_datatype_desc_t(datatype_desc_t* datatype);
+void destroy_op_desc_t(op_desc_t* op);
+void destroy_request_desc_t(request_desc_t* request);
+void destroy_group_desc_t(group_desc_t* group);
+void destroy_comm_desc_t(comm_desc_t* comm);
+void destroy_file_desc_t(file_desc_t* file);
+
+void update_datatype_desc_t(datatype_desc_t* datatype);
+void update_op_desc_t(op_desc_t* op, MPI_User_function* user_fn, int commute);
+void update_request_desc_t(request_desc_t* request);
+void update_group_desc_t(group_desc_t* group);
+void update_comm_desc_t(comm_desc_t* comm);
+void update_file_desc_t(file_desc_t* file);
+
+void reconstruct_with_datatype_desc_t(datatype_desc_t* datatype);
+void reconstruct_with_op_desc_t(op_desc_t* op);
+void reconstruct_with_request_desc_t(request_desc_t* request);
+void reconstruct_with_group_desc_t(group_desc_t* group);
+void reconstruct_with_comm_desc_t(comm_desc_t* comm);
+void reconstruct_with_file_desc_t(file_desc_t* file);
+
+void update_descriptors();
+void reconstruct_with_descriptors();
+
+int getggid(MPI_Comm comm);
+int hash(int i);
+
+void init_comm_world(); // This is required for the CVC algorithm.
+
+MPI_Comm get_vcomm_internal(MPI_Comm realComm); // As is this.
+
+
 #define DESC_TO_VIRTUAL(desc, null, real_type)		\
   ({ \
     real_type _DTV_vId = (desc == NULL) ? null : desc->handle; \
@@ -198,146 +341,5 @@
   })
 #endif // ifndef NEXT_FUNC
 
-struct ggid_desc_t {
-  int ggid; // hashing results of communicator members
-
-  unsigned long seq_num;
-
-  unsigned long target_num;
-};
-
-struct comm_desc_t {
-    MPI_Comm real_id; // Real MPI communicator in the lower-half
-    int handle; // A copy of the int type handle generated from the address of this struct
-    ggid_desc_t* ggid_desc; // A ggid_t structure, containing CVC information for this communicator.
-    int size; // Size of this communicator
-    int local_rank; // local rank number of this communicator
-    int *ranks; // list of ranks of the group.
-
-    // struct virt_group_t *group; // Or should this field be a pointer to virt_group_t?
-};
-
-struct group_desc_t {
-    MPI_Group real_id; // Real MPI group in the lower-half
-    int handle; // A copy of the int type handle generated from the address of this struct
-    int size; // The size of this group in ranks.
-    int *ranks; // list of ranks of the group.
-    // unsigned int ggid; // Global Group ID
-};
-
-enum mpi_request_kind {
-  COLLECTIVE,
-  PEER_TO_PEER
-};
-
-struct request_desc_t {
-    MPI_Request real_id; // Real MPI request in the lower-half
-    int handle; // A copy of the int type handle generated from the address of this struct
-    mpi_request_kind request_kind; // P2P request or collective request
-    MPI_Status* status; // Real MPI status in the lower-half
-};
-
-struct op_desc_t {
-    MPI_Op real_id; // Real MPI operator in the lower-half
-    int handle; // A copy of the int type handle generated from the address of this struct
-    MPI_User_function *user_fn; // Function pointer to the user defined op function
-    int commute; // True if op is commutative.
-};
-
-struct datatype_desc_t {
-  // TODO add mpi type identifier field virtual class
-    MPI_Datatype real_id; // Real MPI type in the lower-half
-    int handle; // A copy of the int type handle generated from the address of this struct
-    // Components of user-defined datatype.
-    int num_integers;
-    int *integers;
-    int num_addresses;
-    MPI_Aint *addresses;
-    int num_large_counts;
-    int *large_counts;
-    int num_datatypes;
-    MPI_Datatype *datatypes; // hmmm.. hierarchical restore?
-    int combiner;
-    // if is_freed is true, then we should not update the descriptor on a checkpoint.
-    bool is_freed;
-};
-
-struct file_desc_t {
-  MPI_File real_id;
-  int handle;
-  // TODO We probably want to save something else too.
-};
-
-struct comm_keyval_desc_t {
-  int real_id;
-  int handle;
-}; // TODO VID keyval not needed at all
-
-union id_desc_t {
-    comm_desc_t comm;
-    group_desc_t group;
-    request_desc_t request;
-    op_desc_t op;
-    datatype_desc_t datatype;
-    file_desc_t file;
-    comm_keyval_desc_t comm_keyval;
-
-  operator comm_desc_t () const { return comm; }
-  operator group_desc_t () const { return group; }
-  operator request_desc_t () const { return request; }
-  operator op_desc_t () const { return op; }
-  operator datatype_desc_t () const { return datatype; }
-  operator file_desc_t () const { return file; }
-  operator comm_keyval_desc_t () const { return comm_keyval; }
-};
-
-extern std::map<int, id_desc_t*> idDescriptorTable;
-extern std::map<int, ggid_desc_t*> ggidDescriptorTable; 
-extern int base;
-extern int nextvId;
-typedef typename std::map<int, id_desc_t*>::iterator id_desc_iterator;
-typedef typename std::map<int, ggid_desc_t*>::iterator ggid_desc_iterator;
-typedef std::pair<int, id_desc_t*> id_desc_pair;
-typedef std::pair<int, ggid_desc_t*> ggid_desc_pair;
-
-id_desc_t* virtualToDescriptor(int virtId);
-
-datatype_desc_t* init_datatype_desc_t(MPI_Datatype realType);
-op_desc_t* init_op_desc_t(MPI_Op realOp);
-request_desc_t* init_request_desc_t(MPI_Request realReq);
-group_desc_t* init_group_desc_t(MPI_Group realGroup);
-comm_desc_t* init_comm_desc_t(MPI_Comm realComm);
-file_desc_t* init_file_desc_t(MPI_File realFile);
-
-void destroy_datatype_desc_t(datatype_desc_t* datatype);
-void destroy_op_desc_t(op_desc_t* op);
-void destroy_request_desc_t(request_desc_t* request);
-void destroy_group_desc_t(group_desc_t* group);
-void destroy_comm_desc_t(comm_desc_t* comm);
-void destroy_file_desc_t(file_desc_t* file);
-
-void update_datatype_desc_t(datatype_desc_t* datatype);
-void update_op_desc_t(op_desc_t* op, MPI_User_function* user_fn, int commute);
-void update_request_desc_t(request_desc_t* request);
-void update_group_desc_t(group_desc_t* group);
-void update_comm_desc_t(comm_desc_t* comm);
-void update_file_desc_t(file_desc_t* file);
-
-void reconstruct_with_datatype_desc_t(datatype_desc_t* datatype);
-void reconstruct_with_op_desc_t(op_desc_t* op);
-void reconstruct_with_request_desc_t(request_desc_t* request);
-void reconstruct_with_group_desc_t(group_desc_t* group);
-void reconstruct_with_comm_desc_t(comm_desc_t* comm);
-void reconstruct_with_file_desc_t(file_desc_t* file);
-
-void update_descriptors();
-void reconstruct_with_descriptors();
-
-int getggid(MPI_Comm comm);
-int hash(int i);
-
-void init_comm_world(); // This is required for the CVC algorithm.
-
-MPI_Comm get_vcomm_internal(MPI_Comm realComm); // As is this.
 
 #endif // ifndef VIRTUAL_ID_H
