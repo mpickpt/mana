@@ -45,7 +45,7 @@ extern int MPI_Comm_create_group_internal(MPI_Comm comm, MPI_Group group,
 extern int MPI_Comm_free_internal(MPI_Comm *comm);
 extern int MPI_Comm_group_internal(MPI_Comm comm, MPI_Group *group);
 extern int MPI_Group_free_internal(MPI_Group *group);
-extern int MPI_Comm_internal_vgroup(MPI_Comm comm, MPI_Group *group);
+extern int MPI_Comm_internal_virt_group(MPI_Comm comm, MPI_Group *group);
 int *g_sendBytesByRank; // Number of bytes sent to other ranks
 int *g_rsendBytesByRank; // Number of bytes sent to other ranks by MPI_rsend
 int *g_bytesSentToUsByRank; // Number of bytes other ranks sent to us
@@ -76,7 +76,7 @@ registerLocalSendsAndRecvs()
   // Get a copy of MPI_COMM_WORLD
   MPI_Group group_world;
   MPI_Comm mana_comm;
-  MPI_Comm_internal_vgroup(MPI_COMM_WORLD, &group_world);
+  MPI_Comm_internal_virt_group(MPI_COMM_WORLD, &group_world);
   MPI_Comm_create_group_internal(MPI_COMM_WORLD, group_world, 1, &mana_comm);
 
   // broadcast sendBytes and recvBytes
@@ -85,10 +85,13 @@ registerLocalSendsAndRecvs()
   g_bytesSentToUsByRank[g_world_rank] = 0;
 
   // Free resources
-  // Semantics -- although mana_comm IS a real id, and MPI_Comm_free_internal does look up a virtual id to remove, since it cannot find the virtual id, the real id is returned back and freed in the lh. So there is no leak with mana_comm.
+  // mana_comm is a real id, and MPI_Comm_free_internal expects a
+  // virtual id, but it works out because virtualToReal(real_id) is
+  // defined to be real_id.
   MPI_Comm_free_internal(&mana_comm);
 
-  // Because group_world is a virtual group, we have to free both its virtual and real id to clean up correctly.
+  // Because group_world is a virtual group, we have to free both its
+  // virtual and real id to clean up correctly.
   MPI_Group_free_internal(&group_world);
   REMOVE_OLD_GROUP(group_world);
 }
