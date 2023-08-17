@@ -188,6 +188,47 @@ static uint64_t page_unit;
 
 #include "lower_half_api.h"
 
+/*
+ * Note that many of these functions/variables have a corresponding
+ * function/variable in the upper half.  The correspondences are:
+ * FIXME: rename numRegions to numMmapRegions
+ * int numRegions -> int *g_numMmaps
+ * MmapInfo_t mmaps[MAX_TRACK] -> MmapInfo_t *g_list
+ * FIXME: Multiple changes needed; Also rename it to: lh_core_regions_list
+ * LhCoreRegions_t lh_regions_list[MAX_LH_REGIONS]
+ *    // Found in mmap_internals.h and also in:
+ *    //   ../mtcp_split_process.c (used during restart); and in:
+ *    //   ../mpi_plugin.c (used during checkpoint to detect lh core regions)
+ *    // Apparently, lh_regions_list[] is never used in lower_half dir.
+ *    // In ../mtcp_split_process.c, refers to _core_ regions (lh_[rproxy/head)
+ *    // lh_regions_list[] is populated by ../mtcp_split_process.c:startProxy()
+ * FIXME:  Rename getLhRegionsListFptr to getLhMmappedRegionsListFptr
+ * void *getLhRegionsListFptr -> void *getMmappedListFptr
+ * FIXME:  Rename getLhRegionsList to getLhMmappedRegionsList
+ * FIXME:  Rename LhCoreRegions_T to LhRegions_t
+ * LhCoreRegions_t* getLhRegionsList(int **num) -> void getLhMmapList()
+ *                               Uses local fnc.: getMmappedList_t fnc;
+ *                               Implying: MmapInfo_t* fnc(int **num);
+ * FIXME:  Rename getLhRegionsListFptr to getLhMmappedRegionsListFptr
+ * LhCoreRegions_t* getLhRegionsList(int **num) ->
+ *                                   void *lh_info.getLhRegionsListFptr(**num)
+ * void *resetMmappedListFptr -> lh_info.resetMmappedListFptr
+ * void resetMmappedList() -> resetMmappedList_t resetMaps // returns void
+ * // numCoreRegions is number of regions of lh_proxy/heap:
+ * FIXME:  Rename totalRegions to totalCoreRegions
+ * libproxy.c: int totalRegions -> int lh_info.numCoreRegions
+ * libproxy.c: int num_lh_core_regions -> lh_info.numCoreRegions;
+ *                  // int num_lh_core_regions // local var in startProxy()
+ *
+ * ../restart_plugin:
+ * mtcp_split_process.c: int num_lh_core_regions // num regions of lh_proxy/heap
+ * mtcp_restart_plugin.c: int total_lh_regions = lh_info->numCoreRegions
+ * ../restart_plugin:  LhCoreRegions_t *lh_regions_list[MAX_LH_REGIONS];
+ *                               // same as higher up
+ * mtcp_restart_plugin.c: getLhRegionsList_t core_fnc ->
+ *                                             lh_info->getLhRegionsListFptr;
+ */
+
 int getMmapIdx(const void *);
 void* getNextAddr(size_t );
 
