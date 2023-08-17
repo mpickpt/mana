@@ -475,7 +475,7 @@ void reconstruct_with_datatype_desc_t(datatype_desc_t* datatype) {
   		    NEXT_FUNC(Type_create_struct)(datatype->num_integers, datatype->integers, datatype->addresses, datatype->datatypes, &datatype->real_id);
 		    break;
             case MPI_COMBINER_CONTIGUOUS:
-	            NEXT_FUNC(Type_contiguous)(datatype->integers[0], datatype->datatypes[0], &datatype->real_id)
+	            NEXT_FUNC(Type_contiguous)(datatype->integers[0], datatype->datatypes[0], &datatype->real_id);
 		      break;
 	  default:
 		    break;
