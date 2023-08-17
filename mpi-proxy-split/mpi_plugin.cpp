@@ -1109,12 +1109,10 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     }
 
     case DMTCP_EVENT_PRECHECKPOINT: {
-      // recordMpiInitMaps();
-      // recordOpenFds();
-      // dmtcp_local_barrier("MPI:GetLocalLhMmapList");
-      // getLhMmapList();
-
-
+      recordMpiInitMaps();
+      recordOpenFds();
+      dmtcp_local_barrier("MPI:GetLocalLhMmapList");
+      getLhMmapList();
       dmtcp_local_barrier("MPI:GetLocalRankInfo");
       getLocalRankInfo(); // p2p_log_replay.cpp
       dmtcp_global_barrier("MPI:update-ckpt-dir-by-rank");
@@ -1127,11 +1125,6 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 
       dmtcp_global_barrier("MPI:update-resource-descriptors");
       update_descriptors();
-
-      recordMpiInitMaps();
-      recordOpenFds();
-      dmtcp_local_barrier("MPI:GetLocalLhMmapList");
-      getLhMmapList();
 
       dmtcp_global_barrier("MPI:ckpt-image-union");
       computeUnionOfCkptImageAddresses();
