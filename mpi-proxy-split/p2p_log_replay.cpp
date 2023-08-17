@@ -77,7 +77,7 @@ updateCkptDirByRank()
   o << baseDir << "/ckpt_rank_" << g_world_rank;
   dmtcp_set_ckpt_dir(o.str().c_str());
 
-  if (!g_list || g_numMmaps == 0) return;
+  if (!g_list || g_numMmaps == NULL || *g_numMmaps == 0) return;
   o << "/lhregions.dat";
   dmtcp::string fname = o.str();
   int fd = open(fname.c_str(), O_CREAT | O_WRONLY, 0600);
@@ -85,8 +85,8 @@ updateCkptDirByRank()
   // g_range (lh_memory_range) was written for debugging here.
   Util::writeAll(fd, g_range, sizeof(*g_range));
 #endif
-  Util::writeAll(fd, &g_numMmaps, sizeof(g_numMmaps));
-  for (int i = 0; i < g_numMmaps; i++) {
+  Util::writeAll(fd, g_numMmaps, sizeof(*g_numMmaps));
+  for (int i = 0; i < *g_numMmaps; i++) {
     Util::writeAll(fd, &g_list[i], sizeof(g_list[i]));
   }
   close(fd);

@@ -22,7 +22,7 @@ using namespace dmtcp_mpi;
 static dmtcp::LookupService lsObj;
 proxyDlsym_t pdlsym = NULL;
 LowerHalfInfo_t lh_info;
-int g_numMmaps = 0;
+int *g_numMmaps = NULL;
 MmapInfo_t *g_list = NULL;
 MemRange_t *g_range = NULL;
 

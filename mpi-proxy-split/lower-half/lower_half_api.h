@@ -136,7 +136,7 @@ typedef int (*libcFptr_t) (int (*main) (int, char **, char ** MAIN_AUXVEC_DECL),
 typedef void* (*proxyDlsym_t)(enum MPI_Fncs fnc);
 typedef void* (*updateEnviron_t)(char **environ);
 typedef void (*resetMmappedList_t)();
-typedef MmapInfo_t* (*getMmappedList_t)(int *num);
+typedef MmapInfo_t* (*getMmappedList_t)(int **num);
 typedef LhCoreRegions_t* (*getLhRegionsList_t)(int *num);
 
 // Global variables with lower-half information
@@ -167,7 +167,7 @@ extern void updateEnviron(const char **newenviron);
 // Returns a pointer to the first element of a pre-allocated array of
 // 'MmapInfo_t' objects and 'num' is set to the number of valid items in
 // the array
-extern MmapInfo_t* getMmappedList(int *num);
+extern MmapInfo_t* getMmappedList(int **num);
 
 // Clears the global, pre-allocated array of 'MmapInfo_t' objects
 extern void resetMmappedList();
