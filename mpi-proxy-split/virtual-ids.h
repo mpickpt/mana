@@ -112,7 +112,7 @@
 #define VIRTUAL_TO_DESC_COMM(id) \
   VIRTUAL_TO_DESC(id, MPI_COMM_NULL, comm_desc_t)
 #define VIRTUAL_TO_REAL_COMM(id) \
-  VIRTUAL_TO_REAL(id, MPI_COMM_NULL, MPI_Comm, comm_desc_t); 
+  VIRTUAL_TO_REAL(id, MPI_COMM_NULL, MPI_Comm, comm_desc_t)
 #define ADD_NEW_COMM(id) \
   ADD_NEW(id, MPI_COMM_NULL, MPI_Comm, comm_desc_t, COMM_MASK)
 #define REMOVE_OLD_COMM(id) \
