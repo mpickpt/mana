@@ -131,6 +131,8 @@ comm_desc_t* init_comm_desc_t(MPI_Comm realComm) {
   comm_desc_t* desc = ((comm_desc_t*)malloc(sizeof(comm_desc_t)));
 
   if (it != ggidDescriptorTable.end()) {
+    // There exists another communicator with the same ggid, i.e.,
+    // this communicator is an alias. We use the same ggid_desc.
     desc->ggid_desc = it->second;
   } else {
     ggid_desc_t* gd = ((ggid_desc_t *) malloc(sizeof(ggid_desc_t)));
