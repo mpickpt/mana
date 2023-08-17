@@ -116,10 +116,10 @@ void *nextFreeAddr = NULL;
 // Returns a pointer to the array of mmap-ed regions
 // Sets num to the number of valid items in the array
 MmapInfo_t*
-getMmappedList(int *num)
+getMmappedList(int **num)
 {
   if (!num) return NULL;
-  *num = numRegions;
+  *num = &numRegions;
   return mmaps;
 }
 

@@ -861,7 +861,7 @@ mtcp_plugin_skip_memory_region_munmap(Area *area, RestoreInfo *rinfo)
 #ifdef USE_LH_MMAPS_ARRAY
   MmapInfo_t *g_list = NULL;
 #endif
-  int g_numMmaps = 0;
+  int *g_numMmaps = NULL;
   int i = 0;
 
 #ifdef USE_LH_MMAPS_ARRAY
@@ -934,7 +934,7 @@ mtcp_plugin_skip_memory_region_munmap(Area *area, RestoreInfo *rinfo)
   // FIXME: use assert(g_list) instead.
   if (!g_list) return 0;
 
-  for (i = 0; i < g_numMmaps; i++) {
+  for (i = 0; i < *g_numMmaps; i++) {
     void *lhMmapStart = g_list[i].addr;
     void *lhMmapEnd = (VA)g_list[i].addr + g_list[i].len;
     if (!g_list[i].unmapped &&
