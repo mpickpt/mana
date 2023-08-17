@@ -167,6 +167,12 @@ MPI_Comm get_vcomm_internal(MPI_Comm realComm) {
 // TODO This may be inefficient because it causes repeated reconstruction of the respective group.
 // A more efficient design would link groups and comms, but would introduce complexity.
 void update_comm_desc_t(comm_desc_t* desc) {
+  // HACK MPI_COMM_WORLD in the LH.
+  // This is here because we need to virtualize MPI_COMM_WORLD for our own purposes.
+  // But, since MPI_COMM_WORLD is a constant, it should not be reconstructed.
+  if (desc->real_id == 0x84000000 || desc->real_id == MPI_COMM_WORLD) { 
+    return;
+  }
 
   // Cleanup from a previous CKPT, if one occured.
   free(desc->ranks);
@@ -212,6 +218,12 @@ void update_comm_desc_t(comm_desc_t* desc) {
 // Its job is to take the metadata of the descriptor and re-create the communicator it describes.
 // It is typically called at restart time.
 void reconstruct_with_comm_desc_t(comm_desc_t* desc) {
+  // HACK MPI_COMM_WORLD in the LH.
+  // This is here because we need to virtualize MPI_COMM_WORLD for our own purposes.
+  // But, since MPI_COMM_WORLD is a constant, it should not be reconstructed.
+  if (desc->real_id == 0x84000000 || desc->real_id == MPI_COMM_WORLD) { 
+    return;
+  }
 #ifdef DEBUG_VIDS
   printf("reconstruct_comm_desc_t comm: %x -> %x\n", desc->handle, desc->real_id);
 
@@ -230,10 +242,6 @@ void reconstruct_with_comm_desc_t(comm_desc_t* desc) {
   fflush(stdout);
   fflush(stdout);
 #endif
-  // HACK MPI_COMM_WORLD in the LH.
-  if (desc->real_id == 0x84000000 || desc->real_id == MPI_COMM_WORLD) { 
-    return;
-  }
 
   MPI_Group group;
 
@@ -513,9 +521,14 @@ id_desc_t* virtualToDescriptor(int virtId) {
   return NULL;
 }
 
+// For internal purposes, we need to pre-emptively virtualize
+// MPI_COMM_WORLD.
 void init_comm_world() {
   comm_desc_t* comm_world = ((comm_desc_t*)malloc(sizeof(comm_desc_t)));
-  // HACK As it stands, this is the constant MPI_COMM_WORLD in the lower half.
+  // HACK As it stands, this is the constant MPI_COMM_WORLD in the
+  // lower half. Doing this correctly probably means retrieving it
+  // from the lower half with every initialization.
+
   comm_world->real_id = 0x84000000;
   ggid_desc_t* comm_world_ggid = ((ggid_desc_t*)malloc(sizeof(ggid_desc_t)));
   comm_world->ggid_desc = comm_world_ggid;
