@@ -49,10 +49,16 @@ __wrap_shmat(int shmid, const void *shmaddr, int shmflg)
       mmaps[idx].len = len;
       mmaps[idx].unmapped = 0;
     } else {
-      mmaps[numRegions].addr = ret;
-      mmaps[numRegions].len = len;
-      mmaps[numRegions].unmapped = 0;
-      numRegions = (numRegions + 1) % MAX_TRACK;
+      mmaps[numMmapRegions].addr = ret;
+      mmaps[numMmapRegions].len = len;
+      mmaps[numMmapRegions].unmapped = 0;
+      numMmapRegions = numMmapRegions + 1;
+      // FIXME: shmat() is not creating a guard page, unlike mmap().
+      if (numMmapRegions >= MAX_TRACK - 2) { // Keep MAP_FAILED sentinel
+        char msg[] = "*** Panic: MANA lower half: no more space for mmap.\n";
+        write(2, msg, sizeof(msg));
+      }
+      assert(numMmapRegions < MAX_TRACK - 2); //MAX_TRACK-2 in case guard page
     }
   }
   return ret;
