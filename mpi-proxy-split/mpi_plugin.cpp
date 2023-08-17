@@ -87,7 +87,7 @@ bool CheckAndEnableFsGsBase();
 
 EXTERNC pid_t dmtcp_get_real_tid() __attribute((weak));
 
-int g_numMmaps = 0;
+int *g_numMmaps = NULL;
 MmapInfo_t *g_list = NULL;
 mana_state_t mana_state = UNKNOWN_STATE;
 
@@ -211,7 +211,7 @@ void recordMpiInitMaps()
 
   if (g_list) {
     ostringstream o;
-    for (int i = 0; i < g_numMmaps; i++) {
+    for (int i = 0; i < *g_numMmaps; i++) {
       void *lhMmapStart = g_list[i].addr;
       void *lhMmapEnd = (VA)g_list[i].addr + g_list[i].len;
       if (!g_list[i].unmapped) {
@@ -366,7 +366,7 @@ isLhMmapRegion(const ProcMapsArea *area)
     return false;
   }
 
-  for (int i = 0; i < g_numMmaps; i++) {
+  for (int i = 0; i < *g_numMmaps; i++) {
     void *lhMmapStart = g_list[i].addr;
     void *lhMmapEnd = (VA)g_list[i].addr + g_list[i].len;
     if (!g_list[i].unmapped &&
@@ -658,10 +658,11 @@ getLhMmapList()
 {
   getMmappedList_t fnc = (getMmappedList_t)lh_info.getMmappedListFptr;
   if (fnc) {
+    // Initialize g_numMmaps to point to lower half 'numMmapRegions'
     g_list = fnc(&g_numMmaps);
   }
-  JTRACE("Lower half region info")(g_numMmaps);
-  for (int i = 0; i < g_numMmaps; i++) {
+  JTRACE("Lower half region info")(*g_numMmaps);
+  for (int i = 0; i < *g_numMmaps; i++) {
     JTRACE("Lh region")(g_list[i].addr)(g_list[i].len)(g_list[i].unmapped);
   }
 }

@@ -49,7 +49,7 @@
 #define PMPI_IMPL(ret, func, ...)                               \
   EXTERNC ret P##func(__VA_ARGS__) __attribute__ ((weak, alias (#func)));
 
-extern int g_numMmaps;
+extern int *g_numMmaps;
 extern MmapInfo_t *g_list;
 
 bool isUsingCollectiveToP2p();
