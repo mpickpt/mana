@@ -78,6 +78,7 @@ typedef struct __LhCoreRegions
 
 // The transient lh_proxy process introspects its memory layout and passes this
 // information back to the main application process using this struct.
+// This must be same in restart_plugin and low
 typedef struct _LowerHalfInfo
 {
   void *startText; // Start address of text segment (R-X) of lower half

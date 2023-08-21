@@ -57,6 +57,7 @@
 static unsigned long origPhnum;
 static unsigned long origPhdr;
 LowerHalfInfo_t lh_info;
+LowerHalfInfo_t *lh_info_addr;
 proxyDlsym_t pdlsym; // initialized to (proxyDlsym_t)lh_info.lh_dlsym
 LhCoreRegions_t lh_regions_list[MAX_LH_REGIONS] = {0};
 
@@ -111,6 +112,7 @@ splitProcess()
   int ret = -1;
   if (childpid > 0) {
     ret = read_lh_proxy_bits(childpid);
+    memcpy(&lh_info, lh_info_addr, sizeof(lh_info)); // Populate lh_info now
     kill(childpid, SIGKILL);
     waitpid(childpid, NULL, 0);
   }
@@ -348,6 +350,26 @@ startProxy()
       // Read from stdout of lh_proxy full lh_info struct, including orig memRange.
       close(pipefd_out[1]); // close write end of pipe
 
+      // Read info on lh_core_regions
+      int num_lh_core_regions;
+      int ret = dmtcp::Util::readAll(pipefd_out[0],
+                          &num_lh_core_regions, sizeof(num_lh_core_regions));
+      JASSERT(num_lh_core_regions <= MAX_LH_REGIONS) (num_lh_core_regions)
+        .Text("Invalid number of LH core regions");
+      size_t total_bytes = num_lh_core_regions*sizeof(LhCoreRegions_t);
+      ret = dmtcp::Util::readAll(pipefd_out[0], &lh_regions_list, total_bytes);
+      JWARNING(ret == (ssize_t)total_bytes) (ret) (total_bytes) (JASSERT_ERRNO)
+                .Text("Read fewer bytes than expected for LH core regions");
+      ret = dmtcp::Util::readAll(pipefd_out[0],
+                                 &lh_info_addr, sizeof(lh_info_addr));
+
+      // FIXME:  We should use num_lh_core_regions to read lh core regions,
+      //         instead of passing it through lh_info.numCoreRegions.
+      //         Declare num_lh_core_regions next to lh_regions_list[].
+      lh_info.numCoreRegions = num_lh_core_regions;
+
+#if 0
+// FIXME: DELETE THIS OLD CODE.
       int ret = dmtcp::Util::readAll(pipefd_out[0], &lh_info, sizeof lh_info);
       JWARNING(ret == (ssize_t)sizeof lh_info) (ret) ((ssize_t)sizeof lh_info)
         (JASSERT_ERRNO).Text("Read fewer bytes than expected");
@@ -361,6 +383,8 @@ startProxy()
 
       JWARNING(ret == (ssize_t)total_bytes) (ret) (total_bytes) (JASSERT_ERRNO)
                 .Text("Read fewer bytes than expected for LH core regions");
+#endif
+
       close(pipefd_out[0]);
       addPathFor_gethostbyname_proxy(); // used by statically linked lower half
     }
