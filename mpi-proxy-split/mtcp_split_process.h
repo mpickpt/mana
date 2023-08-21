@@ -1,3 +1,10 @@
+/***************************************************************
+ * This was added on Feb. 9, 2022 by Kapil: 7389f9ef
+ * It was modified by Twinkle on May 9, 2022: a4b7f081b
+ * But it is never used.
+ * WE NEED TO DELETE THIS.
+ ****************************************************************/
+
 #ifndef MTCP_SPLIT_PROCESS_H
 #define MTCP_SPLIT_PROCESS_H
 

@@ -12,6 +12,7 @@
 #include <limits.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <string.h>
 #include <ucontext.h>
 #include <sys/syscall.h>
 #include <sys/uio.h>
@@ -39,6 +40,9 @@
 
 int mtcp_sys_errno;
 
+// FIXME:  We should use lh_info everywhere, instead of rinfo->pluginInfo.
+LowerHalfInfo_t lh_info;
+LowerHalfInfo_t *lh_info_addr;
 // FIXME:  The value of pdlsym must be passed from mtcp_restart to
 //         the upper half, so that NEXT_FNC() in mpi-wrappers in libmana.so in
 //         can use the updated pdlsym in case the address of the lower half
@@ -78,8 +82,13 @@ splitProcess(RestoreInfo *rinfo)
   if (childpid > 0) {
     // Parent has read from pipefd_out; child is ready.
     // We then "copy the bits" of the child process into our (parent's) space.
+    // And it is then safe to copy the lh_info from the child proxy to uh.
     // We then kill the child process.
     ret = read_lh_proxy_bits(rinfo, childpid, rinfo->argv[0]);
+    // FIXME:  We should use lh_info, in place of rinfo->pluginInfo
+    // Populate lh_info now that we have copied the bits.
+    mtcp_memcpy(&lh_info, lh_info_addr, sizeof(lh_info));
+    mtcp_memcpy(&rinfo->pluginInfo, lh_info_addr, sizeof(lh_info));
     mtcp_sys_kill(childpid, SIGKILL);
     mtcp_sys_wait4(childpid, NULL, 0, NULL);
   }
@@ -258,12 +267,11 @@ startProxy(RestoreInfo *rinfo)
       // Read full lh_info struct from stdout of lh_proxy, including orig
       // memRange.
       mtcp_sys_close(pipefd_out[1]); // close write end of pipe
-      if (mtcp_read_all(pipefd_out[0], &rinfo->pluginInfo,
-                        sizeof rinfo->pluginInfo) < sizeof rinfo->pluginInfo) {
-        MTCP_PRINTF("*** WARNING: Read fewer bytes than expected. ***\n");
-        break;
-      }
-      int num_lh_core_regions = rinfo->pluginInfo.numCoreRegions;
+
+      // Read info on lh_core_regions
+      int num_lh_core_regions;
+      mtcp_read_all(pipefd_out[0],
+                    &num_lh_core_regions, sizeof(num_lh_core_regions));
       MTCP_ASSERT (num_lh_core_regions <= MAX_LH_REGIONS);
       size_t total_bytes = num_lh_core_regions*sizeof(LhCoreRegions_t);
       if (mtcp_read_all(pipefd_out[0], &lh_regions_list, total_bytes)
@@ -272,6 +280,24 @@ startProxy(RestoreInfo *rinfo)
                     region list. ***\n");
         break;
       }
+      mtcp_read_all(pipefd_out[0], &lh_info_addr, sizeof(lh_info_addr));
+
+      // FIXME:  Remove rinfo->pluginInfo and use lh_info everywhere.
+      lh_info.numCoreRegions = num_lh_core_regions;
+      rinfo->pluginInfo.numCoreRegions = num_lh_core_regions;
+
+#if 0
+// FIXME: DELETE THIS OLD CODE.
+      // Consistency check. Is libproxy.c:sizeof(lh_info) -- rinfo->plugiInfo ?
+      int sizeofLhInfo;
+      mtcp_read_all(pipefd_out[0], &sizeofLhInfo, sizeof(sizeofLhInfo));
+      MTCP_ASSERT(sizeofLhInfo == sizeof(rinfo->pluginInfo));
+      if (mtcp_read_all(pipefd_out[0], &rinfo->pluginInfo,
+                        sizeof rinfo->pluginInfo) < sizeof rinfo->pluginInfo) {
+        MTCP_PRINTF("*** WARNING: Read fewer bytes than expected. ***\n");
+        break;
+      }
+#endif
       mtcp_sys_close(pipefd_out[0]);
     }
   }
@@ -309,8 +335,8 @@ setLhMemRange(RestoreInfo *rinfo)
   int found = getMappedArea(&area, "[stack]");
   if (found) {
 #ifdef MANA_USE_LH_FIXED_ADDRESS
-    lh_mem_range.start = 0x2aab00000000;
-    lh_mem_range.end =   0x2aab00000000 + ONE_GB;
+    lh_mem_range.start = (void *)0x2aab00000000;
+    lh_mem_range.end =   (void *)(0x2aab00000000 + ONE_GB);
 #else
     lh_mem_range.start = (VA)area.addr - TWO_GB;
     lh_mem_range.end = (VA)area.addr - ONE_GB;
