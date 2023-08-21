@@ -75,32 +75,32 @@ ${PROXY_BIN}: ${PROXY_OBJS} ${LIBPROXY}.a ${STATIC_GETHOSTBYNAME}
 	if ${MPICC} -v 2>&1 | grep -q 'MPICH version'; then \
 	  rm -f tmp.sh; \
 	  ${MPICC} -show ${PROXY_LD_FLAGS} ${TEXTSEG_ADDR_FLAG} -o $@ -Wl,-start-group \
-	    $^ ${MPI_LD_FLAG} -lrt -lpthread -lc -ldl -Wl,-end-group | \
+	    $^ ${MPI_LD_FLAG} -lrt -lpthread -ldl -lc -Wl,-end-group | \
 	    sed -e 's^-lunwind ^ ^'> tmp.sh; \
 	  sh tmp.sh; \
 	  rm -f tmp.sh; \
 	elif ${STATIC_LIBS}; then \
 	  ${MPICC} ${PROXY_LD_FLAGS} ${TEXTSEG_ADDR_FLAG} -o $@ -Wl,-start-group \
-            $^ ${MPI_LD_FLAG} `cat static_libs.txt` -ldl -Wl,--end-group; \
+            $^ ${MPI_LD_FLAG} `cat static_libs.txt` -ldl -lc -Wl,--end-group; \
 	else \
 	  ${MPICC} ${PROXY_LD_FLAGS} ${TEXTSEG_ADDR_FLAG} -o $@ -Wl,-start-group \
-            $^ ${MPI_LD_FLAG} -lrt -lpthread -lc -ldl -Wl,-end-group; \
+            $^ ${MPI_LD_FLAG} -lrt -lpthread -ldl -lc -Wl,-end-group; \
 	fi
 
 ${PROXY_BIN_DEFADDR}: ${PROXY_OBJS} ${LIBPROXY}.a ${STATIC_GETHOSTBYNAME}
 	if ${MPICC} -v 2>&1 | grep -q 'MPICH version'; then \
 	  rm -f tmp.sh; \
 	  ${MPICC} -show ${PROXY_LD_FLAGS} -o $@ -Wl,-start-group \
-	    $^ ${MPI_LD_FLAG} -lrt -lpthread -lc -ldl -Wl,-end-group | \
+	    $^ ${MPI_LD_FLAG} -lrt -lpthread -ldl -lc -Wl,-end-group | \
 	    sed -e 's^-lunwind ^ ^'> tmp.sh; \
 	  sh tmp.sh; \
 	  rm -f tmp.sh; \
 	elif ${STATIC_LIBS}; then \
 	  ${MPICC} ${PROXY_LD_FLAGS} -o $@ -Wl,-start-group \
-            $^ ${MPI_LD_FLAG} `cat static_libs.txt` -ldl -Wl,--end-group; \
+            $^ ${MPI_LD_FLAG} `cat static_libs.txt` -ldl -lc -Wl,--end-group; \
 	else \
 	  ${MPICC} ${PROXY_LD_FLAGS} -o $@ -Wl,-start-group \
-	  $^ ${MPI_LD_FLAG} -lrt -lpthread -lc -ldl -Wl,-end-group; \
+	  $^ ${MPI_LD_FLAG} -lrt -lpthread -ldl -lc -Wl,-end-group; \
 	fi
 
 ${LIBPROXY}.a: ${LIBPROXY_OBJS}
