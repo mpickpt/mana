@@ -264,6 +264,10 @@ void reconstruct_with_comm_desc_t(comm_desc_t* desc) {
   fflush(stdout);
   fflush(stdout);
 #endif
+  // HACK MPI_COMM_WORLD in the LH.
+  if (desc->real_id == WORLD_COMM) { 
+    return;
+  }
 
   MPI_Group group;
   

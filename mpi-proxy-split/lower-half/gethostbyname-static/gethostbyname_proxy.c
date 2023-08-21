@@ -112,7 +112,9 @@ int do_gethostbyname(const char *name) {
 int do_getaddrinfo(const char *node, const char *service,
                    const struct addrinfo *hints) {
   struct addrinfo *res;
-  int rc = getaddrinfo(node, service, hints, &res);
+  const struct addrinfo empty_hints;
+  memset(&empty_hints, 0, sizeof(empty_hints));
+  int rc = getaddrinfo(node, service, &empty_hints, &res);
   if (rc != 0) {
     return rc;
   }
