@@ -192,7 +192,7 @@ void reconstruct_with_comm_desc_t(comm_desc_t* desc) {
   fflush(stdout);
 #endif
   // HACK MPI_COMM_WORLD in the LH.
-  if (desc->real_id == (void*)0x84000000) { 
+  if (desc->real_id == WORLD_COMM) { 
     return;
   }
 
