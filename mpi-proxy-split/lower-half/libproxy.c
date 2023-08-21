@@ -362,12 +362,38 @@ void first_constructor()
     lh_info.vdsoLdAddrInLinkMap = getVdsoPointerInLinkMap();
     DLOG(INFO, "startText: %p, endText: %p, endOfHeap; %p\n",
          lh_info.startText, lh_info.endText, lh_info.endOfHeap);
+    // Write LH core regions list to stdout, for the parent process to read.
+    if (write(1, &totalRegions, sizeof(totalRegions)) != sizeof(totalRegions)) {
+      fprintf(stderr, "* WARNING: totalRegions (numCoreRegions) not sent\n");
+      fflush(stderr);
+    }
+    size_t total_bytes = totalRegions*sizeof(LhCoreRegions_t);
+    if (write(1, &lh_core_regions, total_bytes) < total_bytes) {
+      fprintf(stderr, "* WARNING: lh_proxy didn't write all lh_core_regions\n");
+      fflush(stderr);
+    }
+    // Write the addr of the lower-half lh_info struct in the stdout.
+    // The parent process will: (i) read this pipe; (ii) store lh_info_addr
+    // in the upper half; and (iii) then copy the address space of this child
+    // process into the lower half in the parent process using process_vm_readv.
+    // NOTE:  All of this happens in mpi-proxy-split/split_process.cpp
+    // and in restart_plugin/mtcp_split_process.c (during launch and restart).
+    LowerHalfInfo_t *lh_info_addr = &lh_info;
+    if (write(1, &lh_info_addr, sizeof(lh_info_addr)) != sizeof(lh_info_addr)) {
+      fprintf(stderr, "* WARNING: lh_info_addr not sent\n");
+      fflush(stderr);
+    }
+
+#if 0
+    // Send sizeof(lh_info) as consistency ehck.
+    // Will it sizeolh_info->pluginInfo) == restart_plugi/mtcp_split_process.c?
+    int sizeof_lh_info = sizeof(lh_info);
+    write(1, &sizeof_lh_info, sizeof(lh_info));
     // Write lh_info to stdout, for mtcp_split_process.c to read.
     write(1, &lh_info, sizeof lh_info);
-    // Write LH core regions list to stdout, for the parent process to read.
-    write(1, &lh_core_regions, (sizeof(LhCoreRegions_t)*totalRegions));
     // It's okay to have an infinite loop here.  Our parent has promised to
     // kill us after it copies our bits.  So, this child doesn't need to exit.
+#endif
     while(1);
   } else {
     DLOG(NOISE, "(2) Constructor: Running in the parent?\n");
