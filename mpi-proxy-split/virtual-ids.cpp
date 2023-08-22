@@ -523,7 +523,7 @@ void reconstruct_with_datatype_desc_t(datatype_desc_t* datatype) {
 	            NEXT_FUNC(Type_create_indexed_block)(datatype->integers[0], datatype->integers[1], datatype->integers + 2, datatype->datatypes[0], &datatype->real_id);
 		    break;
             case MPI_COMBINER_HINDEXED_BLOCK:
-	            NEXT_FUNC(Type_create_indexed_block)(datatype->integers[0], datatype->integers[1], datatype->addresses, datatype->datatypes[0], &datatype->real_id);
+	            NEXT_FUNC(Type_create_hindexed_block)(datatype->integers[0], datatype->integers[1], datatype->addresses, datatype->datatypes[0], &datatype->real_id);
 		    break;
 	    case MPI_COMBINER_STRUCT:
   		    NEXT_FUNC(Type_create_struct)(datatype->integers[0], datatype->integers + 1, datatype->addresses, datatype->datatypes, &datatype->real_id);
