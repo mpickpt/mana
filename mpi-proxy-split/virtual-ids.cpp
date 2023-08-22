@@ -529,10 +529,10 @@ void reconstruct_with_datatype_desc_t(datatype_desc_t* datatype) {
   		    NEXT_FUNC(Type_create_struct)(datatype->integers[0], datatype->integers + 1, datatype->addresses, datatype->datatypes, &datatype->real_id);
 		    break;
             case MPI_COMBINER_SUBARRAY:
-	      NEXT_FUNC(Type_create_subarray)(datatype->integers[0], datatype->integers + 1, datatype->integers + 1 + datatype->integers[0], datatype->integers + 1 + 2 * datatype->integers[0], datatype->integers + 1 + 3 * datatype->integers[0], datatype->datatypes[0], &datatype->real_id);
+	      NEXT_FUNC(Type_create_subarray)(datatype->integers[0], datatype->integers + 1, datatype->integers + 1 + datatype->integers[0], datatype->integers + 1 + 2 * datatype->integers[0], datatype->integers[1 + 3 * datatype->integers[0]], datatype->datatypes[0], &datatype->real_id);
 	            break;
             case MPI_COMBINER_DARRAY:
-	      NEXT_FUNC(Type_create_darray)(datatype->integers[0], datatype->integers[1], datatype->integers[2], datatype->integers + 3, datatype->integers + 3 + datatype->integers[2], datatype->integers + 3 + 2 * datatype->integers[2], datatype->integers + 3 + 3 * datatype->integers[2], datatype->integers + 3 + 4 * datatype->integers[2], datatype->datatypes[0], &datatype->real_id);
+	      NEXT_FUNC(Type_create_darray)(datatype->integers[0], datatype->integers[1], datatype->integers[2], datatype->integers + 3, datatype->integers + 3 + datatype->integers[2], datatype->integers + 3 + 2 * datatype->integers[2], datatype->integers + 3 + 3 * datatype->integers[2], datatype->integers[3 + 4 * datatype->integers[2]], datatype->datatypes[0], &datatype->real_id);
             case MPI_COMBINER_CONTIGUOUS:
 	            NEXT_FUNC(Type_contiguous)(datatype->integers[0], datatype->datatypes[0], &datatype->real_id);
 		      break;
@@ -543,7 +543,7 @@ void reconstruct_with_datatype_desc_t(datatype_desc_t* datatype) {
 	      NEXT_FUNC(Type_create_f90_complex)(datatype->integers[0], datatype->integers[1], &datatype->real_id);
 	      break;
             case MPI_COMBINER_F90_INTEGER:
-	      NEXT_FUNC(Type_create_f90_integer)(datatype->integers[0], datatype->integers[1], &datatype->real_id);
+	      NEXT_FUNC(Type_create_f90_integer)(datatype->integers[0], &datatype->real_id);
 	      break;
             case MPI_COMBINER_RESIZED:
 	      NEXT_FUNC(Type_create_resized)(datatype->datatypes[0], datatype->addresses[0], datatype->addresses[1], &datatype->real_id);
