@@ -487,7 +487,7 @@ void reconstruct_with_datatype_desc_t(datatype_desc_t* datatype) {
     JUMP_TO_LOWER_HALF(lh_info.fsaddr);
     switch (datatype->combiner) {
 	    case MPI_COMBINER_VECTOR:
-		    NEXT_FUNC(Type_vector)(datatype->integers[0], datatype->integers[1], datatype->addresses[0], datatype->datatypes[0], &datatype->real_id);
+		    NEXT_FUNC(Type_vector)(datatype->integers[0], datatype->integers[1], datatype->addresses[2], datatype->datatypes[0], &datatype->real_id);
 		    break;
 	    case MPI_COMBINER_HVECTOR:
 		    NEXT_FUNC(Type_hvector)(datatype->integers[0], datatype->integers[1], datatype->addresses[0], datatype->datatypes[0], &datatype->real_id);
