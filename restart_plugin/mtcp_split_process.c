@@ -24,22 +24,6 @@
 #include "mtcp_header.h"
 #include "mtcp_split_process.h"
 
-// FIXME:  Add this to DMTCP, instead of here.
-//         dmtcp/src/mtcp/stdlibfnc.c defined mtcp_memcpy, but not mtcp_memcmp.
-int mtcp_memcmp(const void *s1, const void *s2, size_t n) {
-  const char *str1 = s1;
-  const char *str2 = s2;
-  int i;
-  for (i = 0; i < n; i++) {
-    if (*str1 != *str2) {
-      return *str1 - *str2;
-    }
-    str1++;
-    str2++;
-  }
-  return 0;
-}
-
 /******************************************************************
  * The top-level function is:
  *                  splitProcess(RestoreInfo *rinfo),
@@ -97,8 +81,8 @@ splitProcess(RestoreInfo *rinfo)
   // The child process enters libproxy.c:first_constructor() of lh_proxy.
   // We write memRange to stdin of child process, which
   //   gets copied into lh_info.memRange, inside lh_proxy (see lower-half dir.).
-  // We then read from stdout of child process to populate rinfo.pluginInfo
-  //   with all fields from lh_info. (Eventually, pluginInfo should go away.)
+  // We then read from stdout of child process to populate lh_info with
+  //   all fields from lh_info in the lower half.
   pid_t childpid = startProxy(rinfo);
   int ret = -1;
   if (childpid > 0) {
@@ -114,8 +98,12 @@ splitProcess(RestoreInfo *rinfo)
   }
   if (ret == 0) {
     ret = initializeLowerHalf(rinfo);
+    // lh_info has now been updated from the child proxy process.
+    return ret;
+  } else {
+    MTCP_PRINTF("splitProcess:  Failed to read_lh_proxy_bits()\n");
+    return -1;
   }
-  return ret;
 }
 
 // Local functions
