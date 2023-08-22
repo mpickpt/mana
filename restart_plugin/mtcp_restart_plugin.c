@@ -568,10 +568,10 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
     //   mtcp_split_process.c, in both restart_plugin and mpi-proxy-split dirs.
     end1 = rinfo->maxLibsEnd;
 
-    // Reserve 8MB above min high memory region. That should include space for
-    // stack, argv, env, auxvec.
+    // maxHighMemEnd reserves 8MB above min high memory region.
+    // That should include space for stack, argv, env, auxvec.
     start2 = rinfo->minHighMemStart - 1 * GB; // Allow for stack to grow
-    end2 = rinfo->minHighMemStart + 8 * MB;
+    end2 = rinfo->maxHighMemEnd;
     // Ignore region start2:end2 if it is overlapped with region start1:end1
     if (is_overlap(start1, end1, start2, end2)) {
       if (end1 < end2) { end1 = end2; }
@@ -649,10 +649,10 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
     Area stack_area;
     MTCP_ASSERT(getMappedArea(&stack_area, "[stack]") == 1);
     end1 = MIN(stack_area.endAddr - 4 * GB, rinfo->minHighMemStart - 4 * GB);
-    // Reserve 8MB above min high memory region. That should include space for
-    // stack, argv, env, auxvec.
+    // maxHighMemEnd reserves 8MB above min high memory region.
+    // That should include space for stack, argv, env, auxvec.
     start2 = rinfo->minHighMemStart;
-    end2 = rinfo->minHighMemStart + 8 * MB;
+    end2 = rinfo->maxHighMemEnd;
     // Ignore region start2:end2 if it is overlapped with region start1:end1
     if (is_overlap(start1, end1, start2, end2)) {
       start2 = 0;
@@ -787,10 +787,10 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
     //   mtcp_split_process.c, in both restart_plugin and mpi-proxy-split dirs.
     end1 = rinfo->maxLibsEnd;
 
-    // Reserve 8MB above min high memory region. That should include space for
-    // stack, argv, env, auxvec.
+    // maxHighMemEnd reserves 8MB above min high memory region.
+    // That should include space for stack, argv, env, auxvec.
     start2 = rinfo->minHighMemStart - 1 * GB; // Allow for stack to grow
-    end2 = rinfo->minHighMemStart + 8 * MB;
+    end2 = rinfo->maxHighMemEnd;
     // Ignore region start2:end2 if it is overlapped with region start1:end1
     if (is_overlap(start1, end1, start2, end2)) {
       if (end1 < end2) { end1 = end2; }
@@ -868,10 +868,10 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
     Area stack_area;
     MTCP_ASSERT(getMappedArea(&stack_area, "[stack]") == 1);
     end1 = MIN(stack_area.endAddr - 4 * GB, rinfo->minHighMemStart - 4 * GB);
-    // Reserve 8MB above min high memory region. That should include space for
-    // stack, argv, env, auxvec.
+    // maxHighMemEnd reserves 8MB above min high memory region.
+    // That should include space for stack, argv, env, auxvec.
     start2 = rinfo->minHighMemStart;
-    end2 = rinfo->minHighMemStart + 8 * MB;
+    end2 = rinfo->maxHighMemEnd;
     // Ignore region start2:end2 if it is overlapped with region start1:end1
     if (is_overlap(start1, end1, start2, end2)) {
       start2 = 0;
