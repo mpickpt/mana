@@ -461,11 +461,16 @@ void update_datatype_desc_t(datatype_desc_t* datatype) {
       datatype->addresses = NULL;
       datatype->datatypes = NULL;
 
+      bool should_return = false;
+
     DMTCP_PLUGIN_DISABLE_CKPT();
 
     JUMP_TO_LOWER_HALF(lh_info.fsaddr);
     NEXT_FUNC(Type_get_envelope)(datatype->real_id, &datatype->num_integers, &datatype->num_addresses, &datatype->num_datatypes, &datatype->combiner);
     RETURN_TO_UPPER_HALF();
+
+    // FIXME:  "If combiner is MPI_COMBINER_NAMED then it is erroneous to call MPI_TYPE_GET_CONTENTS. "
+    // So, we might want to exit early.
 
     // Use the malloc in the upper-half.
     datatype->integers = ((int*)malloc(sizeof(int) * datatype->num_integers));
@@ -484,6 +489,8 @@ void update_datatype_desc_t(datatype_desc_t* datatype) {
 // the envelope, however, the real ids we will obtain will be invalid.
 // A correct implementation for doubly-derived datatypes would require
 // something like a dependency tree for types.
+
+// Reconstruction arguments taken from here: https://www.mpi-forum.org/docs/mpi-3.1/mpi31-report/node90.htm
 void reconstruct_with_datatype_desc_t(datatype_desc_t* datatype) {
     if (datatype->is_freed) {
 	return;
@@ -497,6 +504,7 @@ void reconstruct_with_datatype_desc_t(datatype_desc_t* datatype) {
 		    break;
             case MPI_COMBINER_NAMED:
 	      // if the type is named and predefined, we shouldn't need to do anything.
+	      // "If combiner is MPI_COMBINER_NAMED then it is erroneous to call MPI_TYPE_GET_CONTENTS. "
 	            break;
 	    case MPI_COMBINER_VECTOR:
 		    NEXT_FUNC(Type_vector)(datatype->integers[0], datatype->integers[1], datatype->integers[2], datatype->datatypes[0], &datatype->real_id);
@@ -506,17 +514,40 @@ void reconstruct_with_datatype_desc_t(datatype_desc_t* datatype) {
 		    break;
 	    case MPI_COMBINER_INDEXED:
 		    // Here, the integers in the envelope are split into two arrays.
-                    NEXT_FUNC(Type_indexed)(indexed_count, datatype->integers, datatype->integers + indexed_count, datatype->datatypes[0], &datatype->real_id);
+                    NEXT_FUNC(Type_indexed)(datatype->integers[0], datatype->integers + 1, datatype->integers + 1 + datatype->integers[0], datatype->datatypes[0], &datatype->real_id);
                     break;
 	    case MPI_COMBINER_HINDEXED:
-                    NEXT_FUNC(Type_hindexed)(datatype->num_integers, datatype->integers, datatype->addresses, datatype->datatypes[0], &datatype->real_id);
+                    NEXT_FUNC(Type_hindexed)(datatype->integers[0], datatype->integers + 1, datatype->addresses, datatype->datatypes[0], &datatype->real_id);
                     break;
-	    case MPI_COMBINER_STRUCT:
-  		    NEXT_FUNC(Type_create_struct)(datatype->num_integers, datatype->integers, datatype->addresses, datatype->datatypes, &datatype->real_id);
+            case MPI_COMBINER_INDEXED_BLOCK:
+	            NEXT_FUNC(Type_create_indexed_block)(datatype->integers[0], datatype->integers[1], datatype->integers + 2, datatype->datatypes[0], &datatype->real_id);
 		    break;
+            case MPI_COMBINER_HINDEXED_BLOCK:
+	            NEXT_FUNC(Type_create_indexed_block)(datatype->integers[0], datatype->integers[1], datatype->addresses, datatype->datatypes[0], &datatype->real_id);
+		    break;
+	    case MPI_COMBINER_STRUCT:
+  		    NEXT_FUNC(Type_create_struct)(datatype->integers[0], datatype->integers + 1, datatype->addresses, datatype->datatypes, &datatype->real_id);
+		    break;
+            case MPI_COMBINER_SUBARRAY:
+	      NEXT_FUNC(Type_create_subarray)(datatype->integers[0], datatype->integers + 1, datatype->integers + 1 + datatype->integers[0], datatype->integers + 1 + 2 * datatype->integers[0], datatype->integers + 1 + 3 * datatype->integers[0], datatype->datatypes[0], &datatype->real_id);
+	            break;
+            case MPI_COMBINER_DARRAY:
+	      NEXT_FUNC(Type_create_darray)(datatype->integers[0], datatype->integers[1], datatype->integers[2], datatype->integers + 3, datatype->integers + 3 + datatype->integers[2], datatype->integers + 3 + 2 * datatype->integers[2], datatype->integers + 3 + 3 * datatype->integers[2], datatype->integers + 3 + 4 * datatype->integers[2], datatype->datatypes[0], &datatype->real_id);
             case MPI_COMBINER_CONTIGUOUS:
 	            NEXT_FUNC(Type_contiguous)(datatype->integers[0], datatype->datatypes[0], &datatype->real_id);
 		      break;
+            case MPI_COMBINER_F90_REAL:
+	      NEXT_FUNC(Type_create_f90_real)(datatype->integers[0], datatype->integers[1], &datatype->real_id);
+	      break;
+            case MPI_COMBINER_F90_COMPLEX:
+	      NEXT_FUNC(Type_create_f90_complex)(datatype->integers[0], datatype->integers[1], &datatype->real_id);
+	      break;
+            case MPI_COMBINER_F90_INTEGER:
+	      NEXT_FUNC(Type_create_f90_integer)(datatype->integers[0], datatype->integers[1], &datatype->real_id);
+	      break;
+            case MPI_COMBINER_F90_RESIZED:
+	      NEXT_FUNC(Type_create_f90_integer)(datatype->addresses[0], datatype->addresses[1], datatype->datatypes[0], &datatype->real_id);
+	      break;
 	  default:
 		    break;
   }
