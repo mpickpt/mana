@@ -54,7 +54,7 @@
 
 #undef NEXT_FUNC
 #define NEXT_FUNC(args) MPI_##args
-#endif
+#endif // #ifdef STANDALONE_VIDS
 
 // #define DEBUG_VIDS
 
