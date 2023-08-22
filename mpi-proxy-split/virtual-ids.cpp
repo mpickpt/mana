@@ -486,6 +486,9 @@ void reconstruct_with_datatype_desc_t(datatype_desc_t* datatype) {
     DMTCP_PLUGIN_DISABLE_CKPT();
     JUMP_TO_LOWER_HALF(lh_info.fsaddr);
     switch (datatype->combiner) {
+            case MPI_COMBINER_NAMED:
+	      // if the type is named and predefined, we shouldn't need to do anything.
+	             break;
 	    case MPI_COMBINER_VECTOR:
 		    NEXT_FUNC(Type_vector)(datatype->integers[0], datatype->integers[1], datatype->integers[2], datatype->datatypes[0], &datatype->real_id);
 		    break;
