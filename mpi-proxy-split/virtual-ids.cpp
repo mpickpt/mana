@@ -472,8 +472,10 @@ void update_datatype_desc_t(datatype_desc_t* datatype) {
     NEXT_FUNC(Type_get_envelope)(datatype->real_id, &datatype->num_integers, &datatype->num_addresses, &datatype->num_datatypes, &datatype->combiner);
     RETURN_TO_UPPER_HALF();
 
-    // FIXME:  "If combiner is MPI_COMBINER_NAMED then it is erroneous to call MPI_TYPE_GET_CONTENTS. "
-    // So, we might want to exit early.
+    // FIXME: "If combiner is MPI_COMBINER_NAMED then it is erroneous
+    // to call MPI_TYPE_GET_CONTENTS. " So, we might want to exit
+    // early (although this shouldn't happen anyway, as nobody should
+    // make a virtualization of these types)
 
     // Use the malloc in the upper-half.
     datatype->integers = ((int*)malloc(sizeof(int) * datatype->num_integers));
