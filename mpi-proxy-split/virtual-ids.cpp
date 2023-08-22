@@ -478,6 +478,12 @@ void update_datatype_desc_t(datatype_desc_t* datatype) {
     DMTCP_PLUGIN_ENABLE_CKPT();
 }
 
+// FIXME: None of this will work with a datatype that is "doubly
+// derived", i.e., with a datatype that is derived from another
+// derived datatype.  We will correctly identify the combiner and get
+// the envelope, however, the real ids we will obtain will be invalid.
+// A correct implementation for doubly-derived datatypes would require
+// something like a dependency tree for types.
 void reconstruct_with_datatype_desc_t(datatype_desc_t* datatype) {
     if (datatype->is_freed) {
 	return;
@@ -486,9 +492,12 @@ void reconstruct_with_datatype_desc_t(datatype_desc_t* datatype) {
     DMTCP_PLUGIN_DISABLE_CKPT();
     JUMP_TO_LOWER_HALF(lh_info.fsaddr);
     switch (datatype->combiner) {
+            case MPI_COMBINER_DUP:
+		    NEXT_FUNC(Type_dup)(datatype->datatypes[0], &datatype->real_id);
+		    break;
             case MPI_COMBINER_NAMED:
 	      // if the type is named and predefined, we shouldn't need to do anything.
-	             break;
+	            break;
 	    case MPI_COMBINER_VECTOR:
 		    NEXT_FUNC(Type_vector)(datatype->integers[0], datatype->integers[1], datatype->integers[2], datatype->datatypes[0], &datatype->real_id);
 		    break;
