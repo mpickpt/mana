@@ -434,10 +434,14 @@ dmtcp_skip_memory_region_ckpting(const ProcMapsArea *area)
     return 1;
   }
 
-  if (isLhMpiInitRegion(area)) {
-    JTRACE("Ignoring MpiInit region")(area->name)((void*)area->addr);
-    return 1;
-  }
+  /*  FIXME:  This routine was finding a false positive.  It was skipping
+   *          the saving of one of the memory area beyond '[stack]'.
+   *          This was exhibited after Perlmutter was upgraded on Aug. 16, 2023.
+   *  if (isLhMpiInitRegion(area)) {
+   *    JTRACE("Ignoring MpiInit region")(area->name)((void*)area->addr);
+   *    return 1;
+   *  }
+   */
 
   if (strstr(area->name, "/anon_hugepage")) {
     JTRACE("Ignoring /anon_hugepage region")(area->name)((void*)area->addr);
