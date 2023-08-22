@@ -286,18 +286,6 @@ startProxy(RestoreInfo *rinfo)
       lh_info.numCoreRegions = num_lh_core_regions;
       rinfo->pluginInfo.numCoreRegions = num_lh_core_regions;
 
-#if 0
-// FIXME: DELETE THIS OLD CODE.
-      // Consistency check. Is libproxy.c:sizeof(lh_info) -- rinfo->plugiInfo ?
-      int sizeofLhInfo;
-      mtcp_read_all(pipefd_out[0], &sizeofLhInfo, sizeof(sizeofLhInfo));
-      MTCP_ASSERT(sizeofLhInfo == sizeof(rinfo->pluginInfo));
-      if (mtcp_read_all(pipefd_out[0], &rinfo->pluginInfo,
-                        sizeof rinfo->pluginInfo) < sizeof rinfo->pluginInfo) {
-        MTCP_PRINTF("*** WARNING: Read fewer bytes than expected. ***\n");
-        break;
-      }
-#endif
       mtcp_sys_close(pipefd_out[0]);
     }
   }

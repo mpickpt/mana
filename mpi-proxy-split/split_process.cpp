@@ -368,23 +368,6 @@ startProxy()
       //         Declare num_lh_core_regions next to lh_regions_list[].
       lh_info.numCoreRegions = num_lh_core_regions;
 
-#if 0
-// FIXME: DELETE THIS OLD CODE.
-      int ret = dmtcp::Util::readAll(pipefd_out[0], &lh_info, sizeof lh_info);
-      JWARNING(ret == (ssize_t)sizeof lh_info) (ret) ((ssize_t)sizeof lh_info)
-        (JASSERT_ERRNO).Text("Read fewer bytes than expected");
-
-      int num_lh_core_regions = lh_info.numCoreRegions;
-      JASSERT(num_lh_core_regions <= MAX_LH_REGIONS) (num_lh_core_regions)
-        .Text("Invalid number of LH core regions");
-
-      size_t total_bytes = num_lh_core_regions*sizeof(LhCoreRegions_t);
-      ret = dmtcp::Util::readAll(pipefd_out[0], &lh_regions_list, total_bytes);
-
-      JWARNING(ret == (ssize_t)total_bytes) (ret) (total_bytes) (JASSERT_ERRNO)
-                .Text("Read fewer bytes than expected for LH core regions");
-#endif
-
       close(pipefd_out[0]);
       addPathFor_gethostbyname_proxy(); // used by statically linked lower half
     }
