@@ -528,6 +528,12 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
       end2 = 0;
     }
 
+    Area vvar_area;
+    MTCP_ASSERT(getMappedArea(&vvar_area, "[vvar]") == 1);
+    // if (end2 > vvar_area.addr) {
+    //   end2 = vvar_area.addr;
+    // }
+
     // ADJUST THE [start2, end2] AROUND THE LOWER-HALF STACK:
     // The lower-half stack is present.  We will restore the upper-half
     // stack later, while restoring the upper half.  We may have an
@@ -608,7 +614,14 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
       end2 = 0;
     }
   }
-  // FIXME:  End of '#if 1'; Remove '# else' branch when the code is stable.
+
+  Area vvar_area;
+  MTCP_ASSERT(getMappedArea(&vvar_area, "[vvar]") == 1);
+  if (end2 > vvar_area.addr) {
+    end2 = vvar_area.addr;
+  }
+
+  // FIXME:  End of '#if 1'; Remove this '# else' branch when the code is stable
 # endif
 
   reserveUpperHalfMemoryRegionsForCkptImgs(start1, end1, start2, end2);
@@ -730,6 +743,12 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
       end2 = 0;
     }
 
+    Area vvar_area;
+    MTCP_ASSERT(getMappedArea(&vvar_area, "[vvar]") == 1);
+    // if (end2 > vvar_area.addr) {
+    //   end2 = vvar_area.addr;
+    // }
+
     // ADJUST THE [start2, end2] AROUND THE LOWER-HALF STACK:
     // The lower-half stack is present.  We will restore the upper-half
     // stack later, while restoring the upper half.  We may have an
@@ -800,6 +819,7 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
     Area stack_area;
     MTCP_ASSERT(getMappedArea(&stack_area, "[stack]") == 1);
     end1 = MIN(stack_area.endAddr - 4 * GB, rinfo->minHighMemStart - 4 * GB);
+    MTCP_ASSERT(getMappedArea(&vvar_area, "[vvar]") == 1);
     // maxHighMemEnd reserves 8MB above min high memory region.
     // That should include space for stack, argv, env, auxvec.
     start2 = rinfo->minHighMemStart;
@@ -810,7 +830,14 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
       end2 = 0;
     }
   }
-  // FIXME:  End of '#if 1'; Remove '# else' branch when the code is stable.
+
+  Area vvar_area;
+  MTCP_ASSERT(getMappedArea(&vvar_area, "[vvar]") == 1);
+  if (end2 > vvar_area.addr) {
+    end2 = vvar_area.addr;
+  }
+
+  // FIXME:  End of '#if 1'; Remove this '# else' branch when the code is stable
 # endif
 
   char full_filename[PATH_MAX];

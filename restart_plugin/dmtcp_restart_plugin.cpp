@@ -53,6 +53,9 @@ void dmtcp_restart_plugin(const string &restartDir,
   mtcpArgs.push_back((char*) "--minHighMemStart");
   mtcpArgs.push_back((char*) kvmap.at("MANA_MinHighMemStart").c_str());
 
+  mtcpArgs.push_back((char*) "--maxHighMemEnd");
+  mtcpArgs.push_back((char*) kvmap.at("MANA_MaxHighMemEnd").c_str());
+
   if (!restartDir.empty()) {
     mtcpArgs.push_back((char *)"--restartdir");
     mtcpArgs.push_back((char *)restartDir.c_str());
