@@ -62,6 +62,8 @@ typedef struct LowerHalfInfo
   MemRange_t memRange;
 } LowerHalfInfo_t;
 
+extern LowerHalfInfo_t *lh_info_addr;
+
 typedef LowerHalfInfo_t PluginInfo;
 
 typedef struct RestoreInfo RestoreInfo;
