@@ -545,8 +545,8 @@ void reconstruct_with_datatype_desc_t(datatype_desc_t* datatype) {
             case MPI_COMBINER_F90_INTEGER:
 	      NEXT_FUNC(Type_create_f90_integer)(datatype->integers[0], datatype->integers[1], &datatype->real_id);
 	      break;
-            case MPI_COMBINER_F90_RESIZED:
-	      NEXT_FUNC(Type_create_f90_integer)(datatype->addresses[0], datatype->addresses[1], datatype->datatypes[0], &datatype->real_id);
+            case MPI_COMBINER_RESIZED:
+	      NEXT_FUNC(Type_create_resized)(datatype->addresses[0], datatype->addresses[1], datatype->datatypes[0], &datatype->real_id);
 	      break;
 	  default:
 		    break;
