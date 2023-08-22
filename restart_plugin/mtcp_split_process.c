@@ -24,6 +24,28 @@
 #include "mtcp_header.h"
 #include "mtcp_split_process.h"
 
+// FIXME:  Add this to DMTCP, instead of here.
+//         dmtcp/src/mtcp/stdlibfnc.c defined mtcp_memcpy, but not mtcp_memcmp.
+int mtcp_memcmp(const void *s1, const void *s2, size_t n) {
+  const char *str1 = s1;
+  const char *str2 = s2;
+  int i;
+  for (i = 0; i < n; i++) {
+    if (*str1 != *str2) {
+      return *str1 - *str2;
+    }
+    str1++;
+    str2++;
+  }
+  return 0;
+}
+
+/******************************************************************
+ * The top-level function is:
+ *                  splitProcess(RestoreInfo *rinfo),
+ * called from mtcp_restart.c:mtcp_plugin_hook(RestoreInfo *rinfo).
+ ******************************************************************/
+
 // ****** NOTE:  This macro should be set the same in mtcp_split_process.c
 //               both in the mpi-proxy-split and the restart_plugin directories.
 // FIXME: We chose the fixed addresses below to hopefully conflict with nothing.
@@ -41,6 +63,7 @@
 int mtcp_sys_errno;
 
 // FIXME:  We should use lh_info everywhere, instead of rinfo->pluginInfo.
+//         This avoids an artificial dependence on dmtcp/src/mtcp.
 LowerHalfInfo_t lh_info;
 LowerHalfInfo_t *lh_info_addr;
 // FIXME:  The value of pdlsym must be passed from mtcp_restart to
@@ -73,10 +96,10 @@ splitProcess(RestoreInfo *rinfo)
   DPRINTF("Initializing Lower-Half Proxy");
   // In startProxy, we fork a child process and exec to lh_proxy.
   // The child process enters libproxy.c:first_constructor() of lh_proxy.
-  // We write rinfo.pluginInfo.memRange to stdin of child process, which
+  // We write memRange to stdin of child process, which
   //   gets copied into lh_info.memRange, inside lh_proxy (see lower-half dir.).
   // We then read from stdout of child process to populate rinfo.pluginInfo
-  //   with all fields from lh_info.
+  //   with all fields from lh_info. (Eventually, pluginInfo should go away.)
   pid_t childpid = startProxy(rinfo);
   int ret = -1;
   if (childpid > 0) {
@@ -158,7 +181,7 @@ static int
 read_lh_proxy_bits(RestoreInfo *rinfo, pid_t childpid, char *argv0)
 {
   int ret = -1;
-  const int IOV_SZ = rinfo->pluginInfo.numCoreRegions;
+  const int IOV_SZ = lh_info.numCoreRegions;
   struct iovec remote_iov[IOV_SZ];
 
   // NOTE:  In our case local_iov will be same as remote_iov.
@@ -289,6 +312,8 @@ startProxy(RestoreInfo *rinfo)
       mtcp_sys_close(pipefd_out[0]);
     }
   }
+  // FIXME: Eventually, remove rinfo->pluginInfo from restartPlugin
+  MTCP_ASSERT(mtcp_memcmp(&lh_info, &rinfo->pluginInfo, sizeof(lh_info)) == 0);
   return childpid;
 }
 
@@ -364,8 +389,9 @@ initializeLowerHalf(RestoreInfo *rinfo)
 {
   int ret = 0;
   int lh_initialized = 0;
-  unsigned long argcAddr = (unsigned long)rinfo->pluginInfo.parentStackStart;
-  resetMmappedList_t resetMmaps = (resetMmappedList_t)rinfo->pluginInfo.resetMmappedListFptr;
+  unsigned long argcAddr = (unsigned long)lh_info.parentStackStart;
+  resetMmappedList_t resetMmaps =
+                           (resetMmappedList_t)lh_info.resetMmappedListFptr;
 
   // NOTE:
   // argv[0] is 1 LP_SIZE ahead of argc, i.e., startStack + sizeof(void*)
@@ -375,7 +401,7 @@ initializeLowerHalf(RestoreInfo *rinfo)
   char **argv = (char**)(argcAddr + sizeof(unsigned long));
   char **ev = &argv[argc + 1];
   // char **ev = &((unsigned long*)stack_end[argc + 1]);
-  pdlsym = (proxyDlsym_t)rinfo->pluginInfo.lh_dlsym;
+  pdlsym = (proxyDlsym_t)lh_info.lh_dlsym;
 
   // Copied from glibc source
   ElfW(auxv_t) *auxvec;
@@ -386,23 +412,22 @@ initializeLowerHalf(RestoreInfo *rinfo)
   }
   // update vDSO linkmap entry to the temporary address
   updateVdsoLinkmapEntry(rinfo->currentVdsoStart,
-                         rinfo->pluginInfo.vdsoLdAddrInLinkMap);
-  JUMP_TO_LOWER_HALF(rinfo->pluginInfo.fsaddr);
+                         lh_info.vdsoLdAddrInLinkMap);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   (*resetMmaps)();
   // Set the auxiliary vector to correspond to the values of the lower half
   // (which is statically linked, unlike the upper half). Without this, glibc
   // will get confused during the initialization.
-  patchAuxv(auxvec, rinfo->pluginInfo.lh_AT_PHNUM, rinfo->pluginInfo.lh_AT_PHDR, 1);
+  patchAuxv(auxvec, lh_info.lh_AT_PHNUM, lh_info.lh_AT_PHDR, 1);
   // Save upper half's ucontext_t in a global object in the lower half, as
   // specified by the lh_info.g_appContext pointer
-  getcontext((ucontext_t*)rinfo->pluginInfo.g_appContext);
+  getcontext((ucontext_t*)lh_info.g_appContext);
 
   if (!lh_initialized) {
     lh_initialized = 1;
-    libcFptr_t fnc = (libcFptr_t)rinfo->pluginInfo.libc_start_main;
-    fnc((mainFptr)rinfo->pluginInfo.main, argc, argv,
-        (mainFptr)rinfo->pluginInfo.libc_csu_init,
-        (finiFptr)rinfo->pluginInfo.libc_csu_fini, 0, stack_end);
+    libcFptr_t fnc = (libcFptr_t)lh_info.libc_start_main;
+    fnc((mainFptr)lh_info.main, argc, argv, (mainFptr)lh_info.libc_csu_init,
+        (finiFptr)lh_info.libc_csu_fini, 0, stack_end);
   }
   DPRINTF("After getcontext");
   patchAuxv(auxvec, 0, 0, 0);
