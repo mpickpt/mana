@@ -377,6 +377,8 @@ startProxy()
 
 // This sets the address range of the lower half dynamically by searching
 // through the memory region for the first available free region.
+// FIXME:  restart_plugin/mtcp_split_process.c uses MANA_USE_LH_FIXED_ADDRESS.
+//         Consider testing and using it here, also.
 static void
 findLHMemRange(MemRange_t *lh_mem_range)
 {
