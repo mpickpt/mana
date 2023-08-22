@@ -212,7 +212,8 @@ void update_comm_desc_t(comm_desc_t* desc) {
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   NEXT_FUNC(Comm_group)(desc->real_id, &group);
   RETURN_TO_UPPER_HALF();
-
+  // I do not free the resulting MPI_Group, because AFAIK, the
+  // lower-half memory is thrown away on a restart anyways.
 
 #ifdef DEBUG_VIDS
   printf("update_comm_desc group: %x\n", group);
@@ -435,6 +436,8 @@ datatype_desc_t* init_datatype_desc_t(MPI_Datatype realType) {
     desc->num_addresses = 0;
     desc->addresses = NULL;
 
+    // TODO this was in Yao's spec sheet, but I haven't seen it used
+    // in any of the relevant functions. Why is this here?
     desc->num_large_counts = 0;
     desc->large_counts = NULL;
 
