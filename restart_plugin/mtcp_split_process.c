@@ -24,22 +24,6 @@
 #include "mtcp_header.h"
 #include "mtcp_split_process.h"
 
-// FIXME:  Add this to DMTCP, instead of here.
-//         dmtcp/src/mtcp/stdlibfnc.c defined mtcp_memcpy, but not mtcp_memcmp.
-int mtcp_memcmp(const void *s1, const void *s2, size_t n) {
-  const char *str1 = s1;
-  const char *str2 = s2;
-  int i;
-  for (i = 0; i < n; i++) {
-    if (*str1 != *str2) {
-      return *str1 - *str2;
-    }
-    str1++;
-    str2++;
-  }
-  return 0;
-}
-
 /******************************************************************
  * The top-level function is:
  *                  splitProcess(RestoreInfo *rinfo),
@@ -62,8 +46,6 @@ int mtcp_memcmp(const void *s1, const void *s2, size_t n) {
 
 int mtcp_sys_errno;
 
-// FIXME:  We should use lh_info everywhere, instead of rinfo->pluginInfo.
-//         This avoids an artificial dependence on dmtcp/src/mtcp.
 LowerHalfInfo_t lh_info;
 LowerHalfInfo_t *lh_info_addr;
 // FIXME:  The value of pdlsym must be passed from mtcp_restart to
@@ -98,8 +80,8 @@ splitProcess(RestoreInfo *rinfo)
   // The child process enters libproxy.c:first_constructor() of lh_proxy.
   // We write memRange to stdin of child process, which
   //   gets copied into lh_info.memRange, inside lh_proxy (see lower-half dir.).
-  // We then read from stdout of child process to populate rinfo.pluginInfo
-  //   with all fields from lh_info. (Eventually, pluginInfo should go away.)
+  // We then read from stdout of child process to populate lh_info with
+  //   all fields from lh_info in the lower half.
   pid_t childpid = startProxy(rinfo);
   int ret = -1;
   if (childpid > 0) {
@@ -108,16 +90,15 @@ splitProcess(RestoreInfo *rinfo)
     // And it is then safe to copy the lh_info from the child proxy to uh.
     // We then kill the child process.
     ret = read_lh_proxy_bits(rinfo, childpid, rinfo->argv[0]);
-    // FIXME:  We should use lh_info, in place of rinfo->pluginInfo
     // Populate lh_info now that we have copied the bits.
     mtcp_memcpy(&lh_info, lh_info_addr, sizeof(lh_info));
-    mtcp_memcpy(&rinfo->pluginInfo, lh_info_addr, sizeof(lh_info));
     mtcp_sys_kill(childpid, SIGKILL);
     mtcp_sys_wait4(childpid, NULL, 0, NULL);
   }
   if (ret == 0) {
     ret = initializeLowerHalf(rinfo);
   }
+  // lh_info has now been updated from the child proxy process.
   return ret;
 }
 
@@ -305,15 +286,12 @@ startProxy(RestoreInfo *rinfo)
       }
       mtcp_read_all(pipefd_out[0], &lh_info_addr, sizeof(lh_info_addr));
 
-      // FIXME:  Remove rinfo->pluginInfo and use lh_info everywhere.
+      // We'll copy in the rest of lh_info, after lh_info regions are copied in.
       lh_info.numCoreRegions = num_lh_core_regions;
-      rinfo->pluginInfo.numCoreRegions = num_lh_core_regions;
 
       mtcp_sys_close(pipefd_out[0]);
     }
   }
-  // FIXME: Eventually, remove rinfo->pluginInfo from restartPlugin
-  MTCP_ASSERT(mtcp_memcmp(&lh_info, &rinfo->pluginInfo, sizeof(lh_info)) == 0);
   return childpid;
 }
 
