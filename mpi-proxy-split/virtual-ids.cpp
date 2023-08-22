@@ -58,16 +58,22 @@
 
 // #define DEBUG_VIDS
 
-// TODO I use an explicitly integer virtual id, which under macro reinterpretation will fit into an int64 pointer.
-// This should be fine if no real MPI Type is smaller than an int32.
+// TODO I use an explicitly integer virtual id, which under macro
+// reinterpretation will fit into an int64 pointer.  This should be
+// fine if no real MPI Type is smaller than an int32.
 typedef typename std::map<int, id_desc_t*>::iterator id_desc_iterator;
 typedef typename std::map<int, ggid_desc_t*>::iterator ggid_desc_iterator;
 
-// Per Yao Xu, MANA does not require the thread safety offered by DMTCP's VirtualIdTable. We use std::map.
-std::map<int, id_desc_t*> idDescriptorTable; // int vId -> id_desc_t*, which contains rId.
-std::map<int, ggid_desc_t*> ggidDescriptorTable; // int ggid -> ggid_desc_t*, which contains CVC information.
+// Per Yao Xu, MANA does not require the thread safety offered by
+// DMTCP's VirtualIdTable. We use std::map.
 
-// vid generation mechanism.
+// int vId -> id_desc_t*, which contains rId.
+std::map<int, id_desc_t*> idDescriptorTable; 
+
+// int ggid -> ggid_desc_t*, which contains CVC information.
+std::map<int, ggid_desc_t*> ggidDescriptorTable; 
+
+// dead-simple vid generation mechanism.
 int base = 1;
 int nextvId = base;
 
@@ -153,7 +159,9 @@ comm_desc_t* init_comm_desc_t(MPI_Comm realComm) {
   return desc;
 }
 
-// HACK This function exists to call a communicator construction /without/ mutating the ggidDescriptorTable. This is ugly and probably should be changed later.
+// HACK This function exists to call a communicator construction
+// /without/ mutating the ggidDescriptorTable. This is ugly and
+// probably should be changed later.
 MPI_Comm get_vcomm_internal(MPI_Comm realComm) {
   int worldRank, commSize, localRank;
 #ifdef DEBUG_VIDS
@@ -385,8 +393,8 @@ void destroy_group_desc_t(group_desc_t* group) {
   free(group);
 }
 
-// TODO Currently not supported.
-// "The support of non-blocking collective commmunication is still not merged into the main branch.
+// TODO Currently not supported.  "The support of non-blocking
+// collective commmunication is still not merged into the main branch.
 // But you can ignore MPI Request for now."
 request_desc_t* init_request_desc_t(MPI_Request realReq) {
   request_desc_t* desc = ((request_desc_t*)malloc(sizeof(request_desc_t))); // FIXME
@@ -450,7 +458,9 @@ datatype_desc_t* init_datatype_desc_t(MPI_Datatype realType) {
 }
 
 void update_datatype_desc_t(datatype_desc_t* datatype) {
-      // TODO this will fail for doubly-derived datatypes, for the real id given in datatype->datatypes will not be constant after a checkpoint-restart.
+      // TODO this will fail for doubly-derived datatypes, for the
+      // real id given in datatype->datatypes will not be constant
+      // after a checkpoint-restart.
       if (datatype->is_freed) {
 	// If the real datatype described has been freed in the lower half, MPI will be angry.
 	return;
@@ -495,12 +505,15 @@ void update_datatype_desc_t(datatype_desc_t* datatype) {
 // A correct implementation for doubly-derived datatypes would require
 // something like a dependency tree for types.
 
-// Reconstruction arguments taken from here: https://www.mpi-forum.org/docs/mpi-3.1/mpi31-report/node90.htm
+// Mercifully, it appears that not many applications use
+// doubly-derived datatypes. They do seem pretty baroque.
+
+// Reconstruction arguments taken from here:
+// https://www.mpi-forum.org/docs/mpi-3.1/mpi31-report/node90.htm
 void reconstruct_with_datatype_desc_t(datatype_desc_t* datatype) {
     if (datatype->is_freed) {
 	return;
     }
-    int indexed_count = datatype->num_integers / 2;
     DMTCP_PLUGIN_DISABLE_CKPT();
     JUMP_TO_LOWER_HALF(lh_info.fsaddr);
     switch (datatype->combiner) {
