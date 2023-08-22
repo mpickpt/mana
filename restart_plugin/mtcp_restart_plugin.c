@@ -7,7 +7,6 @@
 #include <fcntl.h>
 #include <sys/prctl.h>
 #include <sys/auxv.h>
-#include <mtcp_util.h>
 #include <linux/limits.h>
 #include "mtcp_restart.h"
 #include "mtcp_sys.h"
@@ -491,8 +490,12 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
   // The other assumption here is that we can only handle uncompressed
   // checkpoint images.
 
-  // This creates the lower half and copies the bits to this address space
+  // This creates the lower half and copies the bits to populate lh_info:
   splitProcess(rinfo);
+  // Now copy it to rinfo->pluginInfo.   Eventually, we want to use
+  //   only lh_info, and remove pluginInfo from
+  //   mtcp_restart_plugin.h and ../dmtcp/src/mtcp/mtcp_restart.h
+  mtcp_memcpy(&rinfo->pluginInfo, &lh_info, sizeof(lh_info));
 
   // Reserve first 500 file descriptors for the Upper-half
   int reserved_fds[500];
@@ -706,8 +709,12 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
   // The other assumption here is that we can only handle uncompressed
   // checkpoint images.
 
-  // This creates the lower half and copies the bits to this address space
+  // This creates the lower half and copies the bits to populate lh_info:
   splitProcess(rinfo);
+  // Now copy it to rinfo->pluginInfo.   Eventually, we want to use
+  //   only lh_info, and remove pluginInfo from
+  //   mtcp_restart_plugin.h and ../dmtcp/src/mtcp/mtcp_restart.h
+  mtcp_memcpy(&rinfo->pluginInfo, &lh_info, sizeof(lh_info));
 
   // Reserve first 500 file descriptors for the Upper-half
   int reserved_fds[500];
@@ -872,9 +879,8 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
 int
 mtcp_plugin_skip_memory_region_munmap(Area *area, RestoreInfo *rinfo)
 {
-  LowerHalfInfo_t *lh_info = &rinfo->pluginInfo;
   LhCoreRegions_t *lh_regions_list = NULL;
-  int total_lh_regions = lh_info->numCoreRegions;
+  int total_lh_regions = lh_info.numCoreRegions;
 
   if (regionContains(rinfo->pluginInfo.memRange.start,
                      rinfo->pluginInfo.memRange.end,
@@ -904,7 +910,7 @@ mtcp_plugin_skip_memory_region_munmap(Area *area, RestoreInfo *rinfo)
    *                 both for initializeLowerHalf() and for mtcp_plugin_hook,
    *                 when it calls MPI_Init via getRank().
    */
-  getMmappedList_t fnc = (getMmappedList_t)lh_info->getMmappedListFptr;
+  getMmappedList_t fnc = (getMmappedList_t)lh_info.getMmappedListFptr;
   // FIXME: use assert(fnc) instead.
   if (fnc) {
     // This is the mmaps[] array, but only for those regions that are mapped.
@@ -933,7 +939,7 @@ mtcp_plugin_skip_memory_region_munmap(Area *area, RestoreInfo *rinfo)
 
   // FROM: lh_proxy:mpi-proxy-split/lower-half/libproxy.c :
   //   "For a static LH, mark all the regions till heap as core regions."
-  getLhRegionsList_t core_fnc = (getLhRegionsList_t)lh_info->getLhRegionsListFptr;
+  getLhRegionsList_t core_fnc = (getLhRegionsList_t)lh_info.getLhRegionsListFptr;
   if (core_fnc) {
     lh_regions_list = core_fnc(&total_lh_regions);
   }
