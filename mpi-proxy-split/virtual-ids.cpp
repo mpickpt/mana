@@ -496,6 +496,9 @@ void reconstruct_with_datatype_desc_t(datatype_desc_t* datatype) {
 		    // Here, the integers in the envelope are split into two arrays.
                     NEXT_FUNC(Type_indexed)(indexed_count, datatype->integers, datatype->integers + indexed_count, datatype->datatypes[0], &datatype->real_id);
                     break;
+	    case MPI_COMBINER_HINDEXED:
+                    NEXT_FUNC(Type_hindexed)(datatype->num_integers, datatype->integers, datatype->addresses, datatype->datatypes[0], &datatype->real_id);
+                    break;
 	    case MPI_COMBINER_STRUCT:
   		    NEXT_FUNC(Type_create_struct)(datatype->num_integers, datatype->integers, datatype->addresses, datatype->datatypes, &datatype->real_id);
 		    break;
