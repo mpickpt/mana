@@ -58,6 +58,7 @@ LowerHalfInfo_t *lh_info_addr;
 //         In this case, we don't need to pass pdlsym to the upper half.
 static proxyDlsym_t pdlsym; // init'ed to (proxyDlsym_t)lh_info_addr->lh_dlsym
 //
+int num_lh_core_regions = -1;
 LhCoreRegions_t lh_regions_list[MAX_LH_REGIONS] = {0};
 
 static unsigned long origPhnum;
@@ -84,6 +85,8 @@ splitProcess(RestoreInfo *rinfo)
   // We then read from stdout of child process to populate lh_info with
   //   all fields from lh_info in the lower half.
   pid_t childpid = startProxy(rinfo);
+  // The global variable lh_info_addr has now been initialized.
+  // But we can't use it until read_lh_proxy_bits() "copies the bits".
   int ret = -1;
   if (childpid > 0) {
     // Parent has read from pipefd_out; child is ready.
@@ -166,7 +169,7 @@ static int
 read_lh_proxy_bits(RestoreInfo *rinfo, pid_t childpid, char *argv0)
 {
   int ret = -1;
-  const int IOV_SZ = rinfo->pluginInfo.numCoreRegions;
+  const int IOV_SZ = num_lh_core_regions;
   struct iovec remote_iov[IOV_SZ];
 
   // NOTE:  In our case local_iov will be same as remote_iov.
@@ -277,7 +280,6 @@ startProxy(RestoreInfo *rinfo)
       mtcp_sys_close(pipefd_out[1]); // close write end of pipe
 
       // Read info on lh_core_regions
-      int num_lh_core_regions;
       mtcp_read_all(pipefd_out[0],
                     &num_lh_core_regions, sizeof(num_lh_core_regions));
       MTCP_ASSERT (num_lh_core_regions <= MAX_LH_REGIONS);
@@ -289,9 +291,6 @@ startProxy(RestoreInfo *rinfo)
         break;
       }
       mtcp_read_all(pipefd_out[0], &lh_info_addr, sizeof(lh_info_addr));
-
-      // FIXME:  Remove rinfo->pluginInfo and use lh_info everywhere.
-      rinfo->pluginInfo.numCoreRegions = num_lh_core_regions;
 
       mtcp_sys_close(pipefd_out[0]);
     }
