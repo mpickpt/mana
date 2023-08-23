@@ -667,7 +667,7 @@ computeUnionOfCkptImageAddresses()
                            -1, 0);
   JASSERT((void *)libsStart != MAP_FAILED);
   munmap(libsStart, 4096);
-
+  //fprintf(stderr, "--- Initial libsStart is %p.\n", libsStart);
   // Preprocess memory regions as needed.
   bool foundLhMmapRegion = false;
   void *prev_addr_end = NULL;
@@ -681,7 +681,12 @@ computeUnionOfCkptImageAddresses()
     //          [vvar], [vdso], lib/ld.so, [stack], argv/env/auxv, [vsyscall]
     //  Normally, we see:
     //          lib/ld.so, [vvar], [vdso], [stack], argv/env/auxv, [vsyscall]
-    if (foundLhMmapRegion && area.addr < libsStart && !isLhRegion(&area)) {
+    /**
+     * FIXME: 0x11200000 is the address for mtcp_restart, find the address more
+     * properly
+    */
+    if (foundLhMmapRegion && area.addr < libsStart && !isLhRegion(&area) &&
+        !(area.addr >= (char *) 0x11200000 && area.addr <= (char*) 0x11213000)) {
       libsStart = area.addr;
     } else if (isLhRegion(&area) && area.addr < libsStart) {
       // libsStart is an upper bound, but at worst, it's in middle of uh libs
