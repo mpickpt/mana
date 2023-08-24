@@ -73,27 +73,10 @@ initialize_drain_send_recv()
 void
 registerLocalSendsAndRecvs()
 {
-  // Get a copy of MPI_COMM_WORLD
-  MPI_Group group_world;
-  MPI_Comm mana_comm;
-  MPI_Comm_internal_virt_group(MPI_COMM_WORLD, &group_world);
-  MPI_Comm_create_group_internal(MPI_COMM_WORLD, group_world, 1, &mana_comm);
-
   // broadcast sendBytes and recvBytes
   MPI_Alltoall_internal(g_sendBytesByRank, 1, MPI_INT,
-                        g_bytesSentToUsByRank, 1, MPI_INT, mana_comm);
+                        g_bytesSentToUsByRank, 1, MPI_INT, MPI_COMM_WORLD);
   g_bytesSentToUsByRank[g_world_rank] = 0;
-
-  // Free resources
-  // mana_comm is a real id, and MPI_Comm_free_internal expects a
-  // virtual id, but it works out because virtualToReal(real_id) is
-  // defined to be real_id.
-  MPI_Comm_free_internal(&mana_comm);
-
-  // Because group_world is a virtual group, we have to free both its
-  // virtual and real id to clean up correctly.
-  MPI_Group_free_internal(&group_world);
-  REMOVE_OLD_GROUP(group_world);
 }
 
 // status was received by MPI_Iprobe
@@ -345,7 +328,7 @@ localRankToGlobalRank(int localRank, MPI_Comm localComm)
   MPI_Group worldGroup, localGroup;
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(localComm);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  NEXT_FUNC(Comm_group)(MPI_COMM_WORLD, &worldGroup);
+  NEXT_FUNC(Comm_group)(REAL_CONSTANT(MPI_COMM_WORLD), &worldGroup);
   NEXT_FUNC(Comm_group)(realComm, &localGroup);
   NEXT_FUNC(Group_translate_ranks)(localGroup, 1, &localRank,
                                    worldGroup, &worldRank);

@@ -41,7 +41,7 @@
 #define VIRTUAL_TO_REAL(id, null, real_id_type, desc_type)    \
     ({                                              \
       desc_type* _VTR_tmp = VIRTUAL_TO_DESC(id, null, desc_type);			\
-       real_id_type _VTR_id = (_VTR_tmp == NULL) ? id : _VTR_tmp->real_id; \
+       real_id_type _VTR_id = (_VTR_tmp == NULL) ? (real_id_type)lh_constants_map[(void*)id] : _VTR_tmp->real_id; \
        _VTR_id; \
      })
 
@@ -198,6 +198,10 @@
   })
 #endif // ifndef NEXT_FUNC
 
+#ifndef REAL_CONSTANT
+# define REAL_CONSTANT(name) (__typeof__(name))lh_mpi_constants(LH_##name)
+#endif // ifndef REAL_CONSTANT
+
 struct ggid_desc_t {
   int ggid; // hashing results of communicator members
 
@@ -293,6 +297,7 @@ union id_desc_t {
 
 extern std::map<int, id_desc_t*> idDescriptorTable;
 extern std::map<int, ggid_desc_t*> ggidDescriptorTable; 
+extern std::map<void*, void*> lh_constants_map;
 extern int base;
 extern int nextvId;
 typedef typename std::map<int, id_desc_t*>::iterator id_desc_iterator;
@@ -337,5 +342,6 @@ int getggid(MPI_Comm comm);
 int hash(int i);
 
 void init_comm_world(); // This is required for the CVC algorithm.
+void init_lh_constants_map();
 
 #endif // ifndef VIRTUAL_ID_H

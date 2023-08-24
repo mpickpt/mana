@@ -55,6 +55,113 @@ typedef typename std::map<int, ggid_desc_t*>::iterator ggid_desc_iterator;
 std::map<int, id_desc_t*> idDescriptorTable; // int vId -> id_desc_t*, which contains rId.
 std::map<int, ggid_desc_t*> ggidDescriptorTable; // int ggid -> ggid_desc_t*, which contains CVC information.
 
+std::map<void*, void*> lh_constants_map;
+
+void init_lh_constants_map() {
+  lh_constants_map[MPI_GROUP_NULL] = REAL_CONSTANT(MPI_GROUP_NULL);
+  lh_constants_map[MPI_COMM_NULL] = REAL_CONSTANT(MPI_COMM_NULL);
+  lh_constants_map[MPI_REQUEST_NULL] = REAL_CONSTANT(MPI_REQUEST_NULL);
+  lh_constants_map[MPI_MESSAGE_NULL] = REAL_CONSTANT(MPI_MESSAGE_NULL);
+  lh_constants_map[MPI_OP_NULL] = REAL_CONSTANT(MPI_OP_NULL);
+  lh_constants_map[MPI_ERRHANDLER_NULL] = REAL_CONSTANT(MPI_ERRHANDLER_NULL);
+  lh_constants_map[MPI_INFO_NULL] = REAL_CONSTANT(MPI_INFO_NULL);
+  lh_constants_map[MPI_WIN_NULL] = REAL_CONSTANT(MPI_WIN_NULL);
+  lh_constants_map[MPI_FILE_NULL] = REAL_CONSTANT(MPI_FILE_NULL);
+  lh_constants_map[MPI_INFO_ENV] = REAL_CONSTANT(MPI_INFO_ENV);
+  lh_constants_map[MPI_COMM_WORLD] = REAL_CONSTANT(MPI_COMM_WORLD);
+  lh_constants_map[MPI_COMM_SELF] = REAL_CONSTANT(MPI_COMM_SELF);
+  lh_constants_map[MPI_GROUP_EMPTY] = REAL_CONSTANT(MPI_GROUP_EMPTY);
+  lh_constants_map[MPI_MESSAGE_NO_PROC] = REAL_CONSTANT(MPI_MESSAGE_NO_PROC);
+  lh_constants_map[MPI_MAX] = REAL_CONSTANT(MPI_MAX);
+  lh_constants_map[MPI_MIN] = REAL_CONSTANT(MPI_MIN);
+  lh_constants_map[MPI_SUM] = REAL_CONSTANT(MPI_SUM);
+  lh_constants_map[MPI_PROD] = REAL_CONSTANT(MPI_PROD);
+  lh_constants_map[MPI_LAND] = REAL_CONSTANT(MPI_LAND);
+  lh_constants_map[MPI_BAND] = REAL_CONSTANT(MPI_BAND);
+  lh_constants_map[MPI_LOR] = REAL_CONSTANT(MPI_LOR);
+  lh_constants_map[MPI_BOR] = REAL_CONSTANT(MPI_BOR);
+  lh_constants_map[MPI_LXOR] = REAL_CONSTANT(MPI_LXOR);
+  lh_constants_map[MPI_BXOR] = REAL_CONSTANT(MPI_BXOR);
+  lh_constants_map[MPI_MAXLOC] = REAL_CONSTANT(MPI_MAXLOC);
+  lh_constants_map[MPI_MINLOC] = REAL_CONSTANT(MPI_MINLOC);
+  lh_constants_map[MPI_REPLACE] = REAL_CONSTANT(MPI_REPLACE);
+  lh_constants_map[MPI_NO_OP] = REAL_CONSTANT(MPI_NO_OP);
+  lh_constants_map[MPI_DATATYPE_NULL] = REAL_CONSTANT(MPI_DATATYPE_NULL);
+  lh_constants_map[MPI_BYTE] = REAL_CONSTANT(MPI_BYTE);
+  lh_constants_map[MPI_PACKED] = REAL_CONSTANT(MPI_PACKED);
+  lh_constants_map[MPI_CHAR] = REAL_CONSTANT(MPI_CHAR);
+  lh_constants_map[MPI_SHORT] = REAL_CONSTANT(MPI_SHORT);
+  lh_constants_map[MPI_INT] = REAL_CONSTANT(MPI_INT);
+  lh_constants_map[MPI_LONG] = REAL_CONSTANT(MPI_LONG);
+  lh_constants_map[MPI_FLOAT] = REAL_CONSTANT(MPI_FLOAT);
+  lh_constants_map[MPI_DOUBLE] = REAL_CONSTANT(MPI_DOUBLE);
+  lh_constants_map[MPI_LONG_DOUBLE] = REAL_CONSTANT(MPI_LONG_DOUBLE);
+  lh_constants_map[MPI_UNSIGNED_CHAR] = REAL_CONSTANT(MPI_UNSIGNED_CHAR);
+  lh_constants_map[MPI_SIGNED_CHAR] = REAL_CONSTANT(MPI_SIGNED_CHAR);
+  lh_constants_map[MPI_UNSIGNED_SHORT] = REAL_CONSTANT(MPI_UNSIGNED_SHORT);
+  lh_constants_map[MPI_UNSIGNED_LONG] = REAL_CONSTANT(MPI_UNSIGNED_LONG);
+  lh_constants_map[MPI_UNSIGNED] = REAL_CONSTANT(MPI_UNSIGNED);
+  lh_constants_map[MPI_FLOAT_INT] = REAL_CONSTANT(MPI_FLOAT_INT);
+  lh_constants_map[MPI_DOUBLE_INT] = REAL_CONSTANT(MPI_DOUBLE_INT);
+  lh_constants_map[MPI_LONG_DOUBLE_INT] = REAL_CONSTANT(MPI_LONG_DOUBLE_INT);
+  lh_constants_map[MPI_LONG_INT] = REAL_CONSTANT(MPI_LONG_INT);
+  lh_constants_map[MPI_SHORT_INT] = REAL_CONSTANT(MPI_SHORT_INT);
+  lh_constants_map[MPI_2INT] = REAL_CONSTANT(MPI_2INT);
+  lh_constants_map[MPI_WCHAR] = REAL_CONSTANT(MPI_WCHAR);
+  lh_constants_map[MPI_LONG_LONG_INT] = REAL_CONSTANT(MPI_LONG_LONG_INT);
+  lh_constants_map[MPI_LONG_LONG] = REAL_CONSTANT(MPI_LONG_LONG);
+  lh_constants_map[MPI_UNSIGNED_LONG_LONG] = REAL_CONSTANT(MPI_UNSIGNED_LONG_LONG);
+  lh_constants_map[MPI_2COMPLEX] = REAL_CONSTANT(MPI_2COMPLEX);
+  lh_constants_map[MPI_2DOUBLE_COMPLEX] = REAL_CONSTANT(MPI_2DOUBLE_COMPLEX);
+  lh_constants_map[MPI_CHARACTER] = REAL_CONSTANT(MPI_CHARACTER);
+  lh_constants_map[MPI_LOGICAL] = REAL_CONSTANT(MPI_LOGICAL);
+  lh_constants_map[MPI_LOGICAL1] = REAL_CONSTANT(MPI_LOGICAL1);
+  lh_constants_map[MPI_LOGICAL2] = REAL_CONSTANT(MPI_LOGICAL2);
+  lh_constants_map[MPI_LOGICAL4] = REAL_CONSTANT(MPI_LOGICAL4);
+  lh_constants_map[MPI_LOGICAL8] = REAL_CONSTANT(MPI_LOGICAL8);
+  lh_constants_map[MPI_INTEGER] = REAL_CONSTANT(MPI_INTEGER);
+  lh_constants_map[MPI_INTEGER1] = REAL_CONSTANT(MPI_INTEGER1);
+  lh_constants_map[MPI_INTEGER2] = REAL_CONSTANT(MPI_INTEGER2);
+  lh_constants_map[MPI_INTEGER4] = REAL_CONSTANT(MPI_INTEGER4);
+  lh_constants_map[MPI_INTEGER8] = REAL_CONSTANT(MPI_INTEGER8);
+  lh_constants_map[MPI_REAL] = REAL_CONSTANT(MPI_REAL);
+  lh_constants_map[MPI_REAL4] = REAL_CONSTANT(MPI_REAL4);
+  lh_constants_map[MPI_REAL8] = REAL_CONSTANT(MPI_REAL8);
+  lh_constants_map[MPI_REAL16] = REAL_CONSTANT(MPI_REAL16);
+  lh_constants_map[MPI_DOUBLE_PRECISION] = REAL_CONSTANT(MPI_DOUBLE_PRECISION);
+  lh_constants_map[MPI_COMPLEX] = REAL_CONSTANT(MPI_COMPLEX);
+  lh_constants_map[MPI_COMPLEX8] = REAL_CONSTANT(MPI_COMPLEX8);
+  lh_constants_map[MPI_COMPLEX16] = REAL_CONSTANT(MPI_COMPLEX16);
+  lh_constants_map[MPI_COMPLEX32] = REAL_CONSTANT(MPI_COMPLEX32);
+  lh_constants_map[MPI_DOUBLE_COMPLEX] = REAL_CONSTANT(MPI_DOUBLE_COMPLEX);
+  lh_constants_map[MPI_2REAL] = REAL_CONSTANT(MPI_2REAL);
+  lh_constants_map[MPI_2DOUBLE_PRECISION] = REAL_CONSTANT(MPI_2DOUBLE_PRECISION);
+  lh_constants_map[MPI_2INTEGER] = REAL_CONSTANT(MPI_2INTEGER);
+  lh_constants_map[MPI_INT8_T] = REAL_CONSTANT(MPI_INT8_T);
+  lh_constants_map[MPI_UINT8_T] = REAL_CONSTANT(MPI_UINT8_T);
+  lh_constants_map[MPI_INT16_T] = REAL_CONSTANT(MPI_INT16_T);
+  lh_constants_map[MPI_UINT16_T] = REAL_CONSTANT(MPI_UINT16_T);
+  lh_constants_map[MPI_INT32_T] = REAL_CONSTANT(MPI_INT32_T);
+  lh_constants_map[MPI_UINT32_T] = REAL_CONSTANT(MPI_UINT32_T);
+  lh_constants_map[MPI_INT64_T] = REAL_CONSTANT(MPI_INT64_T);
+  lh_constants_map[MPI_UINT64_T] = REAL_CONSTANT(MPI_UINT64_T);
+  lh_constants_map[MPI_AINT] = REAL_CONSTANT(MPI_AINT);
+  lh_constants_map[MPI_OFFSET] = REAL_CONSTANT(MPI_OFFSET);
+  lh_constants_map[MPI_C_BOOL] = REAL_CONSTANT(MPI_C_BOOL);
+  lh_constants_map[MPI_C_COMPLEX] = REAL_CONSTANT(MPI_C_COMPLEX);
+  lh_constants_map[MPI_C_FLOAT_COMPLEX] = REAL_CONSTANT(MPI_C_FLOAT_COMPLEX);
+  lh_constants_map[MPI_C_DOUBLE_COMPLEX] = REAL_CONSTANT(MPI_C_DOUBLE_COMPLEX);
+  lh_constants_map[MPI_C_LONG_DOUBLE_COMPLEX] = REAL_CONSTANT(MPI_C_LONG_DOUBLE_COMPLEX);
+  lh_constants_map[MPI_CXX_BOOL] = REAL_CONSTANT(MPI_CXX_BOOL);
+  lh_constants_map[MPI_CXX_COMPLEX] = REAL_CONSTANT(MPI_CXX_COMPLEX);
+  lh_constants_map[MPI_CXX_FLOAT_COMPLEX] = REAL_CONSTANT(MPI_CXX_FLOAT_COMPLEX);
+  lh_constants_map[MPI_CXX_DOUBLE_COMPLEX] = REAL_CONSTANT(MPI_CXX_DOUBLE_COMPLEX);
+  lh_constants_map[MPI_CXX_LONG_DOUBLE_COMPLEX] = REAL_CONSTANT(MPI_CXX_LONG_DOUBLE_COMPLEX);
+  lh_constants_map[MPI_COUNT] = REAL_CONSTANT(MPI_COUNT);
+  lh_constants_map[MPI_ERRORS_ARE_FATAL] = REAL_CONSTANT(MPI_ERRORS_ARE_FATAL);
+  lh_constants_map[MPI_ERRORS_RETURN] = REAL_CONSTANT(MPI_ERRORS_RETURN);
+}
+
 // vid generation mechanism.
 int base = 1;
 int nextvId = base;
@@ -77,8 +184,8 @@ int getggid(MPI_Comm comm, int worldRank, int commSize, int* rbuf) {
 
   DMTCP_PLUGIN_DISABLE_CKPT();
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  NEXT_FUNC(Allgather)(&worldRank, 1, MPI_INT,
-			rbuf, 1, MPI_INT, comm);
+  NEXT_FUNC(Allgather)(&worldRank, 1, REAL_CONSTANT(MPI_INT),
+			rbuf, 1, REAL_CONSTANT(MPI_INT), comm);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
 
@@ -225,14 +332,16 @@ group_desc_t* init_group_desc_t(MPI_Group realGroup) {
   printf("init_group_desc_t: %x\n", realGroup);
   fflush(stdout);
 #endif
-  MPI_Group_size(realGroup, &groupSize);
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  NEXT_FUNC(Group_size)(realGroup, &groupSize);
+  RETURN_TO_UPPER_HALF();
   int* ranks = ((int*)malloc(sizeof(int) * groupSize));
   int* global_ranks = ((int*)malloc(sizeof(int) * groupSize));
   for (int i = 0; i < groupSize; i++) {
     ranks[i] = i;
   }
 
-  DMTCP_PLUGIN_DISABLE_CKPT();
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   NEXT_FUNC(Group_translate_ranks)(realGroup, groupSize, ranks, g_world_group, global_ranks);
   RETURN_TO_UPPER_HALF();
@@ -407,7 +516,7 @@ id_desc_t* virtualToDescriptor(int virtId) {
 
 void init_comm_world() {
   comm_desc_t* comm_world = ((comm_desc_t*)malloc(sizeof(comm_desc_t)));
-  comm_world->real_id = WORLD_COMM;
+  comm_world->real_id = REAL_CONSTANT(MPI_COMM_WORLD);
   ggid_desc_t* comm_world_ggid = ((ggid_desc_t*)malloc(sizeof(ggid_desc_t)));
   comm_world->ggid_desc = comm_world_ggid;
   comm_world_ggid->ggid = (intptr_t)WORLD_COMM;

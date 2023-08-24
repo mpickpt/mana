@@ -20,9 +20,9 @@ IS_GERTY = 1
 endif
 ifeq ($(or $(IS_CORI),$(IS_GERTY), $(IS_PERLMUTTER)), 1)
   MPICC = cc
-  MPICXX = CC -std=c++14
+  MPICXX = CC
   MPIFORTRAN = ftn
-  MPI_LD_FLAG = -L$$HOME/openmpi-5.0.0rc12/build/lib -lmpi
+  MPI_LD_FLAG =
   MPIRUN = srun
   MPI_CFLAGS?= @CFLAGS@ -g3 -fPIC
   MPI_CXXFLAGS?= @CXXFLAGS@ -g3 -fPIC
@@ -34,10 +34,10 @@ default2: default
 ## On Perlmutter, the generic settings of 'else' seem to work.
 else
   MPICC = mpicc
-  MPICXX = mpic++ -std=c++14
+  MPICXX = mpic++
   MPIFORTRAN = mpifort
   MPIRUN = mpirun
-  MPI_LD_FLAG = -L$$HOME/mpich-static/usr/lib64 -lmpi -llzma -lz -lm -lxml2
+  MPI_LD_FLAG =
   MPI_CFLAGS?= @CFLAGS@ -g3 -fPIC
   MPI_CXXFLAGS?= @CXXFLAGS@ -g3 -fPIC
   MPI_FFLAGS = @FFLAGS@ -g3
