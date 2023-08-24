@@ -80,7 +80,9 @@ typedef struct __LhCoreRegions
 
 // The transient lh_proxy process introspects its memory layout and passes this
 // information back to the main application process using this struct.
-// This must be same in restart_plugin and low
+// FIXME:  This must be same as in the restart_plugin.  See the comment
+//         there, in mtcp_restart_plugin.h, about how to create
+//         a single, unique copy.
 typedef struct _LowerHalfInfo
 {
   void *startText; // Start address of text segment (R-X) of lower half
@@ -96,7 +98,8 @@ typedef struct _LowerHalfInfo
   void *g_appContext; // Pointer to ucontext_t of upper half application (defined in the lower half)
   void *lh_dlsym;     // Pointer to mydlsym() function in the lower half
   void *getRankFptr;  // Pointer to getRank() function in the lower half
-  void *lh_mpi_constants;
+  void *lh_mpi_constants; // Open MPI can save its MPI constants at a different
+                          //   at a different address each time.  Copy to uh.
 #ifdef SINGLE_CART_REORDER
   void *getCoordinatesFptr; // Pointer to getCoordinates() function in the lower half
   void *getCartesianCommunicatorFptr; // Pointer to getCartesianCommunicator() function in the lower half
