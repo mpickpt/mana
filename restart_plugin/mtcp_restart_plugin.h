@@ -33,6 +33,13 @@ typedef struct __LhCoreRegions
 
 // The transient proxy process introspects its memory layout and passes this
 // information back to the main application process using this struct.
+// FIXME: This struct must be an exact copy of the one in lower_half_api.h
+//        Probably the duplicates were created when the restart plugin was
+//        created, since it must be copied to dmtcp/src/mtcp, where it
+//        gets compiled there.
+//        One reasonable fix is to add to the Makeffile to copy lower_half_api.h
+//        to this directory (maybe as a symbolic link?), so it is always
+//        in sync with the lower_lahf directory.
 typedef struct LowerHalfInfo
 {
   void *startText;
@@ -48,6 +55,7 @@ typedef struct LowerHalfInfo
   void *g_appContext;
   void *lh_dlsym;
   void *getRankFptr;
+  void *lh_mpi_constants;
 #ifdef SINGLE_CART_REORDER
   void *getCoordinatesFptr;
   void *getCartesianCommunicatorFptr;
