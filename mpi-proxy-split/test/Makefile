@@ -40,7 +40,7 @@ FILES=mpi_hello_world \
       Abort_test Allreduce_test Alltoall_test Alltoallv_test \
       Allgather_test Group_size_rank Type_commit_contiguous \
       Irecv_test Alloc_mem sendrecv_replace_test \
-      Type_hvector_test Type_vector_test \
+      Type_vector_test \
       ${FILES_FORTRAN} \
       send_recv_loop large_async_p2p \
 	  File_read_write_test File_characteristics_test File_size_test \

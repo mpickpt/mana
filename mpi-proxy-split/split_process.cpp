@@ -59,6 +59,7 @@ static unsigned long origPhdr;
 LowerHalfInfo_t lh_info;
 LowerHalfInfo_t *lh_info_addr;
 proxyDlsym_t pdlsym; // initialized to (proxyDlsym_t)lh_info.lh_dlsym
+lh_constant_t lh_mpi_constants;
 LhCoreRegions_t lh_regions_list[MAX_LH_REGIONS] = {0};
 
 static unsigned long getStackPtr();
@@ -518,6 +519,7 @@ initializeLowerHalf()
   // Save the pointer to mydlsym() function in the lower half. This will be
   // used in all the mpi-wrappers.
   pdlsym = (proxyDlsym_t)lh_info.lh_dlsym;
+  lh_mpi_constants = (lh_constant_t)lh_info.lh_mpi_constants;
 
   // Copied from glibc source
   ElfW(auxv_t) *auxvec;

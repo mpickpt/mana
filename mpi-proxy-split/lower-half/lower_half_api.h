@@ -72,6 +72,7 @@ typedef struct _LowerHalfInfo
   void *g_appContext; // Pointer to ucontext_t of upper half application (defined in the lower half)
   void *lh_dlsym;     // Pointer to mydlsym() function in the lower half
   void *getRankFptr;  // Pointer to getRank() function in the lower half
+  void *lh_mpi_constants;
 #ifdef SINGLE_CART_REORDER
   void *getCoordinatesFptr; // Pointer to getCoordinates() function in the lower half
   void *getCartesianCommunicatorFptr; // Pointer to getCartesianCommunicator() function in the lower half
@@ -101,6 +102,37 @@ extern LowerHalfInfo_t lh_info;
 // initializeLowerHalf() will initialize this to: (proxyDlsym_t)lh_info.lh_dlsym
 typedef void* (*proxyDlsym_t)(enum MPI_Fncs fnc);
 extern proxyDlsym_t pdlsym;
+<<<<<<< HEAD
 #endif
+=======
+extern lh_constant_t lh_mpi_constants;
+extern LhCoreRegions_t lh_regions_list[MAX_LH_REGIONS];
+
+// API
+
+// Returns the address of an MPI API in the lower half's MPI library based on
+// the given enum value
+extern void *mydlsym(enum MPI_Fncs fnc);
+
+extern void *get_lh_mpi_constant(enum MPI_Constants constant);
+
+// Initializes the MPI library in the lower half (by calling MPI_Init()) and
+// returns the MPI rank of the current process
+extern int getRank();
+
+// Updates the lower half's global environ pointer (__environ) to the given
+// 'newenviron' pointer value
+extern void updateEnviron(const char **newenviron);
+
+// Returns a pointer to the first element of a pre-allocated array of
+// 'MmapInfo_t' objects and 'num' is set to the number of valid items in
+// the array
+extern MmapInfo_t* getMmappedList(int **num);
+
+// Clears the global, pre-allocated array of 'MmapInfo_t' objects
+extern void resetMmappedList();
+
+extern LhCoreRegions_t* getLhRegionsList(int *num);
+>>>>>>> WIP: openmpi
 
 #endif // ifndef _LOWER_HALF_API_H

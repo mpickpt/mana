@@ -34,6 +34,7 @@
 #include "mana_header.h"
 #include "seq_num.h"
 
+typedef MPI_Comm (*get_comm_world_t)(void);
 
 #if 0
 DEFINE_FNC(int, Init, (int *) argc, (char ***) argv)
@@ -64,11 +65,17 @@ USER_DEFINED_WRAPPER(int, Init, (int *) argc, (char ***) argv) {
 
   recordPreMpiInitMaps();
 
+  // MPI_Comm lower_comm_world = ((get_comm_world_t)lh_info.getLowerMpiCommWorldFptr)();
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Init)(argc, argv);
   // Create a duplicate of MPI_COMM_WORLD for internal use.
-  NEXT_FUNC(Comm_dup)(MPI_COMM_WORLD, &g_world_comm);
-  NEXT_FUNC(Comm_group)(MPI_COMM_WORLD, &g_world_group);
+  RETURN_TO_UPPER_HALF();
+  init_lh_constants_map();
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  NEXT_FUNC(Comm_dup)(REAL_CONSTANT(MPI_COMM_WORLD), &g_world_comm);
+  NEXT_FUNC(Comm_group)(REAL_CONSTANT(MPI_COMM_WORLD), &g_world_group);
+  // NEXT_FUNC(Comm_dup)((MPI_Comm)0xebc2880, &g_world_comm);
+  // NEXT_FUNC(Comm_group)((MPI_Comm)0xebc2880, &g_world_group);
   RETURN_TO_UPPER_HALF();
 
   recordPostMpiInitMaps();
@@ -95,7 +102,7 @@ USER_DEFINED_WRAPPER(int, Init_thread, (int *) argc, (char ***) argv,
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Init_thread)(argc, argv, required, provided);
   // Create a duplicate of MPI_COMM_WORLD for internal use.
-  NEXT_FUNC(Comm_dup)(MPI_COMM_WORLD, &g_world_comm);
+  NEXT_FUNC(Comm_dup)(REAL_CONSTANT(MPI_COMM_WORLD), &g_world_comm);
   RETURN_TO_UPPER_HALF();
 
   recordPostMpiInitMaps();
