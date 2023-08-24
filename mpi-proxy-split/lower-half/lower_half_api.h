@@ -85,6 +85,7 @@ typedef struct _LowerHalfInfo
   uint64_t lh_AT_PHDR;  // The address of the program headers (AT_PHDR) from the auxiliary vector of the lower half
   void *g_appContext; // Pointer to ucontext_t of upper half application (defined in the lower half)
   void *getRankFptr;  // Pointer to getRank() function in the lower half
+  void *lh_mpi_constants;
 #ifdef SINGLE_CART_REORDER
   void *getCoordinatesFptr; // Pointer to getCoordinates() function in the lower half
   void *getCartesianCommunicatorFptr; // Pointer to getCartesianCommunicator() function in the lower half
@@ -500,6 +501,7 @@ static const char *MPI_Fnc_strings[] = {
 void* lh_dlsym(enum MPI_Fncs fnc);
 typedef void* (*proxyDlsym_t)(enum MPI_Fncs fnc);
 extern proxyDlsym_t pdlsym;
+<<<<<<< HEAD
 
 std::vector<MmapInfo_t> &get_mmapped_list(int *num);
 typedef std::vector<MmapInfo_t>& (*get_mmapped_list_fptr_t)(int *num);
@@ -509,5 +511,35 @@ typedef void* (*set_end_of_heap_t)(void*);
 typedef void* (*set_uh_brk_t)(void*);
 void set_end_of_heap(void *addr);
 void set_uh_brk(void *addr);
+extern lh_constant_t lh_mpi_constants;
+extern LhCoreRegions_t lh_regions_list[MAX_LH_REGIONS];
+
+// API
+
+// Returns the address of an MPI API in the lower half's MPI library based on
+// the given enum value
+extern void *mydlsym(enum MPI_Fncs fnc);
+
+extern void *get_lh_mpi_constant(enum MPI_Constants constant);
+
+// Initializes the MPI library in the lower half (by calling MPI_Init()) and
+// returns the MPI rank of the current process
+extern int getRank();
+
+// Updates the lower half's global environ pointer (__environ) to the given
+// 'newenviron' pointer value
+extern void updateEnviron(const char **newenviron);
+
+// Returns a pointer to the first element of a pre-allocated array of
+// 'MmapInfo_t' objects and 'num' is set to the number of valid items in
+// the array
+extern MmapInfo_t* getMmappedList(int **num);
+
+// Clears the global, pre-allocated array of 'MmapInfo_t' objects
+extern void resetMmappedList();
+
+extern LhCoreRegions_t* getLhRegionsList(int *num);
+>>>>>>> WIP: openmpi
+>>>>>>> f236e68 (WIP: openmpi)
 
 #endif // ifndef _LOWER_HALF_API_H

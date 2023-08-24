@@ -81,30 +81,10 @@ initialize_drain_send_recv()
 void
 registerLocalSendsAndRecvs()
 {
-  // Get a copy of MPI_COMM_WORLD
-  MPI_Group group_world;
-  MPI_Comm mana_comm;
-  // MPI_Comm_group creates the same real id (and therefore, virtual id) for
-  // identical calls. If the application already has this virtual id, no extra
-  // resource is created.
-  //
-  // See mpi-proxy-split/virtual-ids.h, onCreate(id), usage of realIdExists.
-  //
-  // FIXME: This Comm_group can cause an extra LOG_CALL and LOG_REPLAY. But, it
-  // needs to happen if the application moves to create the same vid /later/.
-  MPI_Comm_group(MPI_COMM_WORLD, &group_world);
-  MPI_Comm_create_group_internal(MPI_COMM_WORLD, group_world, 1, &mana_comm);
-
   // broadcast sendBytes and recvBytes
   MPI_Alltoall_internal(g_sendBytesByRank, 1, MPI_INT,
-                        g_bytesSentToUsByRank, 1, MPI_INT, mana_comm);
+                        g_bytesSentToUsByRank, 1, MPI_INT, MPI_COMM_WORLD);
   g_bytesSentToUsByRank[g_world_rank] = 0;
-
-  // Free resources
-  MPI_Comm_free_internal(&mana_comm);
-
-  // We do NOT free group_world, because if the application also made this
-  // call, there is a collision.
 }
 
 // status was received by MPI_Iprobe
@@ -356,7 +336,7 @@ localRankToGlobalRank(int localRank, MPI_Comm localComm)
   MPI_Group worldGroup, localGroup;
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(localComm);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  NEXT_FUNC(Comm_group)(MPI_COMM_WORLD, &worldGroup);
+  NEXT_FUNC(Comm_group)(REAL_CONSTANT(MPI_COMM_WORLD), &worldGroup);
   NEXT_FUNC(Comm_group)(realComm, &localGroup);
   NEXT_FUNC(Group_translate_ranks)(localGroup, 1, &localRank,
                                    worldGroup, &worldRank);

@@ -88,6 +88,10 @@
 #endif
 #endif // ifndef NEXT_FUNC
 
+#ifndef REAL_CONSTANT
+# define REAL_CONSTANT(name) (__typeof__(name))lh_mpi_constants(LH_##name)
+#endif // ifndef REAL_CONSTANT
+
 // Convenience macro to define simple wrapper functions
 #define DEFINE_FNC(rettype, name, args...)                                     \
   EXTERNC rettype MPI_##name(APPLY(PAIR, args))                                \

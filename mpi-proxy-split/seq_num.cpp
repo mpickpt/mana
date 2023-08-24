@@ -150,7 +150,7 @@ void seq_num_broadcast(MPI_Comm comm, unsigned long new_target) {
       JUMP_TO_LOWER_HALF(lh_info.fsaddr);
       NEXT_FUNC(Group_translate_ranks)(local_group, 1, &i,
                 world_group, &world_rank);
-      NEXT_FUNC(Send)(&msg, 2, MPI_UNSIGNED_LONG, world_rank,
+      NEXT_FUNC(Send)(&msg, 2, REAL_CONSTANT(MPI_UNSIGNED_LONG), world_rank,
                       0, real_world_comm);
       RETURN_TO_UPPER_HALF();
 #ifdef DEBUG_SEQ_NUM
@@ -178,7 +178,7 @@ void commit_begin(MPI_Comm comm, bool passthrough) {
       unsigned long new_target[2];
       MPI_Comm real_world_comm = VIRTUAL_TO_REAL_COMM(g_world_comm);
       JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-      NEXT_FUNC(Recv)(&new_target, 2, MPI_UNSIGNED_LONG,
+      NEXT_FUNC(Recv)(&new_target, 2, REAL_CONSTANT(MPI_UNSIGNED_LONG),
           status.MPI_SOURCE, status.MPI_TAG, real_world_comm,
           MPI_STATUS_IGNORE);
       RETURN_TO_UPPER_HALF();
@@ -231,7 +231,7 @@ void commit_finish(MPI_Comm comm, bool passthrough) {
       unsigned long new_target[2];
       MPI_Comm real_world_comm = VIRTUAL_TO_REAL_COMM(g_world_comm);
       JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-      NEXT_FUNC(Recv)(&new_target, 2, MPI_UNSIGNED_LONG,
+      NEXT_FUNC(Recv)(&new_target, 2, REAL_CONSTANT(MPI_UNSIGNED_LONG),
           status.MPI_SOURCE, status.MPI_TAG, real_world_comm,
           MPI_STATUS_IGNORE);
       RETURN_TO_UPPER_HALF();
