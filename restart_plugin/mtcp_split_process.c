@@ -388,9 +388,10 @@ initializeLowerHalf(RestoreInfo *rinfo)
     while (*evp++ != NULL);
     auxvec = (ElfW(auxv_t) *) evp;
   }
+  // FIXME:  On Discovery, the vdso library is not in the standard linkmap.
   // update vDSO linkmap entry to the temporary address
-  updateVdsoLinkmapEntry(rinfo->currentVdsoStart,
-                         lh_info.vdsoLdAddrInLinkMap);
+  // updateVdsoLinkmapEntry(rinfo->currentVdsoStart,
+  //                        lh_info.vdsoLdAddrInLinkMap);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   (*resetMmaps)();
   // Set the auxiliary vector to correspond to the values of the lower half

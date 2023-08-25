@@ -536,8 +536,10 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
       end2 = 0;
     }
 
-    Area vvar_area;
-    MTCP_ASSERT(getMappedArea(&vvar_area, "[vvar]") == 1);
+    // FIXME: vvar doesn't exist on DISCOVERY.  We should test this first,
+    //        or check if rinfo->vdsoStart == 0.
+    //   Area vvar_area;
+    //   MTCP_ASSERT(getMappedArea(&vvar_area, "[vvar]") == 1);
     // if (end2 > vvar_area.addr) {
     //   end2 = vvar_area.addr;
     // }
@@ -751,8 +753,9 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
       end2 = 0;
     }
 
-    Area vvar_area;
-    MTCP_ASSERT(getMappedArea(&vvar_area, "[vvar]") == 1);
+    // FIXME:  Discovery doesn't have a '[vvar]' segment.
+    //   Area vvar_area;
+    //   MTCP_ASSERT(getMappedArea(&vvar_area, "[vvar]") == 1);
     // if (end2 > vvar_area.addr) {
     //   end2 = vvar_area.addr;
     // }

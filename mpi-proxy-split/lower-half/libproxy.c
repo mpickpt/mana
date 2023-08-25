@@ -376,7 +376,10 @@ void first_constructor()
     lh_info.memRange = lh_memRange;
     lh_info.numCoreRegions = totalRegions;
     lh_info.getLhRegionsListFptr = (void*)&getLhRegionsList;
-    lh_info.vdsoLdAddrInLinkMap = getVdsoPointerInLinkMap();
+    // FIXME: Added:
+    lh_info.vdsoLdAddrInLinkMap = NULL;
+    // FIXME:  vdso is not in the link maps on Discovery.
+    // lh_info.vdsoLdAddrInLinkMap = getVdsoPointerInLinkMap();
     DLOG(INFO, "startText: %p, endText: %p, endOfHeap; %p\n",
          lh_info.startText, lh_info.endText, lh_info.endOfHeap);
     // Write LH core regions list to stdout, for the parent process to read.
