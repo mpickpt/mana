@@ -196,23 +196,6 @@ USER_DEFINED_WRAPPER(int, Type_indexed, (int) count,
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, Type_dup, (MPI_Datatype) oldtype,
-                     (MPI_Datatype*) newtype)
-{
-  int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(oldtype);
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  retval = NEXT_FUNC(Type_dup)(realType, newtype);
-  RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS) {
-    MPI_Datatype virtType = ADD_NEW_TYPE(*newtype);
-    *newtype = virtType;
-  }
-  DMTCP_PLUGIN_ENABLE_CKPT();
-  return retval;
-}
-
 USER_DEFINED_WRAPPER(int, Type_create_resized, (MPI_Datatype) oldtype,
                      (MPI_Aint) lb, (MPI_Aint) extent, (MPI_Datatype*) newtype)
 {
@@ -299,7 +282,6 @@ PMPI_IMPL(int, MPI_Pack, const void *inbuf, int incount, MPI_Datatype datatype,
           void *outbuf, int outsize, int *position, MPI_Comm comm)
 PMPI_IMPL(int, MPI_Type_create_resized, MPI_Datatype oldtype, MPI_Aint lb,
           MPI_Aint extent, MPI_Datatype *newtype);
-PMPI_IMPL(int, MPI_Type_dup, MPI_Datatype type, MPI_Datatype *newtype);
 
 PMPI_IMPL(int, MPI_Type_create_hindexed, int count,
           const int array_of_blocklengths[],

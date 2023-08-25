@@ -94,7 +94,6 @@ extern LhCoreRegions_t lh_regions_list[MAX_LH_REGIONS];
 // startProxy() (called from splitProcess()) will initialize 'lh_info'
 extern LowerHalfInfo_t lh_info;  
 
-
 #if 0
 // Pointer to the custom dlsym implementation (see mydlsym() in libproxy.c) in
 // the lower half. This is initialized using the information passed to us by

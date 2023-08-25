@@ -15,10 +15,9 @@ LIBWRAPPER_OBJS = mpi_p2p_wrappers.o mpi_collective_wrappers.o \
                   mpi_request_wrappers.o mpi_type_wrappers.o \
                   mpi_comm_wrappers.o mpi_group_wrappers.o \
                   mpi_cart_wrappers.o mpi_op_wrappers.o \
-                  mpi_unimplemented_wrappers.o mpi_fortran_wrappers.o \
-                  mpi_wrappers.o get_fortran_constants.o fortran_constants.o \
-                  mpi_win_wrappers.o mpi_file_wrappers.o mpi_error_wrappers.o \
-                  p2p-deterministic.o
+                  mpi_unimplemented_wrappers.o \
+                  mpi_wrappers.o \
+                  mpi_win_wrappers.o mpi_error_wrappers.o
 
 
 # Modify if your MANA_ROOT is located elsewhere.
@@ -64,22 +63,15 @@ mana_p2p_update_logs: mana_p2p_update_logs.c
 .cpp.o: ../virtual-ids.h
 	${MPICXX} ${CXXFLAGS} -c -o $@ $<
 
-p2p-deterministic.h: p2p-deterministic.txt p2p-deterministic.py
-	./p2p-deterministic.py $< > $@
-
-p2p-deterministic.o: p2p-deterministic.c p2p-deterministic.h
-	${MPICC} ${CFLAGS} -c -o $@ $<
-
-mpi_p2p_wrappers.o: mpi_p2p_wrappers.cpp p2p-deterministic.h
+mpi_p2p_wrappers.o: mpi_p2p_wrappers.cpp
 	${MPICXX} ${CXXFLAGS} -c -o $@ $<
-
-mpi_request_wrappers.o: mpi_request_wrappers.cpp p2p-deterministic.h
+mpi_request_wrappers.o: mpi_request_wrappers.cpp
 	${MPICXX} ${CXXFLAGS} -c -o $@ $<
 
 # FIXME:  This assumes 'CFLAGS' is compatible with FORTRAN, since MANA does not
 #         define 'FFLAGS'.  But Fortran doesn't use '-std=gnu11' from CFLAGS.
-fortran_constants.o: fortran_constants.f90
-	${MPIFORTRAN} ${CFLAGS} -fPIC -c -o $@ $<
+# fortran_constants.o: fortran_constants.f90
+#	${MPIFORTRAN} ${CFLAGS} -fPIC -c -o $@ $<
 
 mpi_collective_wrappers.o: mpi_collective_wrappers.cpp ../virtual-ids.h \
                            mpi_collective_p2p.c
@@ -105,6 +97,7 @@ mpi_stub_wrappers.c: generate-mpi-stub-wrappers.py mpi_stub_wrappers.txt
 	 "// *** THIS FILE IS AUTO-GENERATED! DO 'make' TO UPDATE. ***" >$$tmp;\
 	python $^ >> $$tmp && mv -f $$tmp $@ || (rm -f $$tmp && false)
 
+<<<<<<< HEAD
 mpi_fortran_wrappers.cpp: generate-mpi-fortran-wrappers.py \
                           mpi_fortran_wrappers.txt
 	rm -f $@
@@ -112,6 +105,15 @@ mpi_fortran_wrappers.cpp: generate-mpi-fortran-wrappers.py \
 	printf "%s\n\n" \
 	 "// *** THIS FILE IS AUTO-GENERATED! DO 'make' TO UPDATE. ***" >$$tmp;\
 	python $^ >> $$tmp && mv -f $$tmp $@ || (rm -f $$tmp && false)
+=======
+# mpi_fortran_wrappers.cpp: generate-mpi-fortran-wrappers.py \
+#                           mpi_fortran_wrappers.txt
+# 	rm -f $@
+# 	tmp=$@.tmp.$$$$ ; \
+# 	printf "%s\n\n" \
+# 	 "// *** THIS FILE IS AUTO-GENERATED! DO 'make' TO UPDATE. ***" >$$tmp;\
+# 	python3 $^ >> $$tmp && mv -f $$tmp $@ || (rm -f $$tmp && false)
+>>>>>>> WIP: exampi
 
 mpi_stub_wrappers.o: mpi_stub_wrappers.c
 	${MPICC} ${CFLAGS} -c -o $@ $<

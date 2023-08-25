@@ -30,7 +30,7 @@ override CFLAGS += -fPIC -I${DMTCP_INCLUDE} -g3 -O0
 override CXXFLAGS += -fPIC -I${DMTCP_INCLUDE} -I${JALIB_INCLUDE} \
                      -I${DMTCP_ROOT}/src
 
-PROXY_LD_FLAGS=-static -Wl,--wrap -Wl,__munmap 
+PROXY_LD_FLAGS=-static
 # PROXY_LD_FLAGS=-static -Wl,--wrap -Wl,__munmap -Wl,--wrap -Wl,shmat -Wl,--wrap -Wl,shmget
 
 TEXTSEG_ADDR_FLAG=-Wl,-Ttext-segment=E000000
@@ -70,34 +70,35 @@ endif
 # ***        or unless you installed the necessary libaries.
 # ***        See ./README.mpich-static here, for how to install the libaries
 ${PROXY_BIN}: ${PROXY_OBJS} ${LIBPROXY}.a ${STATIC_GETHOSTBYNAME}
-	if ${MPICC} -v 2>&1 | grep -q 'MPICH version'; then \
+	if ${MPICXX} -v 2>&1 | grep -q 'MPICH version'; then \
 	  rm -f tmp.sh; \
-	  ${MPICC} -show ${PROXY_LD_FLAGS} ${TEXTSEG_ADDR_FLAG} -o $@ -Wl,-start-group \
+	  ${MPICXX} -show ${PROXY_LD_FLAGS} ${TEXTSEG_ADDR_FLAG} -o $@ -Wl,-start-group \
 	    $^ ${MPI_LD_FLAG} -lrt -lpthread -ldl -lc -Wl,-end-group | \
 	    sed -e 's^-lunwind ^ ^'> tmp.sh; \
 	  sh tmp.sh; \
 	  rm -f tmp.sh; \
 	elif ${STATIC_LIBS}; then \
-	  ${MPICC} ${PROXY_LD_FLAGS} ${TEXTSEG_ADDR_FLAG} -o $@ -Wl,-start-group \
+	  ${MPICXX} ${PROXY_LD_FLAGS} ${TEXTSEG_ADDR_FLAG} -o $@ -Wl,-start-group \
             $^ ${MPI_LD_FLAG} `cat static_libs.txt` -ldl -lc -Wl,--end-group; \
 	else \
-	  ${MPICC} ${PROXY_LD_FLAGS} ${TEXTSEG_ADDR_FLAG} -o $@ -Wl,-start-group \
+	  ${MPICXX} ${PROXY_LD_FLAGS} ${TEXTSEG_ADDR_FLAG} -o $@ -Wl,-start-group \
             $^ ${MPI_LD_FLAG} -lrt -lpthread -ldl -lc -Wl,-end-group; \
 	fi
 
 ${PROXY_BIN_DEFADDR}: ${PROXY_OBJS} ${LIBPROXY}.a ${STATIC_GETHOSTBYNAME}
-	if ${MPICC} -v 2>&1 | grep -q 'MPICH version'; then \
+
+	if ${MPICXX} -v 2>&1 | grep -q 'MPICH version'; then \
 	  rm -f tmp1.sh; \
-	  ${MPICC} -show ${PROXY_LD_FLAGS} -o $@ -Wl,-start-group \
-	    $^ ${MPI_LD_FLAG} -lrt -lpthread -lc -ldl -Wl,-end-group | \
+	  ${MPICXX} -show ${PROXY_LD_FLAGS} -o $@ -Wl,-start-group \
+	    $^ ${MPI_LD_FLAG} -lrt -lpthread -ldl -lc -Wl,-end-group | \
 	    sed -e 's^-lunwind ^ ^'> tmp1.sh; \
 	  sh tmp1.sh; \
 	  rm -f tmp1.sh; \
 	elif ${STATIC_LIBS}; then \
-	  ${MPICC} ${PROXY_LD_FLAGS} -o $@ -Wl,-start-group \
+	  ${MPICXX} ${PROXY_LD_FLAGS} -o $@ -Wl,-start-group \
             $^ ${MPI_LD_FLAG} `cat static_libs.txt` -ldl -lc -Wl,--end-group; \
 	else \
-	  ${MPICC} ${PROXY_LD_FLAGS} -o $@ -Wl,-start-group \
+	  ${MPICXX} ${PROXY_LD_FLAGS} -o $@ -Wl,-start-group \
 	  $^ ${MPI_LD_FLAG} -lrt -lpthread -ldl -lc -Wl,-end-group; \
 	fi
 

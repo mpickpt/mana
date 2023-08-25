@@ -39,7 +39,6 @@
 
 #include <regex>
 
-#include "mpi_files.h"
 #include "mana_header.h"
 #include "mpi_plugin.h"
 #include "lower_half_api.h"
@@ -71,7 +70,6 @@ extern CartesianProperties g_cartesian_properties;
 #endif
 
 extern ManaHeader g_mana_header;
-extern std::unordered_map<MPI_File, OpenFileParameters> g_params_map;
 
 constexpr const char *MANA_FILE_REGEX_ENV = "MANA_FILE_REGEX";
 constexpr const char *MANA_SEGV_DEBUG_LOOP = "MANA_SEGV_DEBUG_LOOP";
@@ -907,112 +905,6 @@ save_mana_header(const char *filename)
   close(fd);
 }
 
-const char *
-get_mpi_file_filename()
-{
-  struct stat st;
-  const char *ckptDir;
-  dmtcp::ostringstream o;
-
-  ckptDir = dmtcp_get_ckpt_dir();
-  if (stat(ckptDir, &st) == -1) {
-    mkdir(ckptDir, 0700); // Create directory if not already exist
-  }
-  o << ckptDir << "/mpi_files.mana";
-  return strdup(o.str().c_str());
-}
-
-static void
-save_mpi_files(const char *filename)
-{
-  // No need to save open files if there are no files to save
-  if (g_params_map.size() == 0) return;
-
-  int fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0755);
-  if (fd == -1) {
-    return;
-  }
-
-  for (auto itr = g_params_map.begin(); itr != g_params_map.end(); itr++) {
-    // Only the most recent value of these properties needs to be saved
-    MPI_File_get_position(itr->first, &itr->second._offset);
-    MPI_File_get_atomicity(itr->first, &itr->second._atomicity);
-    MPI_File_get_size(itr->first, &itr->second._size);
-
-    // Note that a garbage view may be set by this call if set_view was never
-    // called, but that view won't be restored
-    MPI_File_get_view(itr->first, &itr->second._viewDisp,
-                      &itr->second._viewEType, &itr->second._viewFType,
-                      itr->second._datarep);
-
-    // Save both virtual ID and corresponding parameters
-    write(fd, &itr->first, sizeof(MPI_File));
-    write(fd, &itr->second, sizeof(struct OpenFileParameters));
-  }
-
-  close(fd);
-}
-
-static void
-restore_mpi_files(const char *filename)
-{
-  int fd = open(filename, O_RDONLY, 0755);
-
-  // It's fine if the file doesn't exist. This just means there's no files
-  // to be restored.
-  if (fd == -1) {
-    return;
-  }
-
-  // Restore the g_params_map with each virtual file and its corresponding
-  // parameters from the mapping file
-  MPI_File file_buf;
-  struct OpenFileParameters params_buf;
-  g_params_map.clear();
-  size_t bytes_read = 0;
-  do {
-    bytes_read = read(fd, &file_buf, sizeof(MPI_File));
-    bytes_read = read(fd, &params_buf, sizeof(OpenFileParameters));
-    g_params_map[file_buf] = params_buf;
-  } while(bytes_read != 0);
-  close(fd);
-
-  // Restore MPI-created files
-  for (auto itr = g_params_map.begin(); itr != g_params_map.end(); itr++) {
-    // Re-create file with initial parameters
-    int retval;
-    MPI_File fh;
-    MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(itr->second._comm);
-    JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-    retval = NEXT_FUNC(File_open)(realComm, itr->second._filepath,
-                                  itr->second._mode, itr->second._info, &fh);
-    RETURN_TO_UPPER_HALF();
-    JASSERT(retval == 0).Text("Restoration of MPI_File_open failed");
-
-    // Update virtual mapping with newly created file
-    UPDATE_FILE_MAP(itr->first, fh);
-
-    // Restore file characteristics that are universal to the entire file
-    // These are characteristics that do not have to be replayed in order,
-    // because only the most recent one will affect the behavior of the file
-
-    // Note that the order of restoration is extremely important (the file size)
-    // MUST be set before the view or offset
-    MPI_File_set_atomicity(fh, itr->second._atomicity);
-    MPI_File_set_size(fh, itr->second._size);
-
-    // Only restore view if required
-    if (itr->second._viewSet) {
-      MPI_File_set_view(fh, itr->second._viewDisp, itr->second._viewEType,
-                        itr->second._viewFType, itr->second._datarep,
-                        itr->second._viewInfo);
-    }
-    MPI_File_seek(fh, itr->second._offset, MPI_SEEK_SET);
-
-  }
-
-}
-
 #ifdef SINGLE_CART_REORDER
 const char *
 get_cartesian_properties_file_name()
@@ -1200,8 +1092,6 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 
       const char *file = get_mana_header_file_name();
       save_mana_header(file);
-      const char *file2 = get_mpi_file_filename();
-      save_mpi_files(file2);
 #ifdef SINGLE_CART_REORDER
       dmtcp_global_barrier("MPI:save-cartesian-properties");
       const char *file = get_cartesian_properties_file_name();
@@ -1259,8 +1149,6 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       dmtcp_local_barrier("MPI:p2p_log_replay.cpp-void");
       seq_num_reset(RESTART);
       dmtcp_local_barrier("MPI:seq_num_reset");
-      const char *file = get_mpi_file_filename();
-      restore_mpi_files(file);
       dmtcp_local_barrier("MPI:Restore-MPI-Files");
 
       mana_state = RUNNING;
