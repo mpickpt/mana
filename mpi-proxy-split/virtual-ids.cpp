@@ -206,7 +206,7 @@ comm_desc_t* init_comm_desc_t(MPI_Comm realComm) {
 
   DMTCP_PLUGIN_DISABLE_CKPT();
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  NEXT_FUNC(Comm_rank)(WORLD_COMM, &worldRank);
+  NEXT_FUNC(Comm_rank)(REAL_CONSTANT(MPI_COMM_WORLD), &worldRank);
   NEXT_FUNC(Comm_size)(realComm, &commSize);
   NEXT_FUNC(Comm_rank)(realComm, &localRank);
   RETURN_TO_UPPER_HALF();
@@ -309,7 +309,7 @@ void reconstruct_with_comm_desc_t(comm_desc_t* desc) {
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   MPI_Group group;
   NEXT_FUNC(Group_incl)(g_world_group, desc->size, desc->ranks, &group);
-  NEXT_FUNC(Comm_create_group)(WORLD_COMM, group, 0, &desc->real_id);
+  NEXT_FUNC(Comm_create_group)(REAL_CONSTANT(MPI_COMM_WORLD), group, 0, &desc->real_id);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
 }
@@ -582,7 +582,7 @@ void prepare_reconstruction() {
 #endif
   DMTCP_PLUGIN_DISABLE_CKPT();
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  NEXT_FUNC(Comm_group)(WORLD_COMM, &g_world_group);
+  NEXT_FUNC(Comm_group)(REAL_CONSTANT(MPI_COMM_WORLD), &g_world_group);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
   // g_world_group is a real id to avoid a lookup.
@@ -597,7 +597,7 @@ void finalize_reconstruction() {
 
   DMTCP_PLUGIN_DISABLE_CKPT();
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  NEXT_FUNC(Comm_dup)(WORLD_COMM, &g_world_comm);
+  NEXT_FUNC(Comm_dup)(REAL_CONSTANT(MPI_COMM_WORLD), &g_world_comm);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
 

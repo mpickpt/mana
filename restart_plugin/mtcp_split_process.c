@@ -326,8 +326,8 @@ setLhMemRange(RestoreInfo *rinfo)
   int found = getMappedArea(&area, "[stack]");
   if (found) {
 #ifdef MANA_USE_LH_FIXED_ADDRESS
-    lh_mem_range.start = (void *)0x2aab00000000;
-    lh_mem_range.end =   (void *)(0x2aab00000000 + ONE_GB);
+    lh_mem_range.start = (void *)0x3aab00000000;
+    lh_mem_range.end =   (void *)(0x3aab00000000 + ONE_GB);
 #else
     lh_mem_range.start = (VA)area.addr - TWO_GB;
     lh_mem_range.end = (VA)area.addr - ONE_GB;
