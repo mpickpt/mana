@@ -17,7 +17,6 @@
 // 3 - request - 0x03000000
 // 4 - op - 0x04000000
 // 5 - datatype - 0x05000000
-// 6 - file - 0x06000000
 // 7 - comm_keyval - 0x07000000
 
 #define UNDEFINED_MASK 0x00000000
@@ -26,7 +25,6 @@
 #define REQUEST_MASK 0x03000000
 #define OP_MASK 0x04000000
 #define DATATYPE_MASK 0x05000000
-#define FILE_MASK 0x06000000
 #define COMM_KEYVAL_MASK 0x07000000
 
 #define DESC_TO_VIRTUAL(desc, null, real_type)		\
@@ -41,7 +39,7 @@
 #define VIRTUAL_TO_REAL(id, null, real_id_type, desc_type)    \
     ({                                              \
       desc_type* _VTR_tmp = VIRTUAL_TO_DESC(id, null, desc_type);			\
-       real_id_type _VTR_id = (_VTR_tmp == NULL) ? (real_id_type)lh_constants_map[(void*)id] : _VTR_tmp->real_id; \
+       real_id_type _VTR_id = (_VTR_tmp == NULL) ? (real_id_type)lh_constants_map[id] : _VTR_tmp->real_id; \
        _VTR_id; \
      })
 
@@ -93,19 +91,6 @@
     } \
     _UM_retval; \
 })
-
-#define DESC_TO_VIRTUAL_FILE(desc) \
-  DESC_TO_VIRTUAL(desc, MPI_FILE_NULL, MPI_File) 
-#define VIRTUAL_TO_DESC_FILE(id) \
-  VIRTUAL_TO_DESC(id, MPI_FILE_NULL, file_desc_t)
-#define VIRTUAL_TO_REAL_FILE(id) \
-  VIRTUAL_TO_REAL(id, MPI_FILE_NULL, MPI_File, file_desc_t)
-#define ADD_NEW_FILE(id) \
-  ADD_NEW(id, MPI_FILE_NULL, MPI_File, file_desc_t, FILE_MASK)
-#define REMOVE_OLD_FILE(id) \
-  REMOVE_OLD(id, MPI_FILE_NULL, file_desc_t, MPI_File)
-#define UPDATE_FILE_MAP(v, r) \
-  UPDATE_MAP(v, r, MPI_FILE_NULL, file_desc_t, MPI_File)
 
 #define DESC_TO_VIRTUAL_COMM(desc) \
   DESC_TO_VIRTUAL(desc, MPI_COMM_NULL, MPI_Comm) 
@@ -266,12 +251,6 @@ struct datatype_desc_t {
     bool is_freed;
 };
 
-struct file_desc_t {
-  MPI_File real_id;
-  int handle;
-  // TODO We probably want to save something else too.
-};
-
 struct comm_keyval_desc_t {
   int real_id;
   int handle;
@@ -283,7 +262,6 @@ union id_desc_t {
     request_desc_t request;
     op_desc_t op;
     datatype_desc_t datatype;
-    file_desc_t file;
     comm_keyval_desc_t comm_keyval;
 
   operator comm_desc_t () const { return comm; }
@@ -291,13 +269,12 @@ union id_desc_t {
   operator request_desc_t () const { return request; }
   operator op_desc_t () const { return op; }
   operator datatype_desc_t () const { return datatype; }
-  operator file_desc_t () const { return file; }
   operator comm_keyval_desc_t () const { return comm_keyval; }
 };
 
 extern std::map<int, id_desc_t*> idDescriptorTable;
 extern std::map<int, ggid_desc_t*> ggidDescriptorTable; 
-extern std::map<void*, void*> lh_constants_map;
+extern std::map<long unsigned int, long unsigned int> lh_constants_map;
 extern int base;
 extern int nextvId;
 typedef typename std::map<int, id_desc_t*>::iterator id_desc_iterator;
@@ -312,28 +289,24 @@ op_desc_t* init_op_desc_t(MPI_Op realOp);
 request_desc_t* init_request_desc_t(MPI_Request realReq);
 group_desc_t* init_group_desc_t(MPI_Group realGroup);
 comm_desc_t* init_comm_desc_t(MPI_Comm realComm);
-file_desc_t* init_file_desc_t(MPI_File realFile);
 
 void destroy_datatype_desc_t(datatype_desc_t* datatype);
 void destroy_op_desc_t(op_desc_t* op);
 void destroy_request_desc_t(request_desc_t* request);
 void destroy_group_desc_t(group_desc_t* group);
 void destroy_comm_desc_t(comm_desc_t* comm);
-void destroy_file_desc_t(file_desc_t* file);
 
 void update_datatype_desc_t(datatype_desc_t* datatype);
 void update_op_desc_t(op_desc_t* op, MPI_User_function* user_fn, int commute);
 void update_request_desc_t(request_desc_t* request);
 void update_group_desc_t(group_desc_t* group);
 void update_comm_desc_t(comm_desc_t* comm);
-void update_file_desc_t(file_desc_t* file);
 
 void reconstruct_with_datatype_desc_t(datatype_desc_t* datatype);
 void reconstruct_with_op_desc_t(op_desc_t* op);
 void reconstruct_with_request_desc_t(request_desc_t* request);
 void reconstruct_with_group_desc_t(group_desc_t* group);
 void reconstruct_with_comm_desc_t(comm_desc_t* comm);
-void reconstruct_with_file_desc_t(file_desc_t* file);
 
 void update_descriptors();
 void reconstruct_with_descriptors();

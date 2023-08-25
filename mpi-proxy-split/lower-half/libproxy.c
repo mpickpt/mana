@@ -68,17 +68,22 @@ static void* MPI_Fnc_Ptrs[] = {
   NULL,
 };
 
-static void*  mpi_constants[] = {
-  NULL,
-  FOREACH_CONSTANT(GENERATE_CONSTANT_VALUE)
-  NULL,
-};
+#define INIT_CONST_MAP(const) mpi_constants[LH_##const] = const;
 
+static int mpi_constants_initialized = 0;
+static void* mpi_constants[LH_MPI_Constant_Invalid + 1];
 // Local functions
 
 void*
 get_lh_mpi_constant(enum MPI_Constants constant)
 {
+  if (!mpi_constants_initialized) {
+    mpi_constants[LH_MPI_Constant_NULL] = NULL;
+    FOREACH_CONSTANT(INIT_CONST_MAP)
+    mpi_constants[LH_MPI_ERRORS_RETURN] = 0;
+    mpi_constants[LH_MPI_Constant_Invalid] = NULL;
+    mpi_constants_initialized = 1;
+  }
   if (constant < LH_MPI_Constant_NULL ||
       constant > LH_MPI_Constant_Invalid) {
     return NULL;

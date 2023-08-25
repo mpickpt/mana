@@ -142,7 +142,7 @@ USER_DEFINED_WRAPPER(int, Finalize, (void))
 }
 
 USER_DEFINED_WRAPPER(int, Get_count,
-                     (const MPI_Status *) status, (MPI_Datatype) datatype,
+                     (MPI_Status *) status, (MPI_Datatype) datatype,
                      (int *) count)
 {
   int retval;
@@ -215,7 +215,7 @@ PMPI_IMPL(double, MPI_Wtime, void)
 PMPI_IMPL(int, MPI_Initialized, int *flag)
 PMPI_IMPL(int, MPI_Init_thread, int *argc, char ***argv,
           int required, int *provided)
-PMPI_IMPL(int, MPI_Get_count, const MPI_Status *status, MPI_Datatype datatype,
+PMPI_IMPL(int, MPI_Get_count, MPI_Status *status, MPI_Datatype datatype,
           int *count)
 PMPI_IMPL(int, MPI_Get_library_version, char *version, int *resultlen)
 PMPI_IMPL(int, MPI_Get_address, const void *location, MPI_Aint *address)

@@ -141,7 +141,7 @@ check: ${TESTS_DUMMY}
 	done
 
 integrated_dmtcp_test: integrated_dmtcp_test.c
-	${MPICC} -I${DMTCP_INCLUDE} -I${JALIB_INCLUDE} -DDMTCP -g3 -O0 -o $@ $<
+	${MPICXX} -I${DMTCP_INCLUDE} -I${JALIB_INCLUDE} -DDMTCP -g3 -O0 -o $@ $<
 
 check-integrated_dmtcp_text: tidy integrated_dmtcp_test
 	${DMTCP_ROOT}/bin/dmtcp_launch --port ${DEMO_PORT}\
@@ -151,7 +151,7 @@ check-integrated_dmtcp_text: tidy integrated_dmtcp_test
           ckpt*.dmtcp
 
 %.o: %.c
-	 $(MPICC) -g3 -O0 -c -o $@ $< $(MPI_CFLAGS)
+	 $(MPICXX) -g3 -O0 -c -o $@ $< $(MPI_CFLAGS)
 
 # Allowing fortran argument mismatch in order to allow wave and day1 tests to
 # compile with GNU compiler. Note that this should not affect execution
@@ -166,10 +166,10 @@ check-integrated_dmtcp_text: tidy integrated_dmtcp_test
 	  ${LDFLAGS_DUMMY}
 
 %.exe: %.o
-	 $(MPICC) -o $@ $< ${MPI_LDFLAGS}
+	 $(MPICXX) -o $@ $< ${MPI_LDFLAGS}
 
 %.mana.exe: %.o
-	 $(MPICC) -o $@ $< ${MPI_LDFLAGS} ${LDFLAGS_DUMMY}
+	 $(MPICXX) -o $@ $< ${MPI_LDFLAGS} ${LDFLAGS_DUMMY}
 
 %.exe: %.cpp
 	$(MPICXX) -g3 -O0 -o $@ $< $(MPI_CXXFLAGS)
