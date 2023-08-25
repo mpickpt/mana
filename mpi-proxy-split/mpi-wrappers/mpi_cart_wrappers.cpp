@@ -69,20 +69,6 @@ extern "C" int foo(double a) {
   return 0;
 }
 
-USER_DEFINED_WRAPPER(int, Cart_map, (MPI_Comm) comm, (int) ndims,
-                     (const int*) dims, (const int*) periods, (int *) newrank)
-{
-  int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  // FIXME: Need to virtualize this newrank??
-  retval = NEXT_FUNC(Cart_map)(realComm, ndims, dims, periods, newrank);
-  RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
-  return retval;
-}
-
 USER_DEFINED_WRAPPER(int, Cart_rank, (MPI_Comm) comm,
                      (const int*) coords, (int *) rank)
 {
@@ -126,29 +112,6 @@ USER_DEFINED_WRAPPER(int, Cart_sub, (MPI_Comm) comm,
     *new_comm = virtComm;
     active_comms.insert(virtComm);
   }
-  DMTCP_PLUGIN_ENABLE_CKPT();
-  return retval;
-}
-
-USER_DEFINED_WRAPPER(int, Cartdim_get, (MPI_Comm) comm, (int *) ndims)
-{
-  int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  retval = NEXT_FUNC(Cartdim_get)(realComm, ndims);
-  RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
-  return retval;
-}
-
-USER_DEFINED_WRAPPER(int, Dims_create, (int)nnodes, (int)ndims, (int *)dims)
-{
-  int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  retval = NEXT_FUNC(Dims_create)(nnodes, ndims, dims);
-  RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -254,13 +217,9 @@ PMPI_IMPL(int, MPI_Cart_create, MPI_Comm old_comm, int ndims,
           MPI_Comm *comm_cart)
 PMPI_IMPL(int, MPI_Cart_get, MPI_Comm comm, int maxdims,
           int dims[], int periods[], int coords[])
-PMPI_IMPL(int, MPI_Cart_map, MPI_Comm comm, int ndims,
-          const int dims[], const int periods[], int *newrank)
 PMPI_IMPL(int, MPI_Cart_rank, MPI_Comm comm, const int coords[], int *rank)
 PMPI_IMPL(int, MPI_Cart_shift, MPI_Comm comm, int direction,
           int disp, int *rank_source, int *rank_dest)
 PMPI_IMPL(int, MPI_Cart_sub, MPI_Comm comm,
           const int remain_dims[], MPI_Comm *new_comm)
-PMPI_IMPL(int, MPI_Cartdim_get, MPI_Comm comm, int *ndims)
-PMPI_IMPL(int, MPI_Dims_create, int nnodes, int ndims, int *dims)
 

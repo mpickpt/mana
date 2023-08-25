@@ -34,9 +34,6 @@
 #include "mpi_nextfunc.h"
 #include "virtual-ids.h"
 // To support MANA_P2P_LOG and MANA_P2P_REPLAY:
-#include "p2p-deterministic.h"
-
-extern int p2p_deterministic_skip_save_request;
 
 int MPI_Test_internal(MPI_Request *request, int *flag, MPI_Status *status,
                       bool isRealRequest)
@@ -67,12 +64,10 @@ USER_DEFINED_WRAPPER(int, Test, (MPI_Request*) request,
     *flag = true;
     return MPI_SUCCESS;
   }
-  LOG_PRE_Test(status);
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Status statusBuffer;
   MPI_Status *statusPtr = status;
-  if (statusPtr == MPI_STATUS_IGNORE ||
-      statusPtr == FORTRAN_MPI_STATUS_IGNORE) {
+  if (statusPtr == MPI_STATUS_IGNORE) {
     statusPtr = &statusBuffer;
   }
   MPI_Request realRequest;
@@ -107,7 +102,6 @@ USER_DEFINED_WRAPPER(int, Test, (MPI_Request*) request,
     fflush(stdout);
 #endif
   }
-  LOG_POST_Test(request, statusPtr);
   if (retval == MPI_SUCCESS && *flag) {
     clearPendingRequestFromLog(*request);
     REMOVE_OLD_REQUEST(*request);
@@ -134,8 +128,7 @@ USER_DEFINED_WRAPPER(int, Testall, (int) count,
   for (int i = 0; i < count; i++) {
     // FIXME: Ideally, we should only check FORTRAN_MPI_STATUS_IGNORE
     //        in the Fortran wrapper.
-    if (local_array_of_statuses != MPI_STATUSES_IGNORE &&
-        local_array_of_statuses != FORTRAN_MPI_STATUSES_IGNORE) {
+    if (local_array_of_statuses != MPI_STATUSES_IGNORE) {
       retval = MPI_Test(&local_array_of_requests[i], local_flag,
                         &local_array_of_statuses[i]);
     } else {
@@ -223,8 +216,7 @@ USER_DEFINED_WRAPPER(int, Waitall, (int) count,
      * ignore?  Ideally, we should only check FORTRAN_MPI_STATUSES_IGNORE
      * in the Fortran wrapper.
      */
-    if (local_array_of_statuses != MPI_STATUSES_IGNORE &&
-        local_array_of_statuses != FORTRAN_MPI_STATUSES_IGNORE) {
+    if (local_array_of_statuses != MPI_STATUSES_IGNORE) {
       retval = MPI_Wait(&local_array_of_requests[i],
                         &local_array_of_statuses[i]);
     } else {
@@ -325,8 +317,7 @@ USER_DEFINED_WRAPPER(int, Wait, (MPI_Request*) request, (MPI_Status*) status)
   MPI_Status *statusPtr = status;
   // FIXME: Ideally, we should only check FORTRAN_MPI_STATUS_IGNORE
   //        in the Fortran wrapper.
-  if (statusPtr == MPI_STATUS_IGNORE ||
-      statusPtr == FORTRAN_MPI_STATUS_IGNORE) {
+  if (statusPtr == MPI_STATUS_IGNORE) {
     statusPtr = &statusBuffer;
   }
   // FIXME: We translate the virtual request in every iteration.
@@ -355,9 +346,6 @@ USER_DEFINED_WRAPPER(int, Wait, (MPI_Request*) request, (MPI_Status*) status)
       printf("rank %d received %d bytes from rank %d\n", g_world_rank, count * size, worldRank);
       fflush(stdout);
 #endif
-    }
-    if (p2p_deterministic_skip_save_request == 0) {
-      if (flag) LOG_POST_Wait(request, statusPtr);
     }
     if (flag) {
       clearPendingRequestFromLog(*request); // Remove from g_nonblocking_calls
@@ -397,24 +385,6 @@ USER_DEFINED_WRAPPER(int, Iprobe, (int) source, (int) tag, (MPI_Comm) comm,
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, Request_get_status, (MPI_Request) request,
-                     (int *) flag, (MPI_Status *) status)
-{
-  int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Request realRequest = VIRTUAL_TO_REAL_REQUEST(request);
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  retval = NEXT_FUNC(Request_get_status)(realRequest, flag, status);
-  RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
-  return retval;
-}
-
-DEFINE_FNC(int, Get_elements, (const MPI_Status *) status,
-           (MPI_Datatype) datatype, (int *) count);
-DEFINE_FNC(int, Get_elements_x, (const MPI_Status *) status,
-           (MPI_Datatype) datatype, (MPI_Count *) count);
-
 PMPI_IMPL(int, MPI_Test, MPI_Request* request, int* flag, MPI_Status* status)
 PMPI_IMPL(int, MPI_Wait, MPI_Request* request, MPI_Status* status)
 PMPI_IMPL(int, MPI_Iprobe, int source, int tag, MPI_Comm comm, int *flag,
@@ -429,10 +399,4 @@ PMPI_IMPL(int, MPI_Testall, int count, MPI_Request array_of_requests[],
           int *flag, MPI_Status *array_of_statuses)
 PMPI_IMPL(int, MPI_Testany, int count, MPI_Request array_of_requests[],
           int *index, int *flag, MPI_Status *status);
-PMPI_IMPL(int, MPI_Get_elements, const MPI_Status *status,
-          MPI_Datatype datatype, int *count)
-PMPI_IMPL(int, MPI_Get_elements_x, const MPI_Status *status,
-          MPI_Datatype datatype, MPI_Count *count)
-PMPI_IMPL(int, MPI_Request_get_status, MPI_Request request, int* flag,
-          MPI_Status *status)
 

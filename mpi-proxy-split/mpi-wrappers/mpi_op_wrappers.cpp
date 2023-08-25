@@ -70,25 +70,6 @@ USER_DEFINED_WRAPPER(int, Op_free, (MPI_Op*) op)
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, Reduce_local,
-                     (const void *) inbuf, (void *) inoutbuf, (int) count,
-                     (MPI_Datatype) datatype, (MPI_Op) op)
-{
-  int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
-  MPI_Op realOp = VIRTUAL_TO_REAL_OP(op);
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  retval = NEXT_FUNC(Reduce_local)(inbuf, inoutbuf, count, realType, realOp);
-  RETURN_TO_UPPER_HALF();
-  // This is non-blocking.  No need to log it.
-  DMTCP_PLUGIN_ENABLE_CKPT();
-  return retval;
-}
-
-
 PMPI_IMPL(int, MPI_Op_create, MPI_User_function *user_fn,
           int commute, MPI_Op *op)
 PMPI_IMPL(int, MPI_Op_free, MPI_Op *op)
-PMPI_IMPL(int, MPI_Reduce_local, const void *inbuf, void *inoutbuf, int count,
-          MPI_Datatype datatype, MPI_Op op)
