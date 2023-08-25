@@ -123,6 +123,8 @@ if [ "$verbose" == 1 ]; then
   set -x
 fi
 
+# Remap caused address conflict on Discovery
+export DMTCP_DEBUG_MTCP_RESTART=1
 exec $dir/dmtcp_restart  --mpi --join-coordinator \
                     --coord-host $submissionHost --coord-port $submissionPort \
                     $options
