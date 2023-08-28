@@ -191,8 +191,7 @@ static uint64_t page_unit;
 /*
  * Note that many of these functions/variables have a corresponding
  * function/variable in the upper half.  The correspondences are:
- * FIXME: rename numRegions to numMmapRegions
- * int numRegions -> int *g_numMmaps
+ * int numMmapRegions -> int *g_numMmaps
  * MmapInfo_t mmaps[MAX_TRACK] -> MmapInfo_t *g_list
  * FIXME: Multiple changes needed; Also rename it to: lh_core_regions_list
  * LhCoreRegions_t lh_regions_list[MAX_LH_REGIONS]
@@ -235,7 +234,7 @@ void* getNextAddr(size_t );
 // TODO:
 //  1. Make the size of list dynamic
 #define MAX_TRACK   1000
-extern int numRegions;
+extern int numMmapRegions;
 extern MmapInfo_t mmaps[MAX_TRACK];
 extern void *nextFreeAddr;
 

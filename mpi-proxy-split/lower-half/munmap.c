@@ -51,7 +51,7 @@ alignedWithLastPage(const void *haystackStart,
 static int
 getOverlappingRegion(void *addr, size_t len)
 {
-  for (int i = 0; i < numRegions; i++) {
+  for (int i = 0; i < numMmapRegions; i++) {
     void *rstart = mmaps[i].addr;
     void *rend = (char*)mmaps[i].addr + mmaps[i].len;
     void *ustart = addr;

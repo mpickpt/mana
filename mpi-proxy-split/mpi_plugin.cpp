@@ -1101,6 +1101,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     }
 
     case DMTCP_EVENT_PRESUSPEND: {
+      // User threads are not yet suspended.
       mana_state = CKPT_COLLECTIVE;
       // preSuspendBarrier() will send coord response and get worker state.
       // FIXME:  See commant at: dmtcpplugin.cpp:'case DMTCP_EVENT_PRESUSPEND'
@@ -1110,6 +1111,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     }
 
     case DMTCP_EVENT_PRECHECKPOINT: {
+      // User threads are now suspended.
       recordMpiInitMaps();
       recordOpenFds();
       dmtcp_local_barrier("MPI:GetLocalLhMmapList");
@@ -1123,6 +1125,13 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       registerLocalSendsAndRecvs(); // p2p_drain_send_recv.cpp
       dmtcp_global_barrier("MPI:Drain-Send-Recv");
       drainSendRecv(); // p2p_drain_send_recv.cpp
+      // Pointers to lh for g_list and g_numMmaps were set by getLhMmapList()
+      JASSERT(g_list[*g_numMmaps-1].addr != MAP_FAILED &&
+               ( g_list[*g_numMmaps].addr == MAP_FAILED /* sentinel */ ||
+                 ( g_list[*g_numMmaps].guard == 1 &&
+                   g_list[*g_numMmaps].addr == MAP_FAILED )))
+             (*g_numMmaps) (g_list[*g_numMmaps-1].addr)
+             (g_list[*g_numMmaps].addr) (g_list[*g_numMmaps].addr);
       computeUnionOfCkptImageAddresses();
       dmtcp_global_barrier("MPI:save-mana-header-and-mpi-files");
       const char *file = get_mana_header_file_name();

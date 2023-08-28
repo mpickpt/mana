@@ -42,12 +42,6 @@
 //           memory regions using mmaps[] _and_ shms[].
 //   FIXME:  We do not catch any changes in /proc/PID/maps due to ioctl.
 
-// FIXME: When we know this works, remove this preprocessor variable and make
-// this permanent.  Right now, this causes us to reserve the lh_mem_range
-// in two places (during launch and during restart).  We should refactor
-// to do this in only one place.
-#define RESERVE_LH_MEM_RANGE
-
 #define HAS_MAP_FIXED_NOREPLACE LINUX_VERSION_CODE >= KERNEL_VERSION(4, 17, 0)
 
 #ifdef __NR_mmap2
@@ -100,7 +94,8 @@
 //  2. Make the size of list dynamic
 
 // Number of valid objects in the 'mmaps' list below
-int numRegions = 0;
+// For i >= numMmapRegions, mmaps[i].addr == MAP_FAILED.
+int numMmapRegions = 0;
 
 #ifdef LIBMMAP_SO
 // Lower-half memory range to use.
@@ -119,7 +114,7 @@ MmapInfo_t*
 getMmappedList(int **num)
 {
   if (!num) return NULL;
-  *num = &numRegions;
+  *num = &numMmapRegions;
   return mmaps;
 }
 
@@ -136,27 +131,28 @@ void
 resetMmappedList()
 {
   // Alternatively, just do:  memset((void *)mmaps, 0, sizeof(mmaps));
-  for (int i = 0; i < numRegions; i++) {
+  for (int i = 0; i < numMmapRegions; i++) {
     memset(&mmaps[i], 0, sizeof(mmaps[i]));
   }
-  numRegions = 0;
+  numMmapRegions = 0;
+  // All mmaps[] now unused.  Mark all mmaps with MAP_FAILED sentinel, for GDB
+  for (int i = 0; i < MAX_TRACK; i++) {
+    mmaps[i].addr = MAP_FAILED;
+  }
 
-#ifdef RESERVE_LH_MEM_RANGE
-  // We will reserve the lh_memRange memory, so no one can steal it from us.
+  /**************************************************************************
+   * Next, We reserve the lh_memRange memory, so no one can steal it from us.
+   * The upper half (../mtcp_split_process.c) sets lh_memRange.start to
+   *   0x2aab00000000, and we assume that no one else uses that address range.
+   * NPTE: We reserve the lh_memRange memory in two places: launch and restart.
+   **************************************************************************/
   size_t length = lh_memRange.end - lh_memRange.start;
 #if HAS_MAP_FIXED_NOREPLACE
   // Use inline syscall here, to avoid our __mmap64 wrapper.
-  // FIXME:  Keep only the "dev/zero" '#else' when it's been tested.
-# if 0
-  void *rc = LH_MMAP_CALL(lh_memRange.start, length,
-                          PROT_WRITE,
-                          MAP_PRIVATE|MAP_ANONYMOUS|MAP_FIXED_NOREPLACE, -1, 0);
-# else
   int fd = open("/dev/zero", O_RDONLY);
   void *rc = LH_MMAP_CALL(lh_memRange.start, length,
                           PROT_NONE,
                           MAP_SHARED|MAP_ANONYMOUS|MAP_FIXED_NOREPLACE, fd, 0);
-# endif
   if (rc == MAP_FAILED) {
     char msg[] = "*** Panic: MANA lower half: can't reserve lh_memRange"
                  " using MAP_FIXED_NOREPLACE\n";
@@ -181,13 +177,12 @@ resetMmappedList()
   //         only later, when mmap64 takes a piece.of it.
   // memset(lh_memRange.start, CANARY_BYTE, length);
   mprotect(lh_memRange.start, length, PROT_NONE);
-#endif
 }
 
 int
 getMmapIdx(const void *addr)
 {
-  for (int i = 0; i < numRegions; i++) {
+  for (int i = 0; i < numMmapRegions; i++) {
     if (mmaps[i].addr == addr) {
       return i;
     }
@@ -227,7 +222,7 @@ getNextAddr(size_t len)
 static int
 extendExistingMmap(const void *addr)
 {
-  for (int i = 0; i < numRegions; i++) {
+  for (int i = 0; i < numMmapRegions; i++) {
     if (addr >= mmaps[i].addr && addr <= mmaps[i].addr + mmaps[i].len) {
       return i;
     }
@@ -401,27 +396,35 @@ __mmap64 (void *addr, size_t len, int prot, int flags, int fd, __off_t offset)
       mmaps[idx].unmapped = 0;
       mmaps[idx].dontuse = 0;
     } else {
+      // This tries to find an earlier unmapped region, and re-use it.
       int idx2 = extendExistingMmap(ret);
       if (idx2 != -1) {
         size_t length = ROUND_UP(len) + ((char*)ret - (char*)mmaps[idx2].addr);
         mmaps[idx2].len = length > mmaps[idx2].len ? length : mmaps[idx2].len;
         mmaps[idx2].unmapped = 0;
         idx = idx2;
-      } else {
-        mmaps[numRegions].addr = ret;
-        mmaps[numRegions].len = ROUND_UP(len);
-        mmaps[numRegions].unmapped = 0;
-        idx = numRegions;
-        numRegions = (numRegions + 1) % MAX_TRACK;
-        // FIXME: A better fix, below, is to set nextFreeAddr back to the start,
-        //   and then to test the size of any gap.  That can be done
-        //   by checking each known region.  Hopefully, there are not many.
-        //   Or at least, we can re-use any unmapped regions.
-        if (numRegions == 0) {
+      } else { // Else use a new region at end.
+        mmaps[numMmapRegions].addr = ret;
+        mmaps[numMmapRegions].len = ROUND_UP(len);
+        mmaps[numMmapRegions].unmapped = 0;
+        idx = numMmapRegions;
+        numMmapRegions = numMmapRegions + 1;
+        // FIXME: Since lh_memRange is located at an address range that doesn't
+        //   conflict with other addresses, a better fix would be to use
+        //   LH_MMAP_CALL(lh_memRange.end, additional_length, PROT_NONE,
+        //                MAP_SHARED|MAP_ANONYMOUS|MAP_FIXED_NOREPLACE, fd, 0)
+        //   for fd pointing to /dev/zero, and so to contiguously extend
+        //   our reserved mmaps[] region, and then adjust MAX_TRACK.
+        if (numMmapRegions >= MAX_TRACK - 2) { // Keep a MAP_FAILED sentinel
           char msg[] = "*** Panic: MANA lower half: no more space for mmap.\n";
-          write(2, msg, sizeof(msg)); assert(numRegions > 0);
+          write(2, msg, sizeof(msg));
         }
+        assert(numMmapRegions < MAX_TRACK - 2); // MAX_TRACK-2 for guard page
       }
+    }
+    if (mmaps[idx+1].addr != MAP_FAILED) {
+      // Create an obvious sentinel for ease of debugging in GDB
+      mmaps[idx+1].addr = mmaps[idx+2].addr = MAP_FAILED;
     }
     if (extraGuardPage) {
       mmaps[idx].guard = 1;
