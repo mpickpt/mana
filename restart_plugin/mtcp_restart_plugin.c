@@ -849,6 +849,11 @@ mtcp_plugin_skip_memory_region_munmap(Area *area, RestoreInfo *rinfo)
   LhCoreRegions_t *lh_regions_list = NULL;
   int total_lh_regions = lh_info->numCoreRegions;
 
+  // Don't skip munmap of mtcp_restart regions.
+  if (mtcp_strendswith(area->name, "/mtcp_restart")) {
+    return 0;
+  }
+
   if (regionContains(rinfo->pluginInfo.memRange.start,
                      rinfo->pluginInfo.memRange.end,
                      area->addr, area->endAddr)) {
