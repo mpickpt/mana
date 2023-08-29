@@ -273,10 +273,6 @@ int MPI_Irecv(void *buf, int count, MPI_Datatype datatype, int source,
   *((unsigned char *)buf + 6), *((unsigned char *)buf + 7), source, tag,
   Irecv_counter);
 #endif
-<<<<<<< HEAD
-  #endif
-=======
->>>>>>> 701f1fb (bug fx)
   int retval;
   retval = NEXT_FNC(MPI_Irecv)(buf, count, datatype, source, tag, comm, request);
   return retval;
