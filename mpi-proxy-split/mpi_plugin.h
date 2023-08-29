@@ -67,4 +67,21 @@ enum mana_state_t {
 
 extern mana_state_t mana_state;
 
+/******************************************************************************/
+/* 
+In applications using MPI, an MPI thread is responsible for managing asynchronous requests in the background. During checkpointing, it is necessary to suspend Collective and P2P communication so that MANA can drain messages from the network and create a checkpoint image. Previously, we had been draining collective messages during the PRESUSPEND event, while all threads were still running. This is because draining collective messages requires all ranks to be in a consistent state, which can only be achieved through trial and error and by allowing the user application to make progress. However, we were draining P2P messages after suspending all threads, including the MPI thread. This was because each rank explicitly asks other ranks for any pending messages floating in the network, and MANA drains them into its internal buffer so that they can be passed to the user application during checkpoint restart. Additionally, we rely on MPI to provide information about pending requests or messages in the network.
+
+While this approach seemed reasonable, it did not account for a case where the MPI thread was creating metadata for a P2P request and was suspended in between. In such a scenario, that message would not be visible to other ranks since the MPI APIs used by MANA to gather information about pending requests would report that there are no messages, even though there is a message pending that is not yet visible to all ranks because its metadata has not yet been generated.
+*/
+
+/*
+The P2P communication in an application is controlled globally by <global_p2p_communication> variable. When we say "control", we mean that it suspends P2P communication and prevents the user application from being in the lower half. This allows for P2P message draining and checkpointing during the PRESUSPEND checkpoint event. If the P2P message draining is performed after PRESUSPEND and before PRECHECKPOINT, the variable mentioned above is not needed.
+*/
+static int global_p2p_communication = 1;
+static int internal_p2p_communication = 0;
+
+void global_p2p_communication_barrier();
+
+/******************************************************************************/
+
 #endif // ifndef _MPI_PLUGIN_H
