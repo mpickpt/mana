@@ -46,7 +46,7 @@
 
 
 #include "jassert.h"
-#include "lower_half_api.h"
+#include "libproxy.h"
 #include "split_process.h"
 #include "procmapsutils.h"
 #include "config.h" // for HAS_FSGSBASE
@@ -216,8 +216,8 @@ patchAuxv(ElfW(auxv_t) *av, unsigned long phnum, unsigned long phdr, int save)
 static int
 mmap_iov(const struct iovec *iov, int prot)
 {
-  void *base = (void *)ROUND_DOWN(iov->iov_base);
-  size_t len = ROUND_UP(iov->iov_len);
+  void *base = (void *)ROUND_DOWN(iov->iov_base, PAGE_SIZE);
+  size_t len = ROUND_UP(iov->iov_len, PAGE_SIZE);
   int flags =  MAP_PRIVATE | MAP_FIXED | MAP_ANONYMOUS;
   // Get fd for "lh_proxy", for use in mmap().  Kernel will then
   //   display the lh_proxy pathname in /proc/PID/maps.
@@ -393,13 +393,13 @@ findLHMemRange(MemRange_t *lh_mem_range)
   JASSERT(mapsfd >= 0)(JASSERT_ERRNO).Text("Failed to open proc maps");
 
   if (readMapsLine(mapsfd, &area)) {
-    // ROUNDADDRUP aligns the address such that HUGEPAGES/2MB can also be used.
-    prev_addr_end = ROUNDADDRUP((uint64_t) area.endAddr, 2 * ONEMB);
+    // ROUND_UP aligns the address such that HUGEPAGES/2MB can also be used.
+    prev_addr_end = ROUND_UP((uint64_t) area.endAddr, 2 * ONEMB);
   }
 
   while (readMapsLine(mapsfd, &area)) {
     next_addr_start = (uint64_t) area.addr;
-    next_addr_end = ROUNDADDRUP((uint64_t) area.endAddr, 2 * ONEMB);
+    next_addr_end = ROUND_UP((uint64_t) area.endAddr, 2 * ONEMB);
     strncpy(next_path_name, area.name, PATH_MAX - 1);
     next_path_name[PATH_MAX - 1] = '\0';
 

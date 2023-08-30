@@ -19,40 +19,18 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+/* WARNING:  The original of this file is in the lower-half directory.
+ * DO NOT EDIT THE VERSION IN THE restart_plugin DIRECTORY.
+ */
+
 #ifndef _LOWER_HALF_API_H
 #define _LOWER_HALF_API_H
 
 #include <stdint.h>
 
-#include "libproxy.h"
-
-#define GENERATE_ENUM(ENUM)    MPI_Fnc_##ENUM
-#define GENERATE_FNC_PTR(FNC)  &MPI_##FNC
-#define GENERATE_FNC_STRING(FNC)  "MPI_" #FNC
-#define PAGE_SIZE              0x1000
-#define HUGE_PAGE              0x200000
-
-/* Maximum core regions lh_regions_list can store */
-#define MAX_LH_REGIONS 500
-
-#ifdef MAIN_AUXVEC_ARG
-/* main gets passed a pointer to the auxiliary.  */
-# define MAIN_AUXVEC_DECL , void *
-# define MAIN_AUXVEC_PARAM , auxvec
-#else
-# define MAIN_AUXVEC_DECL
-# define MAIN_AUXVEC_PARAM
-#endif // ifdef MAIN_AUXVEC_ARG
-
-#define ROUND_UP(addr)  \
-    (((unsigned long)addr + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1))
-
-#define ROUND_DOWN(addr) ((unsigned long)addr & ~(PAGE_SIZE - 1))
-
-#define ROUND_UP_HUGE(addr) \
-    ((unsigned long)(addr + HUGE_PAGE - 1) & ~(HUGE_PAGE - 1))
-
-// Shared data structures
+// This file is shared between lh_proxy (lower-half directory)
+// and mtcp_restart (restart_plugin directory).  We copy this file
+// from lower-half to restart_plugin in the mpi-proxy-splitMakefile.
 
 typedef struct __MemRange
 {
@@ -108,71 +86,21 @@ typedef struct _LowerHalfInfo
   MemRange_t memRange; // MemRange_t object in the lower half
 } LowerHalfInfo_t;
 
-enum MPI_Fncs {
-  MPI_Fnc_NULL,
-  FOREACH_FNC(GENERATE_ENUM)
-  MPI_Fnc_Invalid,
-};
-
-__attribute__ ((unused))
-static const char *MPI_Fnc_strings[] = {
-  "MPI_Fnc_NULL",
-  FOREACH_FNC(GENERATE_FNC_STRING)
-  "MPI_Fnc_Invalid"
-};
-
-
-// Useful type definitions
-
-typedef int (*mainFptr)(int argc, char *argv[], char *envp[]);
-typedef void (*finiFptr) (void);
-typedef int (*libcFptr_t) (int (*main) (int, char **, char ** MAIN_AUXVEC_DECL),
-                           int ,
-                           char **,
-                           __typeof (main) ,
-                           void (*fini) (void),
-                           void (*rtld_fini) (void),
-                           void *);
-
-typedef void* (*proxyDlsym_t)(enum MPI_Fncs fnc);
-typedef void* (*updateEnviron_t)(char **environ);
-typedef void (*resetMmappedList_t)();
-typedef MmapInfo_t* (*getMmappedList_t)(int **num);
-typedef LhCoreRegions_t* (*getLhRegionsList_t)(int *num);
-
-// Global variables with lower-half information
+/* Maximum core regions lh_regions_list can store */
+#define MAX_LH_REGIONS 500
+extern LhCoreRegions_t lh_regions_list[MAX_LH_REGIONS];
 
 // startProxy() (called from splitProcess()) will initialize 'lh_info'
-extern LowerHalfInfo_t lh_info;
+extern LowerHalfInfo_t lh_info;  
+
+
+#if 0
 // Pointer to the custom dlsym implementation (see mydlsym() in libproxy.c) in
 // the lower half. This is initialized using the information passed to us by
 // the transient lh_proxy process in DMTCP_EVENT_INIT.
 // initializeLowerHalf() will initialize this to: (proxyDlsym_t)lh_info.lh_dlsym
+typedef void* (*proxyDlsym_t)(enum MPI_Fncs fnc);
 extern proxyDlsym_t pdlsym;
-extern LhCoreRegions_t lh_regions_list[MAX_LH_REGIONS];
-
-// API
-
-// Returns the address of an MPI API in the lower half's MPI library based on
-// the given enum value
-extern void *mydlsym(enum MPI_Fncs fnc);
-
-// Initializes the MPI library in the lower half (by calling MPI_Init()) and
-// returns the MPI rank of the current process
-extern int getRank();
-
-// Updates the lower half's global environ pointer (__environ) to the given
-// 'newenviron' pointer value
-extern void updateEnviron(const char **newenviron);
-
-// Returns a pointer to the first element of a pre-allocated array of
-// 'MmapInfo_t' objects and 'num' is set to the number of valid items in
-// the array
-extern MmapInfo_t* getMmappedList(int **num);
-
-// Clears the global, pre-allocated array of 'MmapInfo_t' objects
-extern void resetMmappedList();
-
-extern LhCoreRegions_t* getLhRegionsList(int *num);
+#endif
 
 #endif // ifndef _LOWER_HALF_API_H

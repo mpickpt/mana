@@ -33,7 +33,7 @@
 #include "jassert.h"
 #include "jconvert.h"
 
-#include "lower_half_api.h"
+#include "libproxy.h"
 
 // Logs the MPI call to the global MPI calls log object (defined by the
 // 'MpiRecordReplay' class). 'cb' specifies the callback that will be used

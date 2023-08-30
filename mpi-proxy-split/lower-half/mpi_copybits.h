@@ -27,7 +27,7 @@
 #include <link.h>
 #include <unistd.h>
 
-#include "lower_half_api.h"
+#include "libproxy.h"  // In order to define DLOG
 
 extern int main(int argc, char *argv[], char *envp[]);
 extern int __libc_csu_init (int argc, char **argv, char **envp);

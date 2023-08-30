@@ -48,10 +48,14 @@ all: default
 mana: mana_prereqs dmtcp
 	cd mpi-proxy-split && $(MAKE) install && $(MAKE) -j tests
 
-dmtcp:
+dmtcp: restart_plugin/lower_half_api.h
 	cd dmtcp && $(MAKE)
 	cp -rf dmtcp/bin .
 	cp -rf dmtcp/lib .
+
+# This could be a symbolic link.  But a full copy seems safer.
+restart_plugin/lower_half_api.h: mpi-proxy-split/lower-half/lower_half_api.h
+	cp $< $@
 
 create-dirs:
 	$(INSTALL) -d $(DESTDIR)$(bindir)

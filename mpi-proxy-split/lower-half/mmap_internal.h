@@ -186,7 +186,21 @@ static uint64_t page_unit;
     INLINE_SYSCALL_CALL (__nr, __addr, __len, __prot, __flags, __fd, __offset)
 #endif
 
+// ==========================================================
+// We stop importing mmap.h from glibc
+
 #include "lower_half_api.h"
+
+#define PAGE_SIZE              0x1000
+#define HUGE_PAGE              0x200000
+
+#define ROUND_UP(addr)  \
+    (((unsigned long)addr + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1))
+
+#define ROUND_DOWN(addr) ((unsigned long)addr & ~(PAGE_SIZE - 1))
+
+#define ROUND_UP_HUGE(addr) \
+    ((unsigned long)(addr + HUGE_PAGE - 1) & ~(HUGE_PAGE - 1))
 
 /*
  * Note that many of these functions/variables have a corresponding

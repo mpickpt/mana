@@ -22,6 +22,8 @@
 #ifndef _LIBPROXY_H
 #define _LIBPROXY_H
 
+#include "lower_half_api.h"
+
 #ifndef DEBUG_LEVEL
 # define DEBUG_LEVEL 0
 #endif // ifndef DEBUG_LEVEL
@@ -404,5 +406,84 @@ do {                                                                           \
   MACRO(Wtime), \
   MACRO(MANA_Internal), \
   MACRO(Aint_diff),
+
+// ===========================================================
+
+#define GENERATE_ENUM(ENUM)    MPI_Fnc_##ENUM
+#define GENERATE_FNC_PTR(FNC)  &MPI_##FNC
+#define GENERATE_FNC_STRING(FNC)  "MPI_" #FNC
+
+#ifdef MAIN_AUXVEC_ARG
+/* main gets passed a pointer to the auxiliary.  */
+# define MAIN_AUXVEC_DECL , void *
+# define MAIN_AUXVEC_PARAM , auxvec
+#else
+# define MAIN_AUXVEC_DECL
+# define MAIN_AUXVEC_PARAM
+#endif // ifdef MAIN_AUXVEC_ARG
+
+enum MPI_Fncs {
+  MPI_Fnc_NULL,
+  FOREACH_FNC(GENERATE_ENUM)
+  MPI_Fnc_Invalid,
+};
+
+__attribute__ ((unused))
+static const char *MPI_Fnc_strings[] = {
+  "MPI_Fnc_NULL",
+  FOREACH_FNC(GENERATE_FNC_STRING)
+  "MPI_Fnc_Invalid"
+};
+
+
+// Useful type definitions
+
+typedef int (*mainFptr)(int argc, char *argv[], char *envp[]);
+typedef void (*finiFptr) (void);
+typedef int (*libcFptr_t) (int (*main) (int, char **, char ** MAIN_AUXVEC_DECL),
+                           int ,
+                           char **,
+                           __typeof (main) ,
+                           void (*fini) (void),
+                           void (*rtld_fini) (void),
+                           void *);
+
+typedef void* (*proxyDlsym_t)(enum MPI_Fncs fnc);
+typedef void* (*updateEnviron_t)(char **environ);
+typedef void (*resetMmappedList_t)();
+typedef MmapInfo_t* (*getMmappedList_t)(int **num);
+typedef LhCoreRegions_t* (*getLhRegionsList_t)(int *num);
+
+// Global variables with lower-half information
+
+// Pointer to the custom dlsym implementation (see mydlsym() in libproxy.c) in
+// the lower half. This is initialized using the information passed to us by
+// the transient lh_proxy process in DMTCP_EVENT_INIT.
+// initializeLowerHalf() will initialize this to: (proxyDlsym_t)lh_info.lh_dlsym
+extern proxyDlsym_t pdlsym;
+
+// API
+
+// Returns the address of an MPI API in the lower half's MPI library based on
+// the given enum value
+extern void *mydlsym(enum MPI_Fncs fnc);
+
+// Initializes the MPI library in the lower half (by calling MPI_Init()) and
+// returns the MPI rank of the current process
+extern int getRank();
+
+// Updates the lower half's global environ pointer (__environ) to the given
+// 'newenviron' pointer value
+extern void updateEnviron(const char **newenviron);
+
+// Returns a pointer to the first element of a pre-allocated array of
+// 'MmapInfo_t' objects and 'num' is set to the number of valid items in
+// the array
+extern MmapInfo_t* getMmappedList(int **num);
+
+// Clears the global, pre-allocated array of 'MmapInfo_t' objects
+extern void resetMmappedList();
+
+extern LhCoreRegions_t* getLhRegionsList(int *num);
 
 #endif // define _LIBPROXY_H

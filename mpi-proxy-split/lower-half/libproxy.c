@@ -49,6 +49,7 @@
 extern int MPI_MANA_Internal(char *dummy);
 
 #include "libproxy.h"
+#include "mmap_internal.h"  // included for definition of ROUND_UP
 #include "mpi_copybits.h"
 #include "procmapsutils.h"
 #include "lower_half_api.h"

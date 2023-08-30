@@ -4,7 +4,7 @@
 #include <stdint.h>
 
 #include "mtcp_sys.h"
-#include "mtcp_restart_plugin.h"
+#include "lower_half_api.h"
 #include "mtcp_restart.h"
 
 // FIXME: Make it dynamic
@@ -13,7 +13,6 @@
 #define ROUND_UP(addr) ((addr + getpagesize() - 1) & ~(getpagesize()-1))
 #define ROUND_DOWN(addr) ((unsigned long)addr & ~(getpagesize()-1))
 
-extern LowerHalfInfo_t lh_info;
 extern LhCoreRegions_t lh_regions_list[MAX_LH_REGIONS];
 
 // Helper macro to be used whenever making a jump from the upper half to
