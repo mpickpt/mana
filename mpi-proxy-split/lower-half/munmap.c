@@ -25,7 +25,6 @@
 #include <errno.h>
 #include <assert.h>
 
-#include "lower_half_api.h"
 #include "mmap_internal.h"
 
 /* Deallocate any mapping for the region starting at ADDR and extending LEN

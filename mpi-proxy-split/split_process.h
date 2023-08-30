@@ -119,8 +119,12 @@ class SwitchContext
 #define ONEMB (uint64_t)(1024 * 1024)
 #define ONEGB (uint64_t)(1024 * 1024 * 1024)
 
-// Rounds the given address up to the nearest region size, given as an input.
-#define ROUNDADDRUP(addr, size) ((addr + size - 1) & ~(size - 1))
+// Rounds the given address up/down to nearest region size, given as an input.
+//   (similar to define's in lower-half/mmap_internal.h)
+#define PAGE_SIZE              0x1000
+#define HUGE_PAGE              0x200000
+#define ROUND_UP(addr, size) (((unsigned long)addr + size - 1) & ~(size - 1))
+#define ROUND_DOWN(addr, size) ((unsigned long)addr & ~(size - 1))
 
 #ifdef __clang__
 # define NO_OPTIMIZE __attribute__((optnone))

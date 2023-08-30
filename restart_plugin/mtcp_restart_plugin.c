@@ -12,11 +12,14 @@
 #include "mtcp_sys.h"
 #include "mtcp_util.h"
 #include "../mpi-proxy-split/mana_header.h"
+#include "mtcp_restart_plugin.h"
 #include "mtcp_split_process.h"
 #ifdef SINGLE_CART_REORDER
 #include "../mpi-proxy-split/cartesian.h"
 #include "../dmtcp/src/mtcp/mtcp_sys.h"
 #endif
+
+#include "config.h" // from dmtcp/include; used to compile mtcp_restart
 
 // FIXME:  Remove PluginInfo from mtcp_restart_plugin.h in this directory.
 //         Remove all lines with PluginInfo from dmtcp/src/mtcp/mtcp_restart.h

@@ -370,8 +370,8 @@ isLhMmapRegion(const ProcMapsArea *area)
     void *lhMmapStart = g_list[i].addr;
     void *lhMmapEnd = (VA)g_list[i].addr + g_list[i].len;
     if (!g_list[i].unmapped &&
-        regionContains(lhMmapStart,
-                       (void*)ROUND_UP(lhMmapEnd), area->addr, area->endAddr)) {
+        regionContains(lhMmapStart, (void*)ROUND_UP(lhMmapEnd, PAGE_SIZE),
+                       area->addr, area->endAddr)) {
       return true;
     }
   }
