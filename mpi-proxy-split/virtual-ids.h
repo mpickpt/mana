@@ -227,12 +227,22 @@
 #define UPDATE_REQUEST_MAP(v, r) \
   UPDATE_MAP(v, r, MPI_REQUEST_NULL, request_desc_t, MPI_Request)
 
+struct ggid_desc_t {
+  int ggid; // hashing results of communicator members
+
+  unsigned long seq_num;
+
+  unsigned long target_num;
+
+};
+
 struct comm_desc_t {
     MPI_Comm real_id; // Real MPI communicator in the lower-half
     int handle; // A copy of the int type handle generated from the address of this struct
     int size; // Size of this communicator
     int local_rank; // local rank number of this communicator
-    int *ranks; // list of ranks of the group.
+    int *global_ranks; // list of ranks of the group.
+    ggid_desc_t* ggid_desc;
 
     // struct virt_group_t *group; // Or should this field be a pointer to virt_group_t?
 };
@@ -241,7 +251,7 @@ struct group_desc_t {
     MPI_Group real_id; // Real MPI group in the lower-half
     int handle; // A copy of the int type handle generated from the address of this struct
     int size; // The size of this group in ranks.
-    int *ranks; // list of ranks of the group.
+    int *global_ranks; // list of ranks of the group.
     // unsigned int ggid; // Global Group ID
 };
 
@@ -315,12 +325,18 @@ union id_desc_t {
 };
 
 extern std::map<int, id_desc_t*> idDescriptorTable;
+extern std::map<unsigned int, ggid_desc_t*> ggidDescriptorTable; 
 extern int base;
 extern int nextvId;
 typedef typename std::map<int, id_desc_t*>::iterator id_desc_iterator;
 typedef std::pair<int, id_desc_t*> id_desc_pair;
+typedef typename std::map<unsigned int, ggid_desc_t*>::iterator ggid_desc_iterator;
+typedef std::pair<unsigned int, ggid_desc_t*> ggid_desc_pair;
 
 id_desc_t* virtualToDescriptor(int virtId);
+
+int getggid(MPI_Comm comm);
+int hash(int i);
 
 datatype_desc_t* init_datatype_desc_t(MPI_Datatype realType);
 op_desc_t* init_op_desc_t(MPI_Op realOp);
@@ -337,116 +353,6 @@ void destroy_comm_desc_t(comm_desc_t* comm);
 void destroy_file_desc_t(file_desc_t* file);
 
 void init_comm_world();
-
-namespace dmtcp_mpi
-{
-
-  // FIXME: The new name should be: GlobalIdOfSimiliarComm
-  class VirtualGlobalCommId {
-    public:
-      unsigned int createGlobalId(MPI_Comm comm) {
-        if (comm == MPI_COMM_NULL) {
-          return comm;
-        }
-        unsigned int gid = 0;
-        int worldRank, commSize;
-        int realComm = VIRTUAL_TO_REAL_COMM(comm);
-        MPI_Comm_rank(MPI_COMM_WORLD, &worldRank);
-        MPI_Comm_size(comm, &commSize);
-        int rbuf[commSize];
-        // FIXME: Use MPI_Group_translate_ranks instead of Allgather.
-        // MPI_Group_translate_ranks only executes locally. So we can avoid
-        // the cost of collective communication
-        // FIXME: cray cc complains "catastrophic error" that can't find
-        // split-process.h
-#if 1
-        DMTCP_PLUGIN_DISABLE_CKPT();
-        JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-        NEXT_FUNC(Allgather)(&worldRank, 1, MPI_INT,
-                             rbuf, 1, MPI_INT, realComm);
-        RETURN_TO_UPPER_HALF();
-        DMTCP_PLUGIN_ENABLE_CKPT();
-#else
-        MPI_Allgather(&worldRank, 1, MPI_INT, rbuf, 1, MPI_INT, comm);
-#endif
-        for (int i = 0; i < commSize; i++) {
-          gid ^= hash(rbuf[i] + 1);
-        }
-        // FIXME: We assume the hash collision between communicators who
-        // have different members is low.
-        // FIXME: We want to prune virtual communicators to avoid long
-        // restart time.
-        // FIXME: In VASP we observed that for the same virtual communicator
-        // (adding 1 to each new communicator with the same rank members),
-        // the virtual group can change over time, using:
-        // virtual Comm -> real Comm -> real Group -> virtual Group
-        // We don't understand why since vasp does not seem to free groups.
-#if 0
-        // FIXME: Some code can create new communicators during execution,
-        // and so hash conflict may occur later.
-        // if the new gid already exists in the map, add one and test again
-        while (1) {
-          bool found = false;
-          for (std::pair<MPI_Comm, unsigned int> idPair : globalIdTable) {
-            if (idPair.second == gid) {
-              found = true;
-              break;
-            }
-          }
-          if (found) {
-            gid++;
-          } else {
-            break;
-          }
-        }
-#endif
-        globalIdTable[comm] = gid;
-        return gid;
-      }
-
-      unsigned int getGlobalId(MPI_Comm comm) {
-        std::map<MPI_Comm, unsigned int>::iterator it =
-          globalIdTable.find(comm);
-        JASSERT(it != globalIdTable.end())(comm)
-          .Text("Can't find communicator in the global id table");
-        return it->second;
-      }
-
-      static VirtualGlobalCommId& instance() {
-        static VirtualGlobalCommId _vGlobalId;
-        return _vGlobalId;
-      }
-
-    private:
-      VirtualGlobalCommId()
-      {
-          globalIdTable[MPI_COMM_NULL] = MPI_COMM_NULL;
-          globalIdTable[MPI_COMM_WORLD] = MPI_COMM_WORLD;
-      }
-
-      void printMap(bool flag = false) {
-        for (std::pair<MPI_Comm, int> idPair : globalIdTable) {
-          if (flag) {
-            printf("virtual comm: %x, real comm: %x, global id: %x\n",
-                   idPair.first, VIRTUAL_TO_REAL_COMM(idPair.first),
-                   idPair.second);
-            fflush(stdout);
-          } else {
-            JTRACE("Print global id mapping")((void*) (uint64_t) idPair.first)
-                      ((void*) (uint64_t) VIRTUAL_TO_REAL_COMM(idPair.first))
-                      ((void*) (uint64_t) idPair.second);
-          }
-        }
-      }
-      // from https://stackoverflow.com/questions/664014/
-      // what-integer-hash-function-are-good-that-accepts-an-integer-hash-key
-      int hash(int i) {
-        return i * 2654435761 % ((unsigned long)1 << 32);
-      }
-      std::map<MPI_Comm, unsigned int> globalIdTable;
-  };
-};  // namespace dmtcp_mpi
-
-
+void grant_ggid(MPI_Comm virtualComm);
 
 #endif // ifndef MPI_VIRTUAL_IDS_H

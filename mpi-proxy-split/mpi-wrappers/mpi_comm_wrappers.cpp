@@ -128,16 +128,9 @@ USER_DEFINED_WRAPPER(int, Comm_create, (MPI_Comm) comm, (MPI_Group) group,
     RETURN_TO_UPPER_HALF();
     if (retval == MPI_SUCCESS && MPI_LOGGING()) {
       MPI_Comm virtComm = ADD_NEW_COMM(*newcomm);
-      unsigned int gid = VirtualGlobalCommId::instance()
-        .createGlobalId(virtComm);
+      grant_ggid(virtComm);
       *newcomm = virtComm;
       active_comms.insert(virtComm);
-      std::map<unsigned int, unsigned long>::iterator it =
-        seq_num.find(gid);
-      if (it == seq_num.end()) {
-        seq_num[gid] = 0;
-        target[gid] = 0;
-      }
       LOG_CALL(restoreComms, Comm_create, comm, group, virtComm);
     }
     DMTCP_PLUGIN_ENABLE_CKPT();
@@ -213,10 +206,6 @@ USER_DEFINED_WRAPPER(int, Comm_free, (MPI_Comm *) comm)
     // realComm = REMOVE_OLD_COMM(*comm);
     // CLEAR_COMM_LOGS(*comm);
     active_comms.erase(*comm);
-    unsigned int gid = VirtualGlobalCommId::instance().getGlobalId(*comm);
-#if 0 
-    seq_num.erase(gid);
-#endif
     LOG_CALL(restoreComms, Comm_free, *comm);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -355,7 +344,7 @@ USER_DEFINED_WRAPPER(int, Comm_split_type, (MPI_Comm) comm, (int) split_type,
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS && MPI_LOGGING()) {
     MPI_Comm virtComm = ADD_NEW_COMM(*newcomm);
-    VirtualGlobalCommId::instance().createGlobalId(virtComm);
+    grant_ggid(virtComm);
     *newcomm = virtComm;
     active_comms.insert(virtComm);
     LOG_CALL(restoreComms, Comm_split_type, comm,
@@ -486,7 +475,7 @@ USER_DEFINED_WRAPPER(int, Comm_create_group, (MPI_Comm) comm,
     int retval = MPI_Comm_create_group_internal(comm, group, tag, newcomm);
     if (retval == MPI_SUCCESS && MPI_LOGGING()) {
       MPI_Comm virtComm = ADD_NEW_COMM(*newcomm);
-      VirtualGlobalCommId::instance().createGlobalId(virtComm);
+      grant_ggid(virtComm);
       *newcomm = virtComm;
       active_comms.insert(virtComm);
       LOG_CALL(restoreComms, Comm_create_group, comm, group, tag, virtComm);
