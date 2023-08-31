@@ -128,6 +128,11 @@ void grant_ggid(MPI_Comm virtualComm) {
   } else {
     ggid_desc_t* gd = ((ggid_desc_t *) malloc(sizeof(ggid_desc_t)));
     gd->ggid = ggid;
+
+    // FIXME: In the old system, using VirtualGlobalCommId, These were only
+    // initiatialized in the wrapper function for Comm_create, (but not
+    // Comm_split, etc.)
+    // So, what is correct?
     gd->target_num = 0;
     gd->seq_num = 0;
     ggidDescriptorTable[ggid] = gd;
@@ -141,10 +146,12 @@ void grant_ggid(MPI_Comm virtualComm) {
   return;
 }
 
-// HACK See notes in virtual-ids.h about the reference counting.
 void destroy_comm_desc_t(comm_desc_t* desc) {
   free(desc->global_ranks);
-  // We DO NOT free the ggid_desc. Need to think about how to do it correctly.
+  // FIXME: We DO NOT free the ggid_desc, because it is aliased, and as such
+  // shouldn't always be removed. We could do a form of reference counting, but
+  // we would need to make sure that it is thread-safe. Need to think about how
+  // to do it correctly in the MANA architecture.
   free(desc);
 }
 
@@ -254,6 +261,7 @@ void init_comm_world() {
   comm_world->ggid_desc = comm_world_ggid;
   // The upper-half one.
   comm_world_ggid->ggid = MPI_COMM_WORLD;
+
   comm_world_ggid->seq_num = 0;
   comm_world_ggid->target_num = 0;
 
