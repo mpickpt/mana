@@ -44,6 +44,12 @@ USER_DEFINED_WRAPPER(int, Op_create,
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS && MPI_LOGGING()) {
     MPI_Op virtOp = ADD_NEW_OP(*op);
+    // FIXME HACK: Since MPI does not provide any functions To deserialize an
+    // operator, we get the data at creation time.
+    //
+    // FIXME: Do we also have to reconstruct the MPI_User_function?
+    op_desc_t* desc = VIRTUAL_TO_DESC_OP(virtOp);
+    update_op_desc_t(desc, user_fn, commute);
     *op = virtOp;
     LOG_CALL(restoreOps, Op_create, user_fn, commute, virtOp);
   }

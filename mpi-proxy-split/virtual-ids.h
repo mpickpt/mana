@@ -328,6 +328,7 @@ extern std::map<int, id_desc_t*> idDescriptorTable;
 extern std::map<unsigned int, ggid_desc_t*> ggidDescriptorTable; 
 extern int base;
 extern int nextvId;
+extern MPI_Group g_world_group;
 typedef typename std::map<int, id_desc_t*>::iterator id_desc_iterator;
 typedef std::pair<int, id_desc_t*> id_desc_pair;
 typedef typename std::map<unsigned int, ggid_desc_t*>::iterator ggid_desc_iterator;
@@ -354,5 +355,25 @@ void destroy_file_desc_t(file_desc_t* file);
 
 void init_comm_world();
 void grant_ggid(MPI_Comm virtualComm);
+
+void update_datatype_desc_t(datatype_desc_t* datatype);
+void update_op_desc_t(op_desc_t* op, MPI_User_function* user_fn, int commute);
+void update_request_desc_t(request_desc_t* request);
+void update_group_desc_t(group_desc_t* group);
+void update_comm_desc_t(comm_desc_t* comm);
+void update_file_desc_t(file_desc_t* file);
+
+void reconstruct_with_datatype_desc_t(datatype_desc_t* datatype);
+void reconstruct_with_op_desc_t(op_desc_t* op);
+void reconstruct_with_request_desc_t(request_desc_t* request);
+void reconstruct_with_group_desc_t(group_desc_t* group);
+void reconstruct_with_comm_desc_t(comm_desc_t* comm);
+void reconstruct_with_file_desc_t(file_desc_t* file);
+
+void update_descriptors();
+void reconstruct_with_descriptors();
+
+void destroy_g_world_group();
+void write_g_world_group();
 
 #endif // ifndef MPI_VIRTUAL_IDS_H

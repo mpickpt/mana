@@ -59,6 +59,10 @@ std::map<unsigned int, ggid_desc_t*> ggidDescriptorTable;
 int base = 1;
 int nextvId = base;
 
+// Internal /real/ group, used to reconstruct and update. A way to access the
+// whole bag of global ranks.
+MPI_Group g_world_group;
+
 // Hash function on integers. Consult https://stackoverflow.com/questions/664014/.
 // Returns a hash.
 int hash(int i) {
@@ -146,6 +150,86 @@ void grant_ggid(MPI_Comm virtualComm) {
   return;
 }
 
+// FIXME: In some cases, this could cause a group to be needlessly constructed.
+// A more efficient design would link groups and comms, but would introduce
+// complexity.
+void update_comm_desc_t(comm_desc_t* desc) {
+  // We need to virtualize MPI_COMM_WORLD, but should not reconstruct it.
+  if (desc->handle == MPI_COMM_WORLD) { 
+    return;
+  }
+
+  // Cleanup from a previous CKPT, if one occured. FIXME: Is this the correct
+  // way?
+  free(desc->global_ranks);
+  desc->global_ranks = NULL;
+
+  MPI_Group group;
+
+  // FIXME: Should we free this group?
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  NEXT_FUNC(Comm_group)(desc->real_id, &group);
+  RETURN_TO_UPPER_HALF();
+  
+  int groupSize = 0;
+
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  NEXT_FUNC(Group_size)(group, &groupSize);
+  RETURN_TO_UPPER_HALF();
+
+  desc->size = groupSize;
+
+  int* local_ranks = ((int*)malloc(sizeof(int) * groupSize));
+  int* global_ranks = ((int*)malloc(sizeof(int) * groupSize));
+  for (int i = 0; i < groupSize; i++) {
+    local_ranks[i] = i;
+  }
+
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  NEXT_FUNC(Group_translate_ranks)(group, groupSize, local_ranks, g_world_group, global_ranks);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+
+  free(local_ranks);
+  desc->global_ranks = global_ranks;
+}
+
+void reconstruct_with_comm_desc_t(comm_desc_t* desc) {
+  if (desc->handle == MPI_COMM_WORLD) { 
+    return;
+  }
+#ifdef DEBUG_VIDS
+  printf("reconstruct_comm_desc_t comm: %x -> %x\n", desc->handle, desc->real_id);
+
+  fflush(stdout);
+  printf("reconstruct_with_comm_desc_t comm size: 0x%x\n", desc->size);
+
+  fflush(stdout);
+  printf("reconstruct_with_comm_desc_t ranks:");
+
+  fflush(stdout);
+  for (int i = 0; i < desc->size; i++) {
+    printf(" %i", desc->ranks[i]);
+  }
+  printf("\n");
+
+  fflush(stdout);
+  fflush(stdout);
+#endif
+
+  MPI_Group group;
+
+  // We recreate the communicator with the reconstructed group and MPI_COMM_WORLD.
+
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  NEXT_FUNC(Group_incl)(g_world_group, desc->size, desc->global_ranks, &group);
+  NEXT_FUNC(Comm_create_group)(MPI_COMM_WORLD, group, 0, &desc->real_id);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+}
+
 void destroy_comm_desc_t(comm_desc_t* desc) {
   free(desc->global_ranks);
   // FIXME: We DO NOT free the ggid_desc, because it is aliased, and as such
@@ -161,6 +245,42 @@ group_desc_t* init_group_desc_t(MPI_Group realGroup) {
   desc->global_ranks = NULL;
   desc->size = 0;
   return desc;
+}
+
+void update_group_desc_t(group_desc_t* group) {
+  // Cleanup from a previous checkpoint.
+  free(group->global_ranks);
+  group->global_ranks = NULL;
+
+  int groupSize;
+
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  NEXT_FUNC(Group_size)(group->real_id, &groupSize);
+  RETURN_TO_UPPER_HALF();
+
+  int* local_ranks = ((int*)malloc(sizeof(int) * groupSize));
+  int* global_ranks = ((int*)malloc(sizeof(int) * groupSize));
+  for (int i = 0; i < groupSize; i++) {
+    local_ranks[i] = i;
+  }
+
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  NEXT_FUNC(Group_translate_ranks)(group->real_id, groupSize, local_ranks, g_world_group, global_ranks);
+  RETURN_TO_UPPER_HALF();
+
+  free(local_ranks);
+  group->global_ranks = global_ranks;
+  group->size = groupSize;
+  DMTCP_PLUGIN_ENABLE_CKPT();
+}
+
+void reconstruct_with_group_desc_t(group_desc_t* group) {
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  NEXT_FUNC(Group_incl)(g_world_group, group->size, group->global_ranks, &group->real_id);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
 }
 
 void destroy_group_desc_t(group_desc_t* group) {
@@ -183,6 +303,15 @@ op_desc_t* init_op_desc_t(MPI_Op realOp) {
   desc->real_id = realOp;
   desc->user_fn = NULL;
   return desc;
+}
+
+// This update function is special, for the information we need is
+// only available at creation time, and not with MPI calls.  We
+// manually invoke this function at creation time. Mercifully, there
+// is only one way to create a new operator, AFAIK.
+void update_op_desc_t(op_desc_t* op, MPI_User_function* user_fn, int commute) {
+  op->user_fn = user_fn;
+  op->commute = commute;
 }
 
 void destroy_op_desc_t(op_desc_t* op) {
@@ -208,8 +337,110 @@ datatype_desc_t* init_datatype_desc_t(MPI_Datatype realType) {
     desc->datatypes = NULL;
 
     desc->combiner = 0;
-    desc->is_freed = false;
+
+    // FIXME: I had a design that would keep freed descriptors, to implement
+    // doubly-derived reconstruction. But we can probably ignore this for now.
+    
+    // desc->is_freed = false;
     return desc;
+}
+
+void update_datatype_desc_t(datatype_desc_t* datatype) {
+      // Free the existing memory, if it is not NULL. (i.e., from an older checkpoint)
+    free(datatype->integers);
+    free(datatype->addresses);
+    free(datatype->datatypes);
+    datatype->integers = NULL;
+    datatype->addresses = NULL;
+    datatype->datatypes = NULL;
+
+    DMTCP_PLUGIN_DISABLE_CKPT();
+
+    JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+    NEXT_FUNC(Type_get_envelope)(datatype->real_id, &datatype->num_integers, &datatype->num_addresses, &datatype->num_datatypes, &datatype->combiner);
+    RETURN_TO_UPPER_HALF();
+
+    // FIXME: "If combiner is MPI_COMBINER_NAMED then it is erroneous
+    // to call MPI_TYPE_GET_CONTENTS. " So, we might want to exit
+    // early (although this shouldn't happen anyway, as nobody should
+    // make a virtualization of these types)
+
+    // Use the malloc in the upper-half.
+    datatype->integers = ((int*)malloc(sizeof(int) * datatype->num_integers));
+    datatype->addresses = ((MPI_Aint*)malloc(sizeof(MPI_Aint) * datatype->num_addresses));
+    datatype->datatypes = ((MPI_Datatype*)malloc(sizeof(MPI_Datatype) * datatype->num_datatypes));
+
+    JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+    NEXT_FUNC(Type_get_contents)(datatype->real_id, datatype->num_integers, datatype->num_addresses, datatype->num_datatypes, datatype->integers, datatype->addresses, datatype->datatypes);
+    RETURN_TO_UPPER_HALF();
+    DMTCP_PLUGIN_ENABLE_CKPT();
+}
+
+// Reconstruction arguments taken from here:
+// https://www.mpi-forum.org/docs/mpi-3.1/mpi31-report/node90.htm
+void reconstruct_with_datatype_desc_t(datatype_desc_t* datatype) {
+    DMTCP_PLUGIN_DISABLE_CKPT();
+    JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+    switch (datatype->combiner) {
+            case MPI_COMBINER_DUP:
+		    NEXT_FUNC(Type_dup)(datatype->datatypes[0], &datatype->real_id);
+		    break;
+            case MPI_COMBINER_NAMED:
+	      // if the type is named and predefined, we shouldn't need to do anything.
+	      // "If combiner is MPI_COMBINER_NAMED then it is erroneous to call MPI_TYPE_GET_CONTENTS. "
+	            break;
+	    case MPI_COMBINER_VECTOR:
+		    NEXT_FUNC(Type_vector)(datatype->integers[0], datatype->integers[1], datatype->integers[2], datatype->datatypes[0], &datatype->real_id);
+		    break;
+	    case MPI_COMBINER_HVECTOR:
+		    NEXT_FUNC(Type_hvector)(datatype->integers[0], datatype->integers[1], datatype->addresses[0], datatype->datatypes[0], &datatype->real_id);
+		    break;
+	    case MPI_COMBINER_INDEXED:
+                    NEXT_FUNC(Type_indexed)(datatype->integers[0], datatype->integers + 1, datatype->integers + 1 + datatype->integers[0], datatype->datatypes[0], &datatype->real_id);
+                    break;
+	    case MPI_COMBINER_HINDEXED:
+                    NEXT_FUNC(Type_hindexed)(datatype->integers[0], datatype->integers + 1, datatype->addresses, datatype->datatypes[0], &datatype->real_id);
+                    break;
+            case MPI_COMBINER_INDEXED_BLOCK:
+	            NEXT_FUNC(Type_create_indexed_block)(datatype->integers[0], datatype->integers[1], datatype->integers + 2, datatype->datatypes[0], &datatype->real_id);
+		    break;
+            case MPI_COMBINER_HINDEXED_BLOCK:
+	            NEXT_FUNC(Type_create_hindexed_block)(datatype->integers[0], datatype->integers[1], datatype->addresses, datatype->datatypes[0], &datatype->real_id);
+		    break;
+	    case MPI_COMBINER_STRUCT:
+  		    NEXT_FUNC(Type_create_struct)(datatype->integers[0], datatype->integers + 1, datatype->addresses, datatype->datatypes, &datatype->real_id);
+		    break;
+            case MPI_COMBINER_SUBARRAY:
+	      NEXT_FUNC(Type_create_subarray)(datatype->integers[0], datatype->integers + 1, datatype->integers + 1 + datatype->integers[0], datatype->integers + 1 + 2 * datatype->integers[0], datatype->integers[1 + 3 * datatype->integers[0]], datatype->datatypes[0], &datatype->real_id);
+	            break;
+            case MPI_COMBINER_DARRAY:
+	      NEXT_FUNC(Type_create_darray)(datatype->integers[0], datatype->integers[1], datatype->integers[2], datatype->integers + 3, datatype->integers + 3 + datatype->integers[2], datatype->integers + 3 + 2 * datatype->integers[2], datatype->integers + 3 + 3 * datatype->integers[2], datatype->integers[3 + 4 * datatype->integers[2]], datatype->datatypes[0], &datatype->real_id);
+            case MPI_COMBINER_CONTIGUOUS:
+	            NEXT_FUNC(Type_contiguous)(datatype->integers[0], datatype->datatypes[0], &datatype->real_id);
+		      break;
+            case MPI_COMBINER_F90_REAL:
+	      NEXT_FUNC(Type_create_f90_real)(datatype->integers[0], datatype->integers[1], &datatype->real_id);
+	      break;
+            case MPI_COMBINER_F90_COMPLEX:
+	      NEXT_FUNC(Type_create_f90_complex)(datatype->integers[0], datatype->integers[1], &datatype->real_id);
+	      break;
+            case MPI_COMBINER_F90_INTEGER:
+	      NEXT_FUNC(Type_create_f90_integer)(datatype->integers[0], &datatype->real_id);
+	      break;
+            case MPI_COMBINER_RESIZED:
+	      NEXT_FUNC(Type_create_resized)(datatype->datatypes[0], datatype->addresses[0], datatype->addresses[1], &datatype->real_id);
+	      break;
+	  default:
+		    break;
+  }
+  // FIXME: This is needed to make the reconstructed type usable in the
+  // network. But there is a small potential for a double-commit bug here. Is
+  // there an mpi function that checks if a type has been committed?
+  //
+  // Need to research if double-commit is an issue.
+  NEXT_FUNC(Type_commit)(&datatype->real_id);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
 }
 
 void destroy_datatype_desc_t(datatype_desc_t* datatype) {
@@ -268,10 +499,101 @@ void init_comm_world() {
   // FIXME: This WILL NOT WORK when moving to OpenMPI, ExaMPI, as written.
   // Yao, Twinkle, should apply their lh_constants_map strategy here.
   comm_world->real_id = 0x84000000;
+  comm_world->handle = MPI_COMM_WORLD;
   // FIXME: the other fields are not initialized. This is an INTERNAL
   // communicator descriptor, strictly for bookkeeping, not for reconstructing,
   // etc.
 
   idDescriptorTable[MPI_COMM_WORLD] = ((union id_desc_t*)comm_world);
   ggidDescriptorTable[MPI_COMM_WORLD] = comm_world_ggid;
+}
+
+// FIXME: This gets us a copy of the world group that we can use to get all the
+// ranks. It's a real id, not a virtual one. Is this okay?
+void write_g_world_group() {
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  NEXT_FUNC(Comm_group)(MPI_COMM_WORLD, &g_world_group);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+}
+
+void destroy_g_world_group() {
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  NEXT_FUNC(Group_free)(&g_world_group);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+}
+
+
+// For all descriptors, update the respective information.
+void update_descriptors() {
+  write_g_world_group();
+  for (id_desc_pair pair : idDescriptorTable) {
+    switch (pair.first & 0xFF000000) { 
+      case UNDEFINED_MASK:
+        break;
+      case COMM_MASK:
+	update_comm_desc_t((comm_desc_t*)pair.second);
+	break;
+      case GROUP_MASK:
+	update_group_desc_t((group_desc_t*)pair.second);
+	break;
+      case REQUEST_MASK:
+	// update_request_desc_t((request_desc_t*)pair.second);
+	break;
+      case OP_MASK:
+	// update_op_desc_t((op_desc_t*)pair.second);
+	// HACK: This must be called on Op_create. see update_op_desc
+	break;
+      case DATATYPE_MASK:
+	update_datatype_desc_t((datatype_desc_t*)pair.second);
+	break;
+      case FILE_MASK:
+	// update_file_desc_t((file_desc_t*)pair.second);
+	break;
+      case COMM_KEYVAL_MASK:
+	// update_comm_keyval_desc_t((comm_keyval_desc_t*)pair.second);
+	break;
+      default:
+	break;
+    }
+  }
+  destroy_g_world_group();
+}
+
+// For all descriptors, set its real ID to the one uniquely described by its fields.
+void reconstruct_with_descriptors() {
+  write_g_world_group();
+  for (id_desc_pair pair : idDescriptorTable) {
+    switch (pair.first & 0xFF000000) { 
+      case UNDEFINED_MASK:
+        break;
+      case COMM_MASK:
+	reconstruct_with_comm_desc_t((comm_desc_t*)pair.second);
+	break;
+      case GROUP_MASK:
+	reconstruct_with_group_desc_t((group_desc_t*)pair.second);
+	break;
+      case REQUEST_MASK:
+	// update_request_desc_t((request_desc_t*)pair.second);
+	break;
+      case OP_MASK:
+	reconstruct_with_op_desc_t((op_desc_t*)pair.second);
+	break;
+      case DATATYPE_MASK:
+	reconstruct_with_datatype_desc_t((datatype_desc_t*)pair.second);
+	break;
+      case FILE_MASK:
+	// update_file_desc_t((file_desc_t*)pair.second);
+	break;
+      case COMM_KEYVAL_MASK:
+	// update_comm_keyval_desc_t((comm_keyval_desc_t*)pair.second);
+	break;
+      default:
+	break;
+    }
+  }
+  destroy_g_world_group();
 }
