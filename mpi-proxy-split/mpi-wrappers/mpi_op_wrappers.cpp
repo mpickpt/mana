@@ -73,7 +73,8 @@ USER_DEFINED_WRAPPER(int, Op_free, (MPI_Op*) op)
     // to replay this call to reconstruct any new op that might
     // have been created using this op.
     //
-    // realOp = REMOVE_OLD_OP(*op);
+    // FIXME: See comment in Comm_free wrapper.
+    realOp = REMOVE_OLD_OP(*op);
     LOG_CALL(restoreOps, Op_free, *op);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();

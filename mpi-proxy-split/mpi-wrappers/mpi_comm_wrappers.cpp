@@ -203,8 +203,10 @@ USER_DEFINED_WRAPPER(int, Comm_free, (MPI_Comm *) comm)
     // we'll need to replay this call to reconstruct any other comms that
     // might have been created using this comm.
     //
-    // realComm = REMOVE_OLD_COMM(*comm);
-    // CLEAR_COMM_LOGS(*comm);
+    //
+    // FIXME: Now, we remove it. O(1) decode-recode changes this.
+    realComm = REMOVE_OLD_COMM(*comm);
+    CLEAR_COMM_LOGS(*comm);
     active_comms.erase(*comm);
     LOG_CALL(restoreComms, Comm_free, *comm);
   }
