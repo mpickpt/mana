@@ -125,7 +125,8 @@ int twoPhaseCommit(MPI_Comm comm,
 }
 
 void seq_num_broadcast(MPI_Comm comm, unsigned long new_target) {
-  ggid_desc_t* comm_ggid_desc = VIRTUAL_TO_DESC_COMM(comm)->ggid_desc;
+  comm_desc_t* comm_desc = VIRTUAL_TO_DESC_COMM(comm);
+  ggid_desc_t* comm_ggid_desc = comm_desc->ggid_desc;
   unsigned int comm_ggid = comm_ggid_desc->ggid;
   unsigned long msg[2] = {comm_ggid, new_target};
   int comm_size;
@@ -134,7 +135,7 @@ void seq_num_broadcast(MPI_Comm comm, unsigned long new_target) {
   MPI_Comm_size(comm, &comm_size);
   MPI_Comm_rank(comm, &comm_rank);
   MPI_Group world_group, local_group;
-  MPI_Comm real_local_comm = VIRTUAL_TO_REAL_COMM(comm);
+  MPI_Comm real_local_comm = comm_desc->real_id;
   MPI_Comm real_world_comm = VIRTUAL_TO_REAL_COMM(g_world_comm);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   NEXT_FUNC(Comm_group)(real_world_comm, &world_group);
