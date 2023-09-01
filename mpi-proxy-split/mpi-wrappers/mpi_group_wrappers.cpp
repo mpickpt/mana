@@ -102,7 +102,7 @@ USER_DEFINED_WRAPPER(int, Group_free, (MPI_Group *) group)
     // have been created using this group.
     //
     // FIXME: See comment in Comm_free wrapper.
-    realGroup = REMOVE_OLD_GROUP(*group);
+    REMOVE_OLD_GROUP(*group);
     CLEAR_GROUP_LOGS(*group);
     LOG_CALL(restoreGroups, Group_free, *group);
   }

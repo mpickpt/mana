@@ -59,7 +59,7 @@ USER_DEFINED_WRAPPER(int, Type_free, (MPI_Datatype *) type)
     //
     // FIXME: Now, we remove this type. Otherwise, if we try to decode a type
     // that has been freed in the lower half, MPI will be upset.
-    realType = REMOVE_OLD_TYPE(*type);
+    REMOVE_OLD_TYPE(*type);
     LOG_CALL(restoreTypes, Type_free, *type);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();

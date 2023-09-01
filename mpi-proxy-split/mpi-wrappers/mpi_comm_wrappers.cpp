@@ -205,7 +205,7 @@ USER_DEFINED_WRAPPER(int, Comm_free, (MPI_Comm *) comm)
     //
     //
     // FIXME: Now, we remove it. O(1) decode-recode changes this.
-    realComm = REMOVE_OLD_COMM(*comm);
+    REMOVE_OLD_COMM(*comm);
     CLEAR_COMM_LOGS(*comm);
     active_comms.erase(*comm);
     LOG_CALL(restoreComms, Comm_free, *comm);
