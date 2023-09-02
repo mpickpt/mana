@@ -19,23 +19,23 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#ifdef SINGLE_CART_REORDER
+#include <fcntl.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
-#include <sys/types.h>
+#include <time.h>
+#include <unistd.h>
+#include <sys/mman.h>
+#include <sys/personality.h>
 #include <sys/stat.h>
+#include <sys/types.h>
+#ifdef SINGLE_CART_REORDER
 #include "cartesian.h"
 #endif
 
 #include <cxxabi.h>  /* For backtrace() */
 #include <execinfo.h>  /* For backtrace() */
-#include <fcntl.h>
-
-#include <signal.h>
-#include <sys/personality.h>
-#include <sys/mman.h>
 
 #include <regex>
 
@@ -462,7 +462,8 @@ dmtcp_skip_truncate_file_at_restart(const char* path)
 
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   snprintf(p2p_log_name, sizeof(p2p_log_name) - 1, P2P_LOG_MSG, rank);
-  snprintf(p2p_log_request_name, sizeof(p2p_log_request_name)-1, P2P_LOG_REQUEST, rank);
+  snprintf(p2p_log_request_name, sizeof(p2p_log_request_name)-1,
+           P2P_LOG_REQUEST, rank);
 
   if (strstr(path, p2p_log_name) ||
       strstr(path, p2p_log_request_name)) {
@@ -861,6 +862,28 @@ computeUnionOfCkptImageAddresses()
   dmtcp_add_to_ckpt_header("MANA_MinLibsStart", minLibsStartStr.c_str());
   dmtcp_add_to_ckpt_header("MANA_MaxLibsEnd", maxLibsEndStr.c_str());
   dmtcp_add_to_ckpt_header("MANA_MinHighMemStart", minHighMemStartStr.c_str());
+  // Not used
+  // dmtcp_add_to_ckpt_header("MANA_MaxHighMemEnd", maxHighMemEndStr.c_str());
+
+  if (getenv("MANA_DEBUG")) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    if (rank == 0) {
+      char time_string[30];
+      time_t t = time(NULL);
+      strftime(time_string, sizeof(time_string), "%H:%M:%S", localtime(&t));
+      fprintf(stderr,
+              "\n%s: *** MANA: Checkpointing; MANA info saved for restart:\n"
+              "%*c    (Unset env var MANA_DEBUG to silence this.)\n",
+              time_string, (int)strlen(time_string), ' ');
+      fprintf(stderr, "  %s: %s\n",
+                      "MANA_MinLibsStart", minLibsStartStr.c_str());
+      fprintf(stderr, "  %s: %s\n",
+                      "MANA_MaxLibsEnd", maxLibsEndStr.c_str());
+      fprintf(stderr, "%s: %s\n",
+                      "  MANA_MinHighMemStart", minHighMemStartStr.c_str());
+    }
+  }
 }
 
 const char *
