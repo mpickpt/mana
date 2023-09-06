@@ -12,10 +12,16 @@
 #   exit 1
 # fi
 
+if [ ! -z "$SLURM_JOB_ID" ]; then
+  MANA_RC=$HOME/.mana-slurm-$SLURM_JOB_ID.rc
+else
+  MANA_RC=$HOME/.mana.rc
+fi
+
 dir=`dirname $0`
 host=`hostname`
-submissionHost=`grep Host: $HOME/.mana | sed -e 's%Host: %%'|sed -e 's% .*$%%'`
-submissionPort=`grep Port: $HOME/.mana | sed -e 's%Port: %%'|sed -e 's% .*$%%'`
+submissionHost=`grep Host: $MANA_RC | sed -e 's%Host: %%'|sed -e 's% .*$%%'`
+submissionPort=`grep Port: $MANA_RC | sed -e 's%Port: %%'|sed -e 's% .*$%%'`
 
 options=""
 verbose=0

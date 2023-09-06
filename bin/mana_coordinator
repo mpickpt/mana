@@ -53,18 +53,31 @@ if [ "$verbose" == 1 ]; then
 fi
 
 coordinator_found=0
-$dir/dmtcp_coordinator $options --write-kv-data --exit-on-last -q --daemon --status-file $HOME/.mana && coordinator_found=1
+
+if [ ! -z "$SLURM_JOB_ID" ]; then
+  MANA_RC=$HOME/.mana-slurm-$SLURM_JOB_ID.rc
+else
+  MANA_RC=$HOME/.mana.rc
+fi
+
+$dir/dmtcp_coordinator $options --write-kv-data --exit-on-last -q --daemon --status-file $MANA_RC && coordinator_found=1
 set +x
 if [ $coordinator_found -eq 0 ]; then
   exit 3
 fi
 
-if [ "$SITE" = "nersc" ]; then
-  if [ -e $HOME/.mana ]; then
-    echo "SLURM_JOB_ID: $SLURM_JOB_ID" >> $HOME/.mana
+if [ ! -z "$SLURM_JOB_ID" ]; then
+  if [ -e "$MANA_RC" ]; then
+    echo "SLURM_JOB_ID: $SLURM_JOB_ID" >> $MANA_RC
+  else
+    echo '*** MANA problem: Running in Slurm job ' \
+         "$SLURM_JOB_ID; $MANA_RC not found"
   fi
 fi
-echo '*** '"Coordinator/job information written to $HOME/.mana"
+echo '' >> $MANA_RC
+echo '# This is a temporary file for communication between' >> $MANA_RC
+echo '#   mana_coordinator and mana_launch/mana_restart.' >> $MANA_RC
+echo '*** '"Coordinator/job information written to $MANA_RC"
 
 # srun -n1 -c1 --cpu-bind=cores bin/dmtcp_launch  -i10 -h `hostname` --no-gzip --join --disable-dl-plugin --with-plugin $PWD/lib/dmtcp/libmana.so contrib/mpi-proxy-split/test/mpi_hello_world.mana.exe
 

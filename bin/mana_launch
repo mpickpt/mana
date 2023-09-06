@@ -47,6 +47,10 @@ while [ -n "$1" ]; do
     options="$options $1 $2"
     shift
   else
+    if [ "$1" == --quiet ] || [ "$!" == "-q" ]; then
+      export MANA_QUIET=1
+      # And --quiet is also a flag for DMTCP. Continue from here.
+    fi
     # other flags, options, and target_app executable
     options="$options $1"
     # The last word will be the target_app.
@@ -93,9 +97,15 @@ if ls -d ckpt_rank_* 2>/dev/null 1>&2; then
   exit 4
 fi
 
+if [ ! -z "$SLURM_JOB_ID" ]; then
+  MANA_RC=$HOME/.mana-slurm-$SLURM_JOB_ID.rc
+else
+  MANA_RC=$HOME/.mana.rc
+fi
+
 host=`hostname`
-submissionHost=`grep Host: $HOME/.mana | sed -e 's%Host: %%'|sed -e 's% .*$%%'`
-submissionPort=`grep Port: $HOME/.mana | sed -e 's%Port: %%'|sed -e 's% .*$%%'`
+submissionHost=`grep Host: $MANA_RC | sed -e 's%Host: %%'|sed -e 's% .*$%%'`
+submissionPort=`grep Port: $MANA_RC | sed -e 's%Port: %%'|sed -e 's% .*$%%'`
 
 coordinator_found=0
 $dir/dmtcp_command -s -h $submissionHost -p $submissionPort 1>/dev/null \
@@ -177,6 +187,9 @@ if [ "$verbose" == 1 ]; then
   set -x
 fi
 
+# Remove old ~/.mana_*.rc files from a week ago or more.
+find $HOME/.mana*.rc -ignore_readdir_race -maxdepth 0 -mtime +7 -type f -delete
+
 # TEMPORARY WORKAROUND:  set MPICH_SMP_SINGLE_COPY_OFF=1
 #   As MANA matures, these environment variable settings will not longer
 #   be needed.  Use these only if you have mysterious segfaults due
@@ -193,7 +206,7 @@ fi
 #   needs to send/receive a large message.
 
 exec env LD_LIBRARY_PATH="$libdir:$LD_LIBRARY_PATH" \
-    $dir/dmtcp_launch --coord-host $submissionHost \
+    $dir/dmtcp_launch --mpi --coord-host $submissionHost \
           --coord-port $submissionPort --no-gzip \
           --join-coordinator --disable-dl-plugin \
           --with-plugin $libdir/libmana.so $options
