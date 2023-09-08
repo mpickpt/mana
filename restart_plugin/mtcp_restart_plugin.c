@@ -682,6 +682,15 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
 void
 mtcp_plugin_hook(RestoreInfo *rinfo)
 {
+  // FIXME:  DMTCP should remove text/data/heap of mtcp_restart.
+  //         For now, MANA has this workaround, in conjunction with
+  //         mpi-proxy-split/mpi_plugin.cpp:computeUnionOfCkptImageAddresses
+  // When mtcp_restart starts at main, there is already a heap.
+  // In case anyone else calls sbrk(), this will create a gap after
+  // the text/data/heap of mtcp_restart.  So, computeUnionOfCkptImageAddresses
+  // will munmap the text/data/heap, but nothing more.
+  mtcp_sys_brk((char *)0x11200000 + 0x30000);
+
   remap_vdso_and_vvar_regions(rinfo);
   mysetauxval(rinfo->environ, AT_SYSINFO_EHDR,
               (unsigned long int) rinfo->currentVdsoStart);
@@ -845,6 +854,29 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
 int
 mtcp_plugin_skip_memory_region_munmap(Area *area, RestoreInfo *rinfo)
 {
+  // FIXME:  All of this is a temporary workaround, until the DMTCP restart
+  //         plugin can be re-designed.  See the conversation in PR #357.
+  //         After the DMTCP re-design, we should delete all of the code
+  //         of this paragraph.
+  // NOTE: 0x11200000 is the address for mtcp_restart.
+  //        See LINKER_FLAGS= -Wl,-Ttext-segment=11200000
+  //          in dmtcp/src/mtcp/Makefile, for why this hard-wired addess exists.
+  // NOTE: This is the originally loaded mtcp_restart (text/data/heap),
+  //       before we copied it to the DMTCP "hole" and execute from there.
+  if (is_overlap(area->addr, area->endAddr,
+                 (char *)0x11200000, (char *)0x11200000 + 0x30000)) {
+    // Range [0x11200000, nextPageAddr] should cover mtcp_restart text/data/heap
+    void *nextPageAddr = (char *)0x11200000 + 0x30000;
+    void *testIfEmpty = mtcp_sys_mmap(nextPageAddr, 4096,
+                                PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    // MANA panic: The next page after the assumed mtcp_restart memory regions
+    //             was occupied.  Is mtcp_restart larger than expected.
+    MTCP_ASSERT(testIfEmpty == nextPageAddr);
+    mtcp_sys_munmap(nextPageAddr, 4096); // The test passed.  Free it again.
+    mtcp_sys_munmap((void *)0x11200000, 0x30000); // Unmap the old mtcp_restart.
+    return 0;
+  }
+
   LowerHalfInfo_t *lh_info = &rinfo->pluginInfo;
   LhCoreRegions_t *lh_regions_list = NULL;
   int total_lh_regions = lh_info->numCoreRegions;

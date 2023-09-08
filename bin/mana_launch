@@ -47,6 +47,10 @@ while [ -n "$1" ]; do
     options="$options $1 $2"
     shift
   else
+    if [ "$1" == --quiet ] || [ "$!" == "-q" ]; then
+      export MANA_QUIET=1
+      # And --quiet is also a flag for DMTCP. Continue from here.
+    fi
     # other flags, options, and target_app executable
     options="$options $1"
     # The last word will be the target_app.
