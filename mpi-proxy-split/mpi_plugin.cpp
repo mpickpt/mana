@@ -1034,11 +1034,51 @@ save_cartesian_properties(const char *filename)
 }
 #endif
 
+void printElapsedTime(time_t origin_time, const char *msg) {
+  char time_string[30];
+  time_t cur_time = time(NULL);
+  time_t delta_time = cur_time - origin_time;
+  strftime(time_string, sizeof(time_string),
+           "%H:%M:%S", localtime(&cur_time));
+  if (msg != NULL) {
+    fprintf(stderr, "%s: *** MANA: %s\n", time_string, msg);
+    if (origin_time == 0) { return; } // We only print msg, not elapsed time
+    fprintf(stderr, "%*c      ", (int)strlen(time_string), ' ');
+  } else {
+    fprintf(stderr, "%s:     ", time_string);
+  }
+  fprintf(stderr, "Elapsed time since INIT/RESTART: %ld seconds\n", delta_time);
+  return;
+}
+
+// FIXME:  Use 'getenv("MANA_TIMING")' instead in 'if' stmt.
+//         In bin/mana_launch, add '--timing' flag that sets this env. var.
+void printEventToStderr(const char *msg) {
+  if (!getenv("MANA_TIMING")) { return; }
+
+  static time_t init_time = 0;
+  if (init_time == 0 && strstr(msg, "INIT")) {
+    init_time = time(NULL);
+    printElapsedTime(0, msg);
+    return;  // Only one process should print, but we don't yet have a rank.
+  }
+  int rank = g_world_rank; // MPI_Comm_rank would fail at DMTCP_EVENT_EXIT.
+  if (rank == 0) {
+    if (strstr(msg, "RESTART")) {
+      init_time = time(NULL);
+      printElapsedTime(0, msg);
+    } else {
+      printElapsedTime(init_time, msg);
+    }
+  }
+}
+
 static void
 mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
     case DMTCP_EVENT_INIT: {
+      printEventToStderr("EVENT_INIT"); // We don't have a rank. So no printing.
       JTRACE("*** DMTCP_EVENT_INIT");
       JASSERT(dmtcp_get_real_tid != NULL);
       initialize_signal_handlers();
@@ -1077,6 +1117,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       break;
     }
     case DMTCP_EVENT_EXIT: {
+      printEventToStderr("EVENT_EXIT");
       JTRACE("*** DMTCP_EVENT_EXIT");
       seq_num_destroy();
       break;
@@ -1105,15 +1146,18 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     }
 
     case DMTCP_EVENT_PRESUSPEND: {
+      printEventToStderr("EVENT_PRESUSPEND (finish collective op's)");
       mana_state = CKPT_COLLECTIVE;
       // preSuspendBarrier() will send coord response and get worker state.
       // FIXME:  See commant at: dmtcpplugin.cpp:'case DMTCP_EVENT_PRESUSPEND'
       drain_mpi_collective();
       openCkptFileFds();
+      printEventToStderr("EVENT_PRESUSPEND (done)");
       break;
     }
 
     case DMTCP_EVENT_PRECHECKPOINT: {
+      printEventToStderr("EVENT_PRECHECKPOINT (drain send/recv)");
       recordMpiInitMaps();
       recordOpenFds();
       dmtcp_local_barrier("MPI:GetLocalLhMmapList");
@@ -1138,20 +1182,24 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       const char *file = get_cartesian_properties_file_name();
       save_cartesian_properties(file);
 #endif
+      printEventToStderr("EVENT_PRECHECKPOINT (done)");
       break;
     }
 
     case DMTCP_EVENT_RESUME: {
+      printEventToStderr("EVENT_RESUME");
       processingOpenCkpFileFds = false;
       dmtcp_local_barrier("MPI:Reset-Drain-Send-Recv-Counters");
       resetDrainCounters(); // p2p_drain_send_recv.cpp
       seq_num_reset(RESUME);
       dmtcp_local_barrier("MPI:seq_num_reset");
       mana_state = RUNNING;
+      printEventToStderr("EVENT_RESUME (done)");
       break;
     }
 
     case DMTCP_EVENT_RESTART: {
+      printEventToStderr("EVENT_RESTART");
       processingOpenCkpFileFds = false;
       logCkptFileFds();
 
@@ -1186,6 +1234,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       restore_mpi_files(file);
       dmtcp_local_barrier("MPI:Restore-MPI-Files");
       mana_state = RUNNING;
+      printEventToStderr("EVENT_RESTART (done)");
       break;
     }
 
