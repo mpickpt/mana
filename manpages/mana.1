@@ -7,8 +7,8 @@
 \f[B]mana\f[R] \[en] MANA family of commands for checkpointing MPI jobs
 .SH SYNOPSIS
 .PP
-\f[B]mana_launch\f[R] [--help] [--verbose] [DMTCP_OPTIONS] [--ckptdir
-\f[I]DIR\f[R]] COMMAND [\f[I]ARGS\&...\f[R]]
+\f[B]mana_launch\f[R] [--help] [--verbose] [--timing] [DMTCP_OPTIONS]
+[--ckptdir \f[I]DIR\f[R]] COMMAND [\f[I]ARGS\&...\f[R]]
 .PD 0
 .P
 .PD
@@ -44,6 +44,10 @@ Show additional DMTCP_OPTIONS for a MANA command.
 \f[B]\f[R]\f[C]--verbose\f[R]\f[B]\f[R]
 Display the underlying DMTCP command and DMTCP_OPTIONS used, and other
 info.
+.TP
+\f[B]\f[R]\f[C]--timing\f[R]\f[B]\f[R]
+Print times to stderr for INIT, EXIT, and ckkpt-restart events.
+(stays active during both mana_launch and mana_restart)
 .SH MANA PROGRAM EXECUTION
 .PP
 Execute a MANA command with \f[C]--help\f[R] for a usage statement.
@@ -139,6 +143,20 @@ then execute \f[C]mana_p2p_update_logs\f[R] and set this variable before
 (Currently, you need to set this before \f[C]mana_launch\f[R], but this
 may be fixed later.)
 .PP
+\f[B]\f[CB]MANA_USE_ALLREDUCE_REPRODUCIBLE\f[B]\f[R]
+.PP
+When MPI_Allreduce specifies an associative/commutative operation, the
+MPI library must choose an ordering of the operation during reduce.
+The ordering may vary when calling MPI_Allreqduce after launch or after
+replay.
+By setting the environment variable MANA_USE_ALLREDUCE_REPRODUCIBLE at
+the time of launch, you can direct MANA to call the operations in a
+deterministic order, so that the output after checkpoint-restart will
+produce the same output as running after launch with no
+checkpoint-restart.
+.PP
+\f[B]\f[CB]INSPECTING MANA for DEBUGGING\f[B]\f[R]
+.PP
 To see status of ranks (especially during checkpoint), try:
 .IP
 .nf
@@ -155,12 +173,12 @@ util/readdmtcp.sh ckpt_rank0/ckpt_*.dmtcp
 \f[R]
 .fi
 .PP
-To debug during restart, try:
+To debug during restart at stage `N', replace `N' Below, and execute:
 .IP
 .nf
 \f[C]
-srun ... env DMTCP\[rs]_RESTART\[rs]_PAUSE=1 mana\[rs]_restart ... APPLICATION
-gdb APPLICATION PID  # from a different terminal
+srun ... env DMTCP\[rs]_RESTART\[rs]_PAUSE=N mana\[rs]_restart ... APPLICATION &
+gdb -p APPLICATION PID  # from a different terminal
 \f[R]
 .fi
 .PP
@@ -169,10 +187,9 @@ following:
 .IP
 .nf
 \f[C]
-(gdb) add-symbol-file bin/lh_proxy
 (gdb) source util/gdb-dmtcp-utils
-(gdb) add-symbol-files-all
-(gdb) dmtcp
+(gdb) load-symbol-library ADDRESS-OR-LIBRARY-SUBSTRING
+(gdb) dmtcp  # to see other available commands
 \f[R]
 .fi
 .PP
@@ -183,36 +200,21 @@ If you are debugging the lower half internals of MANA, you may need:
 (gdb) file bin/lh_proxy
 \f[R]
 .fi
+.PP
+If debugging the low-level restart process, please read
+restart/plugin/README.
 .SH BUGS
-.PP
-NOTE: Compiling VASP-5.4.4 uncovered some bugs in the combination of
-\f[C]icpc-19.0.3.199\f[R] and GNU \f[C]gcc\f[R].
-.PP
-The validation results were:
-.IP \[bu] 2
-\f[B]icpc+gcc-7.5.0 (built at NERSC)\f[R]: Fails at runtime on VASP
-\f[C]during restart\f[R] unless configured with:
-.RS 2
-.IP
-.nf
-\f[C]
-\&./configure CXXFLAGS=\[aq]-fno-omit-frame-pointer -fno-optimize-sibling-calls\[aq]
-\f[R]
-.fi
-.RE
-.IP \[bu] 2
-\f[B]icpc+gcc-9.3.0\f[R]: Works correctly
-.IP \[bu] 2
-\f[B]icpc_gcc-10.1.0 (built at NERSC)\f[R]: Fails to link using
-ld-2.35.1
 .PP
 Report bugs in MANA to: https://github.com/mpickpt/mana
 .SH SEE ALSO
 .PP
-\f[B]dmtcp\f[R](1), \f[B]dmtcp_coordinator\f[R](1),
-\f[B]dmtcp_launch\f[R](1), \f[B]dmtcp_restart\f[R](1),
-\f[B]dmtcp_command\f[R](1)
+\f[B]MANA home page:\f[R] <https://github.com/mpickpt/mana>,
 .PD 0
 .P
 .PD
-\f[B]MANA home page:\f[R] <https://github.com/mpickpt/mana>
+\f[B]dmtcp\f[R](1), \f[B]dmtcp_coordinator\f[R](1),
+\f[B]dmtcp_launch\f[R](1),
+.PD 0
+.P
+.PD
+\f[B]dmtcp_restart\f[R](1), \f[B]dmtcp_command\f[R](1)

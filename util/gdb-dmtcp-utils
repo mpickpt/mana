@@ -118,14 +118,14 @@ def load_symbols_library(filename_or_address):
   # If filename is a substring, search for full filename in /proc/self/maps
   candidates = [(f, addr) for (f, addr, _, _) in memory_regions()
                           if filename in f]
-  if candidates: # If we have a valid filename.
+  if candidates and is_exec_file(filename):
+    (filename, _) = candidates[0]
+    # ELF executables already have hard-wired absolute address
+    print("EXECUTABLE FILE:")
+    add_symbol_files_from_filename(filename, 0)
+  else if candidates: # If we have a valid filename, not executable
     (filename, start_addr) = candidates[0]
-    if is_exec_file(filename):
-      # ELF executables already have hard-wired absolute address
-      print("EXECUTABLE FILE:")
-      add_symbol_files_from_filename(filename, 0)
-    else:
-      gdb.execute("add-symbol-file -o " + str(start_addr) + " " + filename)
+    gdb.execute("add-symbol-file -o " + str(start_addr) + " " + filename)
   else:
     print("No matching FILENAME_OR_ADDRESS found\n")
 

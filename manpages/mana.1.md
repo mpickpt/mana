@@ -11,7 +11,7 @@ description: MPI-Agnostic Network-Agnostic Checkpointing
 
 # SYNOPSIS
 
-**mana_launch** [\--help] [\--verbose] [DMTCP_OPTIONS] [\--ckptdir *DIR*] COMMAND [*ARGS...*]\
+**mana_launch** [\--help] [\--verbose] [\--timing] [DMTCP_OPTIONS] [\--ckptdir *DIR*] COMMAND [*ARGS...*]\
 **mana_coordinator** [\--help] [\--verbose] [*DMTCP_OPTIONS*]\
 **mana_start_coordinator**\
 **mana_status** [\--help] [\--verbose] [*DMTCP_OPTIONS*]\
@@ -32,6 +32,10 @@ the DMTCP checkpointing package.
 
 **`--verbose`**
 : Display the underlying DMTCP command and DMTCP_OPTIONS used, and other info.
+
+**`--timing`**
+: Print times to stderr for INIT, EXIT, and ckkpt-restart events.
+  (stays active during both mana_launch and mana_restart)
 
 # MANA PROGRAM EXECUTION
 
@@ -120,6 +124,19 @@ MANA supports most features of DMTCP, including:
   `mana_restart`. (Currently, you need to set this before `mana_launch`,
   but this may be fixed later.)
 
+**`MANA_USE_ALLREDUCE_REPRODUCIBLE`**
+
+  When MPI_Allreduce specifies an associative/commutative operation,
+  the MPI library must choose an ordering of the operation during
+  reduce.  The ordering may vary when calling MPI_Allreqduce after
+  launch or after replay.  By setting the environment variable
+  MANA_USE_ALLREDUCE_REPRODUCIBLE at the time of launch,
+  you can direct MANA to call the operations in a deterministic order,
+  so that the output after checkpoint-restart will produce the same
+  output as running after launch with no checkpoint-restart.
+
+**`INSPECTING MANA for DEBUGGING`**
+
 To see status of ranks (especially during checkpoint), try:
 
     bin/mana_status --list
@@ -128,43 +145,30 @@ To inspect a checkpoint image from, for example, Rank `0`, try:
 
     util/readdmtcp.sh ckpt_rank0/ckpt_*.dmtcp
 
-To debug during restart, try:
+To debug during restart at stage 'N', replace 'N' Below, and execute:
 
-    srun ... env DMTCP\_RESTART\_PAUSE=1 mana\_restart ... APPLICATION
-    gdb APPLICATION PID  # from a different terminal
+    srun ... env DMTCP\_RESTART\_PAUSE=N mana\_restart ... APPLICATION &
+    gdb -p APPLICATION PID  # from a different terminal
 
 To see the stack, you then may or may not need to try some of the
 following:
 
-    (gdb) add-symbol-file bin/lh_proxy
     (gdb) source util/gdb-dmtcp-utils
-    (gdb) add-symbol-files-all
-    (gdb) dmtcp
+    (gdb) load-symbol-library ADDRESS-OR-LIBRARY-SUBSTRING
+    (gdb) dmtcp  # to see other available commands
 
 If you are debugging the lower half internals of MANA, you may need:
 
     (gdb) file bin/lh_proxy
 
+If debugging the low-level restart process, please read restart/plugin/README.
+
 # BUGS
-
-NOTE: Compiling VASP-5.4.4 uncovered some bugs in the combination of
-`icpc-19.0.3.199` and GNU `gcc`.
-
-The validation results were:
-
-* **icpc+gcc-7.5.0 (built at NERSC)**: Fails at runtime on VASP
-  `during restart` unless configured with:
-
-      ./configure CXXFLAGS='-fno-omit-frame-pointer -fno-optimize-sibling-calls'
-
-* **icpc+gcc-9.3.0**: Works correctly
-
-* **icpc_gcc-10.1.0 (built at NERSC)**: Fails to link using ld-2.35.1
 
 Report bugs in MANA to: https://github.com/mpickpt/mana
 
 # SEE ALSO
 
-**dmtcp**(1), **dmtcp_coordinator**(1), **dmtcp_launch**(1),
-**dmtcp_restart**(1), **dmtcp_command**(1)\
-**MANA home page:** \<https://github.com/mpickpt/mana\>
+**MANA home page:** \<https://github.com/mpickpt/mana\>, \
+**dmtcp**(1), **dmtcp_coordinator**(1), **dmtcp_launch**(1), \
+**dmtcp_restart**(1), **dmtcp_command**(1)

@@ -7,8 +7,17 @@ The MPICH library, at least as packaged in CentOS 7, requires:
   * libxml2: found in libxml2-static package, but often not installed
   * libzma.a: not provided in any package; see instructions below
   * libz.a: found in zlib-static package, but often not installed
-Both of these libraries can be installed in your own account, without
-root privilege.
+All of these libraries can be installed in your own account, without
+root privilege.  Currently, mpi-proxy-split/lower-half/Makefile uses a flag:
+    -L$HOME/mpich-static/usr/lib64
+This directory contains the missing .a libraries.  You may need to modify
+the path to poit to your own local .a libraries.
+
+Depending on how your static MPICH library was compiled, you may find
+that more or fewer extra static libraries are required.
+
+Other MPI implementations (e.g., Open MPI) do not seem to require additional
+static libraries.
 
 You will want to do:  module load mpich  (or build libmpi.a from source)
 
@@ -54,5 +63,6 @@ Then run.  Something like one of:
   ^ srun -N1 -n2 mpirun -np 2 ./a.out
   ^ salloc -N1 -n2
       mpirun -np 2 ./a.out
+  * sbatch (with sbatch script)
 [ At least on the Northeastern Discovery cluster with MPICH in 2021,
-  only the first form works. ]
+  only the first and last forms work. ]
