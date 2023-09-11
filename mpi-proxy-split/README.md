@@ -48,7 +48,7 @@ See `man mana` or `nroff -man MANA_ROOT_DIR/manpages/mana.1` for the MANA man pa
 
 ## 2. Building MANA
 
-   On Perlmutter, unload a few modules which are incompatible with MANA. Not all or fhte modules are currently present.   We also need to load the PMI module.
+   On Perlmutter, unload a few modules which are incompatible with MANA. Not all of the modules are currently present.   We also need to load the PMI module.
    ```bash
    $ module unload cudatoolkit gpu craype-accel-nvidia80
    $ module unload darshan Nsight-Compute Nsight-Systems
