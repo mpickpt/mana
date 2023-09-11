@@ -19,8 +19,8 @@
 dir=`dirname $0`
 
 if [ -z "$1" ]; then
-  echo "USAGE:  $0 [--verbose] [DMTCP_OPTIONS ...] [--ckptdir DIR]" \\
-  echo "                                                       MANA_EXECUTABLE"
+  echo "USAGE: $0 [--verbose] [--timing] [DMTCP_OPTIONS ...]" \\
+  echo "                                       [--ckptdir DIR] MANA_EXECUTABLE"
   echo "        For DMTCP options, do: $0 --help"
   echo "  NOTE: MANA_EXECUTABLE must be compiled with libmpistub.so"
   echo "        See $dir/../contrib/mpi-proxy-split/test/ for examples."
@@ -35,6 +35,8 @@ srun_sbatch_found=0
 while [ -n "$1" ]; do
   if [ "$1" == --verbose ]; then
     verbose=1
+  elif [ "$1" == --timing ]; then
+    export MANA_TIMING=1
   elif [ "$1" == --help ]; then
     help=1
   elif [ "$1" == srun ] || [ "$1" == sbatch ]; then
@@ -60,6 +62,13 @@ while [ -n "$1" ]; do
 done
 
 if [ "$help" -eq 1 ]; then
+  echo 'MANA OPTIONS:'
+  echo '--verbose:  Display the underlying DMTCP command and DMTCP_OPTIONS used'
+  echo '            and other info.'
+  echo '--timing:  Print times to stderr for INIT, EXIT,' \
+                  'and ckkpt-restart events'
+  echo '           (stays active during both mana_launch and mana_restart)'
+  echo ''
   $dir/dmtcp_launch --help $options
   exit 0
 fi
