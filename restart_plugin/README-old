@@ -1,0 +1,79 @@
+When ./configure-mana is called in MANA, it calls ./configure, which
+in turn configures the DMTCP submodule as:
+  ./configure ... --enable-debug CFLAGS=-fno-stack-protector CXXFLAGS=-fno-stack-protector MPI_BIN=/usr/local/bin ...  MANA_USE_LH_FIXED_ADDRESS=1 --with-mana-helper-dir=../restart_plugin --disable-dlsym-wrapper ...
+
+Hence, '--with-mana-helper-dir' above points to this directory.
+
+In ../dmtcp/src/mtcp/Makefile.in, it has hardwired MANA-specific code
+to compile the local filenames here as object files in ../dmtcp/src/mtcp:
+
+ifneq ($(MANA_HELPER_DIR),)
+  HEADERS += $(MANA_HELPER_DIR)/mtcp_split_process.h \
+             $(MANA_HELPER_DIR)/ucontext_i.h
+  OBJS += mtcp_restart_plugin.o mtcp_split_process.o getcontext.o
+  CFLAGS += -DMTCP_PLUGIN_H="<mtcp_restart_plugin.h>"
+  INCLUDES += -I$(MANA_HELPER_DIR)
+endif 
+
+(Note that MANA_HELPER_DIR was set by ./configure using --with-mana-helper-dir.)
+
+====
+When MANA restarts using mana_restart, the relevant logic is found in the
+files of this directory (at the time of restart) and
+../mpi-proxy-split/mpi_plugin.cpp (earlier at the time of checkpoint).
+
+mpi_plugin.cpp has written libsStart, libsEnd and highMemStart into the
+MTCP header of each checkpoint image at the time of checkpoint.
+
+At the time of checkpoint, control comes to:
+  ../mpi-proxy-split/mpi_plugin.cpp:computeUnionOfCkptImageAddresses()
+    (i) which computes libsStart, libsEnd, highMemStart
+    (ii) and saves it in the MTCP header of the checkpoint image,
+    (iii) such that [libsStart, libsEnd]+[highMemStart, STACK] should
+          cover all memory regions of the upper half for every rank.
+
+At the time of restart, control comes to:
+  ../dmtcp/src/mtcp/mtcp_restart.c:main() ->
+  mtcp_restart_plugin.c:mtcp_plugin_hook() ->
+  mtcp_split_process.c:splitProcess() -> 
+  mtcp_split_process.c:initializeLowerHalf() -> 
+    (i) mtcp_split_process.c:splitProcess()
+          // forks proxy process for lower half
+          // and then copies it into cur. process
+    (ii) initializes the lower half with libc_start_main (now that it is
+         in the current process)
+    (iii) returns to 'splitProcess()', which returns to 'mtcp_plugin_hook()':
+  mtcp_restart_plugin.c:mtcp_plugin_hook() ->
+    (i) We finished 'splitProcess()', above.
+    (ii) reserve_fds_upper_half()
+         reserveUpperHalfMemoryRegionsForCkptImgs() // mmap memory regions
+                                                    // of future upper half
+    (iii) JUMP_TO_LOWER_HALF()
+    (iv) // MPI_Init is called here. Network memory areas are loaded by MPI_Init
+         // Also, MPI_Cart_create will be called to restore cartesian topology.
+         // Based on the coordinates, checkpoint image is restored instead of
+         // world rank.
+         // This includes /dev/xpmem, *shared_mem*, etc.
+    (v) RETURN_TO_UPPER_HALF()
+    (vi) releaseUpperHalfMemoryRegionsForCkptImgs()
+         unreserve_fds_upper_half()
+    (vii) getCkptImageByRank() // Sets ckpt image for upper half for this rank
+    (viii) returns to ../dmtcp/src/mtcp/mtcp_restart.c:main()
+  ../dmtcp/src/mtcp/mtcp_restart.c:main() ->
+    (i) Load ckpt image file found by 'mtcp_plugin_hook()'
+    (ii) Control passes to program counter and stack from time of checkpoint
+    (iii) The upper half then rebinds MPI wrappers, etc.
+
+====
+DEBUGGING mana_restart:
+  Note that the coordinator dumps a *.json file in the directory where the
+    coordinator was launched, at the time of checkpoint (and during restart).
+    The checkpoint version includes:
+      libsStart, libsEnd, highMemStart, and the /proc/*/maps during checkpoint.
+  This can be used to verify that [libsStart, libsEnd]+[highMemStart, STACK]
+    truly covers all upper-half memory regions.
+  This can also be checked in GDB by comparing /proc/self/maps inside
+    ../dmtcp/src/mtcp/mtcp_restart.c:main() just before it loads the
+    checkpoint image file, with the /proc/self/maps when afterward executing
+    the statement 'case DMTCP_EVENT_RESTART:' in the file
+    ../mpi-proxy-split/mpi_plugin.cpp.
