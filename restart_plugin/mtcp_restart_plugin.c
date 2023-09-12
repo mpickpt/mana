@@ -296,36 +296,52 @@ int getCkptImageByDir(RestoreInfo *rinfo, char *buffer, size_t buflen, int rank)
 // checkpointed process' vdso and vvar.
 static void
 remap_vdso_and_vvar_regions(RestoreInfo *rinfo) {
-  Area area;
   void *rc = NULL;
   uint64_t vvarStart = (uint64_t) rinfo->currentVvarStart;
   uint64_t vvarSize = rinfo->currentVvarEnd - rinfo->currentVvarStart;
   uint64_t vdsoStart = (uint64_t) rinfo->currentVdsoStart;
   uint64_t vdsoSize = rinfo->currentVdsoEnd - rinfo->currentVdsoStart;
-  uint64_t prev_addr = 0x10000;
 
-  uint64_t vvarStartTmp = 0;
-  uint64_t vdsoStartTmp = 0;
+  // Find an empty region in which to temporarily move the current vvar/vdso
+  // CentOS-7 (kernel 3.10) has "vdso", but no "vvar".  So, test for vvar.
+  Area new_vvar_area;
+  // vvarExists and 'rinfo->currentVvarStart != NULL' are same.  Just verifying.
+  int vvarExists = getMappedArea(&new_vvar_area, "[vvar]") == 1;
+  if (vvarExists) {
+    MTCP_ASSERT(rinfo->currentVvarStart == new_vvar_area.addr);
+  } else {
+    MTCP_ASSERT(rinfo->currentVvarStart == NULL && vvarSize == 0);
+  }
 
   int mapsfd = mtcp_sys_open2("/proc/self/maps", O_RDONLY);
   if (mapsfd < 0) {
     MTCP_PRINTF("error opening /proc/self/maps; errno: %d\n", mtcp_sys_errno);
     mtcp_abort();
   }
-
+  // Look for unmapped region far below the future upper-half region, where
+  // we can temporarily move the current vvar/vdso to.
+  uint64_t vvarStartTmp = 0;
+  uint64_t vdsoStartTmp = 0;
+  Area area;
+  uint64_t prev_end_addr = 0x10000;
   while (mtcp_readmapsline(mapsfd, &area)) {
-    if (prev_addr + vvarSize + vdsoSize <= (uint64_t) area.addr) {
-      vvarStartTmp = prev_addr;
-      vdsoStartTmp = prev_addr + vvarSize;
+    if (prev_end_addr + vvarSize + vdsoSize <= (uint64_t)area.addr) {
+      vvarStartTmp = prev_end_addr;
+      vdsoStartTmp = prev_end_addr + vvarSize;
       break;
     } else {
-      prev_addr = ROUNDADDRUP((uint64_t) area.endAddr, MTCP_PAGE_SIZE);
+      prev_end_addr = ROUNDADDRUP((uint64_t)area.endAddr, MTCP_PAGE_SIZE);
     }
   }
-
   mtcp_sys_close(mapsfd);
 
-  if (vvarStart > 0) {
+  // We have now found a vvarStartTmp/vdsoStartTmp where we can move our
+  // vvar/vdso to.  Move current vvar/vdso to a low address far from where
+  // the upper half will be restore to, starting at address vvarStartTmp.
+  // We will set the rinfo to pretend to dmtcp/src/mtcp/mtcp_restart.c
+  // that vvarStartTmp is the current vvar/vdso.  After restoring the
+  //  upper half, MTCP will then move it back to the pre-ckpt area
+  if (vvarStart > 0 && vvarSize > 0) {
     if (vvarStartTmp == 0) {
       MTCP_PRINTF("No free region found to temporarily map vvar to\n");
       mtcp_abort();
@@ -746,7 +762,6 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
   rinfo->pluginInfo.minLibsStart = rinfo->minLibsStart;
   rinfo->pluginInfo.maxLibsEnd = rinfo->maxLibsEnd;
   rinfo->pluginInfo.minHighMemStart = rinfo->minHighMemStart;
-  rinfo->pluginInfo.maxHighMemEnd = rinfo->maxHighMemEnd;
   rinfo->pluginInfo.restartDir = rinfo->restartDir;
 
   // Reserve first 500 file descriptors for the Upper-half
