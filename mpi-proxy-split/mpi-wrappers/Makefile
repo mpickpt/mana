@@ -135,6 +135,7 @@ libpmi.so.0: libpmi.so.0.5.0
 tidy:
 	rm -f *~ .*.swp dmtcp_restart_script*.sh ckpt_*.dmtcp
 	rm -rf ckpt_rank_*
+	rm -f dmtcp_coordinator_db-*.json
 
 install: libmpistub.so mana_p2p_update_logs
 	cp -f libmpistub.so ${MANA_ROOT}/lib/dmtcp/

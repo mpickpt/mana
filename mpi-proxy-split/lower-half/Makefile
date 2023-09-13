@@ -117,6 +117,7 @@ install: ${PROXY_BIN} ${PROXY_BIN_DEFADDR} ${STATIC_GETHOSTBYNAME}
 tidy:
 	rm -f *~ .*.swp dmtcp_restart_script*.sh ckpt_*.dmtcp
 	rm -rf ckpt_rank_*
+	rm -rf dmtcp_coordinator_db-*.json
 
 clean: tidy
 	rm -f ${PROXY_BIN} ${PROXY_BIN_DEFADDR} ${LIBPROXY}.a ${PROXY_OBJS} ${LIBPROXY_OBJS}
