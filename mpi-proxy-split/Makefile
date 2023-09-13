@@ -124,6 +124,7 @@ install: ${MANA_COORD_OBJS}
 tidy:
 	rm -f *~ .*.swp dmtcp_restart_script*.sh ckpt_*.dmtcp
 	rm -rf ckpt_rank_*
+	rm -rf dmtcp_coordinator_db-*.json
 
 clean: tidy
 	rm -f ${LIBOBJS} ${MANA_COORD_OBJS}

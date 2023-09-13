@@ -48,6 +48,7 @@ tidy:
 	rm -f ckpt_*.dmtcp dmtcp_restart_script* \
 	dmtcp-shared-memory.* dmtcp-test-typescript.tmp core*
 	rm -rf ckpt_*
+	rm -f dmtcp_coordinator_db-*.json
 
 clean: tidy
 	rm -f $(TESTS) ${OBJS} ${TESTS_DUMMY} *.pyc *.so
