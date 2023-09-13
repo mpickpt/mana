@@ -89,12 +89,12 @@ ${PROXY_BIN}: ${PROXY_OBJS} ${LIBPROXY}.a ${STATIC_GETHOSTBYNAME}
 
 ${PROXY_BIN_DEFADDR}: ${PROXY_OBJS} ${LIBPROXY}.a ${STATIC_GETHOSTBYNAME}
 	if ${MPICC} -v 2>&1 | grep -q 'MPICH version'; then \
-	  rm -f tmp.sh; \
+	  rm -f tmp1.sh; \
 	  ${MPICC} -show ${PROXY_LD_FLAGS} -o $@ -Wl,-start-group \
 	    $^ ${MPI_LD_FLAG} -lrt -lpthread -lc -ldl -Wl,-end-group | \
-	    sed -e 's^-lunwind ^ ^'> tmp.sh; \
-	  sh tmp.sh; \
-	  rm -f tmp.sh; \
+	    sed -e 's^-lunwind ^ ^'> tmp1.sh; \
+	  sh tmp1.sh; \
+	  rm -f tmp1.sh; \
 	elif ${STATIC_LIBS}; then \
 	  ${MPICC} ${PROXY_LD_FLAGS} -o $@ -Wl,-start-group \
             $^ ${MPI_LD_FLAG} `cat static_libs.txt` -ldl -Wl,--end-group; \
