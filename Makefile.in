@@ -87,6 +87,7 @@ distclean: clean
 tidy:
 	rm -rf ckpt_rank*
 	rm -f ckpt_*.dmtcp dmtcp_restart_script*
+	rm -f dmtcp_coordinator_db-*.json
 
 clean: tidy
 	- cd dmtcp && $(MAKE) clean
