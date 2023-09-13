@@ -699,7 +699,9 @@ computeUnionOfCkptImageAddresses()
   void *libsEnd = NULL;
   void *maxLibsEnd = NULL;
   void *highMemStart = 0x0;
-  void *minHighMemStart = NULL;
+  void *minHighMemStart = 0x0;
+  void *highMemEnd = 0x0; // FIXME: For now, always 8 MB above highMemStart
+  void *maxHighMemEnd = 0x0;
   void *lhEnd = 0x0; // lower bound for actual lhEnd
   void *minAddrBeyondHeap = NULL;
   void *maxAddrBeyondHeap = NULL;
@@ -766,10 +768,16 @@ computeUnionOfCkptImageAddresses()
     if (prev_addr_end != NULL && prev_addr_end == libsEnd)
     {
       highMemStart = area.addr; // This should be the start of the stack.
+      // Allow 8 MB for stack/argv/auxv
+      highMemEnd = (char *)highMemStart + 8 * 1024*1024;
     }
     if (strcmp(area.name, "[stack]") == 0)
     {
       highMemStart = area.addr; // This should be the start of the stack.
+      // Allow 8 MB for stack/argv/auxv
+      highMemEnd = (char *)highMemStart + 8 * 1024*1024;
+      JASSERT(area.endAddr < highMemEnd)((void*)area.addr)((void*)area.endAddr)
+                                        (highMemEnd);
     }
     // FIXME:  We are no longer using min/maxAddrBeyondHeap.
     //         Given that heapAddr is poorly defined between launch and restart,
@@ -811,11 +819,13 @@ computeUnionOfCkptImageAddresses()
   string minAddrBeyondHeapStr = jalib::XToString(minAddrBeyondHeap);
   string maxAddrBeyondHeapStr = jalib::XToString(maxAddrBeyondHeap);
   string highMemStartStr = jalib::XToString(highMemStart);
+  string highMemEndStr = jalib::XToString(highMemEnd);
   kvdb::set(workerPath, "MANA_heapAddr", heapAddrStr);
   kvdb::set(workerPath, "MANA_libsStart_Orig", origLibsStartStr);
   kvdb::set(workerPath, "MANA_libsStart", libsStartStr);
   kvdb::set(workerPath, "MANA_libsEnd", libsEndStr);
   kvdb::set(workerPath, "MANA_highMemStart", highMemStartStr);
+  kvdb::set(workerPath, "MANA_highMemEnd", highMemEndStr);
   kvdb::set(workerPath, "MANA_minAddrBeyondHeap", minAddrBeyondHeapStr);
   kvdb::set(workerPath, "MANA_maxAddrBeyondHeap", maxAddrBeyondHeapStr);
 
@@ -826,6 +836,8 @@ computeUnionOfCkptImageAddresses()
                           (int64_t)libsEnd) == KVDBResponse::SUCCESS);
   JASSERT(kvdb::request64(KVDBRequest::MIN, kvdb, "highMemStart",
                           (int64_t)highMemStart) == KVDBResponse::SUCCESS);
+  JASSERT(kvdb::request64(KVDBRequest::MAX, kvdb, "highMemEnd",
+                          (int64_t)highMemEnd) == KVDBResponse::SUCCESS);
 
   dmtcp_global_barrier("MANA_CKPT_UNION");
 
@@ -835,6 +847,8 @@ computeUnionOfCkptImageAddresses()
           KVDBResponse::SUCCESS);
   JASSERT(kvdb::get64(kvdb, "highMemStart", (int64_t *)&minHighMemStart) ==
           KVDBResponse::SUCCESS);
+  JASSERT(kvdb::get64(kvdb, "highMemEnd", (int64_t *)&maxHighMemEnd) ==
+          KVDBResponse::SUCCESS);
 
   ostringstream o;
 
@@ -842,20 +856,24 @@ computeUnionOfCkptImageAddresses()
   HEXSTR(o, libsStart);
   HEXSTR(o, libsEnd);
   HEXSTR(o, highMemStart);
+  HEXSTR(o, highMemEnd);
   HEXSTR(o, minLibsStart);
   HEXSTR(o, maxLibsEnd);
   HEXSTR(o, minHighMemStart);
+  HEXSTR(o, maxHighMemEnd);
 
   JTRACE("Union of memory regions") (o.str());
 
   string minLibsStartStr = jalib::XToString(minLibsStart);
   string maxLibsEndStr = jalib::XToString(maxLibsEnd);
   string minHighMemStartStr = jalib::XToString(minHighMemStart);
+  string maxHighMemEndStr = jalib::XToString(maxHighMemEnd);
 
   // Now publish these values to DMTCP ckpt-header.
   dmtcp_add_to_ckpt_header("MANA_MinLibsStart", minLibsStartStr.c_str());
   dmtcp_add_to_ckpt_header("MANA_MaxLibsEnd", maxLibsEndStr.c_str());
   dmtcp_add_to_ckpt_header("MANA_MinHighMemStart", minHighMemStartStr.c_str());
+  dmtcp_add_to_ckpt_header("MANA_MaxHighMemEnd", maxHighMemEndStr.c_str());
 }
 
 const char *
