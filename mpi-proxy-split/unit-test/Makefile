@@ -1,12 +1,7 @@
 # MPI compiler
-PLATFORM=${shell echo $$HOST}
-ifeq ($(findstring cori,$(PLATFORM)),cori)
-IS_CORI = 1
-endif
-ifeq ($(findstring gert,$(PLATFORM)),gert)
-IS_GERTY = 1
-endif
-ifeq ($(or $(IS_CORI),$(IS_GERTY)), 1)
+include ../Makefile_config
+
+ifeq (${PERLMUTTER}, 1)
 MPIRUN = srun
 MPICC = cc
 MPICXX = CC
