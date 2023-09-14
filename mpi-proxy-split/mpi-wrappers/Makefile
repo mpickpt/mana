@@ -66,8 +66,13 @@ mana_p2p_update_logs: mana_p2p_update_logs.c
 
 p2p-deterministic.h: p2p-deterministic.txt p2p-deterministic.py
 	./p2p-deterministic.py $< > $@
+
+p2p-deterministic.o: p2p-deterministic.c p2p-deterministic.h
+	${MPICC} ${CFLAGS} -c -o $@ $<
+
 mpi_p2p_wrappers.o: mpi_p2p_wrappers.cpp p2p-deterministic.h
 	${MPICXX} ${CXXFLAGS} -c -o $@ $<
+
 mpi_request_wrappers.o: mpi_request_wrappers.cpp p2p-deterministic.h
 	${MPICXX} ${CXXFLAGS} -c -o $@ $<
 
