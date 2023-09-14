@@ -1,5 +1,4 @@
 # MPI compiler according to the platform
-PLATFORM=${shell echo $$HOST}
 UNAME_RELEASE=${shell uname -r}
 include ../Makefile_config
 
@@ -38,9 +37,7 @@ TEXTSEG_ADDR_FLAG=-Wl,-Ttext-segment=E000000
 default: ${PROXY_BIN} ${PROXY_BIN_DEFADDR} ${STATIC_GETHOSTBYNAME}
 
 # We should remove the special case for Cori, once we know this works on Cori.
-ifeq ($(findstring cori,$(PLATFORM)),cori)
-  STATIC_GETHOSTBYNAME=
-else ifeq ($(findstring gert,$(PLATFORM)),gert)
+ifeq (${PERLMUTTER}, 1)
   STATIC_GETHOSTBYNAME=
 else
   STATIC_GETHOSTBYNAME=gethostbyname-static/gethostbyname_static.o
