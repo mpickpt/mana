@@ -573,6 +573,11 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
   // when calling mtcp:restorememoryareas().
   rinfo->pluginInfo.lh_info_addr = lh_info_addr;
 
+<<<<<<< HEAD
+=======
+  populate_plugin_info(rinfo);
+
+>>>>>>> 9c15f182 (Simplified mtcp-restart plugin interface.)
   // Reserve first 500 file descriptors for the Upper-half
   int reserved_fds[500];
   int total_reserved_fds;
@@ -798,6 +803,11 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
   // when calling mtcp:restorememoryareas().
   rinfo->pluginInfo.lh_info_addr = lh_info_addr;
 
+<<<<<<< HEAD
+=======
+  populate_plugin_info(rinfo);
+
+>>>>>>> 9c15f182 (Simplified mtcp-restart plugin interface.)
   // Reserve first 500 file descriptors for the Upper-half
   int reserved_fds[500];
   int total_reserved_fds;
