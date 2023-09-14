@@ -4,6 +4,7 @@
 #include <mpi.h>
 #include <pthread.h>
 #include <functional>
+#include "virtual-ids.h"
 
 typedef enum _reset_type_t {
   RESUME,
@@ -44,16 +45,13 @@ typedef struct __rank_state_t
 // Global communicator for MANA internal use
 extern MPI_Comm g_world_comm;
 
-extern std::map<unsigned int, unsigned long> seq_num;
-extern std::map<unsigned int, unsigned long> target;
-
 // The main functions of the sequence number algorithm for MPI collectives
 void commit_begin(MPI_Comm comm, bool passthrough);
 void commit_finish(MPI_Comm comm, bool passthrough);
 
 int twoPhaseCommit(MPI_Comm comm, std::function<int(void)>doRealCollectiveComm);
 void drain_mpi_collective();
-void share_seq_nums(std::map<unsigned int, unsigned long> &target);
+void share_seq_nums(std::map<unsigned int, ggid_desc_t*> &ggidDescriptorTable);
 int check_seq_nums(bool exclusive);
 int print_seq_nums();
 void seq_num_init();

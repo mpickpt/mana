@@ -129,7 +129,7 @@ USER_DEFINED_WRAPPER(int, Cart_sub, (MPI_Comm) comm,
     int ndims = 0;
     MPI_Cartdim_get(comm, &ndims);
     MPI_Comm virtComm = ADD_NEW_COMM(*new_comm);
-    VirtualGlobalCommId::instance().createGlobalId(virtComm);
+    grant_ggid(virtComm);
     *new_comm = virtComm;
     active_comms.insert(virtComm);
     FncArg rs = CREATE_LOG_BUF(remain_dims, ndims * sizeof(int));
@@ -202,7 +202,7 @@ USER_DEFINED_WRAPPER(int, Cart_create, (MPI_Comm)old_comm, (int)ndims,
 
     if (retval == MPI_SUCCESS && MPI_LOGGING()) {
       MPI_Comm virtComm = ADD_NEW_COMM(*comm_cart);
-      VirtualGlobalCommId::instance().createGlobalId(virtComm);
+      grant_ggid(virtComm);
       *comm_cart = virtComm;
       active_comms.insert(virtComm);
 
@@ -251,7 +251,7 @@ USER_DEFINED_WRAPPER(int, Cart_create, (MPI_Comm) old_comm, (int) ndims,
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS && MPI_LOGGING()) {
     MPI_Comm virtComm = ADD_NEW_COMM(*comm_cart);
-    VirtualGlobalCommId::instance().createGlobalId(virtComm);
+    grant_ggid(virtComm);
     *comm_cart = virtComm;
     active_comms.insert(virtComm);
     FncArg ds = CREATE_LOG_BUF(dims, ndims * sizeof(int));

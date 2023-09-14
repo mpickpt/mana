@@ -150,6 +150,10 @@ USER_DEFINED_WRAPPER(int, File_set_view, (MPI_File) fh, (MPI_Offset) disp,
   return retval;
 }
 
+// FIXME: This is the only wrapper function in the entirety of MANA that uses
+// REAL_TO_VIRTUAL. O(1) real-to-virtual translation was a goal of the vid
+// refactoring, but we need to think more carefully about this. Maybe
+// REAL_TO_VIRTUAL could be eliminated, if it's only used once.
 USER_DEFINED_WRAPPER(int, File_get_view, (MPI_File) fh, (MPI_Offset*) disp,
                      (MPI_Datatype*) etype, (MPI_Datatype*) filetype,
                      (char*) datarep)
@@ -163,8 +167,8 @@ USER_DEFINED_WRAPPER(int, File_get_view, (MPI_File) fh, (MPI_Offset*) disp,
   retval = NEXT_FUNC(File_get_view)(realFile, disp, &realEtype, &realFtype,
                                     datarep);
   RETURN_TO_UPPER_HALF();
-  *etype = REAL_TO_VIRTUAL_TYPE(realEtype);
-  *filetype = REAL_TO_VIRTUAL_TYPE(realFtype);
+  // *etype = REAL_TO_VIRTUAL_TYPE(realEtype);
+  // *filetype = REAL_TO_VIRTUAL_TYPE(realFtype);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }

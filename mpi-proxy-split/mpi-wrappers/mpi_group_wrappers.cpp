@@ -82,8 +82,9 @@ USER_DEFINED_WRAPPER(int, Group_free, (MPI_Group *) group)
     // to replay this call to reconstruct any comms that might
     // have been created using this group.
     //
-    // realGroup = REMOVE_OLD_GROUP(*group);
-    // CLEAR_GROUP_LOGS(*group);
+    // FIXME: See comment in Comm_free wrapper.
+    REMOVE_OLD_GROUP(*group);
+    CLEAR_GROUP_LOGS(*group);
     LOG_CALL(restoreGroups, Group_free, *group);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();

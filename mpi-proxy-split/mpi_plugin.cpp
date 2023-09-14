@@ -1114,6 +1114,11 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     }
 
     case DMTCP_EVENT_PRECHECKPOINT: {
+      // FIXME: We want update_descriptors to capture all userland descriptors,
+      // but not any internal descriptors. A function here was creating an
+      // errant descriptor, but that should be fixed by PR #348.
+      update_descriptors();
+      dmtcp_global_barrier("MPI:recordMpiInitMaps");
       recordMpiInitMaps();
       recordOpenFds();
       dmtcp_local_barrier("MPI:GetLocalLhMmapList");
@@ -1175,9 +1180,12 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       // record-replay.cpp
       setCartesianCommunicator(lh_info.getCartesianCommunicatorFptr);
 #endif
-      dmtcp_global_barrier("MPI:restoreMpiLogState");
-      restoreMpiLogState(); // record-replay.cpp
-      dmtcp_global_barrier("MPI:record-replay.cpp-void");
+      dmtcp_global_barrier("MPI:reconstruct_with_descriptors");
+      // restoreMpiLogState(); // record-replay.cpp
+      reconstruct_with_descriptors();
+      // FIXME: I place reconstruct_with_descriptors in the analogous place to
+      // restoreMpiLogState.
+      dmtcp_global_barrier("MPI:virtual-ids.cpp-void");
       replayMpiP2pOnRestart(); // p2p_log_replay.cpp
       dmtcp_local_barrier("MPI:p2p_log_replay.cpp-void");
       seq_num_reset(RESTART);

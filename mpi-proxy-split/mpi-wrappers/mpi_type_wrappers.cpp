@@ -57,7 +57,9 @@ USER_DEFINED_WRAPPER(int, Type_free, (MPI_Datatype *) type)
     // to replay this call to reconstruct any new type that might
     // have been created using this type.
     //
-    // realType = REMOVE_OLD_TYPE(*type);
+    // FIXME: Now, we remove this type. Otherwise, if we try to decode a type
+    // that has been freed in the lower half, MPI will be upset.
+    REMOVE_OLD_TYPE(*type);
     LOG_CALL(restoreTypes, Type_free, *type);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
