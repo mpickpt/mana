@@ -1,6 +1,7 @@
 #include "workerstate.h"
 #include "dmtcp_restart.h"
 #include "jassert.h"
+#include "jconvert.h"
 #include "jfilesystem.h"
 #include "util.h"
 
@@ -39,28 +40,19 @@ void dmtcp_restart_plugin(const string &restartDir,
   // Also, create the DMTCP shared-memory area.
   t->initialize();
 
-  vector<char *> mtcpArgs = getMtcpArgs();
-  mtcpArgs.push_back((char *)"--mpi");
-
-  const map<string, string> &kvmap = t->getKeyValueMap();
-
-  mtcpArgs.push_back((char*) "--minLibsStart");
-  mtcpArgs.push_back((char*) kvmap.at("MANA_MinLibsStart").c_str());
-
-  mtcpArgs.push_back((char*) "--maxLibsEnd");
-  mtcpArgs.push_back((char*) kvmap.at("MANA_MaxLibsEnd").c_str());
-
-  mtcpArgs.push_back((char*) "--minHighMemStart");
-  mtcpArgs.push_back((char*) kvmap.at("MANA_MinHighMemStart").c_str());
+  publishKeyValueMapToMtcpEnvironment(t);
 
   if (!restartDir.empty()) {
-    mtcpArgs.push_back((char *)"--restartdir");
-    mtcpArgs.push_back((char *)restartDir.c_str());
+    setenv("MANA_RestartDir=", restartDir.c_str(), 1);
   }
 
-  for (const string &image : ckptImages) {
-    mtcpArgs.push_back((char*) image.c_str());
+  for (size_t i = 0; i < ckptImages.size(); i++) {
+    string key = "MANA_CkptImage_Rank_" + jalib::XToString(i);
+    setenv(key.c_str(), ckptImages[i].c_str(), 1);
   }
+
+  vector<char *> mtcpArgs = getMtcpArgs();
+  mtcpArgs.push_back((char *)"--mpi");
 
   mtcpArgs.push_back(NULL);
   execvp(mtcpArgs[0], &mtcpArgs[0]);
