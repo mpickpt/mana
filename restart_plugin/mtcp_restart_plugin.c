@@ -48,13 +48,19 @@
 
 NO_OPTIMIZE
 char*
-getCkptImageByRank(int rank, char **argv)
+getCkptImageByRank(int rank, char **environ)
 {
-  char *fname = NULL;
-  if (rank >= 0) {
-    fname = argv[rank];
+  if (rank < 0) {
+    return NULL;
   }
-  return fname;
+
+  char *fname = NULL;
+  char envKey[64] = {0};
+  char rankStr[20] = {0};
+  mtcp_itoa(rankStr, rank);
+  mtcp_strcpy(envKey, "MANA_CkptImage_Rank_");
+  mtcp_strncat(envKey, rankStr, mtcp_strlen(rankStr));
+  return mtcp_getenv(envKey, environ);
 }
 
 static inline int
@@ -191,17 +197,17 @@ int my_memcmp(const void *buffer1, const void *buffer2, size_t len) {
 
 // FIXME: Many style rules broken.  Code never reviewed by skilled programmer.
 int getCkptImageByDir(RestoreInfo *rinfo, char *buffer, size_t buflen, int rank) {
-  if(!rinfo->restartDir) {
+  if(!rinfo->pluginInfo.restartDir) {
     MTCP_PRINTF("***ERROR No restart directory found - cannot find checkpoint image by directory!");
     return -1;
   }
 
-  size_t len = mtcp_strlen(rinfo->restartDir);
+  size_t len = mtcp_strlen(rinfo->pluginInfo.restartDir);
   if(len >= buflen){
     MTCP_PRINTF("***ERROR Restart directory would overflow given buffer!");
     return -1;
   }
-  mtcp_strcpy(buffer, rinfo->restartDir); // start with directory
+  mtcp_strcpy(buffer, rinfo->pluginInfo.restartDir); // start with directory
 
   // ensure directory ends with /
   if(buffer[len - 1] != '/') {
@@ -437,6 +443,36 @@ bool is_overlap(char *start1, char *end1, char *start2, char *end2) {
   return end1 >= start2 || end2 >= start1;
 }
 
+void populate_plugin_info(RestoreInfo *rinfo)
+{
+  // FIXME:  Eventually, mpi-proxy-split/mpi_plugin.cpp should
+  //         directly write to rinfo->pluginInfo, and we won't
+  //         need to do this extra copy, here.
+  // Copy the upper-half info to rinfo->pluginInfo
+
+  const char *minLibsStartStr = mtcp_getenv("MANA_MinLibsStart", rinfo->environ);
+  if (minLibsStartStr != NULL) {
+    rinfo->pluginInfo.minLibsStart = (char*) mtcp_strtoll(minLibsStartStr);
+  }
+
+  const char *maxLibsEndStr = mtcp_getenv("MANA_MaxLibsEnd", rinfo->environ);
+  if (maxLibsEndStr != NULL) {
+    rinfo->pluginInfo.maxLibsEnd = (char*) mtcp_strtoll(maxLibsEndStr);
+  }
+
+  const char *minHighMemStartStr = mtcp_getenv("MANA_MinHighMemStart", rinfo->environ);
+  if (minHighMemStartStr != NULL) {
+    rinfo->pluginInfo.minHighMemStart = (char*) mtcp_strtoll(minHighMemStartStr);
+  }
+
+  const char *maxHighMemEndStr = mtcp_getenv("MANA_MaxHighMemEnd", rinfo->environ);
+  if (maxHighMemEndStr != NULL) {
+    rinfo->pluginInfo.maxHighMemEnd = (char*) mtcp_strtoll(maxHighMemEndStr);
+  }
+
+  rinfo->pluginInfo.restartDir = mtcp_getenv("MANA_RestarDir", rinfo->environ);
+}
+
 #ifdef SINGLE_CART_REORDER
 int
 load_cartesian_properties(char *filename, CartesianProperties *cp)
@@ -535,15 +571,7 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
   // when calling mtcp:restorememoryareas().
   rinfo->pluginInfo.lh_info_addr = lh_info_addr;
 
-  // FIXME:  Eventually, mpi-proxy-split/mpi_plugin.cpp should
-  //         directly write to rinfo->pluginInfo, and we won't
-  //         need to do this extra copy, here.
-  // Copy the upper-half info to rinfo->pluginInfo
-  rinfo->pluginInfo.minLibsStart = rinfo->minLibsStart;
-  rinfo->pluginInfo.maxLibsEnd = rinfo->maxLibsEnd;
-  rinfo->pluginInfo.minHighMemStart = rinfo->minHighMemStart;
-  rinfo->pluginInfo.maxHighMemEnd = rinfo->maxHighMemEnd;
-  rinfo->pluginInfo.restartDir = rinfo->restartDir;
+  populate_plugin_info(rinfo);
 
   // Reserve first 500 file descriptors for the Upper-half
   int reserved_fds[500];
@@ -560,18 +588,18 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
    */
   {
     // minLibsStart was chosen with extra space below, for future libs, mmap.
-    start1 = rinfo->minLibsStart;    // first lib of upper half
+    start1 = rinfo->pluginInfo.minLibsStart;    // first lib of upper half
     // Either lh_info_addr->memRange is a region between 1 GB and 2 GB below
     //   the end of stack in the lower half; or else it is at an unusual
     //   address for which we hope there is no address conflict.
     //   The latter holds if USE_LH_FIXED_ADDRESS was defined in
     //   mtcp_split_process.c, in both restart_plugin and mpi-proxy-split dirs.
-    end1 = rinfo->maxLibsEnd;
+    end1 = rinfo->pluginInfo.maxLibsEnd;
 
     // Reserve 8MB above min high memory region. That should include space for
     // stack, argv, env, auxvec.
-    start2 = rinfo->minHighMemStart - 1 * GB; // Allow for stack to grow
-    end2 = rinfo->minHighMemStart + 8 * MB;
+    start2 = rinfo->pluginInfo.minHighMemStart - 1 * GB; // Allow for stack to grow
+    end2 = rinfo->pluginInfo.minHighMemStart + 8 * MB;
     // Ignore region start2:end2 if it is overlapped with region start1:end1
     if (is_overlap(start1, end1, start2, end2)) {
       if (end1 < end2) { end1 = end2; }
@@ -670,7 +698,7 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
   char *filename = "./ckpt_rank_0/cartesian.info";
 
   char full_filename[PATH_MAX];
-  set_header_filepath(full_filename, rinfo->restartDir);
+  set_header_filepath(full_filename, rinfo->pluginInfo.restartDir);
   ManaHeader m_header;
   MTCP_ASSERT(load_mana_header(full_filename, &m_header) == 0);
 
@@ -719,7 +747,7 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
                         ckpt_image_rank_to_be_restored) == -1) {
     mtcp_strncpy(
       rinfo->ckptImage,
-      getCkptImageByRank(ckpt_image_rank_to_be_restored, rinfo->argv),
+      getCkptImageByRank(ckpt_image_rank_to_be_restored, rinfo->environ),
       PATH_MAX);
   }
 
@@ -755,14 +783,7 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
   // when calling mtcp:restorememoryareas().
   rinfo->pluginInfo.lh_info_addr = lh_info_addr;
 
-  // FIXME:  Eventually, mpi-proxy-split/mpi_plugin.cpp should
-  //         directly write to rinfo->pluginInfo, and we won't
-  //         need to do this extra copy, here.
-  // Copy the upper-half info to rinfo->pluginInfo
-  rinfo->pluginInfo.minLibsStart = rinfo->minLibsStart;
-  rinfo->pluginInfo.maxLibsEnd = rinfo->maxLibsEnd;
-  rinfo->pluginInfo.minHighMemStart = rinfo->minHighMemStart;
-  rinfo->pluginInfo.restartDir = rinfo->restartDir;
+  populate_plugin_info(rinfo);
 
   // Reserve first 500 file descriptors for the Upper-half
   int reserved_fds[500];
@@ -779,18 +800,18 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
    */
   {
     // minLibsStart was chosen with extra space below, for future libs, mmap.
-    start1 = rinfo->minLibsStart;    // first lib of upper half
+    start1 = rinfo->pluginInfo.minLibsStart;    // first lib of upper half
     // Either lh_info_addr->memRange is a region between 1 GB and 2 GB below
     //   the end of stack in the lower half; or else it is at an unusual
     //   address for which we hope there is no address conflict.
     //   The latter holds if USE_LH_FIXED_ADDRESS was defined in
     //   mtcp_split_process.c, in both restart_plugin and mpi-proxy-split dirs.
-    end1 = rinfo->maxLibsEnd;
+    end1 = rinfo->pluginInfo.maxLibsEnd;
 
     // Reserve 8MB above min high memory region. That should include space for
     // stack, argv, env, auxvec.
-    start2 = rinfo->minHighMemStart - 1 * GB; // Allow for stack to grow
-    end2 = rinfo->minHighMemStart + 8 * MB;
+    start2 = rinfo->pluginInfo.minHighMemStart - 1 * GB; // Allow for stack to grow
+    end2 = rinfo->pluginInfo.minHighMemStart + 8 * MB;
     // Ignore region start2:end2 if it is overlapped with region start1:end1
     if (is_overlap(start1, end1, start2, end2)) {
       if (end1 < end2) { end1 = end2; }
@@ -882,7 +903,7 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
 # endif
 
   char full_filename[PATH_MAX];
-  set_header_filepath(full_filename, rinfo->restartDir);
+  set_header_filepath(full_filename, rinfo->pluginInfo.restartDir);
   ManaHeader m_header;
   MTCP_ASSERT(load_mana_header(full_filename, &m_header) == 0);
 
@@ -899,7 +920,7 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
 
   if (getCkptImageByDir(rinfo, rinfo->ckptImage, 512, rank) == -1) {
       mtcp_strncpy(rinfo->ckptImage,
-      getCkptImageByRank(rank, rinfo->argv),
+      getCkptImageByRank(rank, rinfo->environ),
       PATH_MAX);
   }
 
