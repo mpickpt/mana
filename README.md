@@ -1,3 +1,8 @@
+# THIS IS AN INDEV BRANCH, WHICH CONTAINS FIXES FOR NEU DISCOVERY CKPT->RESTART.
+
+`cd dmtcp`
+`git apply ../dmtcp_mtcp_restart.patch`
+
 ## MANA (MPI-Agnostic, Network-Agnostic MPI)
 
 MANA is an implementation of transparent checkpointing for MPI.  It is
@@ -18,3 +23,6 @@ your application on MANA first, before using MANA.
 For details of installing and using MANA, please see:
 - [MANA README file](mpi-proxy-split/README.md)
 - [the MANA 'man' page](manpages/mana.1.md) (or `man ./mana.1` on a local copy)
+
+
+
