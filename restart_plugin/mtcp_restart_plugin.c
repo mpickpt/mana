@@ -599,7 +599,7 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
     // Reserve 8MB above min high memory region. That should include space for
     // stack, argv, env, auxvec.
     start2 = rinfo->pluginInfo.minHighMemStart - 1 * GB; // Allow for stack to grow
-    end2 = rinfo->pluginInfo.minHighMemStart + 8 * MB;
+    end2 = start2 + 8 * MB;
     // Ignore region start2:end2 if it is overlapped with region start1:end1
     if (is_overlap(start1, end1, start2, end2)) {
       if (end1 < end2) { end1 = end2; }
@@ -824,7 +824,7 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
     // Reserve 8MB above min high memory region. That should include space for
     // stack, argv, env, auxvec.
     start2 = rinfo->pluginInfo.minHighMemStart - 1 * GB; // Allow for stack to grow
-    end2 = rinfo->pluginInfo.minHighMemStart + 8 * MB;
+    end2 = start2 + 8 * MB;
     // Ignore region start2:end2 if it is overlapped with region start1:end1
     if (is_overlap(start1, end1, start2, end2)) {
       if (end1 < end2) { end1 = end2; }
