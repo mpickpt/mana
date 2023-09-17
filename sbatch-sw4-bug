@@ -1,0 +1,28 @@
+#!/bin/bash
+#SBATCH --job-name=sw4_run          # Set the job name
+#SBATCH --output=sw4_%j.out         # Set the output file name (%j expands to jobId)
+#SBATCH -N 1                        # 1 nodes
+#SBATCH --ntasks=56                  # Request 8 tasks 
+#SBATCH --time=01:00:00             # Request 1 hour runtime
+#SBATCH --exclusive
+#SBATCH --constraint=cascadelake
+
+module load mpich           # Load the necessary module(s)
+module load fftw
+ulimit -c unlimited
+
+/home/g.cooperman/mana-dev-fixes_discovery.git/bin/mana_coordinator
+START=$(date +%s.%N)
+mpirun -np 56  /home/g.cooperman/mana-dev-fixes_discovery.git/bin/mana_launch /home/belyaev.l/hpc_codes/sw4_mpich/optimize/sw4 /home/belyaev.l/hpc_codes/sw4_mpich/tests/curvimr/energy-1.in &
+echo "Left initialization."
+sleep 10; echo "Attempt -kc"; /home/g.cooperman/mana-dev-fixes_discovery.git/bin/mana_status -kc
+# I guess we have to wait for the mana_status -kc to complete completely.
+sleep 20;
+echo "Completed -kc. Re-initializing."
+/home/g.cooperman/mana-dev-fixes_discovery.git/bin/mana_coordinator
+echo "Coordinator re-initialized."
+mpirun -np 56 /home/g.cooperman/mana-dev-fixes_discovery.git/bin/mana_restart
+END=$(date +%s.%N)
+
+RUNTIME=$(echo "$END - $START" | bc -l)
+printf "RUNTIME: %5.2f\n" $RUNTIME

@@ -1,7 +1,16 @@
 # THIS IS AN INDEV BRANCH, WHICH CONTAINS FIXES FOR NEU DISCOVERY CKPT->RESTART.
 
 `cd dmtcp`
+`git revert d8e15bdfd57f0905a120d4b22cfe42e8d1d61264`
 `git apply ../dmtcp_mtcp_restart.patch`
+
+SEE: sbatch-sw4-bug file
+
+cd /scratch/g.cooperman
+mkdir test1
+
+sbatch  ~/mana-dev-*/sbatch-sw4-bug
+Out file:  sw4_NUMBERS.ou
 
 ## MANA (MPI-Agnostic, Network-Agnostic MPI)
 
