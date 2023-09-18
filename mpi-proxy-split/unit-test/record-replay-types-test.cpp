@@ -53,7 +53,6 @@ TEST_F(TypesTests, testTypeContiguous)
   MPI_Datatype virtType = ADD_NEW_TYPE(real1);
   EXPECT_EQ(VIRTUAL_TO_REAL_TYPE(virtType), real1);
 
-  EXPECT_TRUE(LOG_CALL(restoreTypes, Type_contiguous,
                        _count, type, virtType) != NULL);
   EXPECT_EQ(RESTORE_MPI_STATE(), MPI_SUCCESS);
 
@@ -73,12 +72,10 @@ TEST_F(TypesTests, testTypeCommit)
   EXPECT_NE(real1, MPI_DATATYPE_NULL);
   MPI_Datatype virtType = ADD_NEW_TYPE(real1);
   EXPECT_EQ(VIRTUAL_TO_REAL_TYPE(virtType), real1);
-  EXPECT_TRUE(LOG_CALL(restoreTypes, Type_contiguous,
                        _count, type, virtType) != NULL);
 
   // Commit the new datatype
   EXPECT_EQ(MPI_Type_commit(&real1), MPI_SUCCESS);
-  EXPECT_TRUE(LOG_CALL(restoreTypes, Type_commit, real1) != NULL);
   EXPECT_EQ(VIRTUAL_TO_REAL_TYPE(virtType), real1);
   int size = -1;
   EXPECT_EQ(MPI_Type_size(real1, &size), MPI_SUCCESS);

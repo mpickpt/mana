@@ -124,7 +124,6 @@ USER_DEFINED_WRAPPER(int, Ibcast,
   if (retval == MPI_SUCCESS && MPI_LOGGING()) {
     MPI_Request virtRequest = ADD_NEW_REQUEST(*request);
     *request = virtRequest;
-    LOG_CALL(restoreRequests, Ibcast, buffer, count, datatype,
              root, comm, *request);
 #ifdef USE_REQUEST_LOG
     logRequestInfo(*request, IBCAST_REQUEST);
@@ -161,7 +160,6 @@ USER_DEFINED_WRAPPER(int, Ibarrier, (MPI_Comm) comm, (MPI_Request *) request)
   if (retval == MPI_SUCCESS && MPI_LOGGING()) {
     MPI_Request virtRequest = ADD_NEW_REQUEST(*request);
     *request = virtRequest;
-    LOG_CALL(restoreRequests, Ibarrier, comm, *request);
 #ifdef USE_REQUEST_LOG
     logRequestInfo(*request, IBARRIER_REQUEST);
 #endif
@@ -328,7 +326,6 @@ USER_DEFINED_WRAPPER(int, Ireduce,
   if (retval == MPI_SUCCESS && MPI_LOGGING()) {
     MPI_Request virtRequest = ADD_NEW_REQUEST(*request);
     *request = virtRequest;
-    LOG_CALL(restoreRequests, Ireduce, sendbuf, recvbuf,
         count, datatype, op, root, comm, *request);
 #ifdef USE_REQUEST_LOG
     logRequestInfo(*request, IREDUCE_REQUEST);
@@ -636,7 +633,6 @@ USER_DEFINED_WRAPPER(int, Comm_split, (MPI_Comm) comm, (int) color, (int) key,
     grant_ggid(virtComm);
     *newcomm = virtComm;
     active_comms.insert(virtComm);
-    LOG_CALL(restoreComms, Comm_split, comm, color, key, *newcomm);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   commit_finish(comm, passthrough);
@@ -658,7 +654,6 @@ USER_DEFINED_WRAPPER(int, Comm_dup, (MPI_Comm) comm, (MPI_Comm *) newcomm)
     grant_ggid(virtComm);
     *newcomm = virtComm;
     active_comms.insert(virtComm);
-    LOG_CALL(restoreComms, Comm_dup, comm, *newcomm);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   commit_finish(comm, passthrough);

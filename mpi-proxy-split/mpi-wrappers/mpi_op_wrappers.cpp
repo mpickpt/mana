@@ -51,7 +51,6 @@ USER_DEFINED_WRAPPER(int, Op_create,
     op_desc_t* desc = VIRTUAL_TO_DESC_OP(virtOp);
     update_op_desc_t(desc, user_fn, commute);
     *op = virtOp;
-    LOG_CALL(restoreOps, Op_create, user_fn, commute, virtOp);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -75,7 +74,6 @@ USER_DEFINED_WRAPPER(int, Op_free, (MPI_Op*) op)
     //
     // FIXME: See comment in Comm_free wrapper.
     REMOVE_OLD_OP(*op);
-    LOG_CALL(restoreOps, Op_free, *op);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;

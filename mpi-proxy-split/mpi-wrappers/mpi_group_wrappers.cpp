@@ -44,7 +44,6 @@ USER_DEFINED_WRAPPER(int, Comm_group, (MPI_Comm) comm, (MPI_Group *) group)
   if (retval == MPI_SUCCESS && MPI_LOGGING()) {
     MPI_Group virtGroup = ADD_NEW_GROUP(*group);
     *group = virtGroup;
-    LOG_CALL(restoreGroups, Comm_group, comm, *group);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -104,7 +103,6 @@ USER_DEFINED_WRAPPER(int, Group_free, (MPI_Group *) group)
     // FIXME: See comment in Comm_free wrapper.
     REMOVE_OLD_GROUP(*group);
     CLEAR_GROUP_LOGS(*group);
-    LOG_CALL(restoreGroups, Group_free, *group);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -149,7 +147,6 @@ USER_DEFINED_WRAPPER(int, Group_incl, (MPI_Group) group, (int) n,
     MPI_Group virtGroup = ADD_NEW_GROUP(*newgroup);
     *newgroup = virtGroup;
     FncArg rs = CREATE_LOG_BUF(ranks, n * sizeof(int));
-    LOG_CALL(restoreGroups, Group_incl, group, n, rs, *newgroup);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;

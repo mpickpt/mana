@@ -131,7 +131,6 @@ USER_DEFINED_WRAPPER(int, Comm_create, (MPI_Comm) comm, (MPI_Group) group,
       grant_ggid(virtComm);
       *newcomm = virtComm;
       active_comms.insert(virtComm);
-      LOG_CALL(restoreComms, Comm_create, comm, group, virtComm);
     }
     DMTCP_PLUGIN_ENABLE_CKPT();
     return retval;
@@ -208,7 +207,6 @@ USER_DEFINED_WRAPPER(int, Comm_free, (MPI_Comm *) comm)
     REMOVE_OLD_COMM(*comm);
     CLEAR_COMM_LOGS(*comm);
     active_comms.erase(*comm);
-    LOG_CALL(restoreComms, Comm_free, *comm);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -316,7 +314,6 @@ USER_DEFINED_WRAPPER(int, Comm_set_errhandler,
   retval = NEXT_FUNC(Comm_set_errhandler)(realComm, errhandler);
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS && MPI_LOGGING()) {
-    LOG_CALL(restoreComms, Comm_set_errhandler, comm, errhandler);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -349,7 +346,6 @@ USER_DEFINED_WRAPPER(int, Comm_split_type, (MPI_Comm) comm, (int) split_type,
     grant_ggid(virtComm);
     *newcomm = virtComm;
     active_comms.insert(virtComm);
-    LOG_CALL(restoreComms, Comm_split_type, comm,
              split_type, key, inf, virtComm);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -385,7 +381,6 @@ USER_DEFINED_WRAPPER(int, Attr_delete, (MPI_Comm) comm, (int) keyval)
   retval = NEXT_FUNC(Attr_delete)(realComm, realCommKeyval);
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS && MPI_LOGGING()) {
-    LOG_CALL(restoreComms, Attr_delete, comm, keyval);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -404,7 +399,6 @@ USER_DEFINED_WRAPPER(int, Attr_put, (MPI_Comm) comm,
   retval = NEXT_FUNC(Attr_put)(realComm, realCommKeyval, attribute_val);
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS && MPI_LOGGING()) {
-    LOG_CALL(restoreComms, Attr_put, comm, keyval, attribute_val);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -480,7 +474,6 @@ USER_DEFINED_WRAPPER(int, Comm_create_group, (MPI_Comm) comm,
       grant_ggid(virtComm);
       *newcomm = virtComm;
       active_comms.insert(virtComm);
-      LOG_CALL(restoreComms, Comm_create_group, comm, group, tag, virtComm);
     }
     return retval;
   };

@@ -60,7 +60,6 @@ USER_DEFINED_WRAPPER(int, Type_free, (MPI_Datatype *) type)
     // FIXME: Now, we remove this type. Otherwise, if we try to decode a type
     // that has been freed in the lower half, MPI will be upset.
     REMOVE_OLD_TYPE(*type);
-    LOG_CALL(restoreTypes, Type_free, *type);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -78,7 +77,6 @@ USER_DEFINED_WRAPPER(int, Type_commit, (MPI_Datatype *) type)
     realType = REMOVE_OLD_TYPE(*type);
   } else {
     if (MPI_LOGGING()) {
-      LOG_CALL(restoreTypes, Type_commit, *type);
     }
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -97,7 +95,6 @@ USER_DEFINED_WRAPPER(int, Type_contiguous, (int) count, (MPI_Datatype) oldtype,
   if (retval == MPI_SUCCESS && MPI_LOGGING()) {
     MPI_Datatype virtType = ADD_NEW_TYPE(*newtype);
     *newtype = virtType;
-    LOG_CALL(restoreTypes, Type_contiguous, count, oldtype, virtType);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -117,7 +114,6 @@ USER_DEFINED_WRAPPER(int, Type_hvector, (int) count, (int) blocklength,
   if (retval == MPI_SUCCESS && MPI_LOGGING()) {
     MPI_Datatype virtType = ADD_NEW_TYPE(*newtype);
     *newtype = virtType;
-    LOG_CALL(restoreTypes, Type_hvector, count, blocklength,
              stride, oldtype, virtType);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -173,7 +169,6 @@ USER_DEFINED_WRAPPER(int, Type_create_struct, (int) count,
     FncArg bs = CREATE_LOG_BUF(array_of_blocklengths, count * sizeof(int));
     FncArg ds = CREATE_LOG_BUF(array_of_displacements, count * sizeof(MPI_Aint));
     FncArg ts = CREATE_LOG_BUF(array_of_types, count * sizeof(MPI_Datatype));
-    LOG_CALL(restoreTypes, Type_create_struct, count, bs, ds, ts, virtType);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -226,7 +221,6 @@ USER_DEFINED_WRAPPER(int, Type_hindexed, (int) count,
     FncArg bs = CREATE_LOG_BUF(array_of_blocklengths, count * sizeof(int));
     FncArg ds = CREATE_LOG_BUF(array_of_displacements,
                                count * sizeof(MPI_Aint));
-    LOG_CALL(restoreTypes, Type_hindexed, count, bs, ds, oldtype, virtType);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -303,7 +297,6 @@ USER_DEFINED_WRAPPER(int, Type_indexed, (int) count,
     *newtype = virtType;
     FncArg bs = CREATE_LOG_BUF(array_of_blocklengths, count * sizeof(int));
     FncArg ds = CREATE_LOG_BUF(array_of_displacements, count * sizeof(int));
-    LOG_CALL(restoreTypes, Type_indexed, count, bs, ds, oldtype, virtType);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -321,7 +314,6 @@ USER_DEFINED_WRAPPER(int, Type_dup, (MPI_Datatype) oldtype,
   if (retval == MPI_SUCCESS && MPI_LOGGING()) {
     MPI_Datatype virtType = ADD_NEW_TYPE(*newtype);
     *newtype = virtType;
-    LOG_CALL(restoreTypes, Type_dup, oldtype, virtType);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -339,7 +331,6 @@ USER_DEFINED_WRAPPER(int, Type_create_resized, (MPI_Datatype) oldtype,
   if (retval == MPI_SUCCESS && MPI_LOGGING()) {
     MPI_Datatype virtType = ADD_NEW_TYPE(*newtype);
     *newtype = virtType;
-    LOG_CALL(restoreTypes, Type_create_resized, oldtype, lb, extent, virtType);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
