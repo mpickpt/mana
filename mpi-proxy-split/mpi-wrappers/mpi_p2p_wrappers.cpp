@@ -250,7 +250,11 @@ USER_DEFINED_WRAPPER(int, Sendrecv, (const void *) sendbuf, (int) sendcount,
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
 #else
+
+  #ifndef MANA_EXAMPI
   get_fortran_constants();
+  #endif
+
   MPI_Request reqs[2];
   MPI_Status sts[2];
   // FIXME: The send and receive need to be atomic
@@ -267,9 +271,17 @@ USER_DEFINED_WRAPPER(int, Sendrecv, (const void *) sendbuf, (int) sendcount,
   retval = MPI_Waitall(2, reqs, sts);
   // Set status only when the status is neither MPI_STATUS_IGNORE nor
   // FORTRAN_MPI_STATUS_IGNORE
+  
+  #ifdef MANA_EXAMPI
+  if (status != MPI_STATUS_IGNORE) {
+    *status = sts[1];
+  }
+  #else
   if (status != MPI_STATUS_IGNORE && status != FORTRAN_MPI_STATUS_IGNORE) {
     *status = sts[1];
   }
+  #endif
+
   if (retval == MPI_SUCCESS) {
     // updateLocalRecvs();
   }

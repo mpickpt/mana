@@ -255,7 +255,11 @@ USER_DEFINED_WRAPPER(int, Allreduce,
   commit_begin(comm, passthrough);
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
+
+  #ifndef MANA_EXAMPI
   get_fortran_constants();
+  #endif
+  
   if (use_allreduce_reproducible)
     retval = MPI_Allreduce_reproducible(sendbuf, recvbuf, count, datatype, op,
                                         comm, 0);
@@ -264,9 +268,11 @@ USER_DEFINED_WRAPPER(int, Allreduce,
     MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
     MPI_Op realOp = VIRTUAL_TO_REAL_OP(op);
     // FIXME: Ideally, check FORTRAN_MPI_IN_PLACE only in the Fortran wrapper.
+    #ifndef MANA_EXAMPI
     if (sendbuf == FORTRAN_MPI_IN_PLACE) {
       sendbuf = MPI_IN_PLACE;
     }
+    #endif
     JUMP_TO_LOWER_HALF(lh_info.fsaddr);
     retval =
       NEXT_FUNC(Allreduce)(sendbuf, recvbuf, count, realType, realOp, realComm);
