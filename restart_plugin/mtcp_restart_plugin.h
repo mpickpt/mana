@@ -48,6 +48,8 @@ typedef struct LowerHalfInfo
   void *g_appContext;
   void *lh_dlsym;
   void *getRankFptr;
+  void *lh_mpi_constants;
+ 
 #ifdef SINGLE_CART_REORDER
   void *getCoordinatesFptr;
   void *getCartesianCommunicatorFptr;

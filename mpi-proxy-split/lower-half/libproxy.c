@@ -68,7 +68,28 @@ static void* MPI_Fnc_Ptrs[] = {
   NULL,
 };
 
+#define INIT_CONST_MAP(const) mpi_constants[LH_##const] = const;
+
+static int mpi_constants_initialized = 0;
+static void* mpi_constants[LH_MPI_Constant_Invalid + 1]
 // Local functions
+
+void*
+get_lh_mpi_constant(enum MPI_Constants constant)
+{
+  if (!mpi_constants_initialized) {
+    mpi_constants[LH_MPI_Constant_NULL] = NULL;
+    FOREACH_CONSTANT(INIT_CONST_MAP)
+    mpi_constants[LH_MPI_ERRORS_RETURN] = 0;
+    mpi_constants[LH_MPI_Constant_Invalid] = NULL;
+    mpi_constants_initialized = 1;
+  }
+  if (constant < LH_MPI_Constant_NULL ||
+      constant > LH_MPI_Constant_Invalid) {
+    return NULL;
+  }
+  return mpi_constants[constant];
+}
 
 LhCoreRegions_t*
 getLhRegionsList(int *num)
@@ -346,6 +367,7 @@ void first_constructor()
     lh_info.g_appContext = (void*)&g_appContext;
     lh_info.lh_dlsym = (void*)&mydlsym;
     lh_info.getRankFptr = (void*)&getRank;
+    lh_info.lh_mpi_constants = (void*)&get_lh_mpi_constant;
 
 #ifdef SINGLE_CART_REORDER
     lh_info.getCoordinatesFptr = (void*)&getCoordinates;

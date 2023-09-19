@@ -55,6 +55,16 @@ std::map<int, id_desc_t*> idDescriptorTable;
 // int ggid -> ggid_desc_t*, which contains CVC information.
 std::map<unsigned int, ggid_desc_t*> ggidDescriptorTable;
 
+// For best compatibility, we determine MPI constants at runtime.
+std::map<long unsigned int, long unsigned int> lh_constants_map;
+
+#define INIT_LH_CONST_MAP(const) lh_constants_map[MPI_##const] = REAL_CONSTANT(const);
+
+void init_lh_constants_map() {
+  FOREACH_CONSTANT(INIT_LH_CONST_MAP)
+  lh_constants_map[MPI_ERRORS_RETURN] = 0;
+}
+
 // dead-simple vid generation mechanism, add one to get new ids.
 int base = 1;
 int nextvId = base;
@@ -597,3 +607,6 @@ void reconstruct_with_descriptors() {
   }
   destroy_g_world_group();
 }
+
+
+

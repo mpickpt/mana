@@ -27,6 +27,7 @@
 #include "libproxy.h"
 
 #define GENERATE_ENUM(ENUM)    MPI_Fnc_##ENUM
+#define GENERATE_CONSTANT_ENUM(ENUM)    LH_MPI_##ENUM,
 #define GENERATE_FNC_PTR(FNC)  &MPI_##FNC
 #define GENERATE_FNC_STRING(FNC)  "MPI_" #FNC
 #define PAGE_SIZE              0x1000
@@ -93,6 +94,9 @@ typedef struct _LowerHalfInfo
   void *g_appContext; // Pointer to ucontext_t of upper half application (defined in the lower half)
   void *lh_dlsym;     // Pointer to mydlsym() function in the lower half
   void *getRankFptr;  // Pointer to getRank() function in the lower half
+  void *lh_mpi_constants; // Open MPI can save its MPI constants at a different
+                          //   at a different address each time.  Copy to uh.
+
 #ifdef SINGLE_CART_REORDER
   void *getCoordinatesFptr; // Pointer to getCoordinates() function in the lower half
   void *getCartesianCommunicatorFptr; // Pointer to getCartesianCommunicator() function in the lower half
@@ -111,6 +115,13 @@ enum MPI_Fncs {
   MPI_Fnc_NULL,
   FOREACH_FNC(GENERATE_ENUM)
   MPI_Fnc_Invalid,
+};
+
+enum MPI_Constants {
+  LH_MPI_Constant_NULL,
+  FOREACH_CONSTANT(GENERATE_CONSTANT_ENUM)
+  // LH_MPI_ERRORS_RETURN,
+  LH_MPI_Constant_Invalid,
 };
 
 __attribute__ ((unused))
@@ -134,6 +145,7 @@ typedef int (*libcFptr_t) (int (*main) (int, char **, char ** MAIN_AUXVEC_DECL),
                            void *);
 
 typedef void* (*proxyDlsym_t)(enum MPI_Fncs fnc);
+typedef void* (*lh_constant_t)(enum MPI_Constants constant);
 typedef void* (*updateEnviron_t)(char **environ);
 typedef void (*resetMmappedList_t)();
 typedef MmapInfo_t* (*getMmappedList_t)(int **num);
@@ -148,6 +160,7 @@ extern LowerHalfInfo_t lh_info;
 // the transient lh_proxy process in DMTCP_EVENT_INIT.
 // initializeLowerHalf() will initialize this to: (proxyDlsym_t)lh_info.lh_dlsym
 extern proxyDlsym_t pdlsym;
+extern lh_constant_t lh_mpi_constants;
 extern LhCoreRegions_t lh_regions_list[MAX_LH_REGIONS];
 
 // API
@@ -155,6 +168,9 @@ extern LhCoreRegions_t lh_regions_list[MAX_LH_REGIONS];
 // Returns the address of an MPI API in the lower half's MPI library based on
 // the given enum value
 extern void *mydlsym(enum MPI_Fncs fnc);
+
+// Gets the value of an MPI constant in the lower half, for these can differ.
+extern void *get_lh_mpi_constant(enum MPI_Constants constant);
 
 // Initializes the MPI library in the lower half (by calling MPI_Init()) and
 // returns the MPI rank of the current process

@@ -371,8 +371,8 @@ initializeLowerHalf(RestoreInfo *rinfo)
     auxvec = (ElfW(auxv_t) *) evp;
   }
   // update vDSO linkmap entry to the temporary address
-  updateVdsoLinkmapEntry(rinfo->currentVdsoStart,
-                         rinfo->pluginInfo.vdsoLdAddrInLinkMap);
+  // updateVdsoLinkmapEntry(rinfo->currentVdsoStart,
+                         // rinfo->pluginInfo.vdsoLdAddrInLinkMap);
   JUMP_TO_LOWER_HALF(rinfo->pluginInfo.fsaddr);
   (*resetMmaps)();
   // Set the auxiliary vector to correspond to the values of the lower half

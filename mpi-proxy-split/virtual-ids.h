@@ -8,6 +8,7 @@
 #include "jconvert.h"
 #include "split_process.h"
 #include "dmtcp.h"
+#include "lower_half_api.h"
 
 #define CONCAT(a,b) a ## b
 
@@ -42,6 +43,10 @@
   })
 #endif // ifndef NEXT_FUNC
 
+#ifndef REAL_CONSTANT
+# define REAL_CONSTANT(name) *(__typeof__(MPI_##name)*)lh_mpi_constants(LH_MPI_##name)
+#endif // ifndef REAL_CONSTANT
+
 
 #define DESC_TO_VIRTUAL(desc, null, real_type)		\
   ({ \
@@ -55,7 +60,7 @@
 #define VIRTUAL_TO_REAL(id, null, real_id_type, desc_type)    \
     ({                                              \
       desc_type* _VTR_tmp = VIRTUAL_TO_DESC(id, null, desc_type);			\
-       real_id_type _VTR_id = (_VTR_tmp == NULL) ? id : _VTR_tmp->real_id; \
+       real_id_type _VTR_id = (_VTR_tmp == NULL) ? (real_id_type)lh_constants_map[id] : _VTR_tmp->real_id; \
        _VTR_id; \
      })
 
@@ -326,6 +331,7 @@ union id_desc_t {
 
 extern std::map<int, id_desc_t*> idDescriptorTable;
 extern std::map<unsigned int, ggid_desc_t*> ggidDescriptorTable; 
+extern std::map<long unsigned int, long unsigned int> lh_constants_map;
 extern int base;
 extern int nextvId;
 extern MPI_Group g_world_group;
@@ -375,5 +381,7 @@ void reconstruct_with_descriptors();
 
 void destroy_g_world_group();
 void write_g_world_group();
+
+void init_lh_constants_map();
 
 #endif // ifndef MPI_VIRTUAL_IDS_H
