@@ -251,7 +251,7 @@ USER_DEFINED_WRAPPER(int, Sendrecv, (const void *) sendbuf, (int) sendcount,
   DMTCP_PLUGIN_ENABLE_CKPT();
 #else
 
-  #ifndef MANA_EXAMPI
+  #ifndef EXAMPI
   get_fortran_constants();
   #endif
 
@@ -272,7 +272,7 @@ USER_DEFINED_WRAPPER(int, Sendrecv, (const void *) sendbuf, (int) sendcount,
   // Set status only when the status is neither MPI_STATUS_IGNORE nor
   // FORTRAN_MPI_STATUS_IGNORE
   
-  #ifdef MANA_EXAMPI
+  #ifdef EXAMPI
   if (status != MPI_STATUS_IGNORE) {
     *status = sts[1];
   }

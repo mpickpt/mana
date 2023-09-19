@@ -217,7 +217,7 @@ USER_DEFINED_WRAPPER(int, Waitall, (int) count,
   MPI_Request *local_array_of_requests = array_of_requests;
   MPI_Status *local_array_of_statuses = array_of_statuses;
 
-  #ifndef MANA_EXAMPI
+  #ifndef EXAMPI
   get_fortran_constants();
   #endif
 
@@ -227,7 +227,7 @@ USER_DEFINED_WRAPPER(int, Waitall, (int) count,
      * in the Fortran wrapper.
      */
 
-    #ifndef MANA_EXAMPI
+    #ifndef EXAMPI
     if (local_array_of_statuses != MPI_STATUSES_IGNORE &&
         local_array_of_statuses != FORTRAN_MPI_STATUSES_IGNORE) {
       retval = MPI_Wait(&local_array_of_requests[i],

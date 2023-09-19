@@ -256,7 +256,7 @@ USER_DEFINED_WRAPPER(int, Allreduce,
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
 
-  #ifndef MANA_EXAMPI
+  #ifndef EXAMPI
   get_fortran_constants();
   #endif
   
@@ -268,7 +268,7 @@ USER_DEFINED_WRAPPER(int, Allreduce,
     MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
     MPI_Op realOp = VIRTUAL_TO_REAL_OP(op);
     // FIXME: Ideally, check FORTRAN_MPI_IN_PLACE only in the Fortran wrapper.
-    #ifndef MANA_EXAMPI
+    #ifndef EXAMPI
     if (sendbuf == FORTRAN_MPI_IN_PLACE) {
       sendbuf = MPI_IN_PLACE;
     }
