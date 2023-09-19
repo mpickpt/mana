@@ -68,10 +68,10 @@ static void* MPI_Fnc_Ptrs[] = {
   NULL,
 };
 
-#define INIT_CONST_MAP(const) mpi_constants[LH_MPI_##const] = const;
+#define INIT_CONST_MAP(const) mpi_constants[LH_MPI_##const] = MPI_##const;
 
 static int mpi_constants_initialized = 0;
-static void* mpi_constants[LH_MPI_Constant_Invalid + 1]
+static void* mpi_constants[LH_MPI_Constant_Invalid + 1];
 // Local functions
 
 void*
