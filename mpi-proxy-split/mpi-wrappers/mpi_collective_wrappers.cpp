@@ -607,7 +607,7 @@ USER_DEFINED_WRAPPER(int, Scan, (const void *) sendbuf, (void *) recvbuf,
   if (sendbuf == FORTRAN_MPI_IN_PLACE) {
     sendbuf = MPI_IN_PLACE;
   }
-  MPI_Op realOp = VIRTUAL_TO_REAL_TYPE(op);
+  MPI_Op realOp = VIRTUAL_TO_REAL_OP(op);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Scan)(sendbuf, recvbuf, count,
                            realType, realOp, realComm);
