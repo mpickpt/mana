@@ -91,8 +91,8 @@ int getggid(MPI_Comm comm, int worldRank, int commSize, int* rbuf) {
 
   DMTCP_PLUGIN_DISABLE_CKPT();
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  NEXT_FUNC(Allgather)(&worldRank, 1, MPI_INT,
-			rbuf, 1, MPI_INT, comm);
+  NEXT_FUNC(Allgather)(&worldRank, 1, REAL_CONSTANT(INT),
+			rbuf, 1, REAL_CONSTANT(INT), comm);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
 
@@ -124,7 +124,7 @@ void grant_ggid(MPI_Comm virtualComm) {
 
   DMTCP_PLUGIN_DISABLE_CKPT();
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  NEXT_FUNC(Comm_rank)(MPI_COMM_WORLD, &worldRank);
+  NEXT_FUNC(Comm_rank)(REAL_CONSTANT(COMM_WORLD), &worldRank);
   NEXT_FUNC(Comm_size)(realComm, &commSize);
   NEXT_FUNC(Comm_rank)(realComm, &localRank);
   RETURN_TO_UPPER_HALF();
@@ -235,7 +235,7 @@ void reconstruct_with_comm_desc_t(comm_desc_t* desc) {
   DMTCP_PLUGIN_DISABLE_CKPT();
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   NEXT_FUNC(Group_incl)(g_world_group, desc->size, desc->global_ranks, &group);
-  NEXT_FUNC(Comm_create_group)(MPI_COMM_WORLD, group, 0, &desc->real_id);
+  NEXT_FUNC(Comm_create_group)(REAL_CONSTANT(COMM_WORLD), group, 0, &desc->real_id);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
 }
@@ -508,7 +508,7 @@ void init_comm_world() {
 
   // FIXME: This WILL NOT WORK when moving to OpenMPI, ExaMPI, as written.
   // Yao, Twinkle, should apply their lh_constants_map strategy here.
-  comm_world->real_id = 0x84000000;
+  comm_world->real_id = REAL_CONSTANT(COMM_WORLD);
   comm_world->handle = MPI_COMM_WORLD;
   // FIXME: the other fields are not initialized. This is an INTERNAL
   // communicator descriptor, strictly for bookkeeping, not for reconstructing,
@@ -523,7 +523,7 @@ void init_comm_world() {
 void write_g_world_group() {
   DMTCP_PLUGIN_DISABLE_CKPT();
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  NEXT_FUNC(Comm_group)(MPI_COMM_WORLD, &g_world_group);
+  NEXT_FUNC(Comm_group)(REAL_CONSTANT(COMM_WORLD), &g_world_group);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
 }
