@@ -66,6 +66,9 @@ USER_DEFINED_WRAPPER(int, Init, (int *) argc, (char ***) argv) {
 
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Init)(argc, argv);
+  RETURN_TO_UPPER_HALF();
+  init_lh_constants_map();
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   // Create a duplicate of REAL_CONSTANT(COMM_WORLD) for internal use.
   NEXT_FUNC(Comm_dup)(REAL_CONSTANT(COMM_WORLD), &g_world_comm);
   RETURN_TO_UPPER_HALF();
@@ -91,6 +94,9 @@ USER_DEFINED_WRAPPER(int, Init_thread, (int *) argc, (char ***) argv,
 
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Init_thread)(argc, argv, required, provided);
+  RETURN_TO_UPPER_HALF();
+  init_lh_constants_map();
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   // Create a duplicate of REAL_CONSTANT(COMM_WORLD) for internal use.
   NEXT_FUNC(Comm_dup)(REAL_CONSTANT(COMM_WORLD), &g_world_comm);
   RETURN_TO_UPPER_HALF();
