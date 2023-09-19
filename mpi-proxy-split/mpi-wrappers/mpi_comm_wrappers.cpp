@@ -34,12 +34,10 @@
 #include "protectedfds.h"
 
 #include "mpi_nextfunc.h"
-#include "record-replay.h"
 #include "virtual-ids.h"
 #include "seq_num.h"
 #include "p2p_drain_send_recv.h"
 
-using namespace dmtcp_mpi;
 
 // TODO
 // - validate operation status (right now we assume them to be successful by
@@ -126,7 +124,7 @@ USER_DEFINED_WRAPPER(int, Comm_create, (MPI_Comm) comm, (MPI_Group) group,
     JUMP_TO_LOWER_HALF(lh_info.fsaddr);
     retval = NEXT_FUNC(Comm_create)(realComm, realGroup, newcomm);
     RETURN_TO_UPPER_HALF();
-    if (retval == MPI_SUCCESS && MPI_LOGGING()) {
+    if (retval == MPI_SUCCESS && mana_state != RESTART_REPLAY) {
       MPI_Comm virtComm = ADD_NEW_COMM(*newcomm);
       grant_ggid(virtComm);
       *newcomm = virtComm;
@@ -197,7 +195,7 @@ USER_DEFINED_WRAPPER(int, Comm_free, (MPI_Comm *) comm)
   }
   DMTCP_PLUGIN_DISABLE_CKPT();
   int retval = MPI_Comm_free_internal(comm);
-  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
+  if (retval == MPI_SUCCESS && mana_state != RESTART_REPLAY) {
     // NOTE: We cannot remove the old comm from the map, since
     // we'll need to replay this call to reconstruct any other comms that
     // might have been created using this comm.
@@ -205,7 +203,6 @@ USER_DEFINED_WRAPPER(int, Comm_free, (MPI_Comm *) comm)
     //
     // FIXME: Now, we remove it. O(1) decode-recode changes this.
     REMOVE_OLD_COMM(*comm);
-    CLEAR_COMM_LOGS(*comm);
     active_comms.erase(*comm);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -313,7 +310,7 @@ USER_DEFINED_WRAPPER(int, Comm_set_errhandler,
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Comm_set_errhandler)(realComm, errhandler);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
+  if (retval == MPI_SUCCESS && mana_state != RESTART_REPLAY) {
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -341,12 +338,11 @@ USER_DEFINED_WRAPPER(int, Comm_split_type, (MPI_Comm) comm, (int) split_type,
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Comm_split_type)(realComm, split_type, key, inf, newcomm);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
+  if (retval == MPI_SUCCESS && mana_state != RESTART_REPLAY) {
     MPI_Comm virtComm = ADD_NEW_COMM(*newcomm);
     grant_ggid(virtComm);
     *newcomm = virtComm;
     active_comms.insert(virtComm);
-             split_type, key, inf, virtComm);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -380,7 +376,7 @@ USER_DEFINED_WRAPPER(int, Attr_delete, (MPI_Comm) comm, (int) keyval)
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Attr_delete)(realComm, realCommKeyval);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
+  if (retval == MPI_SUCCESS && mana_state != RESTART_REPLAY) {
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -398,7 +394,7 @@ USER_DEFINED_WRAPPER(int, Attr_put, (MPI_Comm) comm,
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Attr_put)(realComm, realCommKeyval, attribute_val);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
+  if (retval == MPI_SUCCESS && mana_state != RESTART_REPLAY) {
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -469,7 +465,7 @@ USER_DEFINED_WRAPPER(int, Comm_create_group, (MPI_Comm) comm,
 {
   std::function<int()> realBarrierCb = [=]() {
     int retval = MPI_Comm_create_group_internal(comm, group, tag, newcomm);
-    if (retval == MPI_SUCCESS && MPI_LOGGING()) {
+    if (retval == MPI_SUCCESS && mana_state != RESTART_REPLAY) {
       MPI_Comm virtComm = ADD_NEW_COMM(*newcomm);
       grant_ggid(virtComm);
       *newcomm = virtComm;

@@ -27,11 +27,7 @@
 #include "jfilesystem.h"
 #include "protectedfds.h"
 #include "mpi_nextfunc.h"
-#include "record-replay.h"
 #include "virtual-ids.h"
-
-using namespace dmtcp_mpi;
-
 
 USER_DEFINED_WRAPPER(int, Op_create,
                      (MPI_User_function *) user_fn, (int) commute,
@@ -42,7 +38,7 @@ USER_DEFINED_WRAPPER(int, Op_create,
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Op_create)(user_fn, commute, op);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
+  if (retval == MPI_SUCCESS && mana_state != RESTART_REPLAY) {
     MPI_Op virtOp = ADD_NEW_OP(*op);
     // FIXME HACK: Since MPI does not provide any functions To deserialize an
     // operator, we get the data at creation time.
@@ -67,7 +63,7 @@ USER_DEFINED_WRAPPER(int, Op_free, (MPI_Op*) op)
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Op_free)(&realOp);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
+  if (retval == MPI_SUCCESS && mana_state != RESTART_REPLAY) {
     // NOTE: We cannot remove the old op, since we'll need
     // to replay this call to reconstruct any new op that might
     // have been created using this op.

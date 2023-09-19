@@ -27,7 +27,6 @@
 #include "protectedfds.h"
 
 #include "mpi_plugin.h"
-#include "record-replay.h"
 #include "mpi_nextfunc.h"
 #include "seq_num.h"
 #include "virtual-ids.h"
@@ -50,7 +49,6 @@ isUsingCollectiveToP2p() {
 #endif
 }
 
-using namespace dmtcp_mpi;
 
 #ifndef MPI_COLLECTIVE_P2P
 #ifdef NO_BARRIER_BCAST
@@ -121,10 +119,9 @@ USER_DEFINED_WRAPPER(int, Ibcast,
   retval = NEXT_FUNC(Ibcast)(buffer, count, realType,
       root, realComm, request);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
+  if (retval == MPI_SUCCESS && mana_state != RESTART_REPLAY) {
     MPI_Request virtRequest = ADD_NEW_REQUEST(*request);
     *request = virtRequest;
-             root, comm, *request);
 #ifdef USE_REQUEST_LOG
     logRequestInfo(*request, IBCAST_REQUEST);
 #endif
@@ -157,7 +154,7 @@ USER_DEFINED_WRAPPER(int, Ibarrier, (MPI_Comm) comm, (MPI_Request *) request)
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Ibarrier)(realComm, request);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
+  if (retval == MPI_SUCCESS && mana_state != RESTART_REPLAY) {
     MPI_Request virtRequest = ADD_NEW_REQUEST(*request);
     *request = virtRequest;
 #ifdef USE_REQUEST_LOG
@@ -323,10 +320,9 @@ USER_DEFINED_WRAPPER(int, Ireduce,
   retval = NEXT_FUNC(Ireduce)(sendbuf, recvbuf, count,
       realType, realOp, root, realComm, request);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
+  if (retval == MPI_SUCCESS && mana_state != RESTART_REPLAY) {
     MPI_Request virtRequest = ADD_NEW_REQUEST(*request);
     *request = virtRequest;
-        count, datatype, op, root, comm, *request);
 #ifdef USE_REQUEST_LOG
     logRequestInfo(*request, IREDUCE_REQUEST);
 #endif
@@ -628,7 +624,7 @@ USER_DEFINED_WRAPPER(int, Comm_split, (MPI_Comm) comm, (int) color, (int) key,
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Comm_split)(realComm, color, key, newcomm);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
+  if (retval == MPI_SUCCESS && mana_state != RESTART_REPLAY) {
     MPI_Comm virtComm = ADD_NEW_COMM(*newcomm);
     grant_ggid(virtComm);
     *newcomm = virtComm;
@@ -649,7 +645,7 @@ USER_DEFINED_WRAPPER(int, Comm_dup, (MPI_Comm) comm, (MPI_Comm *) newcomm)
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Comm_dup)(realComm, newcomm);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
+  if (retval == MPI_SUCCESS && mana_state != RESTART_REPLAY) {
     MPI_Comm virtComm = ADD_NEW_COMM(*newcomm);
     grant_ggid(virtComm);
     *newcomm = virtComm;

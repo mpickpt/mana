@@ -28,14 +28,12 @@
 #include "jassert.h"
 #include "jfilesystem.h"
 #include "protectedfds.h"
-#include "record-replay.h"
 #include "mpi_nextfunc.h"
 #include "virtual-ids.h"
 #include "p2p_drain_send_recv.h"
 #include "mana_header.h"
 #include "seq_num.h"
 
-using namespace dmtcp_mpi;
 
 #if 0
 DEFINE_FNC(int, Init, (int *) argc, (char ***) argv)
@@ -177,7 +175,6 @@ USER_DEFINED_WRAPPER(int, Get_address, (const void *) location,
 // FOR DEBUGGING ONLY:
 // This defines a call to MPI_MANA_Internal in the lower half, which
 //   is especially useful in debugging restart.  It is called
-//   from mpi-proxy-split/mpi_plugin.cpp, just before doing record-replay.
 // In mpi-proxy-split/lower-half, redefine MPI_MANA_Internal()
 //   to do whatever is desired.  Then do:
 //   rm bin/lh_proxy

@@ -46,7 +46,6 @@
 #include "split_process.h"
 #include "p2p_log_replay.h"
 #include "p2p_drain_send_recv.h"
-#include "record-replay.h"
 #include "seq_num.h"
 #include "mpi_nextfunc.h"
 #include "virtual-ids.h"
@@ -1173,11 +1172,9 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       mana_state = RESTART_REPLAY;
 #ifdef SINGLE_CART_REORDER
       dmtcp_global_barrier("MPI:setCartesianCommunicator");
-      // record-replay.cpp
       setCartesianCommunicator(lh_info.getCartesianCommunicatorFptr);
 #endif
       dmtcp_global_barrier("MPI:reconstruct_with_descriptors");
-      // restoreMpiLogState(); // record-replay.cpp
       reconstruct_with_descriptors();
       // FIXME: I place reconstruct_with_descriptors in the analogous place to
       // restoreMpiLogState.

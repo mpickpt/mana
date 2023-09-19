@@ -10,9 +10,7 @@
 #include "seq_num.h"
 #include "mpi_nextfunc.h"
 #include "virtual-ids.h"
-#include "record-replay.h"
 
-using namespace dmtcp_mpi;
 using dmtcp::kvdb::KVDBRequest;
 using dmtcp::kvdb::KVDBResponse;
 
@@ -112,9 +110,10 @@ int check_seq_nums(bool exclusive) {
   return target_reached;
 }
 
+// FIXME: This is barely used. Remove?
 int twoPhaseCommit(MPI_Comm comm,
                    std::function<int(void)>doRealCollectiveComm) {
-  if (!MPI_LOGGING() || comm == MPI_COMM_NULL) {
+  if (mana_state == RESTART_REPLAY || comm == MPI_COMM_NULL) {
     return doRealCollectiveComm(); // lambda function: already captured args
   }
 

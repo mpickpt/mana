@@ -31,7 +31,6 @@
 #include "protectedfds.h"
 #include "mpi_nextfunc.h"
 #include "virtual-ids.h"
-#include "record-replay.h"
 // To support MANA_P2P_LOG and MANA_P2P_REPLAY:
 #include "p2p-deterministic.h"
 

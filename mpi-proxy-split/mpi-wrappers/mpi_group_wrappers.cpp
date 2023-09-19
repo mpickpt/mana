@@ -28,10 +28,7 @@
 #include "protectedfds.h"
 
 #include "mpi_nextfunc.h"
-#include "record-replay.h"
 #include "virtual-ids.h"
-
-using namespace dmtcp_mpi;
 
 USER_DEFINED_WRAPPER(int, Comm_group, (MPI_Comm) comm, (MPI_Group *) group)
 {
@@ -41,7 +38,7 @@ USER_DEFINED_WRAPPER(int, Comm_group, (MPI_Comm) comm, (MPI_Group *) group)
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Comm_group)(realComm, group);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
+  if (retval == MPI_SUCCESS && mana_state != RESTART_REPLAY) {
     MPI_Group virtGroup = ADD_NEW_GROUP(*group);
     *group = virtGroup;
   }
@@ -95,14 +92,13 @@ USER_DEFINED_WRAPPER(int, Group_free, (MPI_Group *) group)
 {
   DMTCP_PLUGIN_DISABLE_CKPT();
   int retval = MPI_Group_free_internal(group);
-  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
+  if (retval == MPI_SUCCESS && mana_state != RESTART_REPLAY) {
     // NOTE: We cannot remove the old group, since we'll need
     // to replay this call to reconstruct any comms that might
     // have been created using this group.
     //
     // FIXME: See comment in Comm_free wrapper.
     REMOVE_OLD_GROUP(*group);
-    CLEAR_GROUP_LOGS(*group);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -143,10 +139,10 @@ USER_DEFINED_WRAPPER(int, Group_incl, (MPI_Group) group, (int) n,
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Group_incl)(realGroup, n, ranks, newgroup);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
+  if (retval == MPI_SUCCESS && mana_state != RESTART_REPLAY) {
     MPI_Group virtGroup = ADD_NEW_GROUP(*newgroup);
     *newgroup = virtGroup;
-    FncArg rs = CREATE_LOG_BUF(ranks, n * sizeof(int));
+    // FncArg rs = CREATE_LOG_BUF(ranks, n * sizeof(int));
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;

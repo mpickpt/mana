@@ -2,7 +2,6 @@
 
 #include <mpi.h>
 
-#include "record-replay.h"
 #include "virtual-ids.h"
 
 #undef DMTCP_PLUGIN_ENABLE_CKPT

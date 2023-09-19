@@ -27,10 +27,7 @@
 #include "jfilesystem.h"
 #include "protectedfds.h"
 #include "mpi_nextfunc.h"
-#include "record-replay.h"
 #include "virtual-ids.h"
-
-using namespace dmtcp_mpi;
 
 USER_DEFINED_WRAPPER(int, Type_size, (MPI_Datatype) datatype, (int *) size)
 {
@@ -52,7 +49,7 @@ USER_DEFINED_WRAPPER(int, Type_free, (MPI_Datatype *) type)
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Type_free)(&realType);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
+  if (retval == MPI_SUCCESS && mana_state != RESTART_REPLAY) {
     // NOTE: We cannot remove the old type, since we'll need
     // to replay this call to reconstruct any new type that might
     // have been created using this type.
@@ -76,7 +73,7 @@ USER_DEFINED_WRAPPER(int, Type_commit, (MPI_Datatype *) type)
   if (retval != MPI_SUCCESS) {
     realType = REMOVE_OLD_TYPE(*type);
   } else {
-    if (MPI_LOGGING()) {
+    if (mana_state != RESTART_REPLAY) {
     }
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -92,7 +89,7 @@ USER_DEFINED_WRAPPER(int, Type_contiguous, (int) count, (MPI_Datatype) oldtype,
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Type_contiguous)(count, realType, newtype);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
+  if (retval == MPI_SUCCESS && mana_state != RESTART_REPLAY) {
     MPI_Datatype virtType = ADD_NEW_TYPE(*newtype);
     *newtype = virtType;
   }
@@ -111,10 +108,9 @@ USER_DEFINED_WRAPPER(int, Type_hvector, (int) count, (int) blocklength,
   retval = NEXT_FUNC(Type_hvector)(count, blocklength,
                                   stride, realType, newtype);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
+  if (retval == MPI_SUCCESS && mana_state != RESTART_REPLAY) {
     MPI_Datatype virtType = ADD_NEW_TYPE(*newtype);
     *newtype = virtType;
-             stride, oldtype, virtType);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -163,12 +159,12 @@ USER_DEFINED_WRAPPER(int, Type_create_struct, (int) count,
                                    array_of_displacements,
                                    realTypes, newtype);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
+  if (retval == MPI_SUCCESS && mana_state != RESTART_REPLAY) {
     MPI_Datatype virtType = ADD_NEW_TYPE(*newtype);
     *newtype = virtType;
-    FncArg bs = CREATE_LOG_BUF(array_of_blocklengths, count * sizeof(int));
-    FncArg ds = CREATE_LOG_BUF(array_of_displacements, count * sizeof(MPI_Aint));
-    FncArg ts = CREATE_LOG_BUF(array_of_types, count * sizeof(MPI_Datatype));
+    // FncArg bs = CREATE_LOG_BUF(array_of_blocklengths, count * sizeof(int));
+    // FncArg ds = CREATE_LOG_BUF(array_of_displacements, count * sizeof(MPI_Aint));
+    // FncArg ts = CREATE_LOG_BUF(array_of_types, count * sizeof(MPI_Datatype));
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -215,12 +211,12 @@ USER_DEFINED_WRAPPER(int, Type_hindexed, (int) count,
                                    array_of_displacements,
                                    realType, newtype);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
+  if (retval == MPI_SUCCESS && mana_state != RESTART_REPLAY) {
     MPI_Datatype virtType = ADD_NEW_TYPE(*newtype);
     *newtype = virtType;
-    FncArg bs = CREATE_LOG_BUF(array_of_blocklengths, count * sizeof(int));
-    FncArg ds = CREATE_LOG_BUF(array_of_displacements,
-                               count * sizeof(MPI_Aint));
+    // FncArg bs = CREATE_LOG_BUF(array_of_blocklengths, count * sizeof(int));
+    // FncArg ds = CREATE_LOG_BUF(array_of_displacements,
+                               // count * sizeof(MPI_Aint));
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -292,11 +288,11 @@ USER_DEFINED_WRAPPER(int, Type_indexed, (int) count,
                                    array_of_displacements,
                                    realType, newtype);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
+  if (retval == MPI_SUCCESS && mana_state != RESTART_REPLAY) {
     MPI_Datatype virtType = ADD_NEW_TYPE(*newtype);
     *newtype = virtType;
-    FncArg bs = CREATE_LOG_BUF(array_of_blocklengths, count * sizeof(int));
-    FncArg ds = CREATE_LOG_BUF(array_of_displacements, count * sizeof(int));
+    // FncArg bs = CREATE_LOG_BUF(array_of_blocklengths, count * sizeof(int));
+    // FncArg ds = CREATE_LOG_BUF(array_of_displacements, count * sizeof(int));
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -311,7 +307,7 @@ USER_DEFINED_WRAPPER(int, Type_dup, (MPI_Datatype) oldtype,
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Type_dup)(realType, newtype);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
+  if (retval == MPI_SUCCESS && mana_state != RESTART_REPLAY) {
     MPI_Datatype virtType = ADD_NEW_TYPE(*newtype);
     *newtype = virtType;
   }
@@ -328,7 +324,7 @@ USER_DEFINED_WRAPPER(int, Type_create_resized, (MPI_Datatype) oldtype,
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Type_create_resized)(realType, lb, extent, newtype);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
+  if (retval == MPI_SUCCESS && mana_state != RESTART_REPLAY) {
     MPI_Datatype virtType = ADD_NEW_TYPE(*newtype);
     *newtype = virtType;
   }
