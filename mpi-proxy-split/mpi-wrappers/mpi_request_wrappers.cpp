@@ -61,9 +61,9 @@ USER_DEFINED_WRAPPER(int, Test, (MPI_Request*) request,
                      (int*) flag, (MPI_Status*) status)
 {
   int retval;
-  if (*request == MPI_REQUEST_NULL) {
+  if (*request == REAL_CONSTANT(REQUEST_NULL)) {
     // *request might be in read-only memory. So we can't overwrite it with
-    // MPI_REQUEST_NULL later.
+    // REAL_CONSTANT(REQUEST_NULL) later.
     *flag = true;
     return MPI_SUCCESS;
   }
@@ -77,10 +77,10 @@ USER_DEFINED_WRAPPER(int, Test, (MPI_Request*) request,
   }
   MPI_Request realRequest;
   realRequest = VIRTUAL_TO_REAL_REQUEST(*request);
-  if (*request != MPI_REQUEST_NULL && realRequest == MPI_REQUEST_NULL) {
+  if (*request != REAL_CONSTANT(REQUEST_NULL) && realRequest == REAL_CONSTANT(REQUEST_NULL)) {
     *flag = 1;
     REMOVE_OLD_REQUEST(*request);
-    *request = MPI_REQUEST_NULL;
+    *request = REAL_CONSTANT(REQUEST_NULL);
     DMTCP_PLUGIN_ENABLE_CKPT();
     // FIXME: We should also fill in the status
     return MPI_SUCCESS;
@@ -90,7 +90,7 @@ USER_DEFINED_WRAPPER(int, Test, (MPI_Request*) request,
   // Updating global counter of recv bytes
   // FIXME: This if statement should be merged into
   // clearPendingRequestFromLog()
-  if (*flag && *request != MPI_REQUEST_NULL
+  if (*flag && *request != REAL_CONSTANT(REQUEST_NULL)
       && g_nonblocking_calls.find(*request) != g_nonblocking_calls.end()
       && g_nonblocking_calls[*request]->type == IRECV_REQUEST) {
     int count = 0;
@@ -111,7 +111,7 @@ USER_DEFINED_WRAPPER(int, Test, (MPI_Request*) request,
   if (retval == MPI_SUCCESS && *flag && mana_state != RESTART_REPLAY) {
     clearPendingRequestFromLog(*request);
     REMOVE_OLD_REQUEST(*request);
-    *request = MPI_REQUEST_NULL;
+    *request = REAL_CONSTANT(REQUEST_NULL);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -179,7 +179,7 @@ USER_DEFINED_WRAPPER(int, Testany, (int) count,
   *local_flag = 1;
   *local_index = MPI_UNDEFINED;
   for (int i = 0; i < local_count; i++) {
-    if (local_array_of_requests[i] == MPI_REQUEST_NULL) {
+    if (local_array_of_requests[i] == REAL_CONSTANT(REQUEST_NULL)) {
       continue;
     }
     retval = MPI_Test(&local_array_of_requests[i], local_flag, local_status);
@@ -271,11 +271,11 @@ USER_DEFINED_WRAPPER(int, Waitany, (int) count,
   *local_index = MPI_UNDEFINED;
   int was_null[count] = {0};
   for (int i = 0; i < count; i++) {
-    was_null[i] = local_array_of_requests[i] == MPI_REQUEST_NULL ? 1 : 0;
+    was_null[i] = local_array_of_requests[i] == REAL_CONSTANT(REQUEST_NULL) ? 1 : 0;
   }
   while (1) {
     for (int i = 0; i < count; i++) {
-      if (local_array_of_requests[i] == MPI_REQUEST_NULL) {
+      if (local_array_of_requests[i] == REAL_CONSTANT(REQUEST_NULL)) {
         if (was_null[i]) {
           continue;
         } else {
@@ -293,7 +293,7 @@ USER_DEFINED_WRAPPER(int, Waitany, (int) count,
       }
       if (flag) {
         MPI_Request *request = &local_array_of_requests[i];
-        if (*request != MPI_REQUEST_NULL
+        if (*request != REAL_CONSTANT(REQUEST_NULL)
           && g_nonblocking_calls.find(*request) != g_nonblocking_calls.end()
           && g_nonblocking_calls[*request]->type == IRECV_REQUEST) {
             int count = 0;
@@ -304,7 +304,7 @@ USER_DEFINED_WRAPPER(int, Waitany, (int) count,
             MPI_Comm comm = g_nonblocking_calls[*request]->comm;
             int worldRank = localRankToGlobalRank(local_status->MPI_SOURCE, comm);
             g_recvBytesByRank[worldRank] += count * size;
-        } else if (*request == MPI_REQUEST_NULL) {
+        } else if (*request == REAL_CONSTANT(REQUEST_NULL)) {
           if (!was_null[i]) {
             *local_index = i;
             return retval;
@@ -314,7 +314,7 @@ USER_DEFINED_WRAPPER(int, Waitany, (int) count,
         if (mana_state != RESTART_REPLAY) {
           clearPendingRequestFromLog(local_array_of_requests[i]);
           REMOVE_OLD_REQUEST(local_array_of_requests[i]);
-          local_array_of_requests[i] = MPI_REQUEST_NULL;
+          local_array_of_requests[i] = REAL_CONSTANT(REQUEST_NULL);
         }
 
         *local_index = i;
@@ -334,9 +334,9 @@ USER_DEFINED_WRAPPER(int, Waitany, (int) count,
 USER_DEFINED_WRAPPER(int, Wait, (MPI_Request*) request, (MPI_Status*) status)
 {
   int retval;
-  if (*request == MPI_REQUEST_NULL) {
+  if (*request == REAL_CONSTANT(REQUEST_NULL)) {
     // *request might be in read-only memory. So we can't overwrite it with
-    // MPI_REQUEST_NULL later.
+    // REAL_CONSTANT(REQUEST_NULL) later.
     return MPI_SUCCESS;
   }
   int flag = 0;
@@ -358,7 +358,7 @@ USER_DEFINED_WRAPPER(int, Wait, (MPI_Request*) request, (MPI_Status*) status)
     // Updating global counter of recv bytes
     // FIXME: This if statement should be merged into
     // clearPendingRequestFromLog()
-    if (flag && *request != MPI_REQUEST_NULL
+    if (flag && *request != REAL_CONSTANT(REQUEST_NULL)
         && g_nonblocking_calls.find(*request) != g_nonblocking_calls.end()
         && g_nonblocking_calls[*request]->type == IRECV_REQUEST) {
       int count = 0;
@@ -381,7 +381,7 @@ USER_DEFINED_WRAPPER(int, Wait, (MPI_Request*) request, (MPI_Status*) status)
     if (flag && mana_state != RESTART_REPLAY) {
       clearPendingRequestFromLog(*request); // Remove from g_nonblocking_calls
       REMOVE_OLD_REQUEST(*request); // Remove from virtual id
-      *request = MPI_REQUEST_NULL;
+      *request = REAL_CONSTANT(REQUEST_NULL);
     }
     DMTCP_PLUGIN_ENABLE_CKPT();
   }

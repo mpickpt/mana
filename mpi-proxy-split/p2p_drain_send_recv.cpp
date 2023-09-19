@@ -345,7 +345,7 @@ localRankToGlobalRank(int localRank, MPI_Comm localComm)
   MPI_Group worldGroup, localGroup;
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(localComm);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  NEXT_FUNC(Comm_group)(MPI_COMM_WORLD, &worldGroup);
+  NEXT_FUNC(Comm_group)(REAL_CONSTANT(COMM_WORLD), &worldGroup);
   NEXT_FUNC(Comm_group)(realComm, &localGroup);
   NEXT_FUNC(Group_translate_ranks)(localGroup, 1, &localRank,
                                    worldGroup, &worldRank);
