@@ -38,6 +38,9 @@
 
 #define MAX_VIRTUAL_ID 999
 
+MPI_Comm WORLD_COMM = MPI_COMM_WORLD;
+MPI_Comm NULL_COMM = MPI_COMM_NULL;
+
 // #define DEBUG_VIDS
 
 // TODO I use an explicitly integer virtual id, which under macro
@@ -84,8 +87,8 @@ int hash(int i) {
 // OUT: rbuf
 // Returns ggid.
 int getggid(MPI_Comm comm, int worldRank, int commSize, int* rbuf) {
-  if (comm == MPI_COMM_NULL || comm == MPI_COMM_WORLD) {
-    return comm;
+  if (comm == NULL_COMM || comm == WORLD_COMM) {
+    return (intptr_t)comm;
   }
   unsigned int ggid = 0;
 
@@ -356,6 +359,8 @@ datatype_desc_t* init_datatype_desc_t(MPI_Datatype realType) {
 }
 
 void update_datatype_desc_t(datatype_desc_t* datatype) {
+    // 2023-09-19: ExaMPI does not support this yet, though it ought to soon.
+#ifndef EXAMPI
       // Free the existing memory, if it is not NULL. (i.e., from an older checkpoint)
     free(datatype->integers);
     free(datatype->addresses);
@@ -384,11 +389,13 @@ void update_datatype_desc_t(datatype_desc_t* datatype) {
     NEXT_FUNC(Type_get_contents)(datatype->real_id, datatype->num_integers, datatype->num_addresses, datatype->num_datatypes, datatype->integers, datatype->addresses, datatype->datatypes);
     RETURN_TO_UPPER_HALF();
     DMTCP_PLUGIN_ENABLE_CKPT();
+#endif
 }
 
 // Reconstruction arguments taken from here:
 // https://www.mpi-forum.org/docs/mpi-3.1/mpi31-report/node90.htm
 void reconstruct_with_datatype_desc_t(datatype_desc_t* datatype) {
+#ifndef EXAMPI
     DMTCP_PLUGIN_DISABLE_CKPT();
     JUMP_TO_LOWER_HALF(lh_info.fsaddr);
     switch (datatype->combiner) {
@@ -451,6 +458,7 @@ void reconstruct_with_datatype_desc_t(datatype_desc_t* datatype) {
   NEXT_FUNC(Type_commit)(&datatype->real_id);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
+#endif // ifndef EXAMPI
 }
 
 void destroy_datatype_desc_t(datatype_desc_t* datatype) {
