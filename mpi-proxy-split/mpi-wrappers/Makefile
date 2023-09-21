@@ -57,9 +57,9 @@ mpi_unimplemented_wrappers.cpp: generate-mpi-unimplemented-wrappers.py \
 	mpi_unimplemented_wrappers_exampi.txt
 	if mpiexec -h | grep -q 'mpich'; then
 	  python generate-mpi-unimplemented-wrappers.py mpi_unimplemented_wrappers_mpich.txt > $@
-	elif mpixec -h | grep -q 'open-mpi'; then
+	elif mpixec -h | grep -q 'openmpi'; then
 	  python generate-mpi-unimplemented-wrappers.py mpi_unimplemented_wrappers_openmpi.txt > $@
-	elif mpiexec -h | grep -q 'ExaMPI'; then
+	elif mpiexec -h | grep -q 'exampi'; then
 	  python generate-mpi-unimplemented-wrappers.py mpi_unimplemented_wrappers_exampi.txt > $@
 	else
 	  $(error The MPI flavor could not be identified.)
@@ -105,20 +105,12 @@ mpi_win_wrappers.o: mpi_win_wrappers.cpp ../virtual-ids.h
 
 # We need to write to mpi_stub_wrappers.c.tmp.$$ first, in case of 'make -j'.
 # The parallel make would generate mpi_stub_wrappers.c 3 times, and overwrite.
-mpi_stub_wrappers.c: generate-mpi-stub-wrappers.py mpi_stub_wrappers_mpich.txt mpi_stub_wrappers_openmpi.txt mpi_stub_wrappers_exampi.txt
+mpi_stub_wrappers.c: generate-mpi-stub-wrappers.py mpi_stub_wrappers.txt
 	rm -f $@
 	tmp=$@.tmp.$$$$ ; \
 	printf "%s\n\n" \
 	 "// *** THIS FILE IS AUTO-GENERATED! DO 'make' TO UPDATE. ***" >$$tmp;\
-	if mpiexec -h | grep -q 'mpich'; then
-	  python3 generate-mpi-stub-wrappers.py mpi_stub_wrappers_mpich.txt >> $$tmp && mv -f $$tmp $@ || (rm -f $$tmp && false)
-	elif mpixec -h | grep -q 'open-mpi'; then
-	  python3 generate-mpi-stub-wrappers.py mpi_stub_wrappers_openmpi.txt >> $$tmp && mv -f $$tmp $@ || (rm -f $$tmp && false)
-	elif mpiexec -h | grep -q 'ExaMPI'; then
-	  python3 generate-mpi-stub-wrappers.py mpi_stub_wrappers_exampi.txt >> $$tmp && mv -f $$tmp $@ || (rm -f $$tmp && false)
-	else
-	  $(error The MPI flavor could not be identified.)
-	fi
+	python3 $^ >> $$tmp && mv -f $$tmp $@ || (rm -f $$tmp && false)
 
 mpi_fortran_wrappers.cpp: generate-mpi-fortran-wrappers.py \
                           mpi_fortran_wrappers.txt \ 
