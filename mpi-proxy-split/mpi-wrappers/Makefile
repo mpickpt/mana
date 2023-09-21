@@ -52,19 +52,19 @@ ${LIBNAME}.a: ${LIBWRAPPER_OBJS}
 	ar cr $@ $^
 
 mpi_unimplemented_wrappers.cpp: generate-mpi-unimplemented-wrappers.py \
-        mpi_unimplemented_wrappers_mpich.txt \
+       	mpi_unimplemented_wrappers_mpich.txt \
         mpi_unimplemented_wrappers_openmpi.txt \
         mpi_unimplemented_wrappers_exampi.txt
-
-        if mpiexec -h | grep -q 'mpich'; then \
-          python3 generate-mpi-unimplemented-wrappers.py mpi_unimplemented_wrappers_mpich.txt > $@; \
-        elif mpiexec -h | grep -q 'open-mpi'; then \
-          python3 generate-mpi-unimplemented-wrappers.py mpi_unimplemented_wrappers_openmpi.txt > $@; \
-        elif mpiexec -h | grep -q 'ExaMPI'; then \
-          python3 generate-mpi-unimplemented-wrappers.py mpi_unimplemented_wrappers_exampi.txt > $@; \
-        else \
-          $(error Could not identify the MPICH flavor); \
-        fi
+	if mpiexec -h | grep -q 'mpich'; then \
+	  python3 generate-mpi-unimplemented-wrappers.py mpi_unimplemented_wrappers_mpich.txt > $@; \
+	elif mpiexec -h | grep -q 'open-mpi'; then \
+	  python3 generate-mpi-unimplemented-wrappers.py mpi_unimplemented_wrappers_openmpi.txt > $@; \
+	elif mpiexec -h | grep -q 'ExaMPI'; then \
+	  python3 generate-mpi-unimplemented-wrappers.py mpi_unimplemented_wrappers_exampi.txt > $@; \
+	else \
+	  echo 'Could not identify the MPICH flavor'; \
+	  exit 1; \
+	fi
 
 .c.o:
 	${MPICC} ${CFLAGS} -c -o $@ $<
