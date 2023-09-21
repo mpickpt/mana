@@ -71,6 +71,10 @@ MANA supports most features of DMTCP, including:
 
 # ENVIRONMENT VARIABLES AND DEBUGGING
 
+**`MANA_DEBUG`**
+
+: MANA will print to stderr extra information to help developers debug MANA.
+
 **`DMTCP_MANA_PAUSE` or `DMTCP_LAUNCH_PAUSE`**
 
 : DMTCP/MANA will pause during launch to allow `gdb attach` (GDB must be on same node.)

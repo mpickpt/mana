@@ -6,11 +6,11 @@ MANPAGES = mana.1.gz
 
 default: ${MANPAGES}
 
-%.1: %.md
+%.1: %.1.md
 	@- if test "$(PANDOC)" = "no" ; then \
-	     echo "Skipping manpage generation; using pregenerated copy." \
+	     echo "Skipping manpage generation; using pregenerated copy."; \
 	   else \
-	     $(PANDOC) -s -o $@ $< \
+	     $(PANDOC) -s -o $@ $<; \
 	   fi
 
 %.1.gz: %.1
