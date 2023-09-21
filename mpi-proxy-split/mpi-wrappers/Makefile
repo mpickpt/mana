@@ -57,9 +57,9 @@ mpi_unimplemented_wrappers.cpp: generate-mpi-unimplemented-wrappers.py \
 	mpi_unimplemented_wrappers_exampi.txt
 	if mpiexec -h | grep -q 'mpich'; then
 	  python generate-mpi-unimplemented-wrappers.py mpi_unimplemented_wrappers_mpich.txt > $@
-	elif mpixec -h | grep -q 'openmpi'; then
+	elif mpixec -h | grep -q 'open-mpi'; then
 	  python generate-mpi-unimplemented-wrappers.py mpi_unimplemented_wrappers_openmpi.txt > $@
-	elif mpiexec -h | grep -q 'exampi'; then
+	elif mpiexec -h | grep -q 'ExaMPI'; then
 	  python generate-mpi-unimplemented-wrappers.py mpi_unimplemented_wrappers_exampi.txt > $@
 	else
 	  $(error The MPI flavor could not be identified.)
