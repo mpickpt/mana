@@ -371,6 +371,7 @@ USER_DEFINED_WRAPPER(int, Reduce_scatter,
 //        of draining the point-to-point MPI calls.  p2p_drain_send_recv.cpp
 //        cannot use the C version in mpi-wrappers/mpi_collective_p2p.c,
 //        which would generate extra point-to-point MPI calls.
+#ifndef MPI_ALLTOALL_RENDEZVOUS
 int
 MPI_Alltoall_internal(const void *sendbuf, int sendcount,
                       MPI_Datatype sendtype, void *recvbuf, int recvcount,
@@ -392,6 +393,71 @@ MPI_Alltoall_internal(const void *sendbuf, int sendcount,
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
+#else
+// We are having a hanging issue running user programs under certain situations. In
+// order to prevent it there is a temporary work around provided by Yao Xu. To
+// manually implement a MPI_Alltoall_internal call forcing rendezvous, the hanging 
+// can be prevented without noticable performance burden.
+int
+MPI_Alltoall_internal(const void *sendbuf, int sendcount,
+                      MPI_Datatype sendtype, void *recvbuf, int recvcount,
+                      MPI_Datatype recvtype, MPI_Comm comm)
+{
+  static int MPI_ALLTOALL_TAG = 0;
+  int retval, comm_size, rank;
+  MPI_Comm_rank(comm, &rank);
+  MPI_Comm_size(comm, &comm_size);
+  MPI_Aint rlb, slb, recvtype_extent,sendtype_extent;
+  MPI_Type_get_extent(sendtype, &slb, &sendtype_extent);
+  MPI_Type_get_extent(recvtype, &rlb, &recvtype_extent);
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+  MPI_Datatype realSendType = VIRTUAL_TO_REAL_TYPE(sendtype);
+  MPI_Datatype realRecvType = VIRTUAL_TO_REAL_TYPE(recvtype);
+  // FIXME: Ideally, check FORTRAN_MPI_IN_PLACE only in the Fortran wrapper.
+  if (sendbuf == FORTRAN_MPI_IN_PLACE) {
+    sendbuf = MPI_IN_PLACE;
+  }
+
+  // With our MPI_Alltoall implementation forcing rendezvous
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  int ii, ss, bblock;
+  int i;
+  int dst;
+  bblock = comm_size;
+  MPI_Request *reqarray = (MPI_Request *) malloc(2 * bblock * sizeof(MPI_Request *));
+  MPI_Status *starray = (MPI_Status *) malloc(2 * bblock * sizeof(MPI_Status));
+  for (ii = 0; ii < comm_size; ii += bblock) {
+    ss = comm_size - ii < bblock ? comm_size - ii : bblock;
+    for (i = 0; i < ss; i++) {
+      dst = (rank + i + ii) % comm_size;
+      NEXT_FUNC(Irecv)(recvbuf + dst * recvcount * recvtype_extent, recvcount, realRecvType,
+          dst, MPI_ALLTOALL_TAG, realComm, &reqarray[i]);
+    }
+    for (i = 0; i < ss; i++) {
+      dst = (rank - i - ii + comm_size) % comm_size;
+      // MPI_Issend starts a nonblocking synchronous send
+      NEXT_FUNC(Issend)(sendbuf + dst * sendcount * sendtype_extent, sendcount, realSendType,
+          dst, MPI_ALLTOALL_TAG, realComm, &reqarray[i + ss]);
+    }
+  }
+  int flag = 0;
+  while (!flag) {
+    flag = 1;
+    int status_flag = 0;
+    for (i = 0; i < 2 * ss; i++) {
+      retval = NEXT_FUNC(Request_get_status)(reqarray[i], &status_flag, &starray[i]);
+      flag &= status_flag;
+    }
+  }
+  retval = NEXT_FUNC(Waitall)(2 * ss, reqarray, starray);
+  free(reqarray);
+  free(starray);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return retval;
+}
+#endif
 
 #ifndef MPI_COLLECTIVE_P2P
 USER_DEFINED_WRAPPER(int, Alltoall,
