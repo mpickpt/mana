@@ -95,7 +95,8 @@ splitProcess(RestoreInfo *rinfo)
     // We then kill the child process.
     ret = read_lh_proxy_bits(rinfo, childpid, rinfo->argv[0]);
     // FIXME:  We should use lh_info_addr, in place of rinfo->pluginInfo
-    mtcp_memcpy(&rinfo->pluginInfo, lh_info_addr, sizeof(*lh_info_addr));
+    rinfo->pluginInfo.lh_info_addr = lh_info_addr;
+
     mtcp_sys_kill(childpid, SIGKILL);
     mtcp_sys_wait4(childpid, NULL, 0, NULL);
   }
