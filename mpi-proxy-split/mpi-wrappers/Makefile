@@ -52,8 +52,8 @@ ${LIBNAME}.a: ${LIBWRAPPER_OBJS}
 	ar cr $@ $^
 
 mpi_unimplemented_wrappers.cpp: generate-mpi-unimplemented-wrappers.py \
-	mpi_unimplemented_wrappers_mpich.txt \ 
-	mpi_unimplemented_wrappers_openmpi.txt \ 
+	mpi_unimplemented_wrappers_mpich.txt \
+	mpi_unimplemented_wrappers_openmpi.txt \
 	mpi_unimplemented_wrappers_exampi.txt
 	if mpiexec -h | grep -q 'mpich'; then
 	  python generate-mpi-unimplemented-wrappers.py mpi_unimplemented_wrappers_mpich.txt > $@
