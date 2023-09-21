@@ -60,7 +60,7 @@
 #define VIRTUAL_TO_REAL(id, null, real_id_type, desc_type)    \
     ({                                              \
       desc_type* _VTR_tmp = VIRTUAL_TO_DESC(id, null, desc_type);			\
-       real_id_type _VTR_id = (_VTR_tmp == NULL) ? (real_id_type)lh_constants_map[id] : _VTR_tmp->real_id; \
+       real_id_type _VTR_id = (_VTR_tmp == NULL) ? (real_id_type)lh_constants_map[(intptr_t)id] : _VTR_tmp->real_id; \
        _VTR_id; \
      })
 
