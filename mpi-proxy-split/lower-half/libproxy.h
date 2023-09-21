@@ -19,6 +19,9 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+// Included to retrieve MPICH, OPEN_MPI, EXAMPI
+#include <mpi.h>
+
 #ifndef _LIBPROXY_H
 #define _LIBPROXY_H
 
