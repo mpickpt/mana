@@ -219,6 +219,11 @@ find $HOME/.mana*.rc -ignore_readdir_race -maxdepth 0 -mtime +7 -type f -delete
 #   The /dev/xpmem segments are created on demand when an MPI call
 #   needs to send/receive a large message.
 
+# FIXME:  This is temporary, for debugging by developers.  We should add this logic
+#         instead to configure-mana (which should be renamed to configure-discovery).
+#         Use this commit for testing, but don't push it into the main branch.
+export MANA_DEBUG=1
+
 exec env LD_LIBRARY_PATH="$libdir:$LD_LIBRARY_PATH" \
     $dir/dmtcp_launch --mpi --coord-host $submissionHost \
           --coord-port $submissionPort --no-gzip \
