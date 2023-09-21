@@ -552,7 +552,7 @@ USER_DEFINED_WRAPPER(int, Scatterv, (const void *) sendbuf,
   if (recvbuf == FORTRAN_MPI_IN_PLACE) {
     recvbuf = MPI_IN_PLACE;
   }
-#endif EXAMPI
+#endif
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
   MPI_Datatype realSendType = VIRTUAL_TO_REAL_TYPE(sendtype);
