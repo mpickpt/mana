@@ -112,20 +112,22 @@ mpi_stub_wrappers.c: generate-mpi-stub-wrappers.py mpi_stub_wrappers.txt
 	python3 $^ >> $$tmp && mv -f $$tmp $@ || (rm -f $$tmp && false)
 
 mpi_fortran_wrappers.cpp: generate-mpi-fortran-wrappers.py \
-                          mpi_fortran_wrappers_openmpi.txt \ 
+                          mpi_fortran_wrappers_openmpi.txt \
 	                  mpi_fortran_wrappers_mpich.txt
 	rm -f $@
 	tmp=$@.tmp.$$$$ ; \
 	printf "%s\n\n" \
 	 "// *** THIS FILE IS AUTO-GENERATED! DO 'make' TO UPDATE. ***" >$$tmp;\
-	if mpiexec -h | grep -q 'mpich'; then
-	  python generate-mpi-fortran-wrappers.py mpi_fortran_wrappers_mpich.txt > $@;
-	elif mpixec -h | grep -q 'open-mpi'; then
-	  python generate-mpi-fortran-wrappers.py mpi_fortran_wrappers_openmpi.txt > $@;
-	elif mpiexec -h | grep -q 'ExaMPI'; then
-	  $(error ExaMPI has no fortran support.);
-	else
-	  $(error The MPI flavor could not be identified.);
+	if mpiexec -h | grep -q 'mpich'; then \
+	  python generate-mpi-fortran-wrappers.py mpi_fortran_wrappers_mpich.txt > $@; \
+	elif mpixec -h | grep -q 'open-mpi'; then \
+	  python generate-mpi-fortran-wrappers.py mpi_fortran_wrappers_openmpi.txt > $@; \
+	elif mpiexec -h | grep -q 'ExaMPI'; then \
+	  echo 'ExaMPI has no fortran support.'; \
+	  exit 1; \
+	else \
+	  echo 'The MPI flavor could not be identified.'; \
+	  exit 1; \
 	fi
 
 mpi_stub_wrappers.o: mpi_stub_wrappers.c
