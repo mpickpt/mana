@@ -52,20 +52,19 @@ ${LIBNAME}.a: ${LIBWRAPPER_OBJS}
 	ar cr $@ $^
 
 mpi_unimplemented_wrappers.cpp: generate-mpi-unimplemented-wrappers.py \
-	mpi_unimplemented_wrappers_mpich.txt \
-	mpi_unimplemented_wrappers_openmpi.txt \
-	mpi_unimplemented_wrappers_exampi.txt
-	if mpiexec -h | grep -q 'mpich'; then
-	  python generate-mpi-unimplemented-wrappers.py mpi_unimplemented_wrappers_mpich.txt > $@
-	elif mpixec -h | grep -q 'open-mpi'; then
-	  python generate-mpi-unimplemented-wrappers.py mpi_unimplemented_wrappers_openmpi.txt > $@
-	elif mpiexec -h | grep -q 'ExaMPI'; then
-	  python generate-mpi-unimplemented-wrappers.py mpi_unimplemented_wrappers_exampi.txt > $@
-	else
-	  $(error The MPI flavor could not be identified.)
-	fi
+        mpi_unimplemented_wrappers_mpich.txt \
+        mpi_unimplemented_wrappers_openmpi.txt \
+        mpi_unimplemented_wrappers_exampi.txt
 
-
+        if mpiexec -h | grep -q 'mpich'; then \
+          python3 generate-mpi-unimplemented-wrappers.py mpi_unimplemented_wrappers_mpich.txt > $@; \
+        elif mpiexec -h | grep -q 'open-mpi'; then \
+          python3 generate-mpi-unimplemented-wrappers.py mpi_unimplemented_wrappers_openmpi.txt > $@; \
+        elif mpiexec -h | grep -q 'ExaMPI'; then \
+          python3 generate-mpi-unimplemented-wrappers.py mpi_unimplemented_wrappers_exampi.txt > $@; \
+        else \
+          $(error Could not identify the MPICH flavor); \
+        fi
 
 .c.o:
 	${MPICC} ${CFLAGS} -c -o $@ $<
@@ -114,19 +113,19 @@ mpi_stub_wrappers.c: generate-mpi-stub-wrappers.py mpi_stub_wrappers.txt
 
 mpi_fortran_wrappers.cpp: generate-mpi-fortran-wrappers.py \
                           mpi_fortran_wrappers_openmpi.txt \ 
-	                  mpi_fortran_wrappers_mpich.txt \
+	                  mpi_fortran_wrappers_mpich.txt
 	rm -f $@
 	tmp=$@.tmp.$$$$ ; \
 	printf "%s\n\n" \
 	 "// *** THIS FILE IS AUTO-GENERATED! DO 'make' TO UPDATE. ***" >$$tmp;\
 	if mpiexec -h | grep -q 'mpich'; then
-	  python generate-mpi-fortran-wrappers.py mpi_fortran_wrappers_mpich.txt > $@
+	  python generate-mpi-fortran-wrappers.py mpi_fortran_wrappers_mpich.txt > $@;
 	elif mpixec -h | grep -q 'open-mpi'; then
-	  python generate-mpi-fortran-wrappers.py mpi_fortran_wrappers_openmpi.txt > $@
+	  python generate-mpi-fortran-wrappers.py mpi_fortran_wrappers_openmpi.txt > $@;
 	elif mpiexec -h | grep -q 'ExaMPI'; then
-	  $(error ExaMPI has no fortran support.)
+	  $(error ExaMPI has no fortran support.);
 	else
-	  $(error The MPI flavor could not be identified.)
+	  $(error The MPI flavor could not be identified.);
 	fi
 
 mpi_stub_wrappers.o: mpi_stub_wrappers.c
