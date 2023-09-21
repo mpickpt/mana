@@ -66,17 +66,17 @@ default: ${MANA_COORD_OBJS}
 libmana.so: ${LIBOBJS} ${WRAPPERS_SRCDIR}/libmpiwrappers.a
 	${CXX} -shared -fPIC -g3 -O0 -o $@ ${LIBOBJS} -Wl,--whole-archive ${WRAPPERS_SRCDIR}/libmpiwrappers.a -Wl,--no-whole-archive
 
-mpi_unimplemented_wrappers.cpp: 
-	if mpiexec -h | grep -q 'mpich'; then \
-	  generate-mpi-unimplemented-wrappers.py mpi_unimplemented_wrappers.txt \
-	  python $^ > $@ \
-	elif mpixec -h | grep -q 'mpich'; then \
-	  generate-mpi-unimplemented-wrappers.py mpi_unimplemented_wrappers.txt \
-	  python $^ > $@ \
-	elif mpiexec -h | grep -q 'open-mpi'; then \
-	  generate-mpi-unimplemented-wrappers.py mpi_unimplemented_wrappers.txt \
-	  python $^ > $@ \
-	else \
+mpi_unimplemented_wrappers.cpp: generate-mpi-unimplemented-wrappers.py \
+	mpi_unimplemented_wrappers_mpich.txt \ 
+	mpi_unimplemented_wrappers_openmpi.txt \ 
+	mpi_unimplemented_wrappers_exampi.txt
+	if mpiexec -h | grep -q 'mpich'; then
+	  python generate-mpi-unimplemented-wrappers.py mpi_unimplemented_wrappers_mpich.txt > $@
+	elif mpixec -h | grep -q 'openmpi'; then
+	  python generate-mpi-unimplemented-wrappers.py mpi_unimplemented_wrappers_openmpi.txt > $@
+	elif mpiexec -h | grep -q 'exampi'; then
+	  python generate-mpi-unimplemented-wrappers.py mpi_unimplemented_wrappers_exampi.txt > $@
+	else
 	  $(error The MPI flavor could not be identified.)
 	fi
 
