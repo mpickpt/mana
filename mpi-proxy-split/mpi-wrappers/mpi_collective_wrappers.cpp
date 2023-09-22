@@ -145,6 +145,7 @@ USER_DEFINED_WRAPPER(int, Barrier, (MPI_Comm) comm)
   return retval;
 }
 
+#if defined(MPICH)
 EXTERNC
 USER_DEFINED_WRAPPER(int, Ibarrier, (MPI_Comm) comm, (MPI_Request *) request)
 {
@@ -164,6 +165,7 @@ USER_DEFINED_WRAPPER(int, Ibarrier, (MPI_Comm) comm, (MPI_Request *) request)
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
+#endif // defined(MPICH)
 
 /*******************************************************************************
  * This version, MPI_Allreduce_reproducible, can be called from
@@ -196,6 +198,7 @@ USER_DEFINED_WRAPPER(int, Ibarrier, (MPI_Comm) comm, (MPI_Request *) request)
  * non-deterministically.
  ******************************************************************************/
 
+#if defined(MPICH)
 int
 MPI_Allreduce_reproducible(const void *sendbuf,
                            void *recvbuf,
@@ -247,14 +250,17 @@ MPI_Allreduce_reproducible(const void *sendbuf,
 
   return rc;
 }
+#endif // defined(MPICH)
 
 USER_DEFINED_WRAPPER(int, Allreduce,
                      (const void *) sendbuf, (void *) recvbuf,
                      (int) count, (MPI_Datatype) datatype,
                      (MPI_Op) op, (MPI_Comm) comm)
 {
+#if defined(MPICH)
   char *s = getenv("MANA_USE_ALLREDUCE_REPRODUCIBLE");
   int use_allreduce_reproducible = (s != NULL) ? atoi(s) : 0;
+#endif // defined(MPICH)
 
   bool passthrough = false;
   commit_begin(comm, passthrough);
@@ -265,6 +271,7 @@ USER_DEFINED_WRAPPER(int, Allreduce,
   get_fortran_constants();
 #endif
   
+#if defined(MPICH)
   if (use_allreduce_reproducible)
     retval = MPI_Allreduce_reproducible(sendbuf, recvbuf, count, datatype, op,
                                         comm, 0);
@@ -283,6 +290,22 @@ USER_DEFINED_WRAPPER(int, Allreduce,
       NEXT_FUNC(Allreduce)(sendbuf, recvbuf, count, realType, realOp, realComm);
     RETURN_TO_UPPER_HALF();
   }
+#else // defined(MPICH)
+    MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+    MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
+    MPI_Op realOp = VIRTUAL_TO_REAL_OP(op);
+    // FIXME: Ideally, check FORTRAN_MPI_IN_PLACE only in the Fortran wrapper.
+#ifndef EXAMPI
+    if (sendbuf == FORTRAN_MPI_IN_PLACE) {
+      sendbuf = MPI_IN_PLACE;
+    }
+#endif
+    JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+    retval =
+      NEXT_FUNC(Allreduce)(sendbuf, recvbuf, count, realType, realOp, realComm);
+    RETURN_TO_UPPER_HALF();
+     
+#endif // defined(MPICH)
   DMTCP_PLUGIN_ENABLE_CKPT();
   commit_finish(comm, passthrough);
   return retval;
@@ -346,6 +369,7 @@ USER_DEFINED_WRAPPER(int, Ireduce,
   return retval;
 }
 
+#if defined(MPICH)
 USER_DEFINED_WRAPPER(int, Reduce_scatter,
                      (const void *) sendbuf, (void *) recvbuf,
                      (const int) recvcounts[], (MPI_Datatype) datatype,
@@ -372,6 +396,7 @@ USER_DEFINED_WRAPPER(int, Reduce_scatter,
   commit_finish(comm, passthrough);
   return retval;
 }
+#endif // defined(MPICH)
 #endif // #ifndef MPI_COLLECTIVE_P2P
 
 // NOTE:  This C++ function in needed by p2p_drain_send_recv.cpp
@@ -700,7 +725,9 @@ PMPI_IMPL(int, MPI_Bcast, void *buffer, int count, MPI_Datatype datatype,
 PMPI_IMPL(int, MPI_Ibcast, void *buffer, int count, MPI_Datatype datatype,
           int root, MPI_Comm comm, MPI_Request *request)
 PMPI_IMPL(int, MPI_Barrier, MPI_Comm comm)
+#if defined(MPICH)
 PMPI_IMPL(int, MPI_Ibarrier, MPI_Comm comm, MPI_Request * request)
+#endif // defined(MPICH)
 PMPI_IMPL(int, MPI_Allreduce, const void *sendbuf, void *recvbuf, int count,
           MPI_Datatype datatype, MPI_Op op, MPI_Comm comm)
 PMPI_IMPL(int, MPI_Reduce, const void *sendbuf, void *recvbuf, int count,
@@ -739,3 +766,5 @@ PMPI_IMPL(int, MPI_Scan, const void *sendbuf, void *recvbuf, int count,
 PMPI_IMPL(int, MPI_Comm_split, MPI_Comm comm, int color, int key,
           MPI_Comm *newcomm)
 PMPI_IMPL(int, MPI_Comm_dup, MPI_Comm comm, MPI_Comm *newcomm)
+
+
