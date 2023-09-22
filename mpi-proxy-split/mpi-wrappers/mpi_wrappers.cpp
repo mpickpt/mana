@@ -140,9 +140,15 @@ USER_DEFINED_WRAPPER(int, Finalize, (void))
   return MPI_SUCCESS;
 }
 
+#if defined(MPICH)
 USER_DEFINED_WRAPPER(int, Get_count,
                      (const MPI_Status *) status, (MPI_Datatype) datatype,
                      (int *) count)
+#else
+USER_DEFINED_WRAPPER(int, Get_count,
+                     (MPI_Status *) status, (MPI_Datatype) datatype,
+                     (int *) count)
+#endif // defined(MPICH)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -213,7 +219,11 @@ PMPI_IMPL(double, MPI_Wtime, void)
 PMPI_IMPL(int, MPI_Initialized, int *flag)
 PMPI_IMPL(int, MPI_Init_thread, int *argc, char ***argv,
           int required, int *provided)
+#if defined(MPICH)
 PMPI_IMPL(int, MPI_Get_count, const MPI_Status *status, MPI_Datatype datatype,
           int *count)
+#else
+PMPI_IMPL(int, MPI_Get_count, MPI_Status *status, MPI_Datatype datatype,
+#endif // defined(MPICH)
 PMPI_IMPL(int, MPI_Get_library_version, char *version, int *resultlen)
 PMPI_IMPL(int, MPI_Get_address, const void *location, MPI_Aint *address)
