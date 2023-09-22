@@ -58,6 +58,7 @@
 // multiple communicators can use the same attribute key for different
 // attributes. Thus, we use a structure like the following:
 // [keyval -> {[communicator -> attribute], extra_state, copy_fn, delete_fn}]
+#if defined(MPICH)
 struct KeyvalTuple {
   KeyvalTuple () = default;
 
@@ -74,9 +75,12 @@ struct KeyvalTuple {
   MPI_Comm_delete_attr_function *_deleteFn;
   std::unordered_map<MPI_Comm, void*> _attributeMap;
 };
+#endif // defined(MPICH)
 
 static std::vector<int> keyvalVec;
+#if defined(MPICH)
 static std::unordered_map<int, KeyvalTuple> tupleMap;
+#endif // defined(MPICH)
 
 // The following are prvalues. So we need an address to point them to.
 // On Cori, this is 2^22 - 1, but it just needs to be greater than 2^15 - 1.
@@ -180,6 +184,7 @@ USER_DEFINED_WRAPPER(int, Comm_free, (MPI_Comm *) comm)
   // attribute, but since our structure here is a bit different, we check, for
   // each key value, if a communicator/attribute value pairing exists, and if
   // it does then we call the callback function.
+#if defined(MPICH)
   for (auto &tuplePair : tupleMap) {
     KeyvalTuple *tuple = &tuplePair.second;
     std::unordered_map<MPI_Comm, void*> *attributeMap = &tuple->_attributeMap;
@@ -193,6 +198,7 @@ USER_DEFINED_WRAPPER(int, Comm_free, (MPI_Comm *) comm)
       attributeMap->erase(*comm);
     }
   }
+#endif // defined(MPICH)
   DMTCP_PLUGIN_DISABLE_CKPT();
   int retval = MPI_Comm_free_internal(comm);
   if (retval == MPI_SUCCESS && mana_state != RESTART_REPLAY) {
@@ -209,6 +215,7 @@ USER_DEFINED_WRAPPER(int, Comm_free, (MPI_Comm *) comm)
   return retval;
 }
 
+#if defined(MPICH)
 USER_DEFINED_WRAPPER(int, Comm_get_attr, (MPI_Comm) comm,
                      (int) comm_keyval, (void *) attribute_val, (int *) flag)
 {
@@ -249,7 +256,9 @@ USER_DEFINED_WRAPPER(int, Comm_get_attr, (MPI_Comm) comm,
   }
   return retval;
 }
+#endif // defined(MPICH)
 
+#if defined(MPICH)
 USER_DEFINED_WRAPPER(int, Comm_set_attr, (MPI_Comm) comm,
                      (int) comm_keyval, (void *) attribute_val)
 {
@@ -276,7 +285,9 @@ USER_DEFINED_WRAPPER(int, Comm_set_attr, (MPI_Comm) comm,
   attributeMap->emplace(comm, attribute_val);
   return retval;
 }
+#endif // defined(MPICH)
 
+#if defined(MPICH)
 USER_DEFINED_WRAPPER(int, Comm_delete_attr, (MPI_Comm) comm, (int) comm_keyval)
 {
   int retval = MPI_SUCCESS;
@@ -300,6 +311,7 @@ USER_DEFINED_WRAPPER(int, Comm_delete_attr, (MPI_Comm) comm, (int) comm_keyval)
   }
   return retval;
 }
+#endif // defined(MPICH)
 
 USER_DEFINED_WRAPPER(int, Comm_set_errhandler,
                      (MPI_Comm) comm, (MPI_Errhandler) errhandler)
@@ -348,6 +360,7 @@ USER_DEFINED_WRAPPER(int, Comm_split_type, (MPI_Comm) comm, (int) split_type,
   return retval;
 }
 
+#if defined(MPICH)
 USER_DEFINED_WRAPPER(int, Attr_get, (MPI_Comm) comm, (int) keyval,
                      (void*) attribute_val, (int*) flag)
 {
@@ -363,7 +376,9 @@ USER_DEFINED_WRAPPER(int, Attr_get, (MPI_Comm) comm, (int) keyval,
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
+#endif // defined(MPICH)
 
+#if defined(MPICH)
 USER_DEFINED_WRAPPER(int, Attr_delete, (MPI_Comm) comm, (int) keyval)
 {
 
@@ -381,7 +396,9 @@ USER_DEFINED_WRAPPER(int, Attr_delete, (MPI_Comm) comm, (int) keyval)
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
+#endif // defined(MPICH)
 
+#if defined(MPICH)
 USER_DEFINED_WRAPPER(int, Attr_put, (MPI_Comm) comm,
                      (int) keyval, (void*) attribute_val)
 {
@@ -399,7 +416,9 @@ USER_DEFINED_WRAPPER(int, Attr_put, (MPI_Comm) comm,
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
+#endif // defined(MPICH)
 
+#if defined(MPICH)
 USER_DEFINED_WRAPPER(int, Comm_create_keyval,
                      (MPI_Comm_copy_attr_function *) comm_copy_attr_fn,
                      (MPI_Comm_delete_attr_function *) comm_delete_attr_fn,
@@ -431,7 +450,9 @@ USER_DEFINED_WRAPPER(int, Comm_create_keyval,
                    std::unordered_map<MPI_Comm, void*>()));
   return retval;
 }
+#endif // defined(MPICH)
 
+#if defined(MPICH)
 USER_DEFINED_WRAPPER(int, Comm_free_keyval, (int *) comm_keyval)
 {
   int retval = MPI_SUCCESS;
@@ -444,6 +465,7 @@ USER_DEFINED_WRAPPER(int, Comm_free_keyval, (int *) comm_keyval)
   }
   return retval;
 }
+#endif // defined(MPICH)
 
 int
 MPI_Comm_create_group_internal(MPI_Comm comm, MPI_Group group, int tag,
@@ -483,15 +505,18 @@ PMPI_IMPL(int, MPI_Comm_create, MPI_Comm comm, MPI_Group group,
           MPI_Comm *newcomm)
 PMPI_IMPL(int, MPI_Comm_compare, MPI_Comm comm1, MPI_Comm comm2, int *result)
 PMPI_IMPL(int, MPI_Comm_free, MPI_Comm *comm)
+#if defined(MPICH)
 PMPI_IMPL(int, MPI_Comm_get_attr, MPI_Comm comm, int comm_keyval,
           void *attribute_val, int *flag)
 PMPI_IMPL(int, MPI_Comm_set_attr, MPI_Comm comm, int comm_keyval,
           void *attribute_val)
+#endif // defined(MPICH)
 PMPI_IMPL(int, MPI_Comm_set_errhandler, MPI_Comm comm,
           MPI_Errhandler errhandler)
 PMPI_IMPL(int, MPI_Topo_test, MPI_Comm comm, int* status)
 PMPI_IMPL(int, MPI_Comm_split_type, MPI_Comm comm, int split_type, int key,
           MPI_Info info, MPI_Comm *newcomm)
+#if defined(MPICH)
 PMPI_IMPL(int, MPI_Attr_get, MPI_Comm comm, int keyval,
           void *attribute_val, int *flag)
 PMPI_IMPL(int, MPI_Attr_delete, MPI_Comm comm, int keyval)
@@ -501,5 +526,6 @@ PMPI_IMPL(int, MPI_Comm_create_keyval,
           MPI_Comm_delete_attr_function * comm_delete_attr_fn,
           int *comm_keyval, void *extra_state)
 PMPI_IMPL(int, MPI_Comm_free_keyval, int *comm_keyval)
+#endif // defined(MPICH)
 PMPI_IMPL(int, MPI_Comm_create_group, MPI_Comm comm, MPI_Group group,
           int tag, MPI_Comm *newcomm)
