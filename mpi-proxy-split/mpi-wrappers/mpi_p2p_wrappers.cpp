@@ -32,7 +32,10 @@
 #include "mpi_nextfunc.h"
 #include "virtual-ids.h"
 // To support MANA_P2P_LOG and MANA_P2P_REPLAY:
+
+#if defined(MPICH)
 #include "p2p-deterministic.h"
+#endif // defined(MPICH)
 
 extern int p2p_deterministic_skip_save_request;
 
@@ -57,9 +60,15 @@ USER_DEFINED_WRAPPER(int, Send,
   if (retval != MPI_SUCCESS) {
     return retval;
   }
+
+#if defined(MPICH)
   p2p_deterministic_skip_save_request = 1;
   retval = MPI_Wait(&req, &st);
   p2p_deterministic_skip_save_request = 0;
+#else
+  retval = MPI_Wait(&req, &st);
+#endif // defined(MPICH)
+
 #endif
   return retval;
 }
@@ -148,7 +157,9 @@ USER_DEFINED_WRAPPER(int, Recv,
   if (retval != MPI_SUCCESS) {
     return retval;
   }
+#if defined(MPICH)
   p2p_deterministic_skip_save_request = 0;
+#endif // defined(MPICH)
   retval = MPI_Wait(&req, status);
 #endif
   // updateLocalRecvs();
@@ -209,8 +220,8 @@ USER_DEFINED_WRAPPER(int, Irecv,
     DMTCP_PLUGIN_ENABLE_CKPT();
     return retval;
   }
-  LOG_PRE_Irecv(&status);
-  REPLAY_PRE_Irecv(count,datatype,source,tag,comm);
+  // LOG_PRE_Irecv(&status);
+  // REPLAY_PRE_Irecv(count,datatype,source,tag,comm);
 
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
   MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
@@ -227,7 +238,7 @@ USER_DEFINED_WRAPPER(int, Irecv,
     logRequestInfo(*request, IRECV_REQUEST);
 #endif
   }
-  LOG_POST_Irecv(source,tag,comm,&status,request,buf);
+  // LOG_POST_Irecv(source,tag,comm,&status,request,buf);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -321,9 +332,15 @@ USER_DEFINED_WRAPPER(int, Sendrecv_replace, (void *) buf, (int) count,
   memcpy(buf, tmpbuf, count * type_size);
 
   // Set status, free buffer, and return
+#ifdef EXAMPI
   if (status != MPI_STATUS_IGNORE && status != FORTRAN_MPI_STATUS_IGNORE) {
     *status = sts[0];
   }
+#else 
+  if (status != MPI_STATUS_IGNORE) {
+    *status = sts[0];
+  }
+#endif // defined(EXAMPI)
   free(tmpbuf);
 
   return retval;
