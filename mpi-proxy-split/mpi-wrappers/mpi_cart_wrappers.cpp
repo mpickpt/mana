@@ -62,6 +62,7 @@ USER_DEFINED_WRAPPER(int, Cart_get, (MPI_Comm) comm, (int) maxdims,
   return retval;
 }
 
+#if defined(MPICH)
 USER_DEFINED_WRAPPER(int, Cart_map, (MPI_Comm) comm, (int) ndims,
                      (const int*) dims, (const int*) periods, (int *) newrank)
 {
@@ -79,6 +80,7 @@ USER_DEFINED_WRAPPER(int, Cart_map, (MPI_Comm) comm, (int) ndims,
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
+#endif // defined(MPICH)
 
 USER_DEFINED_WRAPPER(int, Cart_rank, (MPI_Comm) comm,
                      (const int*) coords, (int *) rank)
@@ -120,8 +122,6 @@ USER_DEFINED_WRAPPER(int, Cart_sub, (MPI_Comm) comm,
   retval = NEXT_FUNC(Cart_sub)(realComm, remain_dims, new_comm);
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS && mana_state != RESTART_REPLAY) {
-    int ndims = 0;
-    MPI_Cartdim_get(comm, &ndims);
     MPI_Comm virtComm = ADD_NEW_COMM(*new_comm);
     grant_ggid(virtComm);
     *new_comm = virtComm;
@@ -132,6 +132,7 @@ USER_DEFINED_WRAPPER(int, Cart_sub, (MPI_Comm) comm,
   return retval;
 }
 
+#if defined(MPICH)
 USER_DEFINED_WRAPPER(int, Cartdim_get, (MPI_Comm) comm, (int *) ndims)
 {
   int retval;
@@ -154,6 +155,7 @@ USER_DEFINED_WRAPPER(int, Dims_create, (int)nnodes, (int)ndims, (int *)dims)
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
+#endif // defined(MPICH)
 
 #ifdef SINGLE_CART_REORDER
 // This variable holds the cartesian properties and is only used at the time of
@@ -263,13 +265,15 @@ PMPI_IMPL(int, MPI_Cart_create, MPI_Comm old_comm, int ndims,
           MPI_Comm *comm_cart)
 PMPI_IMPL(int, MPI_Cart_get, MPI_Comm comm, int maxdims,
           int dims[], int periods[], int coords[])
-PMPI_IMPL(int, MPI_Cart_map, MPI_Comm comm, int ndims,
-          const int dims[], const int periods[], int *newrank)
 PMPI_IMPL(int, MPI_Cart_rank, MPI_Comm comm, const int coords[], int *rank)
 PMPI_IMPL(int, MPI_Cart_shift, MPI_Comm comm, int direction,
           int disp, int *rank_source, int *rank_dest)
 PMPI_IMPL(int, MPI_Cart_sub, MPI_Comm comm,
           const int remain_dims[], MPI_Comm *new_comm)
+
+#if defined(MPICH)
 PMPI_IMPL(int, MPI_Cartdim_get, MPI_Comm comm, int *ndims)
 PMPI_IMPL(int, MPI_Dims_create, int nnodes, int ndims, int *dims)
-
+PMPI_IMPL(int, MPI_Cart_map, MPI_Comm comm, int ndims,
+          const int dims[], const int periods[], int *newrank)
+#endif // defined(MPICH)
