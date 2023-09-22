@@ -72,9 +72,6 @@ USER_DEFINED_WRAPPER(int, Type_commit, (MPI_Datatype *) type)
   RETURN_TO_UPPER_HALF();
   if (retval != MPI_SUCCESS) {
     realType = REMOVE_OLD_TYPE(*type);
-  } else {
-    if (mana_state != RESTART_REPLAY) {
-    }
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -97,6 +94,7 @@ USER_DEFINED_WRAPPER(int, Type_contiguous, (int) count, (MPI_Datatype) oldtype,
   return retval;
 }
 
+#if defined(MPICH)
 USER_DEFINED_WRAPPER(int, Type_hvector, (int) count, (int) blocklength,
                     (MPI_Aint) stride, (MPI_Datatype) oldtype,
                     (MPI_Datatype*) newtype)
@@ -116,14 +114,33 @@ USER_DEFINED_WRAPPER(int, Type_hvector, (int) count, (int) blocklength,
   return retval;
 }
 
-#ifndef OPEN_MPI
+
 USER_DEFINED_WRAPPER(int, Type_create_hvector, (int) count, (int) blocklength,
                     (MPI_Aint) stride, (MPI_Datatype) oldtype,
                     (MPI_Datatype*) newtype)
 {
   return MPI_Type_hvector(count, blocklength, stride, oldtype, newtype);
 }
-#endif
+#else // defined(MPICH)
+ USER_DEFINED_WRAPPER(int, Type_create_hvector, (int) count, (int) blocklength,
+                    (MPI_Aint) stride, (MPI_Datatype) oldtype,
+                    (MPI_Datatype*) newtype)
+{
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(oldtype);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  retval = NEXT_FUNC(Type_create_hvector)(count, blocklength,
+                                  stride, realType, newtype);
+  RETURN_TO_UPPER_HALF();
+  if (retval == MPI_SUCCESS && mana_state != RESTART_REPLAY) {
+    MPI_Datatype virtType = ADD_NEW_TYPE(*newtype);
+    *newtype = virtType;
+  }
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return retval;
+}
+#endif // defined(MPICH)
 
 USER_DEFINED_WRAPPER(int, Type_vector, (int) count, (int) blocklength,
                      (int) stride, (MPI_Datatype) oldtype,
@@ -144,7 +161,6 @@ USER_DEFINED_WRAPPER(int, Type_vector, (int) count, (int) blocklength,
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
-
 
 //       int MPI_Type_create_struct(int count,
 //                                const int array_of_blocklengths[],
@@ -180,7 +196,7 @@ USER_DEFINED_WRAPPER(int, Type_create_struct, (int) count,
   return retval;
 }
 
-#ifndef OPEN_MPI
+#if defined(MPICH)
 // Perlmutter cray_mpich both implement MPI 3.1. However, they use different
 // APIs. We use MPICH_NUMVERSION (3.4a2) to differentiate the cray-mpich on Cori
 // and Perlmuttter. This ad-hoc workaround should be removed once the cray-mpich
@@ -201,10 +217,10 @@ USER_DEFINED_WRAPPER(int, Type_struct, (int) count,
                                 array_of_displacements, array_of_types, newtype
                                 );
 }
-#endif // ifndef OPEN_MPI
+#endif // if defined(MPICH)
 
 
-#ifndef OPEN_MPI
+#if defined(MPICH)
 #if MPICH_NUMVERSION < MPICH_CALC_VERSION(3,4,0,0,2) && defined(CRAY_MPICH_VERSION)
 USER_DEFINED_WRAPPER(int, Type_hindexed, (int) count,
                      (const int*) array_of_blocklengths,
@@ -235,9 +251,9 @@ USER_DEFINED_WRAPPER(int, Type_hindexed, (int) count,
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
-#endif // ifndef OPEN_MPI
+#endif // if defined(MPICH)
 
-#ifndef OPEN_MPI
+#if defined(MPICH)
 USER_DEFINED_WRAPPER(int, Type_create_hindexed, (int) count,
                      (const int*) array_of_blocklengths,
                      (const MPI_Aint*) array_of_displacements,
@@ -258,9 +274,9 @@ USER_DEFINED_WRAPPER(int, Type_create_hindexed, (int) count,
   return ret;
 #endif
 }
+#endif // if defined(MPICH)
 
-#endif // ifndef OPEN_MPI
-
+#if defined(MPICH)
 USER_DEFINED_WRAPPER(int, Type_create_hindexed_block, (int) count,
                      (int) blocklength,
                      (const MPI_Aint*) array_of_displacements,
@@ -282,6 +298,7 @@ USER_DEFINED_WRAPPER(int, Type_create_hindexed_block, (int) count,
   return ret;
 #endif
 }
+#endif // defined(MPICH)
 
 USER_DEFINED_WRAPPER(int, Type_hindexed_block, (int) count,
                      (int) blocklength,
@@ -316,6 +333,7 @@ USER_DEFINED_WRAPPER(int, Type_indexed, (int) count,
   return retval;
 }
 
+#if defined(MPICH)
 USER_DEFINED_WRAPPER(int, Type_dup, (MPI_Datatype) oldtype,
                      (MPI_Datatype*) newtype)
 {
@@ -332,6 +350,7 @@ USER_DEFINED_WRAPPER(int, Type_dup, (MPI_Datatype) oldtype,
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
+#endif // defined(MPICH)
 
 USER_DEFINED_WRAPPER(int, Type_create_resized, (MPI_Datatype) oldtype,
                      (MPI_Aint) lb, (MPI_Aint) extent, (MPI_Datatype*) newtype)
@@ -401,19 +420,19 @@ PMPI_IMPL(int, MPI_Type_commit, MPI_Datatype *type)
 PMPI_IMPL(int, MPI_Type_contiguous, int count, MPI_Datatype oldtype,
           MPI_Datatype *newtype)
 PMPI_IMPL(int, MPI_Type_free, MPI_Datatype *type)
+#if defined(MPICH)
 PMPI_IMPL(int, MPI_Type_vector, int count, int blocklength,
           int stride, MPI_Datatype oldtype, MPI_Datatype *newtype)
-#ifndef OPEN_MPI
 PMPI_IMPL(int, MPI_Type_hvector, int count, int blocklength,
           MPI_Aint stride, MPI_Datatype oldtype, MPI_Datatype *newtype)
-#endif
+#endif // defined(MPICH)
 PMPI_IMPL(int, MPI_Type_create_hvector, int count, int blocklength,
           MPI_Aint stride, MPI_Datatype oldtype, MPI_Datatype *newtype)
 PMPI_IMPL(int, MPI_Type_create_struct, int count, const int array_of_blocklengths[],
           const MPI_Aint array_of_displacements[], const MPI_Datatype array_of_types[],
           MPI_Datatype *newtype)
 
-#ifndef OPEN_MPI
+#if defined(MPICH)
 #if MPICH_NUMVERSION < MPICH_CALC_VERSION(3,4,0,0,2) && defined(CRAY_MPICH_VERSION)
 PMPI_IMPL(int, MPI_Type_struct, int count, const int array_of_blocklengths[],
           const MPI_Aint array_of_displacements[], const MPI_Datatype array_of_types[],
@@ -429,7 +448,7 @@ PMPI_IMPL(int, MPI_Type_hindexed, int count, int array_of_blocklengths[],
           MPI_Aint array_of_displacements[], MPI_Datatype oldtype,
           MPI_Datatype *newtype);
 #endif
-#endif // endif OPEN_MPI
+#endif // endif defined(MPICH)
 
 PMPI_IMPL(int, MPI_Type_size_x, MPI_Datatype type, MPI_Count *size)
 PMPI_IMPL(int, MPI_Type_indexed, int count, const int array_of_blocklengths[],
@@ -443,7 +462,9 @@ PMPI_IMPL(int, MPI_Pack, const void *inbuf, int incount, MPI_Datatype datatype,
           void *outbuf, int outsize, int *position, MPI_Comm comm)
 PMPI_IMPL(int, MPI_Type_create_resized, MPI_Datatype oldtype, MPI_Aint lb,
           MPI_Aint extent, MPI_Datatype *newtype);
+#if defined(MPICH)
 PMPI_IMPL(int, MPI_Type_dup, MPI_Datatype type, MPI_Datatype *newtype);
+#endif
 
 PMPI_IMPL(int, MPI_Type_create_hindexed, int count,
           const int array_of_blocklengths[],
