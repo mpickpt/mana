@@ -75,6 +75,7 @@ USER_DEFINED_WRAPPER(int, Op_free, (MPI_Op*) op)
   return retval;
 }
 
+#if defined(MPICH)
 USER_DEFINED_WRAPPER(int, Reduce_local,
                      (const void *) inbuf, (void *) inoutbuf, (int) count,
                      (MPI_Datatype) datatype, (MPI_Op) op)
@@ -90,10 +91,14 @@ USER_DEFINED_WRAPPER(int, Reduce_local,
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
+#endif // defined(MPICH)
+
 
 
 PMPI_IMPL(int, MPI_Op_create, MPI_User_function *user_fn,
           int commute, MPI_Op *op)
 PMPI_IMPL(int, MPI_Op_free, MPI_Op *op)
+#if defined(MPICH)
 PMPI_IMPL(int, MPI_Reduce_local, const void *inbuf, void *inoutbuf, int count,
           MPI_Datatype datatype, MPI_Op op)
+#endif // defined(MPICH)
