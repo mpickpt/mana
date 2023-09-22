@@ -71,7 +71,9 @@ extern CartesianProperties g_cartesian_properties;
 #endif
 
 extern ManaHeader g_mana_header;
+#if defined(MPICH)
 extern std::unordered_map<MPI_File, OpenFileParameters> g_params_map;
+#endif // defined(MPICH)
 
 constexpr const char *MANA_FILE_REGEX_ENV = "MANA_FILE_REGEX";
 constexpr const char *MANA_SEGV_DEBUG_LOOP = "MANA_SEGV_DEBUG_LOOP";
@@ -880,6 +882,7 @@ save_mana_header(const char *filename)
   close(fd);
 }
 
+#if defined(MPICH)
 const char *
 get_mpi_file_filename()
 {
@@ -985,6 +988,7 @@ restore_mpi_files(const char *filename)
   }
 
 }
+#endif // defined(MPICH)
 
 #ifdef SINGLE_CART_REORDER
 const char *
@@ -1183,8 +1187,10 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       dmtcp_local_barrier("MPI:p2p_log_replay.cpp-void");
       seq_num_reset(RESTART);
       dmtcp_local_barrier("MPI:seq_num_reset");
+#if defined(MPICH)
       const char *file = get_mpi_file_filename();
       restore_mpi_files(file);
+#endif // defined(MPICH)
       dmtcp_local_barrier("MPI:Restore-MPI-Files");
       mana_state = RUNNING;
       break;
