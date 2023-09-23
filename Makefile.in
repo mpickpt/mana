@@ -49,6 +49,7 @@ all: default
 
 mana: mana_prereqs dmtcp
 	cd mpi-proxy-split && $(MAKE) install && $(MAKE) -j tests
+	cd restart_plugin && $(MAKE)
 
 dmtcp: restart_plugin/lower_half_api.h
 	cd ${DMTCP_ROOT} && $(MAKE)
@@ -70,16 +71,19 @@ create-dirs:
 install: all create-dirs
 	cd ${DMTCP_ROOT} && make DESTDIR=$(DESTDIR) $(INSTALL_FLAGS)
 	cd mpi-proxy-split && make DESTDIR=$(DESTDIR) $(INSTALL_FLAGS)
+	cd restart_plugin && make DESTDIR=$(DESTDIR) $(INSTALL_FLAGS)
 	cd manpages && make DESTDIR=$(DESTDIR) $(INSTALL_FLAGS)
 
 uninstall:
 	cd ${DMTCP_ROOT} && make DESTDIR=$(DESTDIR) $(UNINSTALL_FLAGS)
 	cd mpi-proxy-split && make DESTDIR=$(DESTDIR) $(UNINSTALL_FLAGS)
+	cd restart_plugin && make DESTDIR=$(DESTDIR) $(UNINSTALL_FLAGS)
 	cd manpages && make DESTDIR=$(DESTDIR) $(UNINSTALL_FLAGS)
 
 distclean: clean
 	- cd ${DMTCP_ROOT} && $(MAKE) distclean
 	- cd mpi-proxy-split && $(MAKE) distclean
+	- cd restart_plugin && $(MAKE) distclean
 	- cd manpages && $(MAKE) distclean
 	rm -f Makefile config.log config.status config.status-* config.cache
 	rm -rf autom4te.cache
@@ -94,6 +98,7 @@ tidy:
 clean: tidy
 	- cd ${DMTCP_ROOT} && $(MAKE) clean
 	- cd mpi-proxy-split && $(MAKE) clean
+	- cd restart_plugin && $(MAKE) clean
 
 mana_prereqs:
 	@ if test -n "$$HUGETLB_DEFAULT_PAGE_SIZE"; then \

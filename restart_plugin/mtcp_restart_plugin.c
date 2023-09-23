@@ -9,6 +9,7 @@
 #include <sys/auxv.h>
 #include <linux/limits.h>
 #include "mtcp_restart.h"
+#include "mtcp_header.h"
 #include "mtcp_sys.h"
 #include "mtcp_util.h"
 #include "../mpi-proxy-split/mana_header.h"
@@ -45,6 +46,45 @@
 
 # define GB (uint64_t)(1024 * 1024 * 1024)
 #define ROUNDADDRUP(addr, size) ((addr + size - 1) & ~(size - 1))
+
+static void main_new_stack(RestoreInfo *rinfo);
+static void populate_plugin_info(RestoreInfo *rinfo, PluginInfo *pluginInfo);
+static void mtcp_plugin_hook(RestoreInfo *rinfo, PluginInfo *pluginInfo);
+
+NO_OPTIMIZE
+int
+main(int argc, char *argv[], char **environ)
+{
+  int mtcp_sys_errno;
+
+  mtcp_restart_process_args(argc, argv, environ, &main_new_stack);
+
+  MTCP_ASSERT(0);
+}
+
+void main_new_stack(RestoreInfo *rinfo)
+{
+  int mtcp_sys_errno;
+  PluginInfo pluginInfo;
+  MtcpHeader mtcpHdr;
+
+  MTCP_ASSERT(rinfo->fd == -1);
+
+  populate_plugin_info(rinfo, &pluginInfo);
+
+  mtcp_plugin_hook(rinfo, &pluginInfo);
+
+  MTCP_ASSERT(rinfo->fd == -1);
+  MTCP_ASSERT(rinfo->ckptImage[0] != '\0');
+
+  rinfo->fd = mtcp_open_ckpt_image_and_read_header(rinfo, &mtcpHdr);
+  if (rinfo->fd == -1) {
+    MTCP_PRINTF("***ERROR: ckpt image not found.\n");
+    mtcp_abort();
+  }
+
+  mtcp_restart(rinfo, &mtcpHdr);
+}
 
 NO_OPTIMIZE
 char*
@@ -126,6 +166,7 @@ releaseUpperHalfMemoryRegionsForCkptImgs(char *start1, char *end1,
 }
 
 int reserve_fds_upper_half(int *reserved_fds) {
+  int mtcp_sys_errno;
   int total_reserved_fds = 0;
   int tmp_fd = 0;
     while (tmp_fd < 500) {
@@ -137,9 +178,10 @@ int reserve_fds_upper_half(int *reserved_fds) {
 }
 
 void unreserve_fds_upper_half(int *reserved_fds, int total_reserved_fds) {
-    while (--total_reserved_fds >= 0) {
-      MTCP_ASSERT((mtcp_sys_close(reserved_fds[total_reserved_fds])) != -1);
-    }
+  int mtcp_sys_errno;
+  while (--total_reserved_fds >= 0) {
+    MTCP_ASSERT((mtcp_sys_close(reserved_fds[total_reserved_fds])) != -1);
+  }
 }
 
 int itoa2(int value, char* result, int base) {
@@ -196,18 +238,20 @@ int my_memcmp(const void *buffer1, const void *buffer2, size_t len) {
 }
 
 // FIXME: Many style rules broken.  Code never reviewed by skilled programmer.
-int getCkptImageByDir(RestoreInfo *rinfo, char *buffer, size_t buflen, int rank) {
-  if(!rinfo->pluginInfo.restartDir) {
+int getCkptImageByDir(PluginInfo *pluginInfo, char *buffer, size_t buflen, int rank) {
+  int mtcp_sys_errno;
+  int total_reserved_fds = 0;
+  if(!pluginInfo->restartDir) {
     MTCP_PRINTF("***ERROR No restart directory found - cannot find checkpoint image by directory!");
     return -1;
   }
 
-  size_t len = mtcp_strlen(rinfo->pluginInfo.restartDir);
+  size_t len = mtcp_strlen(pluginInfo->restartDir);
   if(len >= buflen){
     MTCP_PRINTF("***ERROR Restart directory would overflow given buffer!");
     return -1;
   }
-  mtcp_strcpy(buffer, rinfo->pluginInfo.restartDir); // start with directory
+  mtcp_strcpy(buffer, pluginInfo->restartDir); // start with directory
 
   // ensure directory ends with /
   if(buffer[len - 1] != '/') {
@@ -297,108 +341,10 @@ int getCkptImageByDir(RestoreInfo *rinfo, char *buffer, size_t buflen, int rank)
   return len;
 }
 
-// This function searches for a free memory region to temporarily remap the vdso
-// and vvar regions to, so that mtcp's vdso and vvar do not overlap with the
-// checkpointed process' vdso and vvar.
-static void
-remap_vdso_and_vvar_regions(RestoreInfo *rinfo) {
-  void *rc = NULL;
-  uint64_t vvarStart = (uint64_t) rinfo->currentVvarStart;
-  uint64_t vvarSize = rinfo->currentVvarEnd - rinfo->currentVvarStart;
-  uint64_t vdsoStart = (uint64_t) rinfo->currentVdsoStart;
-  uint64_t vdsoSize = rinfo->currentVdsoEnd - rinfo->currentVdsoStart;
-
-  // Find an empty region in which to temporarily move the current vvar/vdso
-  // CentOS-7 (kernel 3.10) has "vdso", but no "vvar".  So, test for vvar.
-  Area new_vvar_area;
-  // vvarExists and 'rinfo->currentVvarStart != NULL' are same.  Just verifying.
-  int vvarExists = getMappedArea(&new_vvar_area, "[vvar]") == 1;
-  if (vvarExists) {
-    MTCP_ASSERT(rinfo->currentVvarStart == new_vvar_area.addr);
-  } else {
-    MTCP_ASSERT(rinfo->currentVvarStart == NULL && vvarSize == 0);
-  }
-
-  int mapsfd = mtcp_sys_open2("/proc/self/maps", O_RDONLY);
-  if (mapsfd < 0) {
-    MTCP_PRINTF("error opening /proc/self/maps; errno: %d\n", mtcp_sys_errno);
-    mtcp_abort();
-  }
-  // Look for unmapped region far below the future upper-half region, where
-  // we can temporarily move the current vvar/vdso to.
-  uint64_t vvarStartTmp = 0;
-  uint64_t vdsoStartTmp = 0;
-  Area area;
-  uint64_t prev_end_addr = 0x10000;
-  while (mtcp_readmapsline(mapsfd, &area)) {
-    if (prev_end_addr + vvarSize + vdsoSize <= (uint64_t)area.addr) {
-      vvarStartTmp = prev_end_addr;
-      vdsoStartTmp = prev_end_addr + vvarSize;
-      break;
-    } else {
-      prev_end_addr = ROUNDADDRUP((uint64_t)area.endAddr, MTCP_PAGE_SIZE);
-    }
-  }
-  mtcp_sys_close(mapsfd);
-
-  // We have now found a vvarStartTmp/vdsoStartTmp where we can move our
-  // vvar/vdso to.  Move current vvar/vdso to a low address far from where
-  // the upper half will be restore to, starting at address vvarStartTmp.
-  // We will set the rinfo to pretend to dmtcp/src/mtcp/mtcp_restart.c
-  // that vvarStartTmp is the current vvar/vdso.  After restoring the
-  //  upper half, MTCP will then move it back to the pre-ckpt area
-  if (vvarStart > 0 && vvarSize > 0) {
-    if (vvarStartTmp == 0) {
-      MTCP_PRINTF("No free region found to temporarily map vvar to\n");
-      mtcp_abort();
-    }
-    rc = mtcp_sys_mremap(vvarStart, vvarSize, vvarSize,
-                         MREMAP_FIXED | MREMAP_MAYMOVE, vvarStartTmp);
-    if (rc == MAP_FAILED) {
-      MTCP_PRINTF("mtcp_restart failed: "
-                  "gdb --mpi \"DMTCP_ROOT/bin/mtcp_restart\" to debug.\n");
-      mtcp_abort();
-    }
-  }
-
-  if (vdsoStart > 0) {
-    if (vdsoStartTmp == 0) {
-      MTCP_PRINTF("No free region found to temporarily map vdso to\n");
-      mtcp_abort();
-    }
-    rc = mtcp_sys_mremap(vdsoStart, vdsoSize, vdsoSize,
-                         MREMAP_FIXED | MREMAP_MAYMOVE, vdsoStartTmp);
-    if (rc == MAP_FAILED) {
-      MTCP_PRINTF("mtcp_restart failed: "
-                  "gdb --mpi \"DMTCP_ROOT/bin/mtcp_restart\" to debug.\n");
-      mtcp_abort();
-    }
-  }
-
-  rinfo->currentVvarStart = (VA) vvarStartTmp;
-  rinfo->currentVvarEnd = (VA) vvarStartTmp + vvarSize;
-  rinfo->currentVdsoStart = (VA) vdsoStartTmp;
-  rinfo->currentVdsoEnd = (VA) vdsoStartTmp + vdsoSize;
-}
-
-NO_OPTIMIZE
-static int
-mysetauxval(char **evp, unsigned long int type, unsigned long int val)
-{ while (*evp++ != NULL) {};
-  Elf64_auxv_t *auxv = (Elf64_auxv_t *)evp;
-  Elf64_auxv_t *p;
-  for (p = auxv; p->a_type != AT_NULL; p++) {
-    if (p->a_type == type) {
-       p->a_un.a_val = val;
-       return 0;
-    }
-  }
-  return -1;
-}
-
 int
 load_mana_header (char *filename, ManaHeader *mh)
 {
+  int mtcp_sys_errno;
   int fd = mtcp_sys_open2(filename, O_RDONLY);
   if (fd == -1) {
     return -1;
@@ -443,34 +389,29 @@ bool is_overlap(char *start1, char *end1, char *start2, char *end2) {
   return end1 >= start2 || end2 >= start1;
 }
 
-void populate_plugin_info(RestoreInfo *rinfo)
+static void populate_plugin_info(RestoreInfo *rinfo, PluginInfo *pluginInfo)
 {
-  // FIXME:  Eventually, mpi-proxy-split/mpi_plugin.cpp should
-  //         directly write to rinfo->pluginInfo, and we won't
-  //         need to do this extra copy, here.
-  // Copy the upper-half info to rinfo->pluginInfo
-
   const char *minLibsStartStr = mtcp_getenv("MANA_MinLibsStart", rinfo->environ);
   if (minLibsStartStr != NULL) {
-    rinfo->pluginInfo.minLibsStart = (char*) mtcp_strtoll(minLibsStartStr);
+    pluginInfo->minLibsStart = (char*) mtcp_strtoll(minLibsStartStr);
   }
 
   const char *maxLibsEndStr = mtcp_getenv("MANA_MaxLibsEnd", rinfo->environ);
   if (maxLibsEndStr != NULL) {
-    rinfo->pluginInfo.maxLibsEnd = (char*) mtcp_strtoll(maxLibsEndStr);
+    pluginInfo->maxLibsEnd = (char*) mtcp_strtoll(maxLibsEndStr);
   }
 
   const char *minHighMemStartStr = mtcp_getenv("MANA_MinHighMemStart", rinfo->environ);
   if (minHighMemStartStr != NULL) {
-    rinfo->pluginInfo.minHighMemStart = (char*) mtcp_strtoll(minHighMemStartStr);
+    pluginInfo->minHighMemStart = (char*) mtcp_strtoll(minHighMemStartStr);
   }
 
   const char *maxHighMemEndStr = mtcp_getenv("MANA_MaxHighMemEnd", rinfo->environ);
   if (maxHighMemEndStr != NULL) {
-    rinfo->pluginInfo.maxHighMemEnd = (char*) mtcp_strtoll(maxHighMemEndStr);
+    pluginInfo->maxHighMemEnd = (char*) mtcp_strtoll(maxHighMemEndStr);
   }
 
-  rinfo->pluginInfo.restartDir = mtcp_getenv("MANA_RestartDir", rinfo->environ);
+  pluginInfo->restartDir = mtcp_getenv("MANA_RestartDir", rinfo->environ);
 }
 
 #ifdef SINGLE_CART_REORDER
@@ -546,15 +487,9 @@ get_rank_corresponding_to_coordinates(int comm_old_size, int ndims, int *coords)
 }
 
 // This is part of '#ifdef SINGLE_CART_REORDER'
-void
-mtcp_plugin_hook(RestoreInfo *rinfo)
+static void
+mtcp_plugin_hook(RestoreInfo *rinfo, PluginInfo *pluginInfo)
 {
-  populate_plugin_info(rinfo);
-
-  remap_vdso_and_vvar_regions(rinfo);
-  mysetauxval(rinfo->environ, AT_SYSINFO_EHDR,
-              (unsigned long int) rinfo->currentVdsoStart);
-
   // NOTE: We use mtcp_restart's original stack to initialize the lower
   // half. We need to do this in order to call MPI_Init() in the lower half,
   // which is required to figure out our rank, and hence, figure out which
@@ -586,7 +521,7 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
   // mtcp:restorememoryareas(), when we are munmap'ing the old mtcp_restart
   // data segment.  The rinfo struct will be copied onto the stack
   // when calling mtcp:restorememoryareas().
-  rinfo->pluginInfo.lh_info_addr = lh_info_addr;
+  pluginInfo->lh_info_addr = lh_info_addr;
 
   // Reserve first 500 file descriptors for the Upper-half
   int reserved_fds[500];
@@ -603,18 +538,18 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
    */
   {
     // minLibsStart was chosen with extra space below, for future libs, mmap.
-    start1 = rinfo->pluginInfo.minLibsStart;    // first lib of upper half
+    start1 = pluginInfo->minLibsStart;    // first lib of upper half
     // Either lh_info_addr->memRange is a region between 1 GB and 2 GB below
     //   the end of stack in the lower half; or else it is at an unusual
     //   address for which we hope there is no address conflict.
     //   The latter holds if USE_LH_FIXED_ADDRESS was defined in
     //   mtcp_split_process.c, in both restart_plugin and mpi-proxy-split dirs.
-    end1 = rinfo->pluginInfo.maxLibsEnd;
+    end1 = pluginInfo->maxLibsEnd;
 
     // Reserve 8MB above min high memory region. That should include space for
     // stack, argv, env, auxvec.
-    start2 = rinfo->pluginInfo.minHighMemStart - 1 * GB; // Allow for stack to grow
-    end2 = rinfo->pluginInfo.minHighMemStart + 8 * MB;
+    start2 = pluginInfo->minHighMemStart - 1 * GB; // Allow for stack to grow
+    end2 = pluginInfo->minHighMemStart + 8 * MB;
     // Ignore region start2:end2 if it is overlapped with region start1:end1
     if (is_overlap(start1, end1, start2, end2)) {
       if (end1 < end2) { end1 = end2; }
@@ -726,7 +661,7 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
   char *filename = "./ckpt_rank_0/cartesian.info";
 
   char full_filename[PATH_MAX];
-  set_header_filepath(full_filename, rinfo->pluginInfo.restartDir);
+  set_header_filepath(full_filename, pluginInfo->restartDir);
   ManaHeader m_header;
   MTCP_ASSERT(load_mana_header(full_filename, &m_header) == 0);
 
@@ -771,7 +706,7 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
   releaseUpperHalfMemoryRegionsForCkptImgs(start1, end1, start2, end2);
   unreserve_fds_upper_half(reserved_fds, total_reserved_fds);
   MTCP_ASSERT(ckpt_image_rank_to_be_restored != -1);
-  if (getCkptImageByDir(rinfo, rinfo->ckptImage, 512,
+  if (getCkptImageByDir(pluginInfo, rinfo->ckptImage, 512,
                         ckpt_image_rank_to_be_restored) == -1) {
     mtcp_strncpy(
       rinfo->ckptImage,
@@ -786,15 +721,9 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
 #else
 
   // This is the 'else' branch of '#ifdef SINGLE_CART_REORDER'
-void
-mtcp_plugin_hook(RestoreInfo *rinfo)
+static void
+mtcp_plugin_hook(RestoreInfo *rinfo, PluginInfo *pluginInfo)
 {
-  populate_plugin_info(rinfo);
-
-  remap_vdso_and_vvar_regions(rinfo);
-  mysetauxval(rinfo->environ, AT_SYSINFO_EHDR,
-              (unsigned long int) rinfo->currentVdsoStart);
-
   // NOTE: We use mtcp_restart's original stack to initialize the lower
   // half. We need to do this in order to call MPI_Init() in the lower half,
   // which is required to figure out our rank, and hence, figure out which
@@ -804,14 +733,14 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
 
   // This creates the lower half and copies the bits, and sets lh_info_addr
   //   to point into the lh_info struct of the lower half:
-  splitProcess(rinfo);
+  splitProcess(rinfo, pluginInfo);
 
   // We need to copy lh_info_addr to a safe place inside rinfo,
   // since mtcp_plugin_skip_memory_region_munmap() is called from
   // mtcp:restorememoryareas(), when we are munmap'ing the old mtcp_restart
   // data segment.  The rinfo struct will be copied onto the stack
   // when calling mtcp:restorememoryareas().
-  rinfo->pluginInfo.lh_info_addr = lh_info_addr;
+  pluginInfo->lh_info_addr = lh_info_addr;
 
   // Reserve first 500 file descriptors for the Upper-half
   int reserved_fds[500];
@@ -828,18 +757,18 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
    */
   {
     // minLibsStart was chosen with extra space below, for future libs, mmap.
-    start1 = rinfo->pluginInfo.minLibsStart;    // first lib of upper half
+    start1 = pluginInfo->minLibsStart;    // first lib of upper half
     // Either lh_info_addr->memRange is a region between 1 GB and 2 GB below
     //   the end of stack in the lower half; or else it is at an unusual
     //   address for which we hope there is no address conflict.
     //   The latter holds if USE_LH_FIXED_ADDRESS was defined in
     //   mtcp_split_process.c, in both restart_plugin and mpi-proxy-split dirs.
-    end1 = rinfo->pluginInfo.maxLibsEnd;
+    end1 = pluginInfo->maxLibsEnd;
 
     // Reserve 8MB above min high memory region. That should include space for
     // stack, argv, env, auxvec.
-    start2 = rinfo->pluginInfo.minHighMemStart - 1 * GB; // Allow for stack to grow
-    end2 = rinfo->pluginInfo.minHighMemStart + 8 * MB;
+    start2 = pluginInfo->minHighMemStart - 1 * GB; // Allow for stack to grow
+    end2 = pluginInfo->minHighMemStart + 8 * MB;
     // Ignore region start2:end2 if it is overlapped with region start1:end1
     if (is_overlap(start1, end1, start2, end2)) {
       if (end1 < end2) { end1 = end2; }
@@ -945,7 +874,7 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
 # endif
 
   char full_filename[PATH_MAX];
-  set_header_filepath(full_filename, rinfo->pluginInfo.restartDir);
+  set_header_filepath(full_filename, pluginInfo->restartDir);
   ManaHeader m_header;
   MTCP_ASSERT(load_mana_header(full_filename, &m_header) == 0);
 
@@ -960,10 +889,9 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
   releaseUpperHalfMemoryRegionsForCkptImgs(start1, end1, start2, end2);
   unreserve_fds_upper_half(reserved_fds,total_reserved_fds);
 
-  if (getCkptImageByDir(rinfo, rinfo->ckptImage, 512, rank) == -1) {
-      mtcp_strncpy(rinfo->ckptImage,
-      getCkptImageByRank(rank, rinfo->environ),
-      PATH_MAX);
+  if (getCkptImageByDir(pluginInfo, rinfo->ckptImage, 512, rank) == -1) {
+      char *path = getCkptImageByRank(rank, rinfo->environ);
+      mtcp_strncpy(rinfo->ckptImage, path, PATH_MAX);
   }
 
   MTCP_PRINTF("[Rank: %d] Choosing ckpt image: %s\n", rank, rinfo->ckptImage);
@@ -973,11 +901,12 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
 // This is the '#endif' for '#else' of '#ifdef SINGLE_CART_REORDER'
 #endif
 
+#if 0
 int
-mtcp_plugin_skip_memory_region_munmap(Area *area, RestoreInfo *rinfo)
+mtcp_plugin_skip_memory_region_munmap(Area *area, RestoreInfo *rinfo, PluginInfo *pluginInfo)
 {
   // lh_proxy lower half is not being unmapped.  lh_info_addr points there.
-  LowerHalfInfo_t *lh_info_addr = rinfo->pluginInfo.lh_info_addr;
+  LowerHalfInfo_t *lh_info_addr = pluginInfo->lh_info_addr;
 
   LhCoreRegions_t *lh_regions_list = NULL;
   int total_lh_regions = lh_info_addr->numCoreRegions;
@@ -1083,3 +1012,4 @@ mtcp_plugin_skip_memory_region_munmap(Area *area, RestoreInfo *rinfo)
 
   return 0;
 }
+#endif

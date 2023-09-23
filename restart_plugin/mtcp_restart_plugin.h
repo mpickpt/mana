@@ -39,10 +39,7 @@ typedef PluginInfo_t PluginInfo;
 
 typedef struct RestoreInfo RestoreInfo;
 union ProcMapsArea;
-void mtcp_plugin_hook(RestoreInfo *rinfo);
-int mtcp_plugin_skip_memory_region_munmap(ProcMapsArea *area,
-                                          RestoreInfo *rinfo);
-int getCkptImageByDir(RestoreInfo *rinfo,
+int getCkptImageByDir(PluginInfo_t *pluginInfo,
                       char *buffer,
                       size_t buflen,
                       int rank);
