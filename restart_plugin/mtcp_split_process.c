@@ -23,6 +23,7 @@
 #include "mtcp_util.h"
 #include "mtcp_header.h"
 #include "mtcp_split_process.h"
+#include "mtcp_restart_plugin.h"
 
 /******************************************************************
  * The top-level function is:
@@ -67,12 +68,12 @@ static unsigned long origPhdr;
 static void patchAuxv(ElfW(auxv_t) *, unsigned long , unsigned long , int );
 static int mmap_iov(const struct iovec *iov, int prot, char *argv0);
 static int read_lh_proxy_bits(RestoreInfo *rinfo, pid_t childpid, char *argv0);
-static pid_t startProxy(RestoreInfo *rinfo);
+static pid_t startProxy(RestoreInfo *rinfo, PluginInfo *pluginInfo);
 static int initializeLowerHalf(RestoreInfo *rinfo);
 static MemRange_t setLhMemRange(RestoreInfo *rinfo);
 
 int
-splitProcess(RestoreInfo *rinfo)
+splitProcess(RestoreInfo *rinfo, PluginInfo *pluginInfo)
 {
 #if 0
   compileProxy();
@@ -84,7 +85,7 @@ splitProcess(RestoreInfo *rinfo)
   //   gets copied into lh_info.memRange, inside lh_proxy (see lower-half dir.).
   // We then read from stdout of child process to populate lh_info with
   //   all fields from lh_info in the lower half.
-  pid_t childpid = startProxy(rinfo);
+  pid_t childpid = startProxy(rinfo, pluginInfo);
   // The global variable lh_info_addr has now been initialized.
   // But we can't use it until read_lh_proxy_bits() "copies the bits".
   int ret = -1;
@@ -95,7 +96,7 @@ splitProcess(RestoreInfo *rinfo)
     // We then kill the child process.
     ret = read_lh_proxy_bits(rinfo, childpid, rinfo->argv[0]);
     // FIXME:  We should use lh_info_addr, in place of rinfo->pluginInfo
-    rinfo->pluginInfo.lh_info_addr = lh_info_addr;
+    pluginInfo->lh_info_addr = lh_info_addr;
 
     mtcp_sys_kill(childpid, SIGKILL);
     mtcp_sys_wait4(childpid, NULL, 0, NULL);
@@ -202,7 +203,7 @@ read_lh_proxy_bits(RestoreInfo *rinfo, pid_t childpid, char *argv0)
 
 // Returns the PID of the proxy child process
 static pid_t
-startProxy(RestoreInfo *rinfo)
+startProxy(RestoreInfo *rinfo, PluginInfo *pluginInfo)
 {
   int pipefd_in[2] = {0};
   int pipefd_out[2] = {0};
@@ -243,7 +244,7 @@ startProxy(RestoreInfo *rinfo)
       char *last_component = mtcp_strrchr(args[0], '/');
       // Set the ckptImage to rank 0 temporarily; later, it will be replaced
       // with its respective image.
-      if (getCkptImageByDir(rinfo, rinfo->ckptImage, 512, 0) == -1) {
+      if (getCkptImageByDir(pluginInfo, rinfo->ckptImage, 512, 0) == -1) {
         mtcp_strncpy(rinfo->ckptImage, getCkptImageByRank(0, rinfo->argv),
                      PATH_MAX);
       }

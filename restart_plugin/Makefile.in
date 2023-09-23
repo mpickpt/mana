@@ -1,0 +1,157 @@
+CC = @CC@
+M32=@M32@
+CFLAGS = @CFLAGS@
+# Why do we define C preprocessor flags?  If we're not using them,
+#   then declaring them reduces the readability for a person.
+# - Gene
+CPPFLAGS = @CPPFLAGS@
+CXX = @CXX@
+CXXFLAGS = @CXXFLAGS@
+LDFLAGS = @LDFLAGS@
+ARM_HOST = @ARM_HOST@
+PACKAGE = @PACKAGE@
+FAST_RST_VIA_MMAP = @FAST_RST_VIA_MMAP@
+MANA_HELPER_DIR = @MANA_HELPER_DIR@
+
+# Allow the user to specify the install program.
+INSTALL = @INSTALL@
+INSTALL_PROGRAM = @INSTALL_PROGRAM@
+INSTALL_DATA = @INSTALL_DATA@
+INSTALL_SCRIPT = @INSTALL_SCRIPT@
+
+prefix = @prefix@
+exec_prefix = @exec_prefix@
+bindir = @bindir@
+#libdir = @libdir@
+#pkglibdir = $(libdir)/@PACKAGE@
+
+top_builddir = @top_builddir@
+top_srcdir = @top_srcdir@
+srcdir = @srcdir@
+
+# Modify if your MANA_ROOT is located elsewhere.
+ifndef MANA_ROOT
+  MANA_ROOT=..
+endif
+
+# Modify if your DMTCP_ROOT is located elsewhere.
+ifndef DMTCP_ROOT
+  DMTCP_ROOT=${MANA_ROOT}/dmtcp
+endif
+
+DMTCP_INCLUDE=${DMTCP_ROOT}/include
+JALIB_INCLUDE=${DMTCP_ROOT}/jalib
+
+targetdir = $(MANA_ROOT)
+
+# VPATH specifies a list of directories that make should search for finding the
+# prerequisite files that are not in the current directory.  This is needed if
+# the build process is initiated in a separate build directory, in which case,
+# VPATH is set to the corresponding srcdir.
+#
+# VPATH is not required for the regular "./configure; make" in the source
+# directory.
+VPATH = @srcdir@
+
+MTCP_RESTART_MANA=mtcp_restart_mana
+DMTCP_RESTART_MANA=dmtcp_restart_mana
+
+# We currently use two files, procmapsarea.h and protectedfds.h, from the
+# top-level include dir.
+DMTCP_PATH = $(top_srcdir)/dmtcp
+MTCP_PATH = $(top_srcdir)/dmtcp/src/mtcp
+
+INCLUDES = -I$(DMTCP_PATH)/include \
+           -I$(DMTCP_PATH)/jalib \
+           -I$(DMTCP_PATH)/src \
+           -I$(MTCP_PATH) \
+           -I$(MTCP_PATH)/sysdeps \
+           -I$(srcdir)
+
+CFLAGS += ${INCLUDES} ${CPPFLAGS} -DDMTCP -fPIC -g -std=gnu99
+CXXFLAGS += ${INCLUDES} ${CPPFLAGS} -DDMTCP -fPIC -g
+
+HEADERS = $(MTCP_PATH)/mtcp_header.h $(MTCP_PATH)/mtcp_restart.h $(MTCP_PATH)/mtcp_sys.h $(MTCP_PATH)/mtcp_util.h \
+	  $(DMTCP_PATH)/include/procmapsarea.h
+
+HEADERS += mtcp_split_process.h ucontext_i.h
+
+MTCP_DEPS = $(MTCP_PATH)/libmtcprestart.a
+DMTCP_DEPS = $(DMTCP_PATH)/src/libdmtcprestart.a \
+             $(DMTCP_PATH)/src/libdmtcpinternal.a \
+             $(DMTCP_PATH)/src/libnohijack.a \
+             $(DMTCP_PATH)/src/libjalib.a
+
+OBJS = mtcp_restart_plugin.o mtcp_split_process.o getcontext.o
+
+all: default
+default: $(targetdir)/bin/$(MTCP_RESTART_MANA) $(targetdir)/bin/$(DMTCP_RESTART_MANA)
+
+$(MTCP_DEPS): libmtcprestart
+$(DMTCP_DEPS): libdmtcprestart
+
+libmtcprestart:
+	cd ../dmtcp/src/mtcp; $(MAKE) libmtcprestart.a
+
+libdmtcprestart:
+	cd ../dmtcp/src; $(MAKE) libdmtcprestart.a
+
+# TODO(kapil): Check if -Ttext-segment value is appropriate for x86.
+# The other sections (bss, rodata, etc.) will follow immediately after text.
+# A 2MB hugepage is 0x200000.  Addresses must be a multiple of 0x200000.
+LINKER_FLAGS= -Wl,-Ttext-segment=11200000 #-Wl,-Trodata-segment=445000000
+
+$(targetdir)/bin/$(MTCP_RESTART_MANA): $(OBJS) $(MTCP_DEPS)
+	$(CC) $(LDFLAGS) -fPIC -nodefaultlibs -static ${LINKER_FLAGS} -o $@ $^
+
+$(targetdir)/bin/$(DMTCP_RESTART_MANA): dmtcp_restart_plugin.o $(DMTCP_DEPS)
+	$(CXX) $(LDFLAGS) -o $@ $^ -lpthread -lrt -ldl
+
+# We need to compile mtcp_restart.c with "-fno-stack-protector" to avoid
+# runtime stack smashing detection.
+# We also need to build mtcp_restart without optimization (-O0), otherwise it
+# may fail to restart. Since these three objects are fairly low level, we avoid
+# any surprises by compiling them without any optimization.
+# FIXME:  Wasn't this an issue only for DMTCP-2.1 or earlier?
+#    The -fno-stack-protector concerned returning from the interrupt handler.
+#    That now happens in a different function.
+# IMPORTANT:  Compile with -O2 or higher.  On some 32-bit CPUs
+#   (e.g. ARM/gcc-4.8), the inlining of -O2 avoids bugs when fnc's are copied.
+%.o: %.c $(HEADERS)
+	$(CC) $(CFLAGS) -DPIC -fPIC -fno-stack-protector -g -O0 -c -o $@ $<
+
+%.o: %.S $(HEADERS)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+%.o: %.cpp
+	${CXX} ${CXXFLAGS} -c -o $@ $<
+
+install: all
+	${INSTALL_PROGRAM} $(targetdir)/bin/$(MTCP_RESTART_MANA) $(DESTDIR)$(bindir)
+	${INSTALL_PROGRAM} $(targetdir)/bin/$(DMTCP_RESTART_MANA) $(DESTDIR)$(bindir)
+
+uninstall:
+	rm -f $(DESTDIR)$(bindir)/$(MTCP_RESTART_MANA)
+	rm -f $(DESTDIR)$(bindir)/$(DMTCP_RESTART_MANA)
+
+# The install-libs target is there to install plugin libraries when building
+# multi-arch builds. This prevents the installation of 32-bit binaries.
+# However, mtcp_restart is an exception -- we need to keep one copy for each
+# arch.
+install-libs: install
+
+uninstall-libs: uninstall
+
+tidy:
+	rm -rf ckpt_*_files
+	rm -f ckpt_*.dmtcp dmtcp_restart_script* core*
+
+clean: tidy
+	-rm -f *.o *.a
+	-rm -f $(targetdir)/bin/$(MTCP_RESTART_MANA)
+	-rm -f $(targetdir)/bin/$(DMTCP_RESTART_MANA)
+
+distclean: clean
+	rm -f Makefile
+
+.PHONY: default all build tidy clean distclean install uninstall gdb

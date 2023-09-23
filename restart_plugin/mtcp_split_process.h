@@ -6,6 +6,7 @@
 #include "mtcp_sys.h"
 #include "lower_half_api.h"
 #include "mtcp_restart.h"
+#include "mtcp_restart_plugin.h"
 
 // FIXME: Make it dynamic
 #define getpagesize()  4096
@@ -439,7 +440,7 @@ typedef void (*resetMmappedList_t)();
 typedef MmapInfo_t* (*getMmappedList_t)(int **num);
 typedef LhCoreRegions_t* (*getLhRegionsList_t)(int *num);
 
-int splitProcess(RestoreInfo *rinfo);
+int splitProcess(RestoreInfo *rinfo, PluginInfo *pluginInfo);
 int getMappedArea(Area *area, char *name);
 void updateVdsoLinkmapEntry(void *, void *);
 

@@ -5255,7 +5255,7 @@ ac_configure_args="$ac_configure_args --disable-dlsym-wrapper"
 subdirs="$subdirs dmtcp"
 
 
-ac_config_files="$ac_config_files Makefile manpages/Makefile mpi-proxy-split/Makefile_config"
+ac_config_files="$ac_config_files Makefile manpages/Makefile mpi-proxy-split/Makefile_config restart_plugin/Makefile"
 
 
 enable_option_checking=fatal
@@ -6075,6 +6075,7 @@ do
     "Makefile") CONFIG_FILES="$CONFIG_FILES Makefile" ;;
     "manpages/Makefile") CONFIG_FILES="$CONFIG_FILES manpages/Makefile" ;;
     "mpi-proxy-split/Makefile_config") CONFIG_FILES="$CONFIG_FILES mpi-proxy-split/Makefile_config" ;;
+    "restart_plugin/Makefile") CONFIG_FILES="$CONFIG_FILES restart_plugin/Makefile" ;;
 
   *) as_fn_error $? "invalid argument: \`$ac_config_target'" "$LINENO" 5;;
   esac
