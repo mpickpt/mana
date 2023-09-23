@@ -44,7 +44,8 @@ AC_CONFIG_SUBDIRS([dmtcp])
 
 AC_CONFIG_FILES([Makefile \
                  manpages/Makefile \
-                 mpi-proxy-split/Makefile_config])
+                 mpi-proxy-split/Makefile_config \
+                 restart_plugin/Makefile])
 
 dnl Autoconf manual says option checking is set to warn ("yes") by
 dnl  by default.  But it's actually set to "no".

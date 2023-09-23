@@ -7,9 +7,16 @@
 
 using namespace dmtcp;
 
-void dmtcp_restart_plugin(const string &restartDir,
-                          const vector<string>& ckptImages)
+#define DMTCP_RESTART_MANA "dmtcp_restart_mana"
+#define MTCP_RESTART_MANA "mtcp_restart_mana"
+
+int
+main(int argc, char **argv)
 {
+  DmtcpRestart dmtcpRestart(argc, argv, DMTCP_RESTART_MANA, MTCP_RESTART_MANA);
+
+  const string &restartDir = dmtcpRestart.restartDir;
+  const vector<string>& ckptImages = dmtcpRestart.ckptImages;
   string image_zero;
 
   JASSERT(restartDir.empty() ^ ckptImages.empty());

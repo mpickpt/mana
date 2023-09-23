@@ -36,6 +36,8 @@ host=`hostname`
 submissionHost=`grep Host: $MANA_RC | sed -e 's%Host: %%'|sed -e 's% .*$%%'`
 submissionPort=`grep Port: $MANA_RC | sed -e 's%Port: %%'|sed -e 's% .*$%%'`
 
+DMTCP_RESTART=$dir/dmtcp_restart_mana
+
 options=""
 restartdir=""
 verbose=0
@@ -59,7 +61,7 @@ while [ -n "$1" ]; do
 done
 
 if [ "$help" -eq 1 ]; then
-  $dir/dmtcp_restart --help $options
+  $DMTCP_RESTART --help $options
   exit 0
 fi
 
@@ -129,7 +131,7 @@ if [ "$verbose" == 1 ]; then
   set -x
 fi
 
-exec $dir/dmtcp_restart  --mpi --join-coordinator \
+exec $DMTCP_RESTART  --mpi --join-coordinator \
                     --coord-host $submissionHost --coord-port $submissionPort \
                     $options
 
