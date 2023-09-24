@@ -133,6 +133,10 @@ USER_DEFINED_WRAPPER(int, Finalize, (void))
   // The workaround here is to simply return success to the caller without
   // calling into the real Finalize function in the lower half. This way
   // the application can proceed to exit without getting blocked forever.
+
+  // Prevent other ranks from blowing through MPI_Finalize early, causing
+  // shutdown of the MPI runtime
+  MPI_Barrier(MPI_COMM_WORLD);
   return MPI_SUCCESS;
 }
 
