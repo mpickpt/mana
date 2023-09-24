@@ -837,6 +837,18 @@ computeUnionOfCkptImageAddresses()
   JASSERT(kvdb::get64(kvdb, "highMemStart", (int64_t *)&minHighMemStart) ==
           KVDBResponse::SUCCESS);
 
+  // Reserve memory for restore-buf (mtcp_restart region during restart).
+  // Ensure that we have enough space for the restart buffer.
+  JASSERT((char*) origLibsStart - (char*) minLibsStart >= dmtcp_restore_buf_len())
+    (origLibsStart) (minLibsStart) (dmtcp_restore_buf_len());
+
+  // Try to mmap the restart buffer at the beginning of minLibsStart and make
+  // sure we get the correct address.
+  void *raddr = mmap(minLibsStart, dmtcp_restore_buf_len(), PROT_NONE,
+                     MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
+  JASSERT(raddr == minLibsStart) (raddr) (minLibsStart) (JASSERT_ERRNO);
+  dmtcp_set_restore_buf_addr(minLibsStart);
+
   ostringstream o;
 
 #define HEXSTR(o, x) o << #x << std::hex << x;
