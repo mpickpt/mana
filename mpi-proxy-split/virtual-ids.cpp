@@ -302,7 +302,7 @@ void update_comm_desc_t(comm_desc_t* desc) {
   // HACK MPI_COMM_WORLD in the LH.
   // This is here because we need to virtualize MPI_COMM_WORLD for our own purposes.
   // But, since MPI_COMM_WORLD is a constant, it should not be reconstructed.
-  if (desc->real_id == 0x84000000 || desc->real_id == MPI_COMM_WORLD) { 
+  if (desc->real_id == WORLD_COMM) { 
     return;
   }
 
@@ -664,7 +664,7 @@ void init_comm_world() {
   comm_world_ggid->seq_num = 0;
   comm_world_ggid->target_num = 0;
   idDescriptorTable[(intptr_t)WORLD_COMM] = ((union id_desc_t*)comm_world);
-  ggidDescriptorTable[MPI_COMM_WORLD] = comm_world_ggid;
+  // ggidDescriptorTable[MPI_COMM_WORLD] = comm_world_ggid;
 }
 
 // For all descriptors, update the respective information.
