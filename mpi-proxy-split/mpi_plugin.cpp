@@ -74,6 +74,7 @@ extern CartesianProperties g_cartesian_properties;
 extern ManaHeader g_mana_header;
 extern std::unordered_map<MPI_File, OpenFileParameters> g_params_map;
 
+constexpr uint64_t RestoreBufLen = 32 * 1024 * 1024;
 constexpr const char *MANA_FILE_REGEX_ENV = "MANA_FILE_REGEX";
 constexpr const char *MANA_SEGV_DEBUG_LOOP = "MANA_SEGV_DEBUG_LOOP";
 static std::regex *file_regex = NULL;
@@ -801,6 +802,18 @@ computeUnionOfCkptImageAddresses()
   JASSERT(kvdb::get64(kvdb, "highMemStart", (int64_t *)&minHighMemStart) ==
           KVDBResponse::SUCCESS);
 
+  // Reserve memory for restore-buf (mtcp_restart region during restart).
+  // Ensure that we have enough space for the restart buffer.
+  JASSERT((char*) origLibsStart - (char*) minLibsStart >= (int64_t) RestoreBufLen)
+    (origLibsStart) (minLibsStart) (RestoreBufLen);
+
+  // Try to mmap the restart buffer at the beginning of minLibsStart and make
+  // sure we get the correct address.
+  void *raddr = mmap(minLibsStart, RestoreBufLen, PROT_NONE,
+                     MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
+  JASSERT(raddr == minLibsStart) (raddr) (minLibsStart) (JASSERT_ERRNO);
+  dmtcp_set_restore_buf_addr(minLibsStart, RestoreBufLen);
+
   ostringstream o;
 
 #define HEXSTR(o, x) o << #x << std::hex << x;
@@ -871,7 +884,7 @@ save_mana_header(const char *filename)
     return;
   }
 
-  write(fd, &g_mana_header.init_flag, sizeof(int));
+  JASSERT(write(fd, &g_mana_header.init_flag, sizeof(int)) == sizeof(int));
   close(fd);
 }
 
@@ -914,8 +927,9 @@ save_mpi_files(const char *filename)
                       itr->second._datarep);
 
     // Save both virtual ID and corresponding parameters
-    write(fd, &itr->first, sizeof(MPI_File));
-    write(fd, &itr->second, sizeof(struct OpenFileParameters));
+    JASSERT(write(fd, &itr->first, sizeof(MPI_File)) == sizeof(MPI_File));
+    JASSERT(write(fd, &itr->second, sizeof(struct OpenFileParameters)) ==
+            sizeof(struct OpenFileParameters));
   }
 
   close(fd);
