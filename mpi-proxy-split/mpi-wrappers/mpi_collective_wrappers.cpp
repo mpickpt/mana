@@ -371,6 +371,7 @@ USER_DEFINED_WRAPPER(int, Reduce_scatter,
 //        of draining the point-to-point MPI calls.  p2p_drain_send_recv.cpp
 //        cannot use the C version in mpi-wrappers/mpi_collective_p2p.c,
 //        which would generate extra point-to-point MPI calls.
+#define MPI_ALLTOALL_RENDEZVOUS
 #ifndef MPI_ALLTOALL_RENDEZVOUS
 int
 MPI_Alltoall_internal(const void *sendbuf, int sendcount,
