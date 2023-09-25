@@ -241,7 +241,7 @@ USER_DEFINED_WRAPPER(int, Sendrecv, (const void *) sendbuf, (int) sendcount,
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
 #else
-  get_fortran_constants();
+  // get_fortran_constants();
   MPI_Request reqs[2];
   MPI_Status sts[2];
   // FIXME: The send and receive need to be atomic
@@ -256,6 +256,9 @@ USER_DEFINED_WRAPPER(int, Sendrecv, (const void *) sendbuf, (int) sendcount,
     return retval;
   }
   retval = MPI_Waitall(2, reqs, sts);
+  if (status != MPI_STATUS_IGNORE) {
+    *status = sts[1];
+  }
   if (retval == MPI_SUCCESS) {
     // updateLocalRecvs();
   }
@@ -293,6 +296,10 @@ USER_DEFINED_WRAPPER(int, Sendrecv_replace, (void *) buf, (int) count,
   // Wait on send/recv, then copy from temp into permanent buffer
   retval = MPI_Waitall(2, reqs, sts);
   memcpy(buf, tmpbuf, count * type_size);
+
+  if (status != MPI_STATUS_IGNORE) {
+    *status = sts[0];
+  }
 
   // Set status, free buffer, and return
   free(tmpbuf);
