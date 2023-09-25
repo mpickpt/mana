@@ -105,6 +105,26 @@ USER_DEFINED_WRAPPER(int, Type_create_hvector, (int) count, (int) blocklength,
   return retval;
 }
 
+USER_DEFINED_WRAPPER(int, Type_vector, (int) count, (int) blocklength,
+                     (int) stride, (MPI_Datatype) oldtype,
+                    (MPI_Datatype*) newtype)
+{
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+
+  MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(oldtype);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  retval = NEXT_FUNC(Type_vector)(count, blocklength,
+                                  stride, realType, newtype);
+  RETURN_TO_UPPER_HALF();
+  if (retval == MPI_SUCCESS) {
+    MPI_Datatype virtType = ADD_NEW_TYPE(*newtype);
+    *newtype = virtType;
+  }
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return retval;
+}
+
 //       int MPI_Type_create_struct(int count,
 //                                const int array_of_blocklengths[],
 //                                const MPI_Aint array_of_displacements[],
@@ -290,3 +310,5 @@ PMPI_IMPL(int, MPI_Type_create_hindexed, int count,
 PMPI_IMPL(int, MPI_Type_create_hindexed_block, int count, int blocklength,
           const MPI_Aint array_of_displacements[], MPI_Datatype oldtype,
           MPI_Datatype *newtype);
+PMPI_IMPL(int, MPI_Type_vector, int count, int blocklength,
+          int stride, MPI_Datatype oldtype, MPI_Datatype *newtype);
