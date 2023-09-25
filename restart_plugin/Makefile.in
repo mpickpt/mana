@@ -25,11 +25,24 @@ bindir = @bindir@
 #libdir = @libdir@
 #pkglibdir = $(libdir)/@PACKAGE@
 
+top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 srcdir = @srcdir@
 
-top_builddir = @top_builddir@
-targetdir = $(top_builddir)
+# Modify if your MANA_ROOT is located elsewhere.
+ifndef MANA_ROOT
+  MANA_ROOT=..
+endif
+
+# Modify if your DMTCP_ROOT is located elsewhere.
+ifndef DMTCP_ROOT
+  DMTCP_ROOT=${MANA_ROOT}/dmtcp
+endif
+
+DMTCP_INCLUDE=${DMTCP_ROOT}/include
+JALIB_INCLUDE=${DMTCP_ROOT}/jalib
+
+targetdir = $(MANA_ROOT)
 
 # VPATH specifies a list of directories that make should search for finding the
 # prerequisite files that are not in the current directory.  This is needed if
