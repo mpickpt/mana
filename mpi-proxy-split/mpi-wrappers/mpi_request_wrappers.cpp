@@ -210,7 +210,7 @@ USER_DEFINED_WRAPPER(int, Waitall, (int) count,
   MPI_Request *local_array_of_requests = array_of_requests;
   MPI_Status *local_array_of_statuses = array_of_statuses;
 
-  get_fortran_constants();
+  // get_fortran_constants();
   for (int i = 0; i < count; i++) {
     /* FIXME: Is there a chance it gets a valid C address, which we shouldn't
      * ignore?  Ideally, we should only check FORTRAN_MPI_STATUSES_IGNORE
