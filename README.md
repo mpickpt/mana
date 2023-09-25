@@ -1,10 +1,15 @@
 ## Special for ExaMPI, In order to compile:
 
 `git submodule update --init`
+
 `./configure`
+
 `cd mpi-proxy-split`
-`make && make install` # This step produces libmana.so
+
+`make && make install` # This step produces libmana.so and places it in the appropriate DMTCP folder
+
 `cd ..`
+
 `make`
 
 ## MANA (MPI-Agnostic, Network-Agnostic MPI)
