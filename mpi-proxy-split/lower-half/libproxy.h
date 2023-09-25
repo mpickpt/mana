@@ -244,8 +244,6 @@ do {                                                                           \
   MACRO(Wtick), \
   MACRO(Wtime), \
   MACRO(MANA_Internal), \
-  MACRO(Type_get_contents), \
-  MACRO(Type_get_envelope), \
 
 
 // ===========================================================
@@ -323,6 +321,8 @@ extern LhCoreRegions_t lh_regions_list[MAX_LH_REGIONS];
 // the given enum value
 extern void *mydlsym(enum MPI_Fncs fnc);
 
+extern void *get_lh_mpi_constant(enum MPI_Constants constant);
+
 // Initializes the MPI library in the lower half (by calling MPI_Init()) and
 // returns the MPI rank of the current process
 extern int getRank();
@@ -330,6 +330,7 @@ extern int getRank();
 // Updates the lower half's global environ pointer (__environ) to the given
 // 'newenviron' pointer value
 extern void updateEnviron(const char **newenviron);
+
 
 // Returns a pointer to the first element of a pre-allocated array of
 // 'MmapInfo_t' objects and 'num' is set to the number of valid items in
