@@ -101,13 +101,20 @@ USER_DEFINED_WRAPPER(int, Init_thread, (int *) argc, (char ***) argv,
 
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   retval = NEXT_FUNC(Init_thread)(argc, argv, required, provided);
+  RETURN_TO_UPPER_HALF();
+
+  init_lh_constants_map();
+
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   // Create a duplicate of MPI_COMM_WORLD for internal use.
   NEXT_FUNC(Comm_dup)(REAL_CONSTANT(MPI_COMM_WORLD), &g_world_comm);
+  NEXT_FUNC(Comm_group)(REAL_CONSTANT(MPI_COMM_WORLD), &g_world_group);
   RETURN_TO_UPPER_HALF();
 
   recordPostMpiInitMaps();
 
-  g_world_comm = ADD_NEW_COMM(g_world_comm);
+  g_world_comm = get_vcomm_internal(g_world_comm);
+  init_comm_world();
   initialize_drain_send_recv();
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -140,6 +147,7 @@ USER_DEFINED_WRAPPER(int, Finalize, (void))
   // The workaround here is to simply return success to the caller without
   // calling into the real Finalize function in the lower half. This way
   // the application can proceed to exit without getting blocked forever.
+  MPI_Barrier(MPI_COMM_WORLD);
   return MPI_SUCCESS;
 }
 
