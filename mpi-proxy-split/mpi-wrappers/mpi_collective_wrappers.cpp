@@ -186,7 +186,7 @@ USER_DEFINED_WRAPPER(int, Allreduce,
   commit_begin(comm, passthrough);
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  get_fortran_constants();
+  // get_fortran_constants();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
   MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
   MPI_Op realOp = VIRTUAL_TO_REAL_OP(op);
