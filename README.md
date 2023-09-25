@@ -6,7 +6,7 @@
 
 `cd mpi-proxy-split`
 
-`make && make install` # This step produces libmana.so
+`make && make install` # This step produces libmana.so and places it in the appropriate DMTCP folder
 
 `cd ..`
 
