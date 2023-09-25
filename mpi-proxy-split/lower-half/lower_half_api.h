@@ -501,7 +501,6 @@ static const char *MPI_Fnc_strings[] = {
 void* lh_dlsym(enum MPI_Fncs fnc);
 typedef void* (*proxyDlsym_t)(enum MPI_Fncs fnc);
 extern proxyDlsym_t pdlsym;
-<<<<<<< HEAD
 
 std::vector<MmapInfo_t> &get_mmapped_list(int *num);
 typedef std::vector<MmapInfo_t>& (*get_mmapped_list_fptr_t)(int *num);
@@ -539,7 +538,5 @@ extern MmapInfo_t* getMmappedList(int **num);
 extern void resetMmappedList();
 
 extern LhCoreRegions_t* getLhRegionsList(int *num);
->>>>>>> WIP: openmpi
->>>>>>> f236e68 (WIP: openmpi)
 
 #endif // ifndef _LOWER_HALF_API_H

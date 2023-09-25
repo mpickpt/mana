@@ -42,6 +42,111 @@ do {                                                                           \
 #define INFO  2 // Informational logs
 #define ERROR 1 // Highest error/exception level
 
+#define FOREACH_CONSTANT(MACRO) \
+  MACRO(MPI_GROUP_NULL), \
+  MACRO(MPI_COMM_NULL), \
+  MACRO(MPI_REQUEST_NULL), \
+  MACRO(MPI_MESSAGE_NULL), \
+  MACRO(MPI_OP_NULL), \
+  MACRO(MPI_ERRHANDLER_NULL), \
+  MACRO(MPI_INFO_NULL), \
+  MACRO(MPI_WIN_NULL), \
+  MACRO(MPI_FILE_NULL), \
+  MACRO(MPI_INFO_ENV), \
+  MACRO(MPI_COMM_WORLD), \
+  MACRO(MPI_COMM_SELF), \
+  MACRO(MPI_GROUP_EMPTY), \
+  MACRO(MPI_MESSAGE_NO_PROC), \
+  MACRO(MPI_MAX), \
+  MACRO(MPI_MIN), \
+  MACRO(MPI_SUM), \
+  MACRO(MPI_PROD), \
+  MACRO(MPI_LAND), \
+  MACRO(MPI_BAND), \
+  MACRO(MPI_LOR), \
+  MACRO(MPI_BOR), \
+  MACRO(MPI_LXOR), \
+  MACRO(MPI_BXOR), \
+  MACRO(MPI_MAXLOC), \
+  MACRO(MPI_MINLOC), \
+  MACRO(MPI_REPLACE), \
+  MACRO(MPI_NO_OP), \
+  MACRO(MPI_DATATYPE_NULL), \
+  MACRO(MPI_BYTE), \
+  MACRO(MPI_PACKED), \
+  MACRO(MPI_CHAR), \
+  MACRO(MPI_SHORT), \
+  MACRO(MPI_INT), \
+  MACRO(MPI_LONG), \
+  MACRO(MPI_FLOAT), \
+  MACRO(MPI_DOUBLE), \
+  MACRO(MPI_LONG_DOUBLE), \
+  MACRO(MPI_UNSIGNED_CHAR), \
+  MACRO(MPI_SIGNED_CHAR), \
+  MACRO(MPI_UNSIGNED_SHORT), \
+  MACRO(MPI_UNSIGNED_LONG), \
+  MACRO(MPI_UNSIGNED), \
+  MACRO(MPI_FLOAT_INT), \
+  MACRO(MPI_DOUBLE_INT), \
+  MACRO(MPI_LONG_DOUBLE_INT), \
+  MACRO(MPI_LONG_INT), \
+  MACRO(MPI_SHORT_INT), \
+  MACRO(MPI_2INT), \
+  MACRO(MPI_WCHAR), \
+  MACRO(MPI_LONG_LONG_INT), \
+  MACRO(MPI_LONG_LONG), \
+  MACRO(MPI_UNSIGNED_LONG_LONG), \
+  MACRO(MPI_2COMPLEX), \
+  MACRO(MPI_2DOUBLE_COMPLEX), \
+  MACRO(MPI_CHARACTER), \
+  MACRO(MPI_LOGICAL), \
+  MACRO(MPI_LOGICAL1), \
+  MACRO(MPI_LOGICAL2), \
+  MACRO(MPI_LOGICAL4), \
+  MACRO(MPI_LOGICAL8), \
+  MACRO(MPI_INTEGER), \
+  MACRO(MPI_INTEGER1), \
+  MACRO(MPI_INTEGER2), \
+  MACRO(MPI_INTEGER4), \
+  MACRO(MPI_INTEGER8), \
+  MACRO(MPI_REAL), \
+  MACRO(MPI_REAL4), \
+  MACRO(MPI_REAL8), \
+  MACRO(MPI_REAL16), \
+  MACRO(MPI_DOUBLE_PRECISION), \
+  MACRO(MPI_COMPLEX), \
+  MACRO(MPI_COMPLEX8), \
+  MACRO(MPI_COMPLEX16), \
+  MACRO(MPI_COMPLEX32), \
+  MACRO(MPI_DOUBLE_COMPLEX), \
+  MACRO(MPI_2REAL), \
+  MACRO(MPI_2DOUBLE_PRECISION), \
+  MACRO(MPI_2INTEGER), \
+  MACRO(MPI_INT8_T), \
+  MACRO(MPI_UINT8_T), \
+  MACRO(MPI_INT16_T), \
+  MACRO(MPI_UINT16_T), \
+  MACRO(MPI_INT32_T), \
+  MACRO(MPI_UINT32_T), \
+  MACRO(MPI_INT64_T), \
+  MACRO(MPI_UINT64_T), \
+  MACRO(MPI_AINT), \
+  MACRO(MPI_OFFSET), \
+  MACRO(MPI_C_BOOL), \
+  MACRO(MPI_C_COMPLEX), \
+  MACRO(MPI_C_FLOAT_COMPLEX), \
+  MACRO(MPI_C_DOUBLE_COMPLEX), \
+  MACRO(MPI_C_LONG_DOUBLE_COMPLEX), \
+  MACRO(MPI_CXX_BOOL), \
+  MACRO(MPI_CXX_COMPLEX), \
+  MACRO(MPI_CXX_FLOAT_COMPLEX), \
+  MACRO(MPI_CXX_DOUBLE_COMPLEX), \
+  MACRO(MPI_CXX_LONG_DOUBLE_COMPLEX), \
+  MACRO(MPI_COUNT), \
+  MACRO(MPI_ERRORS_ARE_FATAL), \
+  MACRO(MPI_ERRORS_RETURN),
+
+
 #define FOREACH_FNC(MACRO) \
   MACRO(Init), \
   MACRO(Finalize), \
@@ -396,6 +501,8 @@ do {                                                                           \
 #define GENERATE_ENUM(ENUM)    MPI_Fnc_##ENUM
 #define GENERATE_FNC_PTR(FNC)  &MPI_##FNC
 #define GENERATE_FNC_STRING(FNC)  "MPI_" #FNC
+#define GENERATE_CONSTANT_ENUM(ENUM)    LH_##ENUM
+#define GENERATE_CONSTANT_VALUE(CONSTANT) CONSTANT
 
 #ifdef MAIN_AUXVEC_ARG
 /* main gets passed a pointer to the auxiliary.  */
@@ -412,13 +519,18 @@ enum MPI_Fncs {
   MPI_Fnc_Invalid,
 };
 
+enum MPI_Constants {
+  LH_MPI_Constant_NULL,
+  FOREACH_CONSTANT(GENERATE_CONSTANT_ENUM)
+  LH_MPI_Constant_Invalid,
+};
+
 __attribute__ ((unused))
 static const char *MPI_Fnc_strings[] = {
   "MPI_Fnc_NULL",
   FOREACH_FNC(GENERATE_FNC_STRING)
   "MPI_Fnc_Invalid"
 };
-
 
 // Useful type definitions
 
@@ -434,6 +546,7 @@ typedef int (*libcFptr_t) (int (*main) (int, char **, char ** MAIN_AUXVEC_DECL),
 
 typedef void* (*proxyDlsym_t)(enum MPI_Fncs fnc);
 typedef void* (*updateEnviron_t)(char **environ);
+typedef void* (*lh_constant_t)(enum MPI_Constants constant);
 typedef void (*resetMmappedList_t)();
 typedef MmapInfo_t* (*getMmappedList_t)(int **num);
 typedef LhCoreRegions_t* (*getLhRegionsList_t)(int *num);
@@ -445,8 +558,13 @@ typedef LhCoreRegions_t* (*getLhRegionsList_t)(int *num);
 // the transient lh_proxy process in DMTCP_EVENT_INIT.
 // initializeLowerHalf() will initialize this to: (proxyDlsym_t)lh_info.lh_dlsym
 extern proxyDlsym_t pdlsym;
+extern lh_constant_t lh_mpi_constants;
+extern LhCoreRegions_t lh_regions_list[MAX_LH_REGIONS];
 
 // API
+
+
+
 
 // Returns the address of an MPI API in the lower half's MPI library based on
 // the given enum value
@@ -469,149 +587,5 @@ extern MmapInfo_t* getMmappedList(int **num);
 extern void resetMmappedList();
 
 extern LhCoreRegions_t* getLhRegionsList(int *num);
-
-enum MPI_Fncs {
-  MPI_Fnc_NULL,
-  FOREACH_FNC(GENERATE_ENUM)
-  MPI_Fnc_Invalid,
-};
-
-enum MPI_Constants {
-  LH_MPI_Constant_NULL,
-  FOREACH_CONSTANT(GENERATE_CONSTANT_ENUM)
-  LH_MPI_Constant_Invalid,
-};
-
-__attribute__ ((unused))
-static const char *MPI_Fnc_strings[] = {
-  "MPI_Fnc_NULL",
-  FOREACH_FNC(GENERATE_FNC_STRING)
-  "MPI_Fnc_Invalid"
-};
-
-
-// Useful type definitions
-
-typedef int (*mainFptr)(int argc, char *argv[], char *envp[]);
-typedef void (*finiFptr) (void);
-typedef int (*libcFptr_t) (int (*main) (int, char **, char ** MAIN_AUXVEC_DECL),
-                           int ,
-                           char **,
-                           __typeof (main) ,
-                           void (*fini) (void),
-                           void (*rtld_fini) (void),
-                           void *);
-
-typedef void* (*proxyDlsym_t)(enum MPI_Fncs fnc);
-typedef void* (*lh_constant_t)(enum MPI_Constants constant);
-typedef void* (*updateEnviron_t)(char **environ);
-typedef void (*resetMmappedList_t)();
-typedef MmapInfo_t* (*getMmappedList_t)(int **num);
-typedef LhCoreRegions_t* (*getLhRegionsList_t)(int *num);
-
-
-#define FOREACH_CONSTANT(MACRO) \
-  MACRO(MPI_GROUP_NULL), \
-  MACRO(MPI_COMM_NULL), \
-  MACRO(MPI_REQUEST_NULL), \
-  MACRO(MPI_MESSAGE_NULL), \
-  MACRO(MPI_OP_NULL), \
-  MACRO(MPI_ERRHANDLER_NULL), \
-  MACRO(MPI_INFO_NULL), \
-  MACRO(MPI_WIN_NULL), \
-  MACRO(MPI_FILE_NULL), \
-  MACRO(MPI_INFO_ENV), \
-  MACRO(MPI_COMM_WORLD), \
-  MACRO(MPI_COMM_SELF), \
-  MACRO(MPI_GROUP_EMPTY), \
-  MACRO(MPI_MESSAGE_NO_PROC), \
-  MACRO(MPI_MAX), \
-  MACRO(MPI_MIN), \
-  MACRO(MPI_SUM), \
-  MACRO(MPI_PROD), \
-  MACRO(MPI_LAND), \
-  MACRO(MPI_BAND), \
-  MACRO(MPI_LOR), \
-  MACRO(MPI_BOR), \
-  MACRO(MPI_LXOR), \
-  MACRO(MPI_BXOR), \
-  MACRO(MPI_MAXLOC), \
-  MACRO(MPI_MINLOC), \
-  MACRO(MPI_REPLACE), \
-  MACRO(MPI_NO_OP), \
-  MACRO(MPI_DATATYPE_NULL), \
-  MACRO(MPI_BYTE), \
-  MACRO(MPI_PACKED), \
-  MACRO(MPI_CHAR), \
-  MACRO(MPI_SHORT), \
-  MACRO(MPI_INT), \
-  MACRO(MPI_LONG), \
-  MACRO(MPI_FLOAT), \
-  MACRO(MPI_DOUBLE), \
-  MACRO(MPI_LONG_DOUBLE), \
-  MACRO(MPI_UNSIGNED_CHAR), \
-  MACRO(MPI_SIGNED_CHAR), \
-  MACRO(MPI_UNSIGNED_SHORT), \
-  MACRO(MPI_UNSIGNED_LONG), \
-  MACRO(MPI_UNSIGNED), \
-  MACRO(MPI_FLOAT_INT), \
-  MACRO(MPI_DOUBLE_INT), \
-  MACRO(MPI_LONG_DOUBLE_INT), \
-  MACRO(MPI_LONG_INT), \
-  MACRO(MPI_SHORT_INT), \
-  MACRO(MPI_2INT), \
-  MACRO(MPI_WCHAR), \
-  MACRO(MPI_LONG_LONG_INT), \
-  MACRO(MPI_LONG_LONG), \
-  MACRO(MPI_UNSIGNED_LONG_LONG), \
-  MACRO(MPI_2COMPLEX), \
-  MACRO(MPI_2DOUBLE_COMPLEX), \
-  MACRO(MPI_CHARACTER), \
-  MACRO(MPI_LOGICAL), \
-  MACRO(MPI_LOGICAL1), \
-  MACRO(MPI_LOGICAL2), \
-  MACRO(MPI_LOGICAL4), \
-  MACRO(MPI_LOGICAL8), \
-  MACRO(MPI_INTEGER), \
-  MACRO(MPI_INTEGER1), \
-  MACRO(MPI_INTEGER2), \
-  MACRO(MPI_INTEGER4), \
-  MACRO(MPI_INTEGER8), \
-  MACRO(MPI_REAL), \
-  MACRO(MPI_REAL4), \
-  MACRO(MPI_REAL8), \
-  MACRO(MPI_REAL16), \
-  MACRO(MPI_DOUBLE_PRECISION), \
-  MACRO(MPI_COMPLEX), \
-  MACRO(MPI_COMPLEX8), \
-  MACRO(MPI_COMPLEX16), \
-  MACRO(MPI_COMPLEX32), \
-  MACRO(MPI_DOUBLE_COMPLEX), \
-  MACRO(MPI_2REAL), \
-  MACRO(MPI_2DOUBLE_PRECISION), \
-  MACRO(MPI_2INTEGER), \
-  MACRO(MPI_INT8_T), \
-  MACRO(MPI_UINT8_T), \
-  MACRO(MPI_INT16_T), \
-  MACRO(MPI_UINT16_T), \
-  MACRO(MPI_INT32_T), \
-  MACRO(MPI_UINT32_T), \
-  MACRO(MPI_INT64_T), \
-  MACRO(MPI_UINT64_T), \
-  MACRO(MPI_AINT), \
-  MACRO(MPI_OFFSET), \
-  MACRO(MPI_C_BOOL), \
-  MACRO(MPI_C_COMPLEX), \
-  MACRO(MPI_C_FLOAT_COMPLEX), \
-  MACRO(MPI_C_DOUBLE_COMPLEX), \
-  MACRO(MPI_C_LONG_DOUBLE_COMPLEX), \
-  MACRO(MPI_CXX_BOOL), \
-  MACRO(MPI_CXX_COMPLEX), \
-  MACRO(MPI_CXX_FLOAT_COMPLEX), \
-  MACRO(MPI_CXX_DOUBLE_COMPLEX), \
-  MACRO(MPI_CXX_LONG_DOUBLE_COMPLEX), \
-  MACRO(MPI_COUNT), \
-  MACRO(MPI_ERRORS_ARE_FATAL), \
-  MACRO(MPI_ERRORS_RETURN),
 
 #endif // define _LIBPROXY_H
