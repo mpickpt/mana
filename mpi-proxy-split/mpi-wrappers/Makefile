@@ -52,7 +52,7 @@ ${LIBNAME}.a: ${LIBWRAPPER_OBJS}
 
 mpi_unimplemented_wrappers.cpp: generate-mpi-unimplemented-wrappers.py \
 	mpi_unimplemented_wrappers.txt
-	python $^ > $@
+	python3 $^ > $@
 
 .c.o:
 	${MPICC} ${CFLAGS} -c -o $@ $<
@@ -95,17 +95,8 @@ mpi_stub_wrappers.c: generate-mpi-stub-wrappers.py mpi_stub_wrappers.txt
 	tmp=$@.tmp.$$$$ ; \
 	printf "%s\n\n" \
 	 "// *** THIS FILE IS AUTO-GENERATED! DO 'make' TO UPDATE. ***" >$$tmp;\
-	python $^ >> $$tmp && mv -f $$tmp $@ || (rm -f $$tmp && false)
+	python3 $^ >> $$tmp && mv -f $$tmp $@ || (rm -f $$tmp && false)
 
-<<<<<<< HEAD
-mpi_fortran_wrappers.cpp: generate-mpi-fortran-wrappers.py \
-                          mpi_fortran_wrappers.txt
-	rm -f $@
-	tmp=$@.tmp.$$$$ ; \
-	printf "%s\n\n" \
-	 "// *** THIS FILE IS AUTO-GENERATED! DO 'make' TO UPDATE. ***" >$$tmp;\
-	python $^ >> $$tmp && mv -f $$tmp $@ || (rm -f $$tmp && false)
-=======
 # mpi_fortran_wrappers.cpp: generate-mpi-fortran-wrappers.py \
 #                           mpi_fortran_wrappers.txt
 # 	rm -f $@
@@ -113,7 +104,6 @@ mpi_fortran_wrappers.cpp: generate-mpi-fortran-wrappers.py \
 # 	printf "%s\n\n" \
 # 	 "// *** THIS FILE IS AUTO-GENERATED! DO 'make' TO UPDATE. ***" >$$tmp;\
 # 	python3 $^ >> $$tmp && mv -f $$tmp $@ || (rm -f $$tmp && false)
->>>>>>> WIP: exampi
 
 mpi_stub_wrappers.o: mpi_stub_wrappers.c
 	${MPICC} ${CFLAGS} -c -o $@ $<
@@ -142,9 +132,8 @@ libpmi.so.0: libpmi.so.0.5.0
 tidy:
 	rm -f *~ .*.swp dmtcp_restart_script*.sh ckpt_*.dmtcp
 	rm -rf ckpt_rank_*
-	rm -f dmtcp_coordinator_db-*.json
 
-install: libmpistub.so mana_p2p_update_logs
+install: libmpistub.so
 	cp -f libmpistub.so ${MANA_ROOT}/lib/dmtcp/
 	cd ${MANA_ROOT}/lib/dmtcp && \
 		ln -sf libmpistub.so libmpich_intel.so.3.0.1 && \
@@ -154,7 +143,6 @@ install: libmpistub.so mana_p2p_update_logs
 	cd ${MANA_ROOT}/lib/dmtcp && \
 		ln -sf libmpistub.so libpmi.so.0.5.0 && \
 		ln -sf libpmi.so.0.5.0 libpmi.so.0
-	cp -f mana_p2p_update_logs ${MANA_ROOT}/bin/
 
 clean: tidy
 	rm -f ${LIBWRAPPER_OBJS}
