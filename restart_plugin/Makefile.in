@@ -128,11 +128,11 @@ $(targetdir)/bin/$(DMTCP_RESTART_MANA): dmtcp_restart_plugin.o $(DMTCP_DEPS)
 
 install: all
 	${INSTALL_PROGRAM} $(targetdir)/bin/$(MTCP_RESTART_MANA) $(DESTDIR)$(bindir)
-	${INSTALL_PROGRAM} $(targetdir)/bin/$(MTCP_RESTART_MANA) $(DESTDIR)$(bindir)
+	${INSTALL_PROGRAM} $(targetdir)/bin/$(DMTCP_RESTART_MANA) $(DESTDIR)$(bindir)
 
 uninstall:
 	rm -f $(DESTDIR)$(bindir)/$(MTCP_RESTART_MANA)
-	rm -f $(DESTDIR)$(bindir)/$(MTCP_RESTART_MANA)
+	rm -f $(DESTDIR)$(bindir)/$(DMTCP_RESTART_MANA)
 
 # The install-libs target is there to install plugin libraries when building
 # multi-arch builds. This prevents the installation of 32-bit binaries.
@@ -149,7 +149,7 @@ tidy:
 clean: tidy
 	-rm -f *.o *.a
 	-rm -f $(targetdir)/bin/$(MTCP_RESTART_MANA)
-	-rm -f $(targetdir)/bin/$(MTCP_RESTART_MANA)
+	-rm -f $(targetdir)/bin/$(DMTCP_RESTART_MANA)
 
 distclean: clean
 	rm -f Makefile

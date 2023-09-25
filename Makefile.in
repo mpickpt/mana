@@ -47,7 +47,7 @@ all: default
 
 mana: mana_prereqs dmtcp
 	cd mpi-proxy-split && $(MAKE) install && $(MAKE) -j tests
-	cd restart_plugin && $(MAKE) install
+	cd restart_plugin && $(MAKE)
 
 dmtcp: restart_plugin/lower_half_api.h
 	cd dmtcp && $(MAKE)
