@@ -7,8 +7,11 @@
 #include "jconvert.h"
 #include "split_process.h"
 #include "dmtcp.h"
+#include "libproxy.h"
+#include "lower_half_api.h"
 
 #define CONCAT(a,b) a ## b
+
 
 // num - type - VID MASK
 // 0 - undefined - 0x00000000

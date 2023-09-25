@@ -36,6 +36,7 @@
 #include "split_process.h"
 #include "virtual-ids.h"
 #include "lower_half_api.h"
+#include "libproxy.h"
 
 #include "seq_num.h"
 #include "mpi_nextfunc.h"
@@ -183,7 +184,7 @@ comm_desc_t* init_comm_desc_t(MPI_Comm realComm) {
 
   DMTCP_PLUGIN_DISABLE_CKPT();
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  NEXT_FUNC(Comm_rank)(WORLD_COMM, &worldRank);
+  NEXT_FUNC(Comm_rank)(REAL_CONSTANT(MPI_COMM_WORLD), &worldRank);
   NEXT_FUNC(Comm_size)(realComm, &commSize);
   NEXT_FUNC(Comm_rank)(realComm, &localRank);
   RETURN_TO_UPPER_HALF();
@@ -232,7 +233,7 @@ MPI_Comm get_vcomm_internal(MPI_Comm realComm) {
 
   DMTCP_PLUGIN_DISABLE_CKPT();
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  NEXT_FUNC(Comm_rank)(MPI_COMM_WORLD, &worldRank);
+  NEXT_FUNC(Comm_rank)(REAL_CONSTANT(MPI_COMM_WORLD), &worldRank);
   NEXT_FUNC(Comm_size)(realComm, &commSize);
   NEXT_FUNC(Comm_rank)(realComm, &localRank);
   RETURN_TO_UPPER_HALF();
