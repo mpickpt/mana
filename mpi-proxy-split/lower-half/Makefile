@@ -68,6 +68,12 @@ endif
 # ***        ./configure --disable-xml2 --disable-libxml2 ...
 # ***        or unless you installed the necessary libaries.
 # ***        See ./README.mpich-static here, for how to install the libaries
+# NOTE:  The static library libnl-3.a must be built specially.  A suggested recipe is:
+# Search for and download libnl3-3.3.0-1.29.src.rpm
+# rpm -i libnl3-3.3.0-1.29.src.rpm
+# rpmbuild -ba ~/rpmbuild/SPECS/libnl3.spec
+# cd ~/rpmbuild/BUILD/libnl-3.3.0/lib/.libs/
+# Build libnl-3.a from lib_libnl_3_la-*.o
 ${PROXY_BIN}: ${PROXY_OBJS} ${LIBPROXY}.a ${STATIC_GETHOSTBYNAME}
 	if ${MPICC} -v 2>&1 | grep -q 'MPICH version'; then \
 	  rm -f tmp.sh; \
