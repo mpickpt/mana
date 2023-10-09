@@ -1,1 +1,1 @@
--lpmi -lpmi2 /opt/cray/libfabric/1.15.2.0/lib64/libfabric.a -lcxi -L/global/homes/z/zz217/local/lib -L/global/cfs/cdirs/cr/pm_dependencies -ljson-c -lcurl  -lssl -lcrypto -lz -latomic -lpthread /opt/cray/pe/pals/1.2.11/lib/libpals.a libnl-3.a -ljansson -Xlinker -zmuldefs
+-lpmi -lpmi2 /opt/cray/libfabric/1.15.2.0/lib64/libfabric.a -lcxi -L/global/homes/z/zz217/local/lib -L/global/cfs/cdirs/cr/pm_dependencies -ljson-c -lcurl  -lssl -lcrypto -lz -latomic -lpthread /opt/cray/pe/pals/1.2.11/lib/libpals.a libnl3.a -ljansson -Xlinker -zmuldefs
