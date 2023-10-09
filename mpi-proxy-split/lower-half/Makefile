@@ -64,16 +64,7 @@ endif
 #   The solution is to install the distro package libxml2-dev .
 # Ubuntu mpich package adds '-lcr' flag that's incompatible with 'mpicc -static'
 # MPICH-3.3 'mpicc -static' adds spurious duplicate -lunwind; we remove that.
-# *** NOTE:  This will fail unless you have configured MPICH with:
-# ***        ./configure --disable-xml2 --disable-libxml2 ...
-# ***        or unless you installed the necessary libaries.
-# ***        See ./README.mpich-static here, for how to install the libaries
-# NOTE:  The static library libnl-3.a must be built specially.  A suggested recipe is:
-# Search for and download libnl3-3.3.0-1.29.src.rpm
-# rpm -i libnl3-3.3.0-1.29.src.rpm
-# rpmbuild -ba ~/rpmbuild/SPECS/libnl3.spec
-# cd ~/rpmbuild/BUILD/libnl-3.3.0/lib/.libs/
-# Build libnl-3.a from lib_libnl_3_la-*.o
+# static_libs.txt has json_object_get multiply defined; using -Xlinker -zmuldefs
 ${PROXY_BIN}: ${PROXY_OBJS} ${LIBPROXY}.a ${STATIC_GETHOSTBYNAME}
 	if ${MPICC} -v 2>&1 | grep -q 'MPICH version'; then \
 	  rm -f tmp.sh; \
@@ -83,6 +74,7 @@ ${PROXY_BIN}: ${PROXY_OBJS} ${LIBPROXY}.a ${STATIC_GETHOSTBYNAME}
 	  sh tmp.sh; \
 	  rm -f tmp.sh; \
 	elif ${STATIC_LIBS}; then \
+	  make libnl3.a; \
 	  ${MPICC} ${PROXY_LD_FLAGS} ${TEXTSEG_ADDR_FLAG} -o $@ -Wl,-start-group \
             $^ ${MPI_LD_FLAG} `cat static_libs.txt` -ldl -Wl,--end-group; \
 	else \
@@ -99,12 +91,22 @@ ${PROXY_BIN_DEFADDR}: ${PROXY_OBJS} ${LIBPROXY}.a ${STATIC_GETHOSTBYNAME}
 	  sh tmp1.sh; \
 	  rm -f tmp1.sh; \
 	elif ${STATIC_LIBS}; then \
+	  make libnl3.a; \
 	  ${MPICC} ${PROXY_LD_FLAGS} -o $@ -Wl,-start-group \
             $^ ${MPI_LD_FLAG} `cat static_libs.txt` -ldl -Wl,--end-group; \
 	else \
 	  ${MPICC} ${PROXY_LD_FLAGS} -o $@ -Wl,-start-group \
 	  $^ ${MPI_LD_FLAG} -lrt -lpthread -lc -ldl -Wl,-end-group; \
 	fi
+
+# NOTE:  On Perlmutter at NERSC, the static library libnl3.a (required by
+#        libmpich.a since Slingshot Host 2.1) must be built specially.
+libnl3.a: libnl3-3.3.0-1.29.src.rpm
+	rpm --define "_topdir $${PWD}/rpmbuild" -i $<
+	rpmbuild --define "_topdir $${PWD}/rpmbuild" -ba \
+	  $${PWD}/rpmbuild/SPECS/libnl3.spec
+	ar r libnl3.a \
+	  $${PWD}/rpmbuild/BUILD/libnl-3.3.0/lib/.libs/lib_libnl_3_la-*.o
 
 ${LIBPROXY}.a: ${LIBPROXY_OBJS}
 	ar cr $@ $^
