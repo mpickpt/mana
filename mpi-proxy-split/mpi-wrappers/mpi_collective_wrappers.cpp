@@ -19,6 +19,7 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include <assert.h>
 #include "config.h"
 #include "dmtcp.h"
 #include "util.h"
@@ -371,7 +372,6 @@ USER_DEFINED_WRAPPER(int, Reduce_scatter,
 //        of draining the point-to-point MPI calls.  p2p_drain_send_recv.cpp
 //        cannot use the C version in mpi-wrappers/mpi_collective_p2p.c,
 //        which would generate extra point-to-point MPI calls.
-#define MPI_ALLTOALL_RENDEZVOUS
 #ifndef MPI_ALLTOALL_RENDEZVOUS
 int
 MPI_Alltoall_internal(const void *sendbuf, int sendcount,
@@ -467,7 +467,7 @@ MPI_Alltoall_internal(const void *sendbuf, int sendcount,
 }
 #endif
 
-#ifndef MPI_COLLECTIVE_P2P
+#if 0
 USER_DEFINED_WRAPPER(int, Alltoall,
                      (const void *) sendbuf, (int) sendcount,
                      (MPI_Datatype) sendtype, (void *) recvbuf, (int) recvcount,
@@ -482,6 +482,68 @@ USER_DEFINED_WRAPPER(int, Alltoall,
   commit_finish(comm, passthrough);
   return retval;
 }
+#else
+#define PROLOG_Comm_rank_size \
+  int rank; \
+  int size; \
+  MPI_Comm_rank(comm, &rank); \
+  MPI_Comm_size(comm, &size); \
+  if (rank < 0 || size < 1) { \
+    fprintf(stderr, "Error (aborting): " __FILE__ "(%d):%s\n", \
+                    __LINE__, __FUNCTION__); \
+    fflush(stderr); \
+    abort(); \
+  }
+int MPI_Alltoall(const void* sendbuf, int sendcount, MPI_Datatype sendtype,
+                 void* recvbuf, int recvcount, MPI_Datatype recvtype,
+                 MPI_Comm comm) {
+  PROLOG_Comm_rank_size;
+  int i;
+  int inplace = (sendbuf == MPI_IN_PLACE || sendbuf == FORTRAN_MPI_IN_PLACE);
+  if (inplace) { // if true, MPI says to ignore recvcount/recvtype
+    recvcount = sendcount;
+    recvtype = sendtype;
+  }
+  MPI_Aint lower_bound;
+  MPI_Aint sendextent, recvextent;
+  MPI_Type_get_extent(sendtype, &lower_bound, &sendextent);
+  if (inplace) {
+    recvextent = sendextent;
+  } else {
+    MPI_Type_get_extent(recvtype, &lower_bound, &recvextent);
+  }
+  assert(sendextent*sendcount == recvextent*recvcount);
+  // Phase 1: Send to higher ranks, recv from lower ranks to avoid deadlock
+  for (i = 0; i < size; i++) {
+    if (rank == i) {
+      if (!inplace) {
+        // NOTE: if inplace, MPI guarantees that rank's data is already correct
+        memcpy(recvbuf + i*recvextent*recvcount,
+               sendbuf + i*sendextent*sendcount,
+               sendextent*sendcount);
+      }
+    } else if (rank < i) {
+      MPI_Send(sendbuf + i*sendcount*sendextent, sendcount, sendtype,
+               i, 0, comm);
+    } else { // rank > i
+      MPI_Recv(recvbuf + i*recvextent*recvcount, recvcount, recvtype,
+               i, 0, comm, MPI_STATUS_IGNORE);
+    }
+  }
+  // Phase 2: Send to lower ranks, recv from higher ranks to avoid deadlock
+  for (i = 0; i < size; i++) {
+    // NOTE: if i == rank, we handled it during Phase 1
+    if (rank > i) {
+      MPI_Send(sendbuf + i*sendcount*sendextent, sendcount, sendtype,
+               i, 0, comm);
+    } else if (rank < i) {
+      MPI_Recv(recvbuf + i*recvextent*recvcount, recvcount, recvtype,
+               i, 0, comm, MPI_STATUS_IGNORE);
+    }
+  }
+  return MPI_SUCCESS;
+}
+#endif
 
 USER_DEFINED_WRAPPER(int, Alltoallv,
                      (const void *) sendbuf, (const int *) sendcounts,
@@ -691,7 +753,6 @@ USER_DEFINED_WRAPPER(int, Scan, (const void *) sendbuf, (void *) recvbuf,
   commit_finish(comm, passthrough);
   return retval;
 }
-#endif // #ifndef MPI_COLLECTIVE_P2P
 
 // FIXME: Also check the MPI_Cart family, if they use collective communications.
 USER_DEFINED_WRAPPER(int, Comm_split, (MPI_Comm) comm, (int) color, (int) key,
