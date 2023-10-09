@@ -74,6 +74,8 @@ endif
 # rpmbuild -ba ~/rpmbuild/SPECS/libnl3.spec
 # cd ~/rpmbuild/BUILD/libnl-3.3.0/lib/.libs/
 # Build libnl-3.a from lib_libnl_3_la-*.o
+# NOTE: -zmuldefs used in static_libs.txt because libjansson.a and libjson.a both 
+# want to define 'json_object_get'. We prefer libjansson.a.
 ${PROXY_BIN}: ${PROXY_OBJS} ${LIBPROXY}.a ${STATIC_GETHOSTBYNAME}
 	if ${MPICC} -v 2>&1 | grep -q 'MPICH version'; then \
 	  rm -f tmp.sh; \
