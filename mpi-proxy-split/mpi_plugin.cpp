@@ -107,6 +107,8 @@ static bool isLhMmapRegion(const ProcMapsArea *area);
 static bool isLhMpiInitRegion(const ProcMapsArea *area);
 static bool isLhRegion(const ProcMapsArea *area);
 
+void *old_brk;
+
 // Check if haystack region contains needle region.
 static inline int
 regionContains(const void *haystackStart,
@@ -1211,6 +1213,8 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       save_cartesian_properties(file);
 #endif
       printEventToStderr("EVENT_PRECHECKPOINT (done)");
+      // Save a copy of the break address before checkpoint
+      old_brk = sbrk(0);
       break;
     }
 
@@ -1227,6 +1231,15 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     }
 
     case DMTCP_EVENT_RESTART: {
+      // Restore saved break adress to reset heap
+      // FIXME: On Perlmutter, the begining address of mtcp_restart's heap
+      // is higher than the saved break address. Therefore, calling brk
+      // in mtcp_restart cannot properly reset the break address (and heap)
+      // of the restored program. Calling brk() again here can avoid a
+      // segfault on restart. But the restored program will still use
+      // mtcp_restart's break address, instead of the saved break address
+      // as the new heap. 
+      brk(old_brk);
       printEventToStderr("EVENT_RESTART");
       processingOpenCkpFileFds = false;
       logCkptFileFds();
