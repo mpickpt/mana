@@ -77,8 +77,8 @@ removeMappings(void *addr, size_t len)
       if (mmaps[idx].guard) {
         // We need to move the guard page to the new start-of-region.
         void *guardPage = (char*)oldAddr - PAGE_SIZE;
-        mremap(guardPage, PAGE_SIZE, PAGE_SIZE, MREMAP_MAYMOVE | MREMAP_FIXED,
-               (char*)newAddr - PAGE_SIZE);
+        //mremap(guardPage, PAGE_SIZE, PAGE_SIZE, MREMAP_MAYMOVE | MREMAP_FIXED,
+               //(char*)newAddr - PAGE_SIZE);
       }
       mmaps[idx].addr = (char*)addr + len;
       mmaps[idx].len -= len;
@@ -96,8 +96,8 @@ removeMappings(void *addr, size_t len)
       if (mmaps[idx].guard) {
         // We need to move the guard page to the new end-of-region.
         void *guardPage = oldAddr;
-        mremap(guardPage, PAGE_SIZE, PAGE_SIZE, MREMAP_MAYMOVE | MREMAP_FIXED,
-               (char*)newAddr);
+        //mremap(guardPage, PAGE_SIZE, PAGE_SIZE, MREMAP_MAYMOVE | MREMAP_FIXED,
+               //(char*)newAddr);
       }
     }
   }
@@ -108,11 +108,23 @@ removeMappings(void *addr, size_t len)
 int
 __wrap___munmap (void *addr, size_t len)
 {
-  int rc = __real___munmap(addr, len);
+  //int rc = __real___munmap(addr, len);
+  int rc = mprotect(addr, len, PROT_NONE);
   if (rc == 0) {
     removeMappings(addr, len);
   }
   return rc;
+}
+
+int
+munmap (void *addr, size_t len)
+{
+  if (addr < lh_info.memRange.start ||
+      addr >= lh_info.memRange.end) {
+    return __real___munmap(addr, len);
+  }
+
+  return __wrap___munmap (addr, len);
 }
 
 // stub_warning (munmap)

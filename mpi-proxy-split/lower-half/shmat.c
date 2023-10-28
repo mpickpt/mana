@@ -35,7 +35,10 @@ __wrap_shmat(int shmid, const void *shmaddr, int shmflg)
       len = ds.shm_segsz;
     }
   }
-  int rc = munmap(addr, len); // munmap some of our reserved memory.
+
+  int rc = __wrap___munmap(addr, len);
+  rc = __real___munmap(addr, len); // munmap some of our reserved memory.
+
   if (rc == -1) {
     char msg[] = "*** Panic: MANA lower half:"
                  " can't munmap a region for shmat.\n";

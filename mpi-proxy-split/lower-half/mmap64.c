@@ -359,15 +359,24 @@ __mmap64 (void *addr, size_t len, int prot, int flags, int fd, __off_t offset)
   }
   while (1) {
     if (addr) {
+      if (flags & MAP_FIXED_NOREPLACE) {
+        flags ^= MAP_FIXED_NOREPLACE;
+      }
+      flags |= MAP_FIXED; // Dangerous!  We might clobber unknown mmap region.
+    }
+    {
+      //int rc = __real___munmap(addr, len); // munmap some of our reserved memory.
+      //rc = __wrap___munmap(addr, len);
       // FIXME:  If libmpi o network called this with their own
       //         MAP_FIXED or MAP_FIXED_NOREPLACE, we should pass
       //         any errors back to them.
-      int rc = munmap(addr, totalLen); // munmap some of our reserved memory.
-      if (rc == -1) {
-        char msg[] = "*** Panic: MANA lower half: can't munmap a region.\n";
-        perror("munmap");
-        write(2, msg, sizeof(msg)); assert(rc == 0);
-      }
+      //int dummy = LH_MMAP_CALL(-1, totalLen, prot, flags, fd, offset);
+      // int rc = munmap(addr, totalLen); // munmap some of our reserved memory.
+      // if (rc == -1) {
+      //   char msg[] = "*** Panic: MANA lower half: can't munmap a region.\n";
+      //   perror("munmap");
+      //   write(2, msg, sizeof(msg)); assert(rc == 0);
+      // }
     }
     ret = LH_MMAP_CALL(addr, totalLen, prot, flags, fd, offset);
 

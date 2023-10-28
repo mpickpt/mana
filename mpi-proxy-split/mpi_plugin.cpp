@@ -179,9 +179,9 @@ void recordPostMpiInitMaps()
 void recordMpiInitMaps()
 {
   string workerPath("/worker/" + string(dmtcp_get_uniquepid_str()));
-  //kvdb::set(workerPath, "ProcSelfMaps_PreMpiInit", preMpiInitMaps->getData());
-  //kvdb::set(workerPath, "ProcSelfMaps_PostMpiInit",
-  //          postMpiInitMaps->getData());
+  kvdb::set(workerPath, "ProcSelfMaps_PreMpiInit", preMpiInitMaps->getData());
+  kvdb::set(workerPath, "ProcSelfMaps_PostMpiInit",
+            postMpiInitMaps->getData());
 
   ProcMapsArea area;
   ProcSelfMaps maps;
@@ -795,7 +795,7 @@ computeUnionOfCkptImageAddresses()
     prev_addr_end = area.endAddr;
   }
 
-  JASSERT(lhEnd < libsStart)(lhEnd)(libsStart);
+  JASSERT(lhEnd <= libsStart)(lhEnd)(libsStart);
   // Adjust libsStart to make 4GB of space in which to grow.
   void *origLibsStart = libsStart;
   char *libsStartTmp = (char *)libsStart; // Stupid C++; Error if 'void *'
@@ -867,9 +867,25 @@ computeUnionOfCkptImageAddresses()
   // Not used
   // dmtcp_add_to_ckpt_header("MANA_MaxHighMemEnd", maxHighMemEndStr.c_str());
 
+  if (g_list) {
+    ostringstream o;
+    for (int i = 0; i < *g_numMmaps; i++) {
+      void *lhMmapStart = g_list[i].addr;
+      void *lhMmapEnd = (VA)g_list[i].addr + g_list[i].len;
+      if (!g_list[i].unmapped) {
+        o << std::hex << (uint64_t)lhMmapStart << "-" << (uint64_t)lhMmapEnd
+          << "\n";
+      }
+    }
+    kvdb::set(workerPath, "ProcSelfMaps_LhCoreRegionsGList", o.str());
+  }
+
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  string rankStr = jalib::XToString(rank);
+  kvdb::set(workerPath, "MPI_Rank", rankStr);
+
   if (getenv("MANA_DEBUG")) {
-    int rank;
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     if (rank == 0) {
       char time_string[30];
       time_t t = time(NULL);
@@ -1238,7 +1254,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       // of the restored program. Calling brk() again here can avoid a
       // segfault on restart. But the restored program will still use
       // mtcp_restart's break address, instead of the saved break address
-      // as the new heap. 
+      // as the new heap.
       brk(old_brk);
       printEventToStderr("EVENT_RESTART");
       processingOpenCkpFileFds = false;
