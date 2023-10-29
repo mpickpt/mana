@@ -87,8 +87,6 @@ bool CheckAndEnableFsGsBase();
 
 EXTERNC pid_t dmtcp_get_real_tid() __attribute((weak));
 
-int *g_numMmaps = NULL;
-MmapInfo_t *g_list = NULL;
 mana_state_t mana_state = UNKNOWN_STATE;
 
 ProcSelfMaps *preMpiInitMaps = nullptr;
@@ -207,19 +205,6 @@ void recordMpiInitMaps()
     }
 
     kvdb::set(workerPath, "ProcSelfMaps_LhCoreRegions", o.str());
-  }
-
-  if (g_list) {
-    ostringstream o;
-    for (int i = 0; i < *g_numMmaps; i++) {
-      void *lhMmapStart = g_list[i].addr;
-      void *lhMmapEnd = (VA)g_list[i].addr + g_list[i].len;
-      if (!g_list[i].unmapped) {
-        o << std::hex << (uint64_t)lhMmapStart << "-" << (uint64_t)lhMmapEnd
-          << "\n";
-      }
-    }
-    kvdb::set(workerPath, "ProcSelfMaps_LhCoreRegionsGList", o.str());
   }
 }
 
@@ -362,21 +347,8 @@ isLhCoreRegion(const ProcMapsArea *area)
 static bool
 isLhMmapRegion(const ProcMapsArea *area)
 {
-  if (!g_list) {
-    return false;
-  }
-
-  for (int i = 0; i < *g_numMmaps; i++) {
-    void *lhMmapStart = g_list[i].addr;
-    void *lhMmapEnd = (VA)g_list[i].addr + g_list[i].len;
-    if (!g_list[i].unmapped &&
-        regionContains(lhMmapStart, (void*)ROUND_UP(lhMmapEnd, PAGE_SIZE),
-                       area->addr, area->endAddr)) {
-      return true;
-    }
-  }
-
-  return false;
+  return regionContains(lh_info.memRange.start, lh_info.memRange.end,
+                        area->addr, area->endAddr);
 }
 
 // FIXME:  isLhMpiInitRegion operates only in a 'launch' process, not 'restart'
@@ -656,22 +628,6 @@ initialize_segv_handler()
     (JASSERT_ERRNO).Text("Could not set up the segfault handler");
 }
 
-// Sets the global 'g_list' pointer to the beginning of the MmapInfo_t array
-// in the lower half
-static void
-getLhMmapList()
-{
-  getMmappedList_t fnc = (getMmappedList_t)lh_info.getMmappedListFptr;
-  if (fnc) {
-    // Initialize g_numMmaps to point to lower half 'numMmapRegions'
-    g_list = fnc(&g_numMmaps);
-  }
-  JTRACE("Lower half region info")(*g_numMmaps);
-  for (int i = 0; i < *g_numMmaps; i++) {
-    JTRACE("Lh region")(g_list[i].addr)(g_list[i].len)(g_list[i].unmapped);
-  }
-}
-
 // Sets the lower half's __environ variable to point to upper half's __environ
 static void
 updateLhEnviron()
@@ -788,7 +744,7 @@ computeUnionOfCkptImageAddresses()
     prev_addr_end = area.endAddr;
   }
 
-  JASSERT(lhEnd < libsStart)(lhEnd)(libsStart);
+  JASSERT(lhEnd <= libsStart)(lhEnd)(libsStart);
   // Adjust libsStart to make 4GB of space in which to grow.
   void *origLibsStart = libsStart;
   char *libsStartTmp = (char *)libsStart; // Stupid C++; Error if 'void *'
@@ -812,6 +768,9 @@ computeUnionOfCkptImageAddresses()
   string minAddrBeyondHeapStr = jalib::XToString(minAddrBeyondHeap);
   string maxAddrBeyondHeapStr = jalib::XToString(maxAddrBeyondHeap);
   string highMemStartStr = jalib::XToString(highMemStart);
+  string lhMemStart = jalib::XToString(lh_info.memRange.start);
+  string lhMemEnd = jalib::XToString(lh_info.memRange.end);
+
   kvdb::set(workerPath, "MANA_heapAddr", heapAddrStr);
   kvdb::set(workerPath, "MANA_libsStart_Orig", origLibsStartStr);
   kvdb::set(workerPath, "MANA_libsStart", libsStartStr);
@@ -819,6 +778,8 @@ computeUnionOfCkptImageAddresses()
   kvdb::set(workerPath, "MANA_highMemStart", highMemStartStr);
   kvdb::set(workerPath, "MANA_minAddrBeyondHeap", minAddrBeyondHeapStr);
   kvdb::set(workerPath, "MANA_maxAddrBeyondHeap", maxAddrBeyondHeapStr);
+  kvdb::set(workerPath, "MANA_LowerHalf_Start", lhMemStart);
+  kvdb::set(workerPath, "MANA_LowerHalf_End", lhMemEnd);
 
   constexpr const char *kvdb = "/plugin/MANA/CKPT_UNION";
   JASSERT(kvdb::request64(KVDBRequest::MIN, kvdb, "libsStart",
@@ -860,9 +821,12 @@ computeUnionOfCkptImageAddresses()
   // Not used
   // dmtcp_add_to_ckpt_header("MANA_MaxHighMemEnd", maxHighMemEndStr.c_str());
 
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  string rankStr = jalib::XToString(rank);
+  kvdb::set(workerPath, "MPI_Rank", rankStr);
+
   if (getenv("MANA_DEBUG")) {
-    int rank;
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     if (rank == 0) {
       char time_string[30];
       time_t t = time(NULL);
@@ -1185,8 +1149,6 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       dmtcp_global_barrier("MPI:update-resource-descriptors");
       recordMpiInitMaps();
       recordOpenFds();
-      dmtcp_local_barrier("MPI:GetLocalLhMmapList");
-      getLhMmapList();
       dmtcp_local_barrier("MPI:GetLocalRankInfo");
       getLocalRankInfo(); // p2p_log_replay.cpp
       dmtcp_global_barrier("MPI:update-ckpt-dir-by-rank");
