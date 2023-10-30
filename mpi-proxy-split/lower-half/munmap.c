@@ -104,8 +104,9 @@ int
 munmap(void *addr, size_t len)
 {
   if (addr < lh_info.memRange.start || addr >= lh_info.memRange.end) {
-    DLOG(INFO,
-         "Lower half called munmap, and it's not from the reserved memRange.");
+    char msg[] ="Lower half called munmap,"
+                " and it's not from the reserved memRange.";
+    write(2, msg, sizeof(msg));
     return __real___munmap(addr, len);
   }
 
