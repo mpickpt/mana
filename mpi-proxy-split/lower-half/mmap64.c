@@ -358,16 +358,12 @@ __mmap64 (void *addr, size_t len, int prot, int flags, int fd, __off_t offset)
     totalLen += 2 * PAGE_SIZE;
   }
   while (1) {
+    // If we have a valid address, then we can call mmap with MAP_FIXED. It
+    // removes the need to call munmap. Since the user or the logic above might
+    // have added MAX_FIXED_NOREPLACE, we need to remove it as well.
     if (addr) {
-      // FIXME:  If libmpi o network called this with their own
-      //         MAP_FIXED or MAP_FIXED_NOREPLACE, we should pass
-      //         any errors back to them.
-      int rc = munmap(addr, totalLen); // munmap some of our reserved memory.
-      if (rc == -1) {
-        char msg[] = "*** Panic: MANA lower half: can't munmap a region.\n";
-        perror("munmap");
-        write(2, msg, sizeof(msg)); assert(rc == 0);
-      }
+      flags &= ~MAP_FIXED_NOREPLACE;
+      flags |= MAP_FIXED;
     }
     ret = LH_MMAP_CALL(addr, totalLen, prot, flags, fd, offset);
 
