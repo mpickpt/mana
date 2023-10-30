@@ -308,7 +308,7 @@ void first_constructor()
   static int firstTime = 1;
 
   if (firstTime) {
-    DLOG(NOISE, "(1) Constructor: We'll pass information to the parent.\n");
+    DLOG(VERBOSE, "(1) Constructor: We'll pass information to the parent.\n");
     firstTime = 0;
 
     // Pre-initialize this component of lh_info.
@@ -397,7 +397,7 @@ void first_constructor()
 #endif
     while(1);
   } else {
-    DLOG(NOISE, "(2) Constructor: Running in the parent?\n");
+    DLOG(VERBOSE, "(2) Constructor: Running in the parent?\n");
   }
 }
 
@@ -407,5 +407,5 @@ void second_destructor()
   // Destructor: The application called exit in the destructor to
   // get here. After this, we call setcontext() to get back in the
   // application.
-  DLOG(NOISE, "Destructor!\n");
+  DLOG(VERBOSE, "Destructor!\n");
 }
