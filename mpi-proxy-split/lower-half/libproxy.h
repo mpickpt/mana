@@ -29,16 +29,16 @@
 #endif // ifndef DEBUG_LEVEL
 
 #define VA_ARGS(...)  , ##__VA_ARGS__
-#define DLOG(LOG_LEVEL, fmt, ...)                                              \
-do {                                                                           \
-  if (DEBUG_LEVEL) {                                                           \
-    if (LOG_LEVEL <= DEBUG_LEVEL)                                              \
-      fprintf(stderr, "[%s +%d]: " fmt, __FILE__,                              \
-              __LINE__ VA_ARGS(__VA_ARGS__));                                  \
-  }                                                                            \
-} while(0)
+#define DLOG(LOG_LEVEL, fmt, ...)                                  \
+  do {                                                             \
+    if (DEBUG_LEVEL) {                                             \
+      if (LOG_LEVEL <= DEBUG_LEVEL)                                \
+        fprintf(stderr, #LOG_LEVEL " at [%s +%d]: " fmt, __FILE__, \
+                __LINE__ VA_ARGS(__VA_ARGS__));                    \
+    }                                                              \
+  } while (0)
 
-#define NOISE 3 // Noise!
+#define VERBOSE 3 // Verbose
 #define INFO  2 // Informational logs
 #define ERROR 1 // Highest error/exception level
 
