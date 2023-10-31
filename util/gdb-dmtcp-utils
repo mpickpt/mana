@@ -123,7 +123,7 @@ def load_symbols_library(filename_or_address):
     # ELF executables already have hard-wired absolute address
     print("EXECUTABLE FILE:")
     add_symbol_files_from_filename(filename, 0)
-  else if candidates: # If we have a valid filename, not executable
+  elif candidates: # If we have a valid filename, not executable
     (filename, start_addr) = candidates[0]
     gdb.execute("add-symbol-file -o " + str(start_addr) + " " + filename)
   else:
