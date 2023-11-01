@@ -336,8 +336,8 @@ isLhDevice(const ProcMapsArea *area)
 static bool
 isLhCoreRegion(const ProcMapsArea *area)
 {
-  for (int i = 0; i < lh_info.numCoreRegions; i++) {
-    void *lhStartAddr = lh_regions_list[i].start_addr;
+  for (int i = 0; i < lh_info_addr->numCoreRegions; i++) {
+    void *lhStartAddr = lh_info_addr->lh_regions_list[i].start_addr;
     if (area->addr == lhStartAddr) {
       JTRACE ("Ignoring LH core region") ((void*)area->addr);
       return 1;
