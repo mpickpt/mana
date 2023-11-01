@@ -338,7 +338,8 @@ isLhCoreRegion(const ProcMapsArea *area)
 {
   for (int i = 0; i < lh_info_addr->numCoreRegions; i++) {
     void *lhStartAddr = lh_info_addr->lh_regions_list[i].start_addr;
-    if (area->addr == lhStartAddr) {
+    void *lhEndAddr = lh_info_addr->lh_regions_list[i].end_addr;
+    if (area->addr >= lhStartAddr && area->addr < lhEndAddr) {
       JTRACE ("Ignoring LH core region") ((void*)area->addr);
       return 1;
     }
