@@ -73,13 +73,18 @@ if [ "$help" -eq 1 ]; then
   exit 0
 fi
 
+# On Perlmutter, on August 16, 2023, an update made FI_MR_CACHE_MONITOR
+# necessary.  See https://docs.nersc.gov/systems/perlmutter/timeline/
+# for details.
+
 SITE=unknown
 if [ "$NERSC_HOST" = "cori" ]; then
   SITE=nersc
 elif [ "$NERSC_HOST" = "gerty" ]; then
   SITE=nersc
-elif [ "$NERSC_HOST" = "perlmutter" ]; then
+elif [ "$NERSC_HOST" = "perlmutter" -o "$LMOD_SYSTEM_NAME" = "perlmutter" ]; then
   SITE=nersc
+  export FI_MR_CACHE_MONITOR=memhooks
 fi
 
 if [ "$SITE" = "nersc" ]; then
