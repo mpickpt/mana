@@ -107,8 +107,8 @@ done
 
 if [ "$SITE" = "nersc" ]; then
   if [ -z "$SLURM_JOB_ID" ]; then
-    echo "SLURM_JOB_ID env variable not set; No salloc/sbatch jobs running?"
-    exit 4
+    echo \
+    "Warning: SLURM_JOB_ID env variable not set; No salloc/sbatch jobs running?"
   fi
 fi
 
@@ -126,7 +126,7 @@ if [ "$coordinator_found" = 0 ]; then
   echo "    $dir/mana_coordinator"
   echo "  Or:"
   echo "    $dir/dmtcp_coordinator --exit-on-last -q --daemon"
-  exit 3
+  exit 4
 fi
 
 if [ "$SITE" = "nersc" ]; then

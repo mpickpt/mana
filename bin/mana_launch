@@ -89,8 +89,8 @@ fi
 
 if [ "$SITE" = "nersc" ]; then
   if [ -z "$SLURM_JOB_ID" ]; then
-    echo "SLURM_JOB_ID env variable not set; No salloc/sbatch jobs running?"
-    exit 2
+    echo \
+    "Warning: SLURM_JOB_ID env variable not set; No salloc/sbatch jobs running?"
   fi
 
   if [ "$srun_sbatch_found" -eq 1 ]; then
