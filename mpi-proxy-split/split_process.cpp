@@ -112,6 +112,8 @@ splitProcess()
   int ret = -1;
   if (childpid > 0) {
     ret = read_lh_proxy_bits(childpid);
+    // FIXME: Replace lh_info with lh_info_addr everywhere
+    // And remove lh_info from .h
     memcpy(&lh_info, lh_info_addr, sizeof(lh_info)); // Populate lh_info now
     kill(childpid, SIGKILL);
     waitpid(childpid, NULL, 0);

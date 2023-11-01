@@ -359,6 +359,7 @@ void first_constructor()
     lh_info.resetMmappedListFptr = (void*)&resetMmappedList;
     lh_info.memRange = lh_memRange;
     lh_info.numCoreRegions = totalRegions;
+    lh_info.lh_regions_list = &lh_core_regions;
     lh_info.getLhRegionsListFptr = (void*)&getLhRegionsList;
     lh_info.vdsoLdAddrInLinkMap = getVdsoPointerInLinkMap();
     DLOG(INFO, "startText: %p, endText: %p, endOfHeap; %p\n",

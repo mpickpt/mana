@@ -70,12 +70,14 @@ typedef struct LowerHalfInfo
   void *getMmappedListFptr;
   void *resetMmappedListFptr;
   int numCoreRegions;
+  LhCoreRegions_t *lh_regions_list;
   void *getLhRegionsListFptr;
   void *vdsoLdAddrInLinkMap;
   MemRange_t memRange;
 } LowerHalfInfo_t;
 
 extern LowerHalfInfo_t lh_info;
+extern LowerHalfInfo_t *lh_info_addr;
 extern LhCoreRegions_t lh_regions_list[MAX_LH_REGIONS];
 
 // Helper macro to be used whenever making a jump from the upper half to

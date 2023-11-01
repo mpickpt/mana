@@ -81,6 +81,7 @@ typedef struct _LowerHalfInfo
   void *getMmappedListFptr; // Pointer to getMmappedList() function in the lower half
   void *resetMmappedListFptr; // Pointer to resetMmappedList() function in the lower half
   int numCoreRegions; // total number of core regions in the lower half
+  LhCoreRegions_t *lh_regions_list;
   void *getLhRegionsListFptr; // Pointer to getLhRegionsList() function in the lower half
   void *vdsoLdAddrInLinkMap; // vDSO's LD address in the lower half's linkmap
   MemRange_t memRange; // MemRange_t object in the lower half
@@ -92,6 +93,7 @@ extern LhCoreRegions_t lh_regions_list[MAX_LH_REGIONS];
 
 // startProxy() (called from splitProcess()) will initialize 'lh_info'
 extern LowerHalfInfo_t lh_info;  
+extern LowerHalfInfo_t *lh_info_addr;  
 
 
 #if 0
