@@ -16,7 +16,7 @@
 # *** ERROR:Executable to run w/ DMTCP appears not to be readable,
 # ***or no such executable in path.
 
-if [ "$1" == "--help" -o "$1" == -h ] && [ -z "$2" ]; then
+if [ "$1" = "--help" -o "$1" = -h ] && [ -z "$2" ]; then
   echo "USAGE: mana_restart [--verbose] [DMTCP_OPTIONS ...]" \
                                                 "[--restartdir MANA_CKPT_DIR]"
   echo "       Default for MANA_CKPT_DIR is current directory"
@@ -41,11 +41,11 @@ restartdir=""
 verbose=0
 help=0
 while [ -n "$1" ]; do
-  if [ "$1" == --verbose ]; then
+  if [ "$1" = --verbose ]; then
     verbose=1
-  elif [ "$1" == --help ]; then
+  elif [ "$1" = --help ]; then
     help=1
-  elif [ "$1" == --restartdir ]; then
+  elif [ "$1" = --restartdir ]; then
     restartdir="$2"
     if [ ! -d "$restartdir" ]; then
       echo "$0: --restartdir $restartdir: Restart directory doesn't exist"
@@ -68,18 +68,47 @@ if [ "$NERSC_HOST" = "cori" ]; then
   SITE=nersc
 elif [ "$NERSC_HOST" = "gerty" ]; then
   SITE=nersc
-elif [ "$NERSC_HOST" = "perlmutter" ]; then
+elif [ "$NERSC_HOST" = "perlmutter" -o "$LMOD_SYSTEM_NAME" = "perlmutter" ]; then
   SITE=nersc
 fi
 
-if [ "$restartdir" == "" ]; then
+if [ "$restartdir" = "" ]; then
+  restartdir=./
   options="$options --restartdir ./"
 fi
+
+dir_exists=0
+for file in $restartdir/ckpt_rank_*; do
+  dir_exists=1
+done
+if [ "$SLURM_PROCID" = "0" -a "$dir_exists" = "0" ]; then
+  echo '**************************************************************'
+  echo "The restartdir $restartdir/ckpt_rank_"'*'" was not found."
+  echo '**************************************************************'
+fi
+if [ "$dir_exists" = "0" ]; then
+  sleep 2
+  exit 2
+fi
+
+responded=0
+for file in $restartdir/ckpt_rank_*/ckpt_*.temp; do
+  test -e "$file" || break
+  if [ "$SLURM_PROCID" = "0" -a "$responded" = "0" ]; then
+    responded=1
+    echo '**************************************************************'
+    echo "The restartdir $restartdir has unfinished (.temp) ckpt images:"
+    ls $restartdir/ckpt_rank_*/ckpt_*.temp
+    echo '**************************************************************'
+  fi
+  sleep 2
+  exit 3
+done
 
 if [ "$SITE" = "nersc" ]; then
   if [ -z "$SLURM_JOB_ID" ]; then
     echo "SLURM_JOB_ID env variable not set; No salloc/sbatch jobs running?"
-    exit 2
+    exit 4
   fi
 fi
 
@@ -87,7 +116,7 @@ fi
 coordinator_found=0
 $dir/dmtcp_command -s -h $submissionHost -p $submissionPort 1>/dev/null \
                                                         && coordinator_found=1
-if [ "$coordinator_found" == 0 ]; then
+if [ "$coordinator_found" = 0 ]; then
   echo "*** Checking for coordinator:"
   set -x
     $dir/dmtcp_command --status --coord-host $submissionHost \
@@ -120,12 +149,12 @@ if [ "$SITE" = "nersc" ]; then
 fi
 
 # If not verbose, use --quiet option
-if [ "$verbose" == 0 ]; then
+if [ "$verbose" = 0 ]; then
   # $options must be last; It usually includes the directory for ckpt files.
   options="-q -q $options"
 fi
 
-if [ "$verbose" == 1 ]; then
+if [ "$verbose" = 1 ]; then
   set -x
 fi
 
