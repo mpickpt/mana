@@ -23,7 +23,7 @@ __wrap_shmat(int shmid, const void *shmaddr, int shmflg)
                  "***           This is not currently handled by MANA.\n";
     write(2, msg, sizeof(msg));
     if (shmflg & SHM_REMAP) {
-      char msg2[] = "*** WARNING:  shmflg had SHM_REMAP set.\n");
+      char msg2[] = "*** WARNING:  shmflg had SHM_REMAP set.\n";
       write(2, msg2, sizeof(msg));
     }
   }
