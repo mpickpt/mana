@@ -22,8 +22,8 @@ __wrap_shmat(int shmid, const void *shmaddr, int shmflg)
     char msg[] = "*** WARNING:  lh shmat called with non-NULL shmaddr\n"
                  "***           This is not currently handled by MANA.\n";
     write(2, msg, sizeof(msg));
-    if (shmflag & SHM_REMAP) {
-      char msg2[] = "*** WARNING:  shmflag had SHM_REMAP set.\n");
+    if (shmflg & SHM_REMAP) {
+      char msg2[] = "*** WARNING:  shmflg had SHM_REMAP set.\n");
       write(2, msg2, sizeof(msg));
     }
   }
