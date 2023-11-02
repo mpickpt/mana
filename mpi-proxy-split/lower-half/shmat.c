@@ -18,6 +18,16 @@ __wrap_shmat(int shmid, const void *shmaddr, int shmflg)
   void *addr = NULL;
   size_t len = PAGE_SIZE;
 
+  if (shmaddr != NULL) {
+    char msg[] = "*** WARNING:  lh shmat called with non-NULL shmaddr\n"
+                 "***           This is not currently handled by MANA.\n";
+    write(2, msg, sizeof(msg));
+    if (shmflag & SHM_REMAP) {
+      char msg2[] = "*** WARNING:  shmflag had SHM_REMAP set.\n");
+      write(2, msg2, sizeof(msg));
+    }
+  }
+
   if (shmaddr == NULL) {
     int idx = getShmIdx(shmid);
     if (idx != -1) {
