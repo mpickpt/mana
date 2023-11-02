@@ -203,7 +203,7 @@ void recordMpiInitMaps()
     ostringstream o;
     for (int i = 0; i < lh_info.numCoreRegions; i++) {
       o << std::hex << (uint64_t) lh_regions_list[i].start_addr << "-"
-        << (uint64_t) lh_regions_list[i].start_addr << "\n";
+        << (uint64_t) lh_regions_list[i].end_addr << "\n";
     }
 
     kvdb::set(workerPath, "ProcSelfMaps_LhCoreRegions", o.str());
