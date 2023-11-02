@@ -377,6 +377,7 @@ startProxy()
   return childpid;
 }
 
+#define MANA_USE_LH_FIXED_ADDRESS
 // This sets the address range of the lower half dynamically by searching
 // through the memory region for the first available free region.
 // FIXME:  restart_plugin/mtcp_split_process.c uses MANA_USE_LH_FIXED_ADDRESS.
@@ -384,6 +385,11 @@ startProxy()
 static void
 findLHMemRange(MemRange_t *lh_mem_range)
 {
+#ifdef MANA_USE_LH_FIXED_ADDRESS
+  // FIXME: This should be the same as the address used in restart_plugin/mtcp_split_process.cpp
+  lh_mem_range->start = (void *)0x2aab00000000;
+  lh_mem_range->end =   (void *)(0x2aab00000000 + ONEGB);
+#else
   bool is_set = false;
 
   Area area;
@@ -436,6 +442,7 @@ findLHMemRange(MemRange_t *lh_mem_range)
 
   JASSERT(is_set)(JASSERT_ERRNO)
     .Text("No memory region can be found for the lower half");
+#endif
 }
 
 // Sets the address range for the lower half, dynamically determined by the
