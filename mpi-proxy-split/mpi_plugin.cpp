@@ -849,6 +849,7 @@ computeUnionOfCkptImageAddresses()
                       "MANA_MaxLibsEnd", maxLibsEndStr.c_str());
       fprintf(stderr, "%s: %s\n",
                       "  MANA_MinHighMemStart", minHighMemStartStr.c_str());
+      fprintf(stderr, "  Starting to checkpoint ...\n");
     }
   }
 }
@@ -1185,6 +1186,13 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     }
 
     case DMTCP_EVENT_RESUME: {
+      int rank;
+      MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+      if (getenv("MANA_DEBUG")) {
+        if (rank == 0) {
+          fprintf(stderr, "  ... resuming from checkpoint.\n");
+        }
+      }
       printEventToStderr("EVENT_RESUME");
       processingOpenCkpFileFds = false;
       dmtcp_local_barrier("MPI:Reset-Drain-Send-Recv-Counters");
