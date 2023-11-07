@@ -36,6 +36,9 @@ targetdir = $(top_builddir)
 INSTALL_FLAGS = install
 UNINSTALL_FLAGS = uninstall
 
+# If 'DMTCP_ROOT' env. var. is defined, use that instead of dmtcp submodule.
+DMTCP_ROOT ?= $(top_builddir)/dmtcp
+
 # Macros TEST and XTERM_E used on command line by check1, check2, ...:
 #   make TEST=readline XTERM_E="xterm -e" check-readline
 
@@ -48,9 +51,9 @@ mana: mana_prereqs dmtcp
 	cd mpi-proxy-split && $(MAKE) install && $(MAKE) -j tests
 
 dmtcp: restart_plugin/lower_half_api.h
-	cd dmtcp && $(MAKE)
-	cp -rf dmtcp/bin .
-	cp -rf dmtcp/lib .
+	cd ${DMTCP_ROOT} && $(MAKE)
+	cp -rf ${DMTCP_ROOT}/bin .
+	cp -rf ${DMTCP_ROOT}/lib .
 
 # This could be a symbolic link.  But a full copy seems safer.
 restart_plugin/lower_half_api.h: mpi-proxy-split/lower-half/lower_half_api.h
@@ -65,17 +68,17 @@ create-dirs:
 	$(INSTALL) -d $(DESTDIR)$(mandir)/man1
 
 install: all create-dirs
-	cd dmtcp && make DESTDIR=$(DESTDIR) $(INSTALL_FLAGS)
+	cd ${DMTCP_ROOT} && make DESTDIR=$(DESTDIR) $(INSTALL_FLAGS)
 	cd mpi-proxy-split && make DESTDIR=$(DESTDIR) $(INSTALL_FLAGS)
 	cd manpages && make DESTDIR=$(DESTDIR) $(INSTALL_FLAGS)
 
 uninstall:
-	cd dmtcp && make DESTDIR=$(DESTDIR) $(UNINSTALL_FLAGS)
+	cd ${DMTCP_ROOT} && make DESTDIR=$(DESTDIR) $(UNINSTALL_FLAGS)
 	cd mpi-proxy-split && make DESTDIR=$(DESTDIR) $(UNINSTALL_FLAGS)
 	cd manpages && make DESTDIR=$(DESTDIR) $(UNINSTALL_FLAGS)
 
 distclean: clean
-	- cd dmtcp && $(MAKE) distclean
+	- cd ${DMTCP_ROOT} && $(MAKE) distclean
 	- cd mpi-proxy-split && $(MAKE) distclean
 	- cd manpages && $(MAKE) distclean
 	rm -f Makefile config.log config.status config.status-* config.cache
@@ -89,7 +92,7 @@ tidy:
 	rm -f dmtcp_coordinator_db-*.json
 
 clean: tidy
-	- cd dmtcp && $(MAKE) clean
+	- cd ${DMTCP_ROOT} && $(MAKE) clean
 	- cd mpi-proxy-split && $(MAKE) clean
 
 mana_prereqs:
