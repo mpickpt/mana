@@ -562,6 +562,21 @@ mtcp_plugin_hook(RestoreInfo *rinfo)
   // The other assumption here is that we can only handle uncompressed
   // checkpoint images.
 
+  Area heap_area;
+  MTCP_ASSERT(getMappedArea(&heap_area, "[heap]") == 1);
+  // FIXME:  If we use PROT_NONE (preferred), then an older DMTCP
+  //         will not restore this memory region.
+  // By creating a memory page just beyond the end of the heap,
+  // this will prevent glibc from extending the main malloc arena.
+  // So, glibc will create a second arena.
+  // NOTE:  This is needed for mtcp_restart, lh_proxy, and the upper half.
+  // Rationale:  On restart, the end-of-heap is not here, but at
+  //             the end-of-heap for mtcp_restart.  Luckily, glibc
+  //             caches 'sbrk(0)', which is here.  So, glibc should
+  //             detect that there is an mmap'ed region just beyond it,
+  //             thus causing glibc to allocate a second arena elsewhere.
+  mtcp_sys_mmap(heapAddr, 4096, PROT_READ, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+
   // This creates the lower half and copies the bits, and sets lh_info_addr
   //   to point into the lh_info struct of the lower half:
   splitProcess(rinfo);
