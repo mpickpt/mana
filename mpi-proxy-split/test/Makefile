@@ -162,8 +162,7 @@ check-integrated_dmtcp_text: tidy integrated_dmtcp_test
 	$(MPIFORTRAN) ${FFLAGS} -g3 -O0 -o $@ $<
 
 %.mana.exe: %.f90
-	$(MPIFORTRAN) ${FFLAGS} -g3 -O0 -o $@ $<
-	  ${LDFLAGS_DUMMY}
+	$(MPIFORTRAN) ${FFLAGS} -g3 -O0 -o $@ $< ${LDFLAGS_DUMMY}
 
 %.exe: %.o
 	 $(MPICC) -o $@ $< ${MPI_LDFLAGS}
