@@ -1109,6 +1109,18 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 
       heapAddr = sbrk(0);
       JASSERT(heapAddr != nullptr);
+      // FIXME:  If we use PROT_NONE (preferred), then an older DMTCP
+      //         will not restore this memory region.
+      // By creating a memory page just beyond the end of the heap,
+      // this will prevent glibc from extending the main malloc arena.
+      // So, glibc will create a second arena.
+      // NOTE:  This is needed for mtcp_restart, lh_proxy, and the upper half.
+      // Rationale:  On restart, the end-of-heap is not here, but at
+      //             the end-of-heap for mtcp_restart.  Luckily, glibc
+      //             caches 'sbrk(0)', which is here.  So, glibc should
+      //             detect that there is an mmap'ed region just beyond it,
+      //             thus causing glibc to allocate a second arena elsewhere.
+      mmap(heapAddr, 4096, PROT_READ, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
 
       break;
     }
