@@ -136,6 +136,18 @@ static uint64_t page_unit;
 # define INTERNAL_SYSCALL_ERROR_P(val, err) \
   ((unsigned long int) (long int) (val) >= -4095L)
 
+#ifndef __set_errno
+# define __set_errno(Val) errno = (Val)
+#endif
+/* Set error number and return -1.  A target may choose to return the
+   internal function, __syscall_error, which sets errno and returns -1.
+   We use -1l, instead of -1, so that it can be casted to (void *).  */
+#define INLINE_SYSCALL_ERROR_RETURN_VALUE(err)  \
+  ({						\
+    __set_errno (err);				\
+    -1l;					\
+  })
+
 # define INTERNAL_SYSCALL_ERRNO(val, err) (-(val))
 
 # define INLINE_SYSCALL(name, nr, args...) \
@@ -184,6 +196,15 @@ static uint64_t page_unit;
 #ifndef MMAP_CALL
 # define MMAP_CALL(__nr, __addr, __len, __prot, __flags, __fd, __offset) \
     INLINE_SYSCALL_CALL (__nr, __addr, __len, __prot, __flags, __fd, __offset)
+#endif
+
+#ifdef __NR_mmap2
+# define LH_MMAP_CALL(addr, len, prot, flags, fd, offset) \
+           (void *)MMAP_CALL(mmap2, addr, len, prot, flags, fd, \
+                                    (off_t) (offset / MMAP2_PAGE_UNIT))
+#else
+# define LH_MMAP_CALL(addr, len, prot, flags, fd, offset) \
+           (void *)MMAP_CALL(mmap, addr, len, prot, flags, fd, offset)
 #endif
 
 // ==========================================================
