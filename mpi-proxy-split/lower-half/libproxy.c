@@ -32,6 +32,7 @@
 #include <dlfcn.h>
 #include <link.h>
 #include <assert.h>
+#include <sys/mman.h>
 #include <sys/syscall.h>
 #include <asm/prctl.h>
 #include <sys/prctl.h>
@@ -49,7 +50,7 @@
 extern int MPI_MANA_Internal(char *dummy);
 
 #include "libproxy.h"
-#include "mmap_internal.h"  // included for definition of ROUND_UP
+#include "mmap_internal.h"  // included for definition of ROUND_UP, LH_MMAP_CALL
 #include "mpi_copybits.h"
 #include "procmapsutils.h"
 #include "lower_half_api.h"

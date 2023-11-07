@@ -50,33 +50,11 @@
 
 #define HAS_MAP_FIXED_NOREPLACE LINUX_VERSION_CODE >= KERNEL_VERSION(4, 17, 0)
 
-#ifdef __NR_mmap2
-# define LH_MMAP_CALL(addr, len, prot, flags, fd, offset) \
-           (void *)MMAP_CALL(mmap2, addr, len, prot, flags, fd, \
-                                    (off_t) (offset / MMAP2_PAGE_UNIT))
-#else
-# define LH_MMAP_CALL(addr, len, prot, flags, fd, offset) \
-           (void *)MMAP_CALL(mmap, addr, len, prot, flags, fd, offset)
-#endif
-
 // We write this into our rserved lh_memRange memory, to see if anyone
 //   modified our memory.
 // FIXME:  We don't restore CANARY_BYTE when we munmap memory.  But it's not
 //         a current problem.  We add mmap regions only at end of lh_memRange
 #define CANARY_BYTE ((char)0b10101010)
-
-#ifndef __set_errno
-# define __set_errno(Val) errno = (Val)
-#endif
-
-/* Set error number and return -1.  A target may choose to return the
-   internal function, __syscall_error, which sets errno and returns -1.
-   We use -1l, instead of -1, so that it can be casted to (void *).  */
-#define INLINE_SYSCALL_ERROR_RETURN_VALUE(err)  \
-  ({						\
-    __set_errno (err);				\
-    -1l;					\
-  })
 
 /* To avoid silent truncation of offset when using mmap2, do not accept
    offset larger than 1 << (page_shift + off_t bits).  For archictures with
