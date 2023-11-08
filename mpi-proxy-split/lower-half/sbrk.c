@@ -33,6 +33,7 @@ extern int __brk (void *addr);
 static int __libc_multiple_libcs = 0;
 
 void *__endOfHeap = 0;
+int endOfHeapFrozen = 0; // When we set this, sbrk will always return -1.
 
 #define PAGE_SIZE 4096
 
