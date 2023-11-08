@@ -274,4 +274,6 @@ extern int numRegions;
 extern MmapInfo_t mmaps[MAX_TRACK];
 extern void *nextFreeAddr;
 
+extern int endOfHeapFrozen;
+
 #endif /* MMAP_INTERNAL_LINUX_H  */

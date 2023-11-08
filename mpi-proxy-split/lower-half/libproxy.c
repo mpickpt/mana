@@ -338,6 +338,7 @@ void first_constructor()
     lh_info.startText = (void*)start;
     lh_info.endText = (void*)end;
     lh_info.endOfHeap = (void*)heap.endAddr;
+    lh_info.endOfHeapFrozenAddr = &endOfHeapFrozen;
     lh_info.libc_start_main = &__libc_start_main;
     lh_info.main = &main;
     lh_info.libc_csu_init = &__libc_csu_init;
