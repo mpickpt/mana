@@ -416,6 +416,8 @@ initializeLowerHalf(RestoreInfo *rinfo)
     fnc((mainFptr)lh_info_addr->main, argc, argv,
         (mainFptr)lh_info_addr->libc_csu_init,
         (finiFptr)lh_info_addr->libc_csu_fini, 0, stack_end);
+    // Prevent lh malloc from extending main heap; Also, sbrk returns -1 in lh
+    *lh_info_addr->endOfHeapFrozenAddr = 1;
   }
   DPRINTF("After getcontext");
   patchAuxv(auxvec, 0, 0, 0);
