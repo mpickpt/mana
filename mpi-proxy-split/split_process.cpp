@@ -522,7 +522,6 @@ initializeLowerHalf()
   char **argv = (char**)(argcAddr + sizeof(unsigned long));
   char **ev = &argv[argc + 1];
   // char **ev = &((unsigned long*)stack_end[argc + 1]);
-  libcFptr_t fnc = (libcFptr_t)lh_info.libc_start_main;
 
   // Save the pointer to mydlsym() function in the lower half. This will be
   // used in all the mpi-wrappers.
@@ -554,13 +553,15 @@ initializeLowerHalf()
     // Initialize the lower half by calling the __libc_start_main function
     // in the lower half, if not already done.
     lh_initialized = true;
+    libcFptr_t fnc = (libcFptr_t)lh_info.libc_start_main;
     fnc((mainFptr)lh_info.main, argc, argv,
         (mainFptr)lh_info.libc_csu_init,
         (finiFptr)lh_info.libc_csu_fini, 0, stack_end);
+    // Prevent lh malloc from extending main heap; Also, sbrk returns -1 in lh
+    *lh_info.endOfHeapFrozenAddr = 1;
   }
   JTRACE("After getcontext");
-  // Restore the the auxiliary vector to correspond to the values of the upper
-  // half.
+  // Restore the auxiliary vector to correspond to the values of the upper half.
   patchAuxv(auxvec, 0, 0, 0);
   RETURN_TO_UPPER_HALF();
   return ret;

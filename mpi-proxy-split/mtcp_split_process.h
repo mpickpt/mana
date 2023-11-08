@@ -51,6 +51,7 @@ typedef struct LowerHalfInfo
   void *startText;
   void *endText;
   void *endOfHeap;
+  int *endOfHeapFrozenAddr;
   void *libc_start_main;
   void *main;
   void *libc_csu_init;
