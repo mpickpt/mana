@@ -86,7 +86,7 @@ USER_DEFINED_WRAPPER(int, Bcast,
                      (void *) buffer, (int) count, (MPI_Datatype) datatype,
                      (int) root, (MPI_Comm) comm)
 {
-  bool passthrough = true;
+  bool passthrough = false;
   commit_begin(comm, passthrough);
   int retval;
 #if 0 // for debugging
@@ -287,7 +287,7 @@ USER_DEFINED_WRAPPER(int, Reduce,
                      (MPI_Datatype) datatype, (MPI_Op) op,
                      (int) root, (MPI_Comm) comm)
 {
-  bool passthrough = true;
+  bool passthrough = false;
   commit_begin(comm, passthrough);
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -343,7 +343,7 @@ USER_DEFINED_WRAPPER(int, Reduce_scatter,
                      (const int) recvcounts[], (MPI_Datatype) datatype,
                      (MPI_Op) op, (MPI_Comm) comm)
 {
-  bool passthrough = true;
+  bool passthrough = false;
   commit_begin(comm, passthrough);
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -514,7 +514,7 @@ USER_DEFINED_WRAPPER(int, Gather, (const void *) sendbuf, (int) sendcount,
                      (MPI_Datatype) sendtype, (void *) recvbuf, (int) recvcount,
                      (MPI_Datatype) recvtype, (int) root, (MPI_Comm) comm)
 {
-  bool passthrough = true;
+  bool passthrough = false;
   commit_begin(comm, passthrough);
   int retval;
   // FIXME: Ideally, check FORTRAN_MPI_IN_PLACE only in the Fortran wrapper.
@@ -544,7 +544,7 @@ USER_DEFINED_WRAPPER(int, Gatherv, (const void *) sendbuf, (int) sendcount,
                      (const int*) recvcounts, (const int*) displs,
                      (MPI_Datatype) recvtype, (int) root, (MPI_Comm) comm)
 {
-  bool passthrough = true;
+  bool passthrough = false;
   commit_begin(comm, passthrough);
   int retval;
   // FIXME: Ideally, check FORTRAN_MPI_IN_PLACE only in the Fortran wrapper.
@@ -569,7 +569,7 @@ USER_DEFINED_WRAPPER(int, Scatter, (const void *) sendbuf, (int) sendcount,
                      (MPI_Datatype) sendtype, (void *) recvbuf, (int) recvcount,
                      (MPI_Datatype) recvtype, (int) root, (MPI_Comm) comm)
 {
-  bool passthrough = true;
+  bool passthrough = false;
   commit_begin(comm, passthrough);
   int retval;
   // FIXME: Ideally, check FORTRAN_MPI_IN_PLACE only in the Fortran wrapper.
@@ -595,7 +595,7 @@ USER_DEFINED_WRAPPER(int, Scatterv, (const void *) sendbuf,
                      (MPI_Datatype) sendtype, (void *) recvbuf, (int) recvcount,
                      (MPI_Datatype) recvtype, (int) root, (MPI_Comm) comm)
 {
-  bool passthrough = true;
+  bool passthrough = false;
   commit_begin(comm, passthrough);
   int retval;
   // FIXME: Ideally, check FORTRAN_MPI_IN_PLACE only in the Fortran wrapper.
@@ -671,7 +671,7 @@ USER_DEFINED_WRAPPER(int, Scan, (const void *) sendbuf, (void *) recvbuf,
                      (int) count, (MPI_Datatype) datatype,
                      (MPI_Op) op, (MPI_Comm) comm)
 {
-  bool passthrough = true;
+  bool passthrough = false;
   commit_begin(comm, passthrough);
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
