@@ -18,6 +18,8 @@ using dmtcp::kvdb::KVDBResponse;
 
 // #define DEBUG_SEQ_NUM
 
+constexpr int MAX_DRAIN_ROUNDS = 200;
+
 extern int g_world_rank;
 extern int g_world_size;
 // Global communicator for MANA internal use
@@ -56,8 +58,6 @@ sem_t freepass_sync_sem;
 std::map<unsigned int, unsigned long> seq_num;
 std::map<unsigned int, unsigned long> target;
 typedef std::pair<unsigned int, unsigned long> comm_seq_pair_t;
-
-constexpr const char *comm_seq_max_db = "/plugin/MANA/comm-seq-max";
 
 void seq_num_init() {
   ckpt_pending = false;
@@ -242,48 +242,61 @@ void commit_finish(MPI_Comm comm, bool passthrough) {
   }
 }
 
-void upload_seq_num() {
+void
+upload_seq_num(const char *db)
+{
   for (comm_seq_pair_t pair : seq_num) {
     dmtcp::string comm_id_str(jalib::XToString(pair.first));
     unsigned int seq = pair.second;
-    JASSERT(dmtcp::kvdb::request64(KVDBRequest::MAX, comm_seq_max_db,
-                                   comm_id_str, seq) == KVDBResponse::SUCCESS);
+    JASSERT(dmtcp::kvdb::request64(KVDBRequest::MAX, db, comm_id_str, seq) ==
+            KVDBResponse::SUCCESS);
   }
 }
 
-void download_targets(std::map<unsigned int, unsigned long> &target) {
+void
+download_targets(const char *db)
+{
   int64_t max_seq = 0;
   unsigned int comm_id;
   for (comm_seq_pair_t pair : seq_num) {
     comm_id = pair.first;
     dmtcp::string comm_id_str(jalib::XToString(pair.first));
-    JASSERT(dmtcp::kvdb::get64(comm_seq_max_db, comm_id_str, &max_seq) ==
+    JASSERT(dmtcp::kvdb::get64(db, comm_id_str, &max_seq) ==
             KVDBResponse::SUCCESS);
     target[comm_id] = max_seq;
   }
 }
 
-void share_seq_nums(std::map<unsigned int, unsigned long> &target) {
-  upload_seq_num();
-  dmtcp_global_barrier("mana/share-seq-num");
-  download_targets(target);
+void
+share_seq_nums(int attemptId)
+{
+  char db[64] = { 0 };
+  char barrier[64] = { 0 };
+  snprintf(db, 63, "/plugin/MANA/comm-seq-max-%06d", attemptId);
+  snprintf(barrier, 63, "MANA-SHARE-SEQ-NUM-%06d", attemptId);
+
+  upload_seq_num(db);
+  dmtcp_global_barrier(barrier);
+  download_targets(db);
 }
 
-void drain_mpi_collective() {
+static bool
+try_drain_mpi_collective(int attemptId)
+{
   int round_num = 0;
   int64_t num_converged = 0;
   int64_t in_cs = 0;
-  pthread_mutex_lock(&seq_num_lock);
-  ckpt_pending = true;
-  share_seq_nums(target);
-  pthread_mutex_unlock(&seq_num_lock);
-  while (1) {
-    char key[32] = {0};
-    char barrier_id[32] = {0};
-    constexpr const char *cs_id = "/plugin/MANA/CRITICAL-SECTION";
-    constexpr const char *converge_id = "/plugin/MANA/CONVERGE";
-    sprintf(barrier_id, "MANA-PRESUSPEND-%06d", round_num);
-    sprintf(key, "round-%06d", round_num);
+
+  for (int i = 0; i < MAX_DRAIN_ROUNDS; i++) {
+    char key[64] = { 0 };
+    char barrier_id[64] = { 0 };
+    char cs_id[64] = { 0 };
+    char converge_id[64] = { 0 };
+
+    snprintf(cs_id, 63, "/plugin/MANA/CRITICAL-SECTION-%06d", attemptId);
+    snprintf(converge_id, 63, "/plugin/MANA/CONVERGE-%06d", attemptId);
+    snprintf(barrier_id, 63, "MANA-PRESUSPEND-%06d-%06d", attemptId, round_num);
+    snprintf(key, 63, "round-%06d", round_num);
 
     JASSERT(dmtcp::kvdb::request64(KVDBRequest::INCRBY, converge_id, key,
                                    check_seq_nums(false)) ==
@@ -299,8 +312,40 @@ void drain_mpi_collective() {
     JASSERT(dmtcp::kvdb::get64(cs_id, key, &in_cs) == KVDBResponse::SUCCESS);
 
     if (in_cs == 0 && num_converged == g_world_size) {
-      break;
+      return true;
     }
+
     round_num++;
+  }
+
+  return false;
+}
+
+void
+drain_mpi_collective()
+{
+  int attemptId = 0;
+
+  while (true) {
+    // Publish our seq_num to kvdb.
+    pthread_mutex_lock(&seq_num_lock);
+    ckpt_pending = true;
+    share_seq_nums(attemptId);
+    pthread_mutex_unlock(&seq_num_lock);
+
+    if (try_drain_mpi_collective(attemptId)) {
+      return;
+    }
+
+    // We couldn't drain the collective.  Let's try again after sleeping for a
+    // second. We set ckpt_pending to false to allow the user threads to
+    // continue for a bit.
+    pthread_mutex_lock(&seq_num_lock);
+    ckpt_pending = false;
+    pthread_mutex_unlock(&seq_num_lock);
+
+    sleep(1);
+
+    attemptId++;
   }
 }
