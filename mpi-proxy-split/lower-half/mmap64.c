@@ -340,7 +340,9 @@ __mmap64 (void *addr, size_t len, int prot, int flags, int fd, __off_t offset)
     // removes the need to call munmap. Since the user or the logic above might
     // have added MAX_FIXED_NOREPLACE, we need to remove it as well.
     if (addr) {
+#if HAS_MAP_FIXED_NOREPLACE
       flags &= ~MAP_FIXED_NOREPLACE;
+#endif
       flags |= MAP_FIXED;
     }
     ret = LH_MMAP_CALL(addr, totalLen, prot, flags, fd, offset);
