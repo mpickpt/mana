@@ -18,7 +18,7 @@ using dmtcp::kvdb::KVDBResponse;
 
 // #define DEBUG_SEQ_NUM
 
-constexpr int MAX_DRAIN_ROUNDS = 1000;
+constexpr int MAX_DRAIN_ROUNDS = 200;
 
 extern int g_world_rank;
 extern int g_world_size;
