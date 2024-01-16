@@ -1,0 +1,30 @@
+A new approach of the mmap and sbrk wrappers
+================================================
+
+## Why mmap and sbrk wrappers are defined in the lower-half
+
+In the original MANA, mmap and sbrk wrappers interpose calls from the
+lower-half to track memories allocated in the lower-half.  In contrast,
+CRAC tracks memories allocated in the upper-half.  This is because of
+issues related to CUDA.
+
+Because the kernel loader need to patch ldso before it's loaded, the
+wrappers need to be defined in the lower-half. Therefore, everytime the
+upper-half calls mmap or sbrk, wrappers need to jump to the lower-half
+because of the fs register conflict.
+
+## Limitations
+
+If the upper-half program calls mmap/sbrk frequently, wrappers have to
+jump between the upper and lower half frequently. With the FSGSBASE patch,
+the runtime overhead can be minimum. But the design is still confusing
+the may cause potential performance problem.
+
+## New approach
+
+We define two set of wrappers. One in the lower-half, used to patch
+the ldso.  The other one in the upper-half, used to patch libc. After
+the upper-half is loaded, lower-half wrappers will share their list of
+tracked memories to the upper-half. At the time of checkpoint, we only
+need to examine the tracked memories in the upper-half.
+
