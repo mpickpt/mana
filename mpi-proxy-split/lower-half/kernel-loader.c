@@ -68,6 +68,7 @@ int main(int argc, char *argv[], char *envp[]) {
   void *ld_so_entry;
   char elf_interpreter[MAX_ELF_INTERP_SZ];
 
+  // Check arguments and setup arguments for the loader program (cmd)
   for (i = 1; i < argc; i++) {
     if (strcmp(argv[i], "-h") == 0) {
       fprintf(stderr, "USAGE:  %s [-a load_address] <command_line>\n", argv[0]);
@@ -77,24 +78,29 @@ int main(int argc, char *argv[], char *envp[]) {
       i++;
       ld_so_addr = (void *)strtoll(argv[i], NULL, 0);
     } else {
+      // Break at the first argument of the loader program (the program name)
       cmd_argc = argc - i;
       cmd_argv = argv + i;
       break;
     }
   }
 
+  // Program name not provided
   if (cmd_argc == 0) {
     fprintf(stderr, "USAGE:  %s [-a load_address] <command_line>\n", argv[0]);
     fprintf(stderr, "  (load_address is typically a multiple of 0x200000)\n");
     exit(1);
   }
 
+  // Open the program executable and get the elf interpreter
+  // Question: What if the program is a script?
   cmd_fd = open(cmd_argv[0], O_RDONLY);
   get_elf_interpreter(cmd_fd, &cmd_entry, elf_interpreter, ld_so_addr);
   // FIXME: The ELF Format manual says that we could pass the cmd_fd to ld.so,
   //   and it would use that to load it.
   close(cmd_fd);
 
+  // Open the elf interpreter (ldso)
   ld_so_fd = open(elf_interpreter, O_RDONLY);
   char *interp_base_address =
     load_elf_interpreter(ld_so_fd, elf_interpreter, ld_so_addr, &ld_so_elf_hdr);
@@ -103,6 +109,7 @@ int main(int argc, char *argv[], char *envp[]) {
   //   and it would use that to load it.
   close(ld_so_fd);
 
+  // Insert elf interpreter before loaded program's arguments
   char *cmd_argv2[100]; 
   assert(cmd_argc+1 < 100);
   cmd_argv2[0] = elf_interpreter;
@@ -110,6 +117,8 @@ int main(int argc, char *argv[], char *envp[]) {
     cmd_argv2[i+1] = cmd_argv[i];
   }
   cmd_argv2[i+1] = NULL;
+
+  // Deep copy the stack and get the auxv pointer
   Elf64_auxv_t *auxv_ptr;
   // FIXME:
   //   Should add check that interp_base_address + 0x400000 not already mapped
@@ -117,6 +126,7 @@ int main(int argc, char *argv[], char *envp[]) {
   char *dest_stack = deepCopyStack(argc, argv, cmd_argc+1, cmd_argv2,
                                    interp_base_address + 0x400000,
                                    &auxv_ptr);
+  // Question: How about heap?
 
   // FIXME:
   // **************************************************************************
@@ -131,6 +141,7 @@ int main(int argc, char *argv[], char *envp[]) {
             (unsigned long)interp_base_address + ld_so_elf_hdr.e_entry);
   // info->phnum, (uintptr_t)info->phdr, (uintptr_t)info->entryPoint);
 
+  // Insert trampolines for mmap, munmap, sbrk
   off_t mmap_offset = get_symbol_offset(elf_interpreter, "mmap");
   if (! mmap_offset) {
     char buf[256] = "/usr/lib/debug";
@@ -148,12 +159,9 @@ int main(int argc, char *argv[], char *envp[]) {
   fprintf(stderr,
           "Address of 'mmap' in memory of ld.so (run-time loader):  %p\n",
           interp_base_address + mmap_offset);
-
   // Patch ld.so mmap() function to jump to mmap() in libc.a
   //   of this kernel-loader program.
   patch_trampoline(interp_base_address + mmap_offset, &mmap_wrapper);
-  patch_trampoline(interp_base_address + mmap_offset, &munmap_wrapper);
-  patch_trampoline(interp_base_address + mmap_offset, &sbrk_wrapper);
 
   // Then jump to _start, ld_so_entry, in ld.so (or call it
   //   as fnc that never returns).
