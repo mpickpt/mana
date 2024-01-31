@@ -9,9 +9,10 @@
 #include <assert.h>
 #include <elf.h>
 
-#include <mmap_wrapper.h>
-#include <sbrk_wrapper.h>
-#include <patch_trampoline.h>
+#include "mmap_wrapper.h"
+#include "patch_trampoline.h"
+#include "lower_half_api.h"
+#include "mtcp_split_process.h"
 
 // Uses ELF Format.  For background, read both of:
 //  * http://www.skyfree.org/linux/references/ELF_Format.pdf

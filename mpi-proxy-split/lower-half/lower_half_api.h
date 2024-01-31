@@ -71,7 +71,6 @@ typedef struct _LowerHalfInfo
   uint64_t lh_AT_PHNUM; // The number of program headers (AT_PHNUM) from the auxiliary vector of the lower half
   uint64_t lh_AT_PHDR;  // The address of the program headers (AT_PHDR) from the auxiliary vector of the lower half
   void *g_appContext; // Pointer to ucontext_t of upper half application (defined in the lower half)
-  void *lh_dlsym;     // Pointer to mydlsym() function in the lower half
   void *getRankFptr;  // Pointer to getRank() function in the lower half
 #ifdef SINGLE_CART_REORDER
   void *getCoordinatesFptr; // Pointer to getCoordinates() function in the lower half
@@ -85,6 +84,12 @@ typedef struct _LowerHalfInfo
   LhCoreRegions_t *lh_regions_list;
   void *getLhRegionsListFptr; // Pointer to getLhRegionsList() function in the lower half
   void *vdsoLdAddrInLinkMap; // vDSO's LD address in the lower half's linkmap
+  void *sbrk;
+  void *mmap;
+  void *munmap;
+  void *lh_dlsym;
+  void *mmap_list_fptr;
+  void *uh_end_of_heap;
   MemRange_t memRange; // MemRange_t object in the lower half
 } LowerHalfInfo_t;
 
@@ -95,15 +100,5 @@ extern LhCoreRegions_t lh_regions_list[MAX_LH_REGIONS];
 // startProxy() (called from splitProcess()) will initialize 'lh_info'
 extern LowerHalfInfo_t lh_info;  
 extern LowerHalfInfo_t *lh_info_addr;  
-
-
-#if 0
-// Pointer to the custom dlsym implementation (see mydlsym() in libproxy.c) in
-// the lower half. This is initialized using the information passed to us by
-// the transient lh_proxy process in DMTCP_EVENT_INIT.
-// initializeLowerHalf() will initialize this to: (proxyDlsym_t)lh_info.lh_dlsym
-typedef void* (*proxyDlsym_t)(enum MPI_Fncs fnc);
-extern proxyDlsym_t pdlsym;
-#endif
 
 #endif // ifndef _LOWER_HALF_API_H

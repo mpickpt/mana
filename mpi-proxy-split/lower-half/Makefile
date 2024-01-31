@@ -17,11 +17,13 @@ endif
 
 DMTCP_INCLUDE=${DMTCP_ROOT}/include
 JALIB_INCLUDE=${DMTCP_ROOT}/jalib
+MANA_INCLUDE=${MANA_ROOT}/mpi-proxy-split
 PLUGIN_INCLUDE=${PLUGIN_ROOT}
 
-override CFLAGS += -fPIC -I${DMTCP_INCLUDE} -g3 -O0
-override CXXFLAGS += -fPIC -I${DMTCP_INCLUDE} -I${JALIB_INCLUDE} \
-                     -I${DMTCP_ROOT}/src
+override CFLAGS += -fPIC -I${DMTCP_INCLUDE} -I${MANA_INCLUDE} -g3 -O0 \
+                   -I${DMTCP_ROOT}/src -I${DMTCP_ROOT}/src/mtcp/ 
+override CXXFLAGS += -fPIC -I${DMTCP_INCLUDE} -I${JALIB_INCLUDE} -I${MANA_INCLUDE} \
+                     -I${DMTCP_ROOT}/src -I${DMTCP_ROOT}/src/mtcp/ 
 
 TEXTSEG_ADDR_FLAG=-Wl,-Ttext-segment=E000000
 
@@ -30,8 +32,8 @@ default: kernel-loader
 .c.o:
 	${MPICC} ${CFLAGS} -c -o $@ $<
 
-kernel-loader: kernel-loader.c get-symbol-offset.o copy-stack.o patch-trampoline.o
-	${MPICC} -g3 ${TEXTSEG_ADDR_FLAG} -o $@ $^
+kernel-loader: kernel_loader.c get_symbol_offset.o copy_stack.o patch_trampoline.o
+	${MPICC} -g3 ${TEXTSEG_ADDR_FLAG} ${CFLAGS} -o $@ $^
 
 check-mmap: libmmap.so
 	LD_PRELOAD=$$PWD/libmmap.so ls

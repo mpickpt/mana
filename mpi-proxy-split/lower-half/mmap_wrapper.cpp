@@ -139,9 +139,6 @@ static void patchLibc(int fd, const void *base, const char *glibc)
 {
   assert(base);
   assert(fd > 0);
-  const char *MMAP_SYMBOL_NAME = "mmap";
-  const char *MUNMAP_SYMBOL_NAME = "munmap";
-  const char *SBRK_SYMBOL_NAME = "sbrk";
   DLOG(INFO, "Patching libc (%s) @ %p\n", glibc, base);
   // Save incoming offset
   off_t saveOffset = lseek(fd, 0, SEEK_CUR);
@@ -157,23 +154,21 @@ static void patchLibc(int fd, const void *base, const char *glibc)
     //   http://sourceware.org/gdb/onlinedocs/gdb/Separate-Debug-Files.html
     fprintf(stderr, "Debug symbols for interpreter in: %s\n", buf);
   } */
-  int debug_libc_fd = open(buf, O_RDONLY);
-  assert(debug_libc_fd != -1);
-  mmapOffset = get_symbol_offset(debug_libc_fd, buf, MMAP_SYMBOL_NAME);
-  munmapOffset = get_symbol_offset(debug_libc_fd, buf, MUNMAP_SYMBOL_NAME);
-  sbrkOffset = get_symbol_offset(debug_libc_fd, buf, SBRK_SYMBOL_NAME);
+  mmap_offset = get_symbol_offset(buf, "mmap"); // elf interpreter debug path
+  munmap_offset = get_symbol_offset(buf, "munmap"); // elf interpreter debug path
+  sbrk_offset = get_symbol_offset(buf, "sbrk"); // elf interpreter debug path
   close(debug_libc_fd);
 #else
-  mmapOffset = get_symbol_offset(fd, glibc, MMAP_SYMBOL_NAME);
-  munmapOffset = get_symbol_offset(fd, glibc, MUNMAP_SYMBOL_NAME);
-  sbrkOffset = get_symbol_offset(fd, glibc, SBRK_SYMBOL_NAME);
+  mmap_offset = get_symbol_offset(glibc, "mmap");
+  munmap_offset = get_symbol_offset(glibc, "munmap");
+  sbrk_offset = get_symbol_offset(glibc, "sbrk");
 #endif
-  assert(mmapOffset);
-  assert(munmapOffset);
-  assert(sbrkOffset);
-  insertTrampoline((VA)base + mmapOffset, (void*)&mmapWrapper);
-  insertTrampoline((VA)base + munmapOffset, (void*)&munmapWrapper);
-  insertTrampoline((VA)base + sbrkOffset, (void *)&sbrkWrapper);
+  assert(mmap_offset);
+  assert(munmap_offset);
+  assert(sbrk_offset);
+  patch_trampoline((VA)base + mmap_offset, &mmap_wrapper);
+  patch_trampoline((VA)base + munmap_offset, &munmap_wrapper);
+  patch_trampoline((VA)base + sbrk_offset, &sbrk_wrapper);
   DLOG(INFO, "Patched libc (%s) @ %p: offset(sbrk): %zx; offset(mmap): %zx\n",
        glibc, base, sbrkOffset, mmapOffset);
   // Restore file offset to not upset the caller
