@@ -1,1 +1,0 @@
-MANA uses a fixed size array.

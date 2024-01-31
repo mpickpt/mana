@@ -40,6 +40,24 @@
 #endif
 
 #define MAX_ELF_INTERP_SZ 256
+#define PAGE_SIZE 0x1000LL
+
+LowerHalfInfo_t lh_info = {0};
+static void* MPI_Fnc_Ptrs[] = {
+  NULL,
+  FOREACH_FNC(GENERATE_FNC_PTR)
+  NULL,
+};
+
+void*
+lh_dlsym(enum MPI_Fncs fnc)
+{
+  if (fnc < MPI_Fnc_NULL || fnc > MPI_Fnc_Invalid) {
+    return NULL;
+  }
+  return MPI_Fnc_Ptrs[fnc];
+}
+
 void get_elf_interpreter(int fd, Elf64_Addr *cmd_entry,
                          char get_elf_interpreter[], void *ld_so_addr);
 void *load_elf_interpreter(int fd, char elf_interpreter[],
@@ -126,7 +144,6 @@ int main(int argc, char *argv[], char *envp[]) {
   char *dest_stack = deepCopyStack(argc, argv, cmd_argc+1, cmd_argv2,
                                    interp_base_address + 0x400000,
                                    &auxv_ptr);
-  // Question: How about heap?
 
   // FIXME:
   // **************************************************************************
@@ -141,27 +158,66 @@ int main(int argc, char *argv[], char *envp[]) {
             (unsigned long)interp_base_address + ld_so_elf_hdr.e_entry);
   // info->phnum, (uintptr_t)info->phdr, (uintptr_t)info->entryPoint);
 
-  // Insert trampolines for mmap, munmap, sbrk
-  off_t mmap_offset = get_symbol_offset(elf_interpreter, "mmap");
-  if (! mmap_offset) {
-    char buf[256] = "/usr/lib/debug";
-    buf[sizeof(buf)-1] = '\0';
-    ssize_t rc = 0;
-    rc = readlink(elf_interpreter, buf+strlen(buf), sizeof(buf)-strlen(buf)-1);
-    if (rc != -1 && access(buf, F_OK) == 0) {
-      // Debian family (Ubuntu, etc.) use this scheme to store debug symbols.
-      //   http://sourceware.org/gdb/onlinedocs/gdb/Separate-Debug-Files.html
-      fprintf(stderr, "Debug symbols for interpreter in: %s\n", buf);
-    }
-    mmap_offset = get_symbol_offset(buf, "mmap"); // elf interpreter debug path
+  // Create new heap region to be used by RTLD
+  const uint64_t heapSize = 100 * PAGE_SIZE;
+  // We go through the mmap wrapper function to ensure that this gets added
+  // to the list of upper half regions to be checkpointed.
+  void *heap_addr = mmap_wrapper(0, heapSize, PROT_READ | PROT_WRITE,
+                           MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+  if (heap_addr == MAP_FAILED) {
+    DLOG(ERROR, "Failed to mmap region. Error: %s\n",
+         strerror(errno));
+    return NULL;
   }
+  // Add a guard page before the start of heap; this protects
+  // the heap from getting merged with a "previous" region.
+  mprotect(heap_addr, PAGE_SIZE, PROT_NONE);
+  setUhBrk((void*)((VA)heap_addr + PAGE_SIZE));
+  setEndOfHeap((void*)((VA)heap_addr + heapSize));
+
+  // Insert trampolines for mmap, munmap, sbrk
+  off_t mmap_offset, sbrk_offset;
+#if UBUNTU
+  char buf[256] = "/usr/lib/debug";
+  buf[sizeof(buf)-1] = '\0';
+  ssize_t rc = 0;
+  rc = readlink(elf_interpreter, buf+strlen(buf), sizeof(buf)-strlen(buf)-1);
+  if (rc != -1 && access(buf, F_OK) == 0) {
+    // Debian family (Ubuntu, etc.) use this scheme to store debug symbols.
+    //   http://sourceware.org/gdb/onlinedocs/gdb/Separate-Debug-Files.html
+    fprintf(stderr, "Debug symbols for interpreter in: %s\n", buf);
+  }
+  mmap_offset = get_symbol_offset(buf, "mmap"); // elf interpreter debug path
+  sbrk_offset = get_symbol_offset(buf, "sbrk"); // elf interpreter debug path
+#else
+  mmap_offset = get_symbol_offset(elf_interpreter, "mmap");
+  sbrk_offset = get_symbol_offset(elf_interpreter, "sbrk");
+#endif
   assert(mmap_offset);
+  assert(sbrk_offset);
+#ifdef DEBUG
   fprintf(stderr,
           "Address of 'mmap' in memory of ld.so (run-time loader):  %p\n",
           interp_base_address + mmap_offset);
-  // Patch ld.so mmap() function to jump to mmap() in libc.a
-  //   of this kernel-loader program.
+  fprintf(stderr,
+          "Address of 'sbrk' in memory of ld.so (run-time loader):  %p\n",
+          interp_base_address + sbrk_offset);
+#endif
+  // Patch ld.so mmap() and sbrk() functions to jump to mmap() and sbrk()
+  // in libc.a of this kernel-loader program.
   patch_trampoline(interp_base_address + mmap_offset, &mmap_wrapper);
+  patch_trampoline(interp_base_address + sbrk_offset, &sbrk_wrapper);
+
+  // Setup lower-hlaf info struct for the upper-half to read from
+  unsigned long fsaddr = 0;
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
+  lh_info.sbrk = (void*)&sbrk_wrapper;
+  lh_info.mmap = (void*)&mmap_wrapper;
+  lh_info.munmap = (void*)&munmap_wrapper;
+  lh_info.lh_dlsym = (void*)&lh_dlsym;
+  lh_info.mmap_list_fptr = (void*)&get_mmapped_list;
+  lh_info.uh_end_of_heap = (void*)&get_end_of_heap;
+  lh_info.fsaddr = (void*)fsaddr;
 
   // Then jump to _start, ld_so_entry, in ld.so (or call it
   //   as fnc that never returns).
@@ -173,6 +229,26 @@ int main(int argc, char *argv[], char *envp[]) {
   asm volatile (CLEAN_FOR_64_BIT(mov %0, %%esp; )
                 : : "g" (dest_stack) : "memory");
   asm volatile ("jmp *%0" : : "g" (ld_so_entry) : "memory");
+}
+
+int write_lh_info_to_file() {
+  size_t rc = 0;
+  char filename[100];
+  snprintf(filename, 100, "./lh_info_%d", getpid());
+  int fd = open(filename, O_WRONLY | O_CREAT, 0644);
+  if (fd < 0) {
+    DLOG(ERROR, "Could not create addr.bin file. Error: %s", strerror(errno));
+    return -1;
+  }
+
+  rc = write(fd, &lh_info, sizeof(lh_info));
+  if (rc < sizeof(lh_info)) {
+    DLOG(ERROR, "Wrote fewer bytes than expected to addr.bin. Error: %s",
+         strerror(errno));
+    rc = -1;
+  }
+  close(fd);
+  return rc;
 }
 
 void get_elf_interpreter(int fd, Elf64_Addr *cmd_entry,
@@ -275,6 +351,7 @@ patchAuxv(Elf64_auxv_t *av, unsigned long phnum,
 #define ROUND_UP(x) ((unsigned long)((x) + (0x1000-1)) \
                      & ~(unsigned long)(0x1000-1))
 #define PAGE_OFFSET(x) ((x)-ROUND_DOWN(x))
+
 char * map_elf_interpreter_load_segment(int fd, Elf64_Phdr phdr,
                                       void *ld_so_addr) {
   static char *base_address = NULL; // is NULL on call to first LOAD segment
