@@ -21,13 +21,10 @@
 
 #ifndef MMAP_WRAPPER_H
 #define MMAP_WRAPPER_H
-#ifdef __cplusplus
-extern "C" {
-#endif
-  void* mmapWrapper(void *, size_t , int , int , int , off_t );
-  int munmapWrapper(void *, size_t);
-  void setEndOfHeap(void *);
-#ifdef __cplusplus
-}
-#endif
+#include <vector>
+#include "lower_half_api.h"
+void* mmap_wrapper(void *, size_t , int , int , int , off_t );
+int munmap_wrapper(void *, size_t);
+void set_end_of_heap(void *);
+std::vector<MmapInfo_t> &get_mmapped_list(int *num);
 #endif // MMAP_WRAPPER_H

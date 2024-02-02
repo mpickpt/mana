@@ -23,33 +23,32 @@
 #include <unistd.h>
 #include <sys/mman.h>
 
-#include "common.h"
+#include "lower_half_api.h"
 #include "logging.h"
-#include "kernel-loader.h"
-#include "getmmap.h"
+#include "mmap_wrapper.h"
 #include "switch_context.h"
 
 static void *__curbrk;
 static void *__endOfHeap = 0;
 
-static void* __sbrkWrapper(intptr_t );
+static void* __sbrk_wrapper(intptr_t );
 
-void * getEndOfHeap() {
+void * get_end_of_heap() {
   return __endOfHeap;
 }
 
-void setEndOfHeap(void *addr) {
-  __endOfHeap = (void*)ROUND_UP(addr);
+void set_end_of_heap(void *addr) {
+  __endOfHeap = (void*)ROUND_UP(addr, PAGE_SIZE);
 }
 
-void setUhBrk(void *addr) {
+void set_uh_brk(void *addr) {
   __curbrk = addr;
 }
 
-void* sbrkWrapper(intptr_t increment) {
+void* sbrk_wrapper(intptr_t increment) {
   void *addr = NULL;
-  JUMP_TO_LOWER_HALF(lhInfo.lhFsAddr);
-  addr = __sbrkWrapper(increment);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  addr = __sbrk_wrapper(increment);
   RETURN_TO_UPPER_HALF();
   return addr;
 }
@@ -57,7 +56,7 @@ void* sbrkWrapper(intptr_t increment) {
 /* Extend the process's data space by INCREMENT.
    If INCREMENT is negative, shrink data space by - INCREMENT.
    Return start of new space allocated, or -1 for errors.  */
-static void* __sbrkWrapper(intptr_t increment) {
+static void* __sbrk_wrapper(intptr_t increment) {
   void *oldbrk;
 
   DLOG(NOISE, "LH: sbrk called with 0x%lx\n", increment);
@@ -84,9 +83,9 @@ static void* __sbrkWrapper(intptr_t increment) {
       return (void *) -1;
     }
 
-  if ((VA)oldbrk + increment > (VA)__endOfHeap) {
-    if (mmapWrapper(__endOfHeap,
-                    ROUND_UP((VA)oldbrk + increment - (VA)__endOfHeap),
+  if ((char *)oldbrk + increment > (char *)__endOfHeap) {
+    if (mmap_wrapper(__endOfHeap,
+                    ROUND_UP((char *)oldbrk + (char *)increment - (char *)__endOfHeap, PAGE_SIZE),
                     PROT_READ | PROT_WRITE,
                     MAP_PRIVATE | MAP_FIXED | MAP_ANONYMOUS,
                     -1, 0) == MAP_FAILED) {
@@ -94,8 +93,8 @@ static void* __sbrkWrapper(intptr_t increment) {
     }
   }
 
-  __endOfHeap = (void*)ROUND_UP((VA)oldbrk + increment);
-  __curbrk = (VA)oldbrk + increment;
+  __endOfHeap = (void*)ROUND_UP((char *)oldbrk + increment, PAGE_SIZE);
+  __curbrk = (void *)oldbrk + increment;
 
   DLOG(NOISE, "LH: sbrk returning %p\n", oldbrk);
 

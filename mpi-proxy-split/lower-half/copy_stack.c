@@ -39,8 +39,6 @@ char *deepCopyStack(int argc, char **argv,
   // And strings must be 16-byte aligned.
   char *strings = (char *)&(auxv[i+1]) + 32; // Initial estimate
   // Round down to make it 16-byte aligned (as in Linux kernel):
-  strings = ((unsigned long)strings | (unsigned long)0xf) - 0xf;
-  assert(argv[0] >= strings);
   strings = argv[0];
 
   char *strings_ptr = strings;

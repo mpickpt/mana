@@ -34,7 +34,7 @@ off_t get_symbol_offset(char *pathname, char *symbol) {
 
   rc = read(fd, e_ident, sizeof(e_ident));
   assert(rc == sizeof(e_ident));
-  assert(strncmp(e_ident, ELFMAG, sizeof(ELFMAG)-1) == 0);
+  assert(strncmp((const char*)e_ident, ELFMAG, sizeof(ELFMAG)-1) == 0);
   // FIXME:  Add support for 32-bit ELF later
   assert(e_ident[EI_CLASS] == ELFCLASS64);
 
@@ -127,7 +127,7 @@ readElfSection(int fd, int sidx, const Elf64_Ehdr *ehdr,
   assert(rc == sizeof *shdr);
   rc = lseek(fd, shdr->sh_offset, SEEK_SET);
   if (rc > 0) {
-    *data = malloc(shdr->sh_size);
+    *data = (char*)malloc(shdr->sh_size);
     rc = lseek(fd, shdr->sh_offset, SEEK_SET);
     rc = read(fd, *data, shdr->sh_size);
     assert(rc == shdr->sh_size);

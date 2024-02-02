@@ -21,24 +21,22 @@ MANA_INCLUDE=${MANA_ROOT}/mpi-proxy-split
 PLUGIN_INCLUDE=${PLUGIN_ROOT}
 
 override CFLAGS += -fPIC -I${DMTCP_INCLUDE} -I${MANA_INCLUDE} -g3 -O0 \
-                   -I${DMTCP_ROOT}/src -I${DMTCP_ROOT}/src/mtcp/ 
-override CXXFLAGS += -fPIC -I${DMTCP_INCLUDE} -I${JALIB_INCLUDE} -I${MANA_INCLUDE} \
-                     -I${DMTCP_ROOT}/src -I${DMTCP_ROOT}/src/mtcp/ 
+                   -I${DMTCP_ROOT}/src 
+override CXXFLAGS += -std=c++11 -fPIC -I${DMTCP_INCLUDE} -I${JALIB_INCLUDE} -I${MANA_INCLUDE} \
+                     -I${DMTCP_ROOT}/src
 
 TEXTSEG_ADDR_FLAG=-Wl,-Ttext-segment=E000000
 
 default: kernel-loader
 
+.cpp.o:
+	${MPICXX} ${CXXFLAGS} -c -o $@ $<
+
 .c.o:
-	${MPICC} ${CFLAGS} -c -o $@ $<
+	${MPICXX} ${CFLAGS} -c -o $@ $<
 
-kernel-loader: kernel_loader.c get_symbol_offset.o copy_stack.o patch_trampoline.o
-	${MPICC} -g3 ${TEXTSEG_ADDR_FLAG} ${CFLAGS} -o $@ $^
-
-check-mmap: libmmap.so
-	LD_PRELOAD=$$PWD/libmmap.so ls
-libmmap.so: mmap64.c munmap.c
-	${CC} -shared ${CFLAGS} -DLIBMMAP_SO -I. -g3 -O0 -fPIC -o libmmap.so $^
+kernel-loader: get_symbol_offset.o copy_stack.o patch_trampoline.o lh_func_ptr.o mmap_wrapper.o sbrk_wrapper.o switch_context.o kernel_loader.o 
+	${MPICXX} -g3 ${TEXTSEG_ADDR_FLAG} ${CFLAGS} -o $@ $^
 
 install: kernel-loader
 	cp -f $^ ${MANA_ROOT}/bin/
@@ -49,14 +47,8 @@ tidy:
 	rm -rf dmtcp_coordinator_db-*.json
 
 clean: tidy
-	rm -r kernel-loader
-	rm -f ${PROXY_BIN} ${PROXY_BIN_DEFADDR} ${LIBPROXY}.a ${PROXY_OBJS} ${LIBPROXY_OBJS}
-	rm -f libmmap.so
-	rm -f ${MANA_ROOT}/bin/${PROXY_BIN}
-	rm -f ${MANA_ROOT}/bin/${PROXY_BIN_DEFADDR}
-	if test -d gethostbyname-static; then \
-	  cd gethostbyname-static && make clean; \
-	fi
+	rm -f kernel-loader
+	rm -f *.o
 
 distclean: clean
 

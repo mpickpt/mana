@@ -31,7 +31,7 @@ void patch_trampoline(void *from_addr, void *to_addr) {
   unsigned long pagesize = sysconf(_SC_PAGESIZE);
   void *page_base = (void *)ROUND_DOWN((unsigned long)from_addr);
   int page_length = pagesize;
-  if (from_addr + sizeof(asm_jump) - page_base > pagesize) {
+  if ((char*)from_addr + sizeof(asm_jump) - (char*)page_base > pagesize) {
     // The patching instructions cross page boundary.  View page as double size.
     page_length = 2 * pagesize;
   }
