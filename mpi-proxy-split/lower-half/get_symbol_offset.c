@@ -49,7 +49,7 @@ off_t get_symbol_offset(char *pathname, char *symbol) {
   Elf64_Shdr sect_hdr;
   Elf64_Shdr symtab;
   Elf64_Sym symtab_entry;
-  char strtab[10000];
+  char strtab[110000];
   int i;
   // First, read the data from the shstrtab section
   // This section contains the strings corresponding to the section names
