@@ -120,7 +120,7 @@ static void* __mmap_wrapper(void *addr, size_t length, int prot,
                "of: %zu bytes. Error: %s\n", addr, length, strerror(errno));
           return NULL;
         }
-        // patchLibc(fd, ret, glibcFullPath);
+        patchLibc(fd, ret, glibcFullPath);
         rc = mprotect(ret, length, prot);
         if (rc < 0) {
           DLOG(ERROR, "Failed to restore perms for memory region at: %p "
