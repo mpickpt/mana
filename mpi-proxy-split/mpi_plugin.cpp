@@ -43,7 +43,6 @@
 #include "mana_header.h"
 #include "mpi_plugin.h"
 #include "lower_half_api.h"
-#include "split_process.h"
 #include "p2p_log_replay.h"
 #include "p2p_drain_send_recv.h"
 #include "record-replay.h"
@@ -631,14 +630,6 @@ initialize_segv_handler()
     (JASSERT_ERRNO).Text("Could not set up the segfault handler");
 }
 
-// Sets the lower half's __environ variable to point to upper half's __environ
-static void
-updateLhEnviron()
-{
-  updateEnviron_t fnc = (updateEnviron_t)lh_info.updateEnvironFptr;
-  fnc(__environ);
-}
-
 static void
 computeUnionOfCkptImageAddresses()
 {
@@ -1073,7 +1064,6 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       JASSERT(dmtcp_get_real_tid != NULL);
       initialize_signal_handlers();
       initialize_segv_handler();
-      JASSERT(!splitProcess()).Text("Failed to create, initialize lower half");
       seq_num_init();
       mana_state = RUNNING;
 
@@ -1220,8 +1210,6 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       g_upper_half_fsbase->insert(std::make_pair(dmtcp_get_real_tid(), getFS()));
 
       dmtcp_local_barrier("MPI:updateEnviron");
-      updateLhEnviron(); // mpi-plugin.cpp
-      updateVdsoLinkmapEntry(lh_info.vdsoLdAddrInLinkMap);
       dmtcp_local_barrier("MPI:Reset-Drain-Send-Recv-Counters");
       resetDrainCounters(); // p2p_drain_send_recv.cpp
       char str[1];

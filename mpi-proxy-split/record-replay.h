@@ -33,7 +33,12 @@
 #include "jassert.h"
 #include "jconvert.h"
 
-#include "libproxy.h"
+#include "lower_half_api.h"
+
+#undef GENERATE_ENUM
+#define GENERATE_ENUM(ENUM)    MPI_Fnc_##ENUM
+#undef GENERATE_FNC_PTR
+#define GENERATE_FNC_PTR(FNC)  &MPI_##FNC
 
 // Logs the MPI call to the global MPI calls log object (defined by the
 // 'MpiRecordReplay' class). 'cb' specifies the callback that will be used

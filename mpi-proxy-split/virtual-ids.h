@@ -28,8 +28,8 @@
 #include "virtualidtable.h"
 #include "jassert.h"
 #include "jconvert.h"
-#include "split_process.h"
 #include "dmtcp.h"
+#include "lower_half_api.h"
 
 // Convenience macros
 #define MpiCommList  dmtcp_mpi::MpiVirtualization<MPI_Comm>

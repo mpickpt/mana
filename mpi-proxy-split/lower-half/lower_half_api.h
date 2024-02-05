@@ -30,7 +30,9 @@
 #include <stdint.h>
 #include <stddef.h>
 
-extern int MPI_MANA_Internal(char *dummy);
+#include "switch_context.h"
+
+extern "C" int MPI_MANA_Internal(char *dummy);
 
 typedef struct __MemRange
 {
@@ -475,13 +477,21 @@ extern LowerHalfInfo_t *lh_info_addr;
 
 #define GENERATE_ENUM(ENUM) MPI_Fnc_##ENUM,
 #define GENERATE_FNC_PTR(FNC) (void*)&MPI_##FNC,
+#define GENERATE_FNC_STRING(FNC)  "MPI_" #FNC
 
 enum MPI_Fncs {
   MPI_Fnc_NULL,
   FOREACH_FNC(GENERATE_ENUM)
   MPI_Fnc_Invalid,
 };
+static const char *MPI_Fnc_strings[] = {
+  "MPI_Fnc_NULL",
+  FOREACH_FNC(GENERATE_FNC_STRING)
+  "MPI_Fnc_Invalid"
+};
 
 void* lh_dlsym(enum MPI_Fncs fnc);
+typedef void* (*proxyDlsym_t)(enum MPI_Fncs fnc);
+extern proxyDlsym_t pdlsym;
 
 #endif // ifndef _LOWER_HALF_API_H

@@ -26,6 +26,7 @@
 #include <sys/auxv.h>
 #include <sys/prctl.h>
 #include <sys/syscall.h>
+#include <unistd.h>
 
 /* Defined in asm/hwcap.h */
 #ifndef HWCAP2_FSGSBASE

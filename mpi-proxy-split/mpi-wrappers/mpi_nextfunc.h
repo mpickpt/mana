@@ -22,9 +22,8 @@
 #ifndef _MPI_NEXTFUNC_H
 #define _MPI_NEXTFUNC_H
 
-#include "split_process.h"
 #include "mpi_plugin.h"
-#include "libproxy.h"
+#include "lower_half_api.h"
 
 #define EAT(x)
 #define REM(x) x
