@@ -51,6 +51,7 @@
 
 LowerHalfInfo_t lh_info = {0};
 
+int write_lh_info_to_file();
 void get_elf_interpreter(int fd, Elf64_Addr *cmd_entry,
                          char get_elf_interpreter[], void *ld_so_addr);
 void *load_elf_interpreter(int fd, char elf_interpreter[],
@@ -68,6 +69,8 @@ char *deepCopyStack(int argc, char **argv,
                     Elf64_auxv_t **);
 void* lh_dlsym(enum MPI_Fncs fnc);
 
+void *ld_so_entry;
+
 int main(int argc, char *argv[], char *envp[]) {
   int i;
   int cmd_argc = 0;
@@ -77,7 +80,6 @@ int main(int argc, char *argv[], char *envp[]) {
   void * ld_so_addr = NULL;
   Elf64_Ehdr ld_so_elf_hdr;
   Elf64_Addr cmd_entry;
-  void *ld_so_entry;
   char elf_interpreter[MAX_ELF_INTERP_SZ];
 
   // Check arguments and setup arguments for the loader program (cmd)
@@ -152,6 +154,7 @@ int main(int argc, char *argv[], char *envp[]) {
             (unsigned long)interp_base_address + ld_so_elf_hdr.e_entry);
   // info->phnum, (uintptr_t)info->phdr, (uintptr_t)info->entryPoint);
 
+#if 0
   // Create new heap region to be used by RTLD
   const uint64_t heapSize = 100 * PAGE_SIZE;
   // We go through the mmap wrapper function to ensure that this gets added
@@ -168,6 +171,7 @@ int main(int argc, char *argv[], char *envp[]) {
   mprotect(heap_addr, PAGE_SIZE, PROT_NONE);
   set_uh_brk((void*)((void *)heap_addr + PAGE_SIZE));
   set_end_of_heap((void*)((void *)heap_addr + heapSize));
+#endif
 
   // Insert trampolines for mmap, munmap, sbrk
   off_t mmap_offset, sbrk_offset;
@@ -212,6 +216,7 @@ int main(int argc, char *argv[], char *envp[]) {
   lh_info.mmap_list_fptr = (void*)&get_mmapped_list;
   lh_info.uh_end_of_heap = (void*)&get_end_of_heap;
   lh_info.fsaddr = (void*)fsaddr;
+  write_lh_info_to_file();
 
   // Then jump to _start, ld_so_entry, in ld.so (or call it
   //   as fnc that never returns).

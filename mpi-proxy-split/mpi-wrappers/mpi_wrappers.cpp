@@ -34,6 +34,7 @@
 #include "p2p_drain_send_recv.h"
 #include "mana_header.h"
 #include "seq_num.h"
+#include "uh_wrappers.h"
 
 using namespace dmtcp_mpi;
 
@@ -54,12 +55,16 @@ static const char collective_p2p_string[] =
    "\n";
 
 ManaHeader g_mana_header = { .init_flag = MPI_INIT_NO_THREAD };
+proxyDlsym_t pdlsym;
 
 USER_DEFINED_WRAPPER(int, Init, (int *) argc, (char ***) argv) {
+  initialize_wrappers();
+  pdlsym = (proxyDlsym_t)lh_info.lh_dlsym;
   int retval;
   if (isUsingCollectiveToP2p()) {
     fprintf(stderr, collective_p2p_string);
   }
+  fprintf(stderr, "MANA Wrapper triggered\n");
   DMTCP_PLUGIN_DISABLE_CKPT();
 
   g_mana_header.init_flag = MPI_INIT_NO_THREAD;
@@ -82,6 +87,7 @@ USER_DEFINED_WRAPPER(int, Init, (int *) argc, (char ***) argv) {
 }
 USER_DEFINED_WRAPPER(int, Init_thread, (int *) argc, (char ***) argv,
                      (int) required, (int *) provided) {
+  pdlsym = (proxyDlsym_t)lh_info.lh_dlsym;
   int retval;
   if (isUsingCollectiveToP2p()) {
     fprintf(stderr, collective_p2p_string);

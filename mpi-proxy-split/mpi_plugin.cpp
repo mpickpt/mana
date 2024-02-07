@@ -49,6 +49,7 @@
 #include "seq_num.h"
 #include "mpi_nextfunc.h"
 #include "virtual-ids.h"
+#include "uh_wrappers.h"
 
 #include "config.h"
 #include "dmtcp.h"
@@ -98,10 +99,6 @@ void *heapAddr = nullptr;
 const VA HIGH_ADDR_START = (VA)0x7ffc00000000;
 
 static bool isLhDevice(const ProcMapsArea *area);
-static bool isLhCoreRegion(const ProcMapsArea *area);
-static bool isLhMmapRegion(const ProcMapsArea *area);
-// FIXME:  isLhMpiInitRegion operates only in a 'launch' process, not 'restart'
-static bool isLhMpiInitRegion(const ProcMapsArea *area);
 static bool isLhRegion(const ProcMapsArea *area);
 
 void *old_brk;
@@ -175,38 +172,6 @@ void recordPostMpiInitMaps()
 
 void recordMpiInitMaps()
 {
-  string workerPath("/worker/" + string(dmtcp_get_uniquepid_str()));
-  //kvdb::set(workerPath, "ProcSelfMaps_PreMpiInit", preMpiInitMaps->getData());
-  //kvdb::set(workerPath, "ProcSelfMaps_PostMpiInit",
-  //          postMpiInitMaps->getData());
-
-  ProcMapsArea area;
-  ProcSelfMaps maps;
-  if (mpiInitLhAreas->size() > 0)
-  {
-    ostringstream o;
-    while (maps.getNextArea(&area)) {
-      if (mpiInitLhAreas->find(area.addr) != mpiInitLhAreas->end()) {
-        o << std::hex << (uint64_t) area.addr << "-" << (uint64_t) area.endAddr;
-        if (area.name[0] != '\0') {
-          o << "        " << area.name;
-        }
-        o << "\n";
-      }
-    }
-
-    kvdb::set(workerPath, "ProcSelfMaps_LhCoreRegionsMpiInit", o.str());
-  }
-
-  if (lh_info.numCoreRegions > 0) {
-    ostringstream o;
-    for (int i = 0; i < lh_info.numCoreRegions; i++) {
-      o << std::hex << (uint64_t) lh_regions_list[i].start_addr << "-"
-        << (uint64_t) lh_regions_list[i].end_addr << "\n";
-    }
-
-    kvdb::set(workerPath, "ProcSelfMaps_LhCoreRegions", o.str());
-  }
 }
 
 void recordOpenFds()
@@ -332,61 +297,11 @@ isLhDevice(const ProcMapsArea *area)
   return false;
 }
 
-static bool
-isLhCoreRegion(const ProcMapsArea *area)
-{
-  for (int i = 0; i < lh_info_addr->numCoreRegions; i++) {
-    void *lhStartAddr = lh_info_addr->lh_regions_list[i].start_addr;
-    void *lhEndAddr = lh_info_addr->lh_regions_list[i].end_addr;
-    if (area->addr >= lhStartAddr && area->addr < lhEndAddr) {
-      JTRACE ("Ignoring LH core region") ((void*)area->addr);
-      return 1;
-    }
-  }
-  return false;
-}
-
-static bool
-isLhMmapRegion(const ProcMapsArea *area)
-{
-  return regionContains(lh_info.memRange.start, lh_info.memRange.end,
-                        area->addr, area->endAddr);
-}
-
-// FIXME:  isLhMpiInitRegion operates only in a 'launch' process, not 'restart'
-static bool
-isLhMpiInitRegion(const ProcMapsArea *area)
-{
-  if (mpiInitLhAreas != NULL &&
-      mpiInitLhAreas->find(area->addr) != mpiInitLhAreas->end()) {
-    JTRACE("Ignoring MpiInit region")(area->name)((void*)area->addr);
-    return true;
-  }
-
-  return false;
-}
 
 static bool
 isLhRegion(const ProcMapsArea *area)
 {
-  if (isLhDevice(area) ||
-      isLhCoreRegion(area) ||
-      isLhMmapRegion(area) ||
-      isLhMpiInitRegion(area)) {
-    return true;
-  }
-  /******************************************************************
-   * FIXME:                                                         *
-   *   So far, the upper-half example programs don't create their   *
-   *   own /anon_hugepage.  That could change in the future.        *
-   *   For now, isLhRegion(&area) is always true for /anon_hugepage *
-   *   /anon_hugepage created by ioctl in MPI_Init, and so we can't *
-   *   easily interpose on it.                                      *
-   ******************************************************************/
-  if (strstr(area->name, "/anon_hugepage")) {
-    return true;
-  }
-  return false;
+  // TODO: use new api
 }
 
 EXTERNC int
@@ -396,26 +311,6 @@ dmtcp_skip_memory_region_ckpting(const ProcMapsArea *area)
     JTRACE("Ignoring region")(area->name)((void*)area->addr);
     return 1;
   }
-
-  if (isLhCoreRegion(area)) {
-    JTRACE ("Ignoring LH core region") ((void*)area->addr);
-    return 1;
-  }
-
-  if (isLhMmapRegion(area)) {
-    JTRACE("Ignoring LH mmap region")
-    (area->name)((void *)area->addr)(area->size);
-    return 1;
-  }
-
-  /*  FIXME:  This routine was finding a false positive.  It was skipping
-   *          the saving of one of the memory area beyond '[stack]'.
-   *          This was exhibited after Perlmutter was upgraded on Aug. 16, 2023.
-   *  if (isLhMpiInitRegion(area)) {
-   *    JTRACE("Ignoring MpiInit region")(area->name)((void*)area->addr);
-   *    return 1;
-   *  }
-   */
 
   if (strstr(area->name, "/anon_hugepage")) {
     JTRACE("Ignoring /anon_hugepage region")(area->name)((void*)area->addr);
@@ -628,215 +523,6 @@ initialize_segv_handler()
 
   JASSERT(sigaction(SIGSEGV, &action, NULL) != -1)
     (JASSERT_ERRNO).Text("Could not set up the segfault handler");
-}
-
-static void
-computeUnionOfCkptImageAddresses()
-{
-  ProcSelfMaps procSelfMaps; // This will be deleted when out of scope.
-  Area area;
-
-  // This code assumes that /proc/sys/kernel/randomize_va_space is 0
-  //   or that personality(ADDR_NO_RANDOMIZE) was set.
-  char buf;
-  JWARNING(Util::readAll("/proc/sys/kernel/randomize_va_space", &buf, 1) != 1 ||
-           buf == '0' ||
-           (personality(0xffffffff) & ADDR_NO_RANDOMIZE) == 0)
-    .Text("FIXME:  Linux process randomization is turned on.\n");
-
-  // Initialize the MPI information to NULL (unknown).
-  void *libsStart = NULL;
-  void *minLibsStart = NULL;
-  void *libsEnd = NULL;
-  void *maxLibsEnd = NULL;
-  void *highMemStart = 0x0;
-  void *minHighMemStart = NULL;
-  void *lhEnd = 0x0; // lower bound for actual lhEnd
-  void *minAddrBeyondHeap = NULL;
-  void *maxAddrBeyondHeap = NULL;
-
-  // This is an upper bound on libsStart.  But if there is a hole in the
-  //   upper-half memory layout, then this could be a _very_ high upper bound.
-  libsStart = (char *)mmap(NULL, 4096, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS,
-                           -1, 0);
-  JASSERT((void *)libsStart != MAP_FAILED);
-  munmap(libsStart, 4096);
-
-  // Preprocess memory regions as needed.
-  bool foundLhMmapRegion = false;
-  void *prev_addr_end = NULL;
-  while (procSelfMaps.getNextArea(&area)) {
-    if (isLhMmapRegion(&area)) {
-      foundLhMmapRegion = true;
-    }
-    // ASSUMPTION:  LAYOUT: upperHalfExecutable, lh_proxy, lhMmapRegion,
-    //                 /anon_hugepage (if ioctl from MPI_Init), upperHalfLibs
-    // NOTE: In VASP, we've seen:
-    //          [vvar], [vdso], lib/ld.so, [stack], argv/env/auxv, [vsyscall]
-    //  Normally, we see:
-    //          lib/ld.so, [vvar], [vdso], [stack], argv/env/auxv, [vsyscall]
-    if (foundLhMmapRegion && area.addr < libsStart && !isLhRegion(&area)) {
-      libsStart = area.addr;
-    } else if (isLhRegion(&area) && area.addr < libsStart) {
-      // libsStart is an upper bound, but at worst, it's in middle of uh libs
-      lhEnd = area.endAddr;  // lower bound on lhEnd
-    }
-    // If this area looks like a lib*.so or lib*.so.*, then it's a library.
-    // Set libsEnd to the endAddress of the last library.
-    if (!isLhRegion(&area) &&
-         ( Util::strEndsWith(area.name, ".so") ||
-           ( strstr(area.name, ".so.") != NULL &&
-             // Why is this needed?  What is an example of "/var/lib/*.so.*"?
-             ! Util::strStartsWith(area.name, "/var/lib")))) {
-      // FIXME:  The upper half may include addresses beyond last lib*.so file
-      //         We're looking for the gap between [libsStart, libsEnd]
-      //         and [minHighMem, end_of_memory_in_restart_plugin]
-      // NOTE: /anon_hugepage is created by MPI_Init and placed as high as
-      //       possible on Perlmutter.  At launch, this is _below_ all the
-      //       libraries, since MPI_Init is called after loading all libraries.
-      //       But on restart, we create lower-half first.  We will reserve all
-      //       of upper half, and so force /anon_hugepage again to lower addr.
-      libsEnd = area.endAddr;
-    }
-    // Set mtcpHdr->highMemStart if possible.
-    // restart_plugin will remap [vvar] and [vdso] out of way when
-    // we reserve memory before calling MPI_Init.  And [vsyscall] always
-    // comes after [stack].  So, beginning of [stack] should be highMemStart.
-    /**
-     * FIXME: We want to set highMemStart to beginning of '[stack]' region.
-     *         On a second restart, '[stack]' is no longer labeled.
-     *         So, we guess that it's the next memory segment after libsEnd.
-     *         We should at least verify that '$sp' is in this memory region.
-     * FIXME: A more robust fix is to remember the stack segment at the
-     *         time of first checkpoint using the "[stack]" label.  This can
-     *         be done inside this file.  Then we can save that as a
-     *         static global variable, update it in case the stack grew,
-     *         and then re-use that information here, during a second restart.
-     *  if (strcmp(area.name, "[stack]") == 0)
-     */
-    if (prev_addr_end != NULL && prev_addr_end == libsEnd)
-    {
-      highMemStart = area.addr; // This should be the start of the stack.
-    }
-    if (strcmp(area.name, "[stack]") == 0)
-    {
-      highMemStart = area.addr; // This should be the start of the stack.
-    }
-    // FIXME:  We are no longer using min/maxAddrBeyondHeap.
-    //         Given that heapAddr is poorly defined between launch and restart,
-    //         we should delete this code and all min/maxAddrBeyondHeap,
-    //         when we're convinced it's not needed.
-    if (area.addr > heapAddr &&
-        !isLhRegion(&area)) {
-      if (minAddrBeyondHeap == nullptr) {
-        minAddrBeyondHeap = area.addr;
-      }
-      if (strcmp(area.name, "[vsyscall]") != 0) {
-        maxAddrBeyondHeap = area.endAddr;
-      }
-    }
-    prev_addr_end = area.endAddr;
-  }
-
-  JASSERT(lhEnd <= libsStart)(lhEnd)(libsStart);
-  // Adjust libsStart to make 4GB of space in which to grow.
-  void *origLibsStart = libsStart;
-  char *libsStartTmp = (char *)libsStart; // Stupid C++; Error if 'void *'
-  if ((uint64_t)((char *)lhEnd - libsStartTmp) > 5*ONEGB) {
-    libsStartTmp = libsStartTmp - 4*ONEGB;
-    // Round down to multiple of ONEGB:  Easy to recognize address.
-    libsStartTmp = (char *)((uint64_t)libsStartTmp & (uint64_t)(~(ONEGB-1)));
-  } else { // Else choose libsStart halfway between lhEnd and current libsStart
-    libsStartTmp = libsStartTmp - (libsStartTmp - (char *)lhEnd)/2;
-  }
-  libsStart = libsStartTmp;
-
-  JTRACE("Layout of memory regions during ckpt")
-        ((void *)lhEnd)((void *)libsStart)(origLibsStart);
-
-  string workerPath("/worker/" + string(dmtcp_get_uniquepid_str()));
-  string origLibsStartStr = jalib::XToString(origLibsStart);
-  string heapAddrStr = jalib::XToString(heapAddr);
-  string libsStartStr = jalib::XToString(libsStart);
-  string libsEndStr = jalib::XToString(libsEnd);
-  string minAddrBeyondHeapStr = jalib::XToString(minAddrBeyondHeap);
-  string maxAddrBeyondHeapStr = jalib::XToString(maxAddrBeyondHeap);
-  string highMemStartStr = jalib::XToString(highMemStart);
-  string lhMemStart = jalib::XToString(lh_info.memRange.start);
-  string lhMemEnd = jalib::XToString(lh_info.memRange.end);
-
-  kvdb::set(workerPath, "MANA_heapAddr", heapAddrStr);
-  kvdb::set(workerPath, "MANA_libsStart_Orig", origLibsStartStr);
-  kvdb::set(workerPath, "MANA_libsStart", libsStartStr);
-  kvdb::set(workerPath, "MANA_libsEnd", libsEndStr);
-  kvdb::set(workerPath, "MANA_highMemStart", highMemStartStr);
-  kvdb::set(workerPath, "MANA_minAddrBeyondHeap", minAddrBeyondHeapStr);
-  kvdb::set(workerPath, "MANA_maxAddrBeyondHeap", maxAddrBeyondHeapStr);
-  kvdb::set(workerPath, "MANA_LowerHalf_Start", lhMemStart);
-  kvdb::set(workerPath, "MANA_LowerHalf_End", lhMemEnd);
-
-  constexpr const char *kvdb = "/plugin/MANA/CKPT_UNION";
-  JASSERT(kvdb::request64(KVDBRequest::MIN, kvdb, "libsStart",
-                          (int64_t)libsStart) == KVDBResponse::SUCCESS);
-  JASSERT(kvdb::request64(KVDBRequest::MAX, kvdb, "libsEnd",
-                          (int64_t)libsEnd) == KVDBResponse::SUCCESS);
-  JASSERT(kvdb::request64(KVDBRequest::MIN, kvdb, "highMemStart",
-                          (int64_t)highMemStart) == KVDBResponse::SUCCESS);
-
-  dmtcp_global_barrier("MANA_CKPT_UNION");
-
-  JASSERT(kvdb::get64(kvdb, "libsStart", (int64_t *)&minLibsStart) ==
-          KVDBResponse::SUCCESS);
-  JASSERT(kvdb::get64(kvdb, "libsEnd", (int64_t *)&maxLibsEnd) ==
-          KVDBResponse::SUCCESS);
-  JASSERT(kvdb::get64(kvdb, "highMemStart", (int64_t *)&minHighMemStart) ==
-          KVDBResponse::SUCCESS);
-
-  ostringstream o;
-
-#define HEXSTR(o, x) o << #x << std::hex << x;
-  HEXSTR(o, libsStart);
-  HEXSTR(o, libsEnd);
-  HEXSTR(o, highMemStart);
-  HEXSTR(o, minLibsStart);
-  HEXSTR(o, maxLibsEnd);
-  HEXSTR(o, minHighMemStart);
-
-  JTRACE("Union of memory regions") (o.str());
-
-  string minLibsStartStr = jalib::XToString(minLibsStart);
-  string maxLibsEndStr = jalib::XToString(maxLibsEnd);
-  string minHighMemStartStr = jalib::XToString(minHighMemStart);
-
-  // Now publish these values to DMTCP ckpt-header.
-  dmtcp_add_to_ckpt_header("MANA_MinLibsStart", minLibsStartStr.c_str());
-  dmtcp_add_to_ckpt_header("MANA_MaxLibsEnd", maxLibsEndStr.c_str());
-  dmtcp_add_to_ckpt_header("MANA_MinHighMemStart", minHighMemStartStr.c_str());
-  // Not used
-  // dmtcp_add_to_ckpt_header("MANA_MaxHighMemEnd", maxHighMemEndStr.c_str());
-
-  int rank;
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  string rankStr = jalib::XToString(rank);
-  kvdb::set(workerPath, "MPI_Rank", rankStr);
-
-  if (getenv("MANA_DEBUG")) {
-    if (rank == 0) {
-      char time_string[30];
-      time_t t = time(NULL);
-      strftime(time_string, sizeof(time_string), "%H:%M:%S", localtime(&t));
-      fprintf(stderr,
-              "\n%s: *** MANA: Checkpointing; MANA info saved for restart:\n"
-              "%*c    (Unset env var MANA_DEBUG to silence this.)\n",
-              time_string, (int)strlen(time_string), ' ');
-      fprintf(stderr, "  %s: %s\n",
-                      "MANA_MinLibsStart", minLibsStartStr.c_str());
-      fprintf(stderr, "  %s: %s\n",
-                      "MANA_MaxLibsEnd", maxLibsEndStr.c_str());
-      fprintf(stderr, "%s: %s\n",
-                      "  MANA_MinHighMemStart", minHighMemStartStr.c_str());
-    }
-  }
 }
 
 const char *
@@ -1059,6 +745,8 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
     case DMTCP_EVENT_INIT: {
+      volatile int dummy = 1;
+      while(dummy);
       printEventToStderr("EVENT_INIT"); // We don't have a rank. So no printing.
       JTRACE("*** DMTCP_EVENT_INIT");
       JASSERT(dmtcp_get_real_tid != NULL);
@@ -1161,7 +849,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       registerLocalSendsAndRecvs(); // p2p_drain_send_recv.cpp
       dmtcp_global_barrier("MPI:Drain-Send-Recv");
       drainSendRecv(); // p2p_drain_send_recv.cpp
-      computeUnionOfCkptImageAddresses();
+      // computeUnionOfCkptImageAddresses();
       dmtcp_global_barrier("MPI:save-mana-header-and-mpi-files");
       const char *file = get_mana_header_file_name();
       save_mana_header(file);

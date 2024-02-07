@@ -127,6 +127,17 @@ char *deepCopyStack(int argc, char **argv,
   assert(auxv[i].a_type == AT_NULL);
   dest_auxv[i] = auxv[i]; // Final NULL pointer of argv[]
   // 32 bytes of padding before strings
+  
+  // Change "UH_PRELOAD" to "LD_PRELOAD". This way, upper half's ld.so
+  // will preload the upper half wrapper library.
+  char **newEnvPtr = (char**)dest_envp;
+  for (; *newEnvPtr; newEnvPtr++) {
+    if (strstr(*newEnvPtr, "UH_PRELOAD")) {
+      (*newEnvPtr)[0] = 'L';
+      (*newEnvPtr)[1] = 'D';
+      break;
+    }
+  }
 
   return dest_stack;
 }
