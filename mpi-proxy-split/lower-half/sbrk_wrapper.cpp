@@ -59,7 +59,7 @@ void* sbrk_wrapper(intptr_t increment) {
 static void* __sbrk_wrapper(intptr_t increment) {
   void *oldbrk;
 
-  DLOG(NOISE, "LH: sbrk called with 0x%lx\n", increment);
+  DLOG(INFO, "LH: sbrk called with 0x%lx\n", increment);
 
   if (__curbrk == NULL) {
     if (brk (0) < 0) {
@@ -70,7 +70,7 @@ static void* __sbrk_wrapper(intptr_t increment) {
   }
 
   if (increment == 0) {
-    DLOG(NOISE, "LH: sbrk returning %p\n", __curbrk);
+    DLOG(INFO, "LH: sbrk returning %p\n", __curbrk);
     return __curbrk;
   }
 
@@ -96,7 +96,7 @@ static void* __sbrk_wrapper(intptr_t increment) {
   __endOfHeap = (void*)ROUND_UP((char *)oldbrk + increment, PAGE_SIZE);
   __curbrk = (void *)oldbrk + increment;
 
-  DLOG(NOISE, "LH: sbrk returning %p\n", oldbrk);
+  DLOG(INFO, "LH: sbrk returning %p\n", oldbrk);
 
   return oldbrk;
 }

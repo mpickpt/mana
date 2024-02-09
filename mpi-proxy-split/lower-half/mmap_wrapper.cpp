@@ -82,7 +82,9 @@ int checkLibrary(int fd, const char* name,
          procPath, strerror(errno));
     return 0;
   }
+  DLOG(INFO, "checkLibrary: %s\n", fullPath);
   if (strstr(fullPath, name)) {
+    DLOG(INFO, "checkLibrary found\n", fullPath);
     strncpy(glibcFullPath, fullPath, size);
     return 1;
   }
@@ -112,7 +114,8 @@ static void* __mmap_wrapper(void *addr, size_t length, int prot,
     // DLOG(NOISE, "LH: mmap (%lu): %p @ 0x%zx\n", mmaps.size(), ret, length);
     if (fd > 0) {
       char glibcFullPath[PATH_MAX] = {0};
-      int found = checkLibrary(fd, "libc.so", glibcFullPath, PATH_MAX);
+      int found = checkLibrary(fd, "libc.so", glibcFullPath, PATH_MAX) ||
+                  checkLibrary(fd, "libc-", glibcFullPath, PATH_MAX);
       if (found && (prot & PROT_EXEC)) {
         int rc = mprotect(ret, length, prot | PROT_WRITE);
         if (rc < 0) {

@@ -39,6 +39,7 @@ static void readLhInfoAddr();
 extern "C" pid_t dmtcp_get_real_pid();
 
 LowerHalfInfo_t lh_info = {0};
+proxyDlsym_t pdlsym;
 
 #if 0
 void* sbrk(intptr_t increment) {
@@ -87,10 +88,8 @@ void reset_wrappers() {
 }
 
 static void readLhInfoAddr() {
-  volatile int dummy = 1;
-  while (dummy);
-  char filename[100];
-  snprintf(filename, 100, "./lh_info_%d", dmtcp_get_real_pid());
+  char filename[100] = "./lh_info";
+  // snprintf(filename, 100, "./lh_info_%d", dmtcp_get_real_pid());
   int fd = open(filename, O_RDONLY);
   if (fd < 0) {
     printf("Could not open %s for reading.\n", filename);
@@ -101,4 +100,5 @@ static void readLhInfoAddr() {
     perror("Read fewer bytes than expected from addr.bin.\n");
     exit(-1);
   }
+  pdlsym = (proxyDlsym_t)lh_info.lh_dlsym;
 }

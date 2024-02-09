@@ -55,11 +55,9 @@ static const char collective_p2p_string[] =
    "\n";
 
 ManaHeader g_mana_header = { .init_flag = MPI_INIT_NO_THREAD };
-proxyDlsym_t pdlsym;
 
 USER_DEFINED_WRAPPER(int, Init, (int *) argc, (char ***) argv) {
-  initialize_wrappers();
-  pdlsym = (proxyDlsym_t)lh_info.lh_dlsym;
+  // initialize_wrappers();
   int retval;
   if (isUsingCollectiveToP2p()) {
     fprintf(stderr, collective_p2p_string);

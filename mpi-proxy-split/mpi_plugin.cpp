@@ -745,13 +745,12 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
   switch (event) {
     case DMTCP_EVENT_INIT: {
-      volatile int dummy = 1;
-      while(dummy);
       printEventToStderr("EVENT_INIT"); // We don't have a rank. So no printing.
       JTRACE("*** DMTCP_EVENT_INIT");
       JASSERT(dmtcp_get_real_tid != NULL);
       initialize_signal_handlers();
       initialize_segv_handler();
+      initialize_wrappers();
       seq_num_init();
       mana_state = RUNNING;
 

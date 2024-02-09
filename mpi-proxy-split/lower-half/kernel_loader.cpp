@@ -82,6 +82,10 @@ int main(int argc, char *argv[], char *envp[]) {
   Elf64_Addr cmd_entry;
   char elf_interpreter[MAX_ELF_INTERP_SZ];
 
+  unsigned long fsaddr = 0;
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
+  fprintf(stderr, "lh fsaddr: %p\n", fsaddr);
+
   // Check arguments and setup arguments for the loader program (cmd)
   for (i = 1; i < argc; i++) {
     if (strcmp(argv[i], "-h") == 0) {
@@ -154,7 +158,6 @@ int main(int argc, char *argv[], char *envp[]) {
             (unsigned long)interp_base_address + ld_so_elf_hdr.e_entry);
   // info->phnum, (uintptr_t)info->phdr, (uintptr_t)info->entryPoint);
 
-#if 0
   // Create new heap region to be used by RTLD
   const uint64_t heapSize = 100 * PAGE_SIZE;
   // We go through the mmap wrapper function to ensure that this gets added
@@ -171,7 +174,7 @@ int main(int argc, char *argv[], char *envp[]) {
   mprotect(heap_addr, PAGE_SIZE, PROT_NONE);
   set_uh_brk((void*)((void *)heap_addr + PAGE_SIZE));
   set_end_of_heap((void*)((void *)heap_addr + heapSize));
-#endif
+  DLOG(INFO, "uh_brk: %p\n", heap_addr + PAGE_SIZE);
 
   // Insert trampolines for mmap, munmap, sbrk
   off_t mmap_offset, sbrk_offset;
@@ -207,8 +210,6 @@ int main(int argc, char *argv[], char *envp[]) {
   patch_trampoline(interp_base_address + sbrk_offset, (void*)&sbrk_wrapper);
 
   // Setup lower-hlaf info struct for the upper-half to read from
-  unsigned long fsaddr = 0;
-  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   lh_info.sbrk = (void*)&sbrk_wrapper;
   lh_info.mmap = (void*)&mmap_wrapper;
   lh_info.munmap = (void*)&munmap_wrapper;
@@ -232,8 +233,8 @@ int main(int argc, char *argv[], char *envp[]) {
 
 int write_lh_info_to_file() {
   size_t rc = 0;
-  char filename[100];
-  snprintf(filename, 100, "./lh_info_%d", getpid());
+  char filename[100] = "./lh_info";
+  // snprintf(filename, 100, "./lh_info_%d", getpid());
   int fd = open(filename, O_WRONLY | O_CREAT, 0644);
   if (fd < 0) {
     DLOG(ERROR, "Could not create addr.bin file. Error: %s", strerror(errno));
