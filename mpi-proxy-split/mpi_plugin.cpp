@@ -50,6 +50,7 @@
 #include "mpi_nextfunc.h"
 #include "virtual-ids.h"
 #include "uh_wrappers.h"
+#include "logging.h"
 
 #include "config.h"
 #include "dmtcp.h"
@@ -70,6 +71,12 @@ using dmtcp::kvdb::KVDBResponse;
 #ifdef SINGLE_CART_REORDER
 extern CartesianProperties g_cartesian_properties;
 #endif
+
+void * lh_ckpt_mem_addr = NULL;
+size_t lh_ckpt_mem_size = 0;
+int pagesize = sysconf(_SC_PAGESIZE);
+get_mmapped_list_fptr_t fnc = NULL;
+dmtcp::vector<MmapInfo_t> merged_uhmaps;
 
 extern ManaHeader g_mana_header;
 extern std::unordered_map<MPI_File, OpenFileParameters> g_params_map;
@@ -297,11 +304,54 @@ isLhDevice(const ProcMapsArea *area)
   return false;
 }
 
+void getAndMergeUhMaps()
+{
+  if (lh_info.mmap_list_fptr && fnc == NULL) {
+    fnc = (get_mmapped_list_fptr_t) lh_info.mmap_list_fptr;
+    int numUhRegions = 0;
+    std::vector<MmapInfo_t> uh_mmaps = fnc(&numUhRegions);
+
+    // merge the entries if two entries are continous
+    merged_uhmaps.push_back(uh_mmaps[0]);
+    for(size_t i = 1; i < uh_mmaps.size(); i++) {
+      MmapInfo_t last_merged = merged_uhmaps.back();
+      void *uhMmapStart = uh_mmaps[i].addr;
+      void *uhMmapEnd = (VA)uh_mmaps[i].addr + uh_mmaps[i].len;
+      void *lastmergedStart = last_merged.addr;
+      void *lastmergedEnd = (VA)last_merged.addr + last_merged.len;
+      MmapInfo_t merged_item;
+      if (regionContains(uhMmapStart, uhMmapEnd, 
+                         lastmergedStart, lastmergedEnd)) {
+        merged_uhmaps.pop_back();
+        merged_uhmaps.push_back(uh_mmaps[i]);
+      } else if (regionContains(lastmergedStart, lastmergedEnd,
+                                uhMmapStart, uhMmapEnd)) {
+        continue;
+      } else if (lastmergedStart > uhMmapStart 
+                 && uhMmapEnd >= lastmergedStart) {
+        merged_item.addr = uhMmapStart;
+        merged_item.len = (VA)lastmergedEnd - (VA)uhMmapStart;
+        merged_uhmaps.pop_back();
+        merged_uhmaps.push_back(merged_item);
+      } else if (lastmergedStart < uhMmapStart 
+                 && lastmergedEnd >= uhMmapStart) {
+        merged_item.addr = lastmergedStart;
+        merged_item.len = (VA)uhMmapEnd - (VA)lastmergedStart;
+        merged_uhmaps.pop_back();
+        merged_uhmaps.push_back(merged_item);
+      } else {
+        // insert uh_maps[i] to the merged list as a new item
+        merged_uhmaps.push_back(uh_mmaps[i]);
+      }
+    }
+    // TODO: print the content once
+  }
+}
 
 static bool
 isLhRegion(const ProcMapsArea *area)
 {
-  // TODO: use new api
+  return 1;
 }
 
 EXTERNC int
@@ -317,7 +367,94 @@ dmtcp_skip_memory_region_ckpting(const ProcMapsArea *area)
     return 1;
   }
 
-  return 0;
+  // get and merge uh maps
+  getAndMergeUhMaps();
+
+  // smaller than smallest uhmaps or greater than largest address
+  if ((area->endAddr < merged_uhmaps[0].addr) || \
+      (area->addr > (void *)((VA)merged_uhmaps.back().addr + \
+                              merged_uhmaps.back().len))) {
+    return 1;
+  }
+
+  size_t i = 0;
+  while (i < merged_uhmaps.size()) {
+    void *uhMmapStart = merged_uhmaps[i].addr;
+    void *uhMmapEnd = (VA)merged_uhmaps[i].addr + merged_uhmaps[i].len;
+
+    if (regionContains(uhMmapStart, uhMmapEnd, area->addr, area->endAddr)) {
+      JNOTE ("Case 1 detected") ((void*)area->addr) ((void*)area->endAddr) \
+        (uhMmapStart) (uhMmapEnd);
+      return 0; // checkpoint this region
+    } else if ((area->addr < uhMmapStart) && (uhMmapStart < area->endAddr) \
+              && (area->endAddr <= uhMmapEnd)) {
+      JNOTE ("Case 2 detected") ((void*)area->addr) ((void*)area->endAddr) \
+        (uhMmapStart) (uhMmapEnd);
+
+#if 0
+      // skip the region above the uhMmapStart
+      area->addr = (VA)uhMmapStart;
+      area->size = area->endAddr - area->addr;
+#endif
+      JNOTE ("Case 2: area to checkpoint") ((void*)area->addr) \
+        ((void*)area->endAddr) (area->size);
+      return 0; // checkpoint but values changed
+    } else if ((uhMmapStart <= area->addr) && (area->addr < uhMmapEnd)) {
+      // check the next element in the merged list if it contains in the area
+      // TODO: handle that case
+      //
+      //  traverse until uhmap's start addr is bigger than the area -> endAddr
+      //  rc = number of the item in the  array
+      //
+      JNOTE("Case 3: detected") ((void*)area->addr) ((void *)area->endAddr) \
+        (area->size);
+#if 0
+      ProcMapsArea newArea = *area;
+      newArea.endAddr = (VA)uhMmapEnd;
+      newArea.size = newArea.endAddr - newArea.addr;
+      writememoryarea(fd, &newArea, stack_was_seen);
+      // whiteAreas[count++] = newArea;
+      while(i < merged_uhmaps.size()-1 \
+            && merged_uhmaps[++i].addr < area->endAddr)
+      {
+        // TODO: Update the area after each writememoryarea
+        // remove the merged uhmaps node when it's ckpt'ed
+        ProcMapsArea newArea = *area;
+        uhMmapStart = merged_uhmaps[i].addr;
+        uhMmapEnd = (VA)merged_uhmaps[i].addr + merged_uhmaps[i].len;
+        if(regionContains(area->addr, area->endAddr, uhMmapStart, uhMmapEnd)) {
+          newArea.addr = (VA)uhMmapStart;
+          newArea.endAddr = (VA)uhMmapEnd;
+          newArea.size = newArea.endAddr - newArea.addr;
+          writememoryarea(fd, &newArea, stack_was_seen);
+        } else {
+          newArea.addr = (VA)uhMmapStart;
+          newArea.size = newArea.endAddr - newArea.addr;
+          writememoryarea(fd, &newArea, stack_was_seen);
+          return 1;
+        }
+      }
+#endif
+    } else if (regionContains(area->addr, area->endAddr,
+                              uhMmapStart, uhMmapEnd)) {
+      JNOTE("Case 4: detected") ((void*)area->addr) 
+        ((void *)area->endAddr) (area->size);
+      fflush(stdout);
+#if 0
+      // TODO: this usecase is not completed; fix it later
+      // int dummy = 1; while(dummy);
+      // JNOTE("skipping the region partially ") (area->addr) (area->endAddr)
+      //   (area->size) (array[i].len);
+      area->addr = (VA)uhMmapStart;
+      area->endAddr = (VA)uhMmapEnd;
+      area->size = area->endAddr - area->addr;
+#endif
+      break;
+    }
+    i++;
+  }
+
+  return 1;
 }
 
 EXTERNC int
@@ -385,8 +522,16 @@ mana_signal_sa_handler_wrapper(int signum)
 {
   unsigned long fsbase = getFS();
 
+  unsigned long uh_fsbase;
   DmtcpMutexLock(&g_upper_half_fsbase_lock);
-  unsigned long uh_fsbase = g_upper_half_fsbase->at(dmtcp_get_real_tid());
+  pid_t real_tid = dmtcp_get_real_tid();
+  std::unordered_map<pid_t, unsigned long>::iterator it= g_upper_half_fsbase->find(real_tid);
+  if (it == g_upper_half_fsbase->end()) {
+    uh_fsbase = getFS();
+    g_upper_half_fsbase->insert(std::make_pair(real_tid, uh_fsbase));
+  } else {
+    uh_fsbase = it->second;
+  }
   DmtcpMutexUnlock(&g_upper_half_fsbase_lock);
 
   if (fsbase != uh_fsbase) {
@@ -406,8 +551,16 @@ void
 mana_signal_sa_sigaction_wrapper(int signum, siginfo_t *siginfo, void *context)
 {
   unsigned long fsbase = getFS();
+  unsigned long uh_fsbase;
   DmtcpMutexLock(&g_upper_half_fsbase_lock);
-  unsigned long uh_fsbase = g_upper_half_fsbase->at(dmtcp_get_real_tid());
+  pid_t real_tid = dmtcp_get_real_tid();
+  std::unordered_map<pid_t, unsigned long>::iterator it= g_upper_half_fsbase->find(real_tid);
+  if (it == g_upper_half_fsbase->end()) {
+    uh_fsbase = getFS();
+    g_upper_half_fsbase->insert(std::make_pair(real_tid, uh_fsbase));
+  } else {
+    uh_fsbase = it->second;
+  }
   DmtcpMutexUnlock(&g_upper_half_fsbase_lock);
 
   if (fsbase != uh_fsbase) {
@@ -760,7 +913,10 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       }
 
       g_upper_half_fsbase = new std::unordered_map<pid_t, unsigned long>();
-      g_upper_half_fsbase->insert(std::make_pair(dmtcp_get_real_tid(), getFS()));
+      pid_t real_tid = dmtcp_get_real_tid();
+      unsigned long fs = getFS();
+      g_upper_half_fsbase->insert(std::make_pair(real_tid, fs));
+      DLOG(INFO, "user thread tid %lu fs %lu inserted\n", real_tid, fs);
 
       if (g_file_flags_map != NULL) {
         delete g_file_flags_map;
@@ -808,9 +964,13 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     }
 
     case DMTCP_EVENT_PTHREAD_START: {
+      fprintf(stderr, "PTHREAD_START event triggered\n");
       // Do we need a mutex here?
       DmtcpMutexLock(&g_upper_half_fsbase_lock);
-      g_upper_half_fsbase->insert(std::make_pair(dmtcp_get_real_tid(), getFS()));
+      pid_t real_tid = dmtcp_get_real_tid();
+      unsigned long fs = getFS();
+      g_upper_half_fsbase->insert(std::make_pair(real_tid, fs));
+      DLOG(INFO, "pthread_start tid %lu fs %lu inserted\n", real_tid, fs);
       DmtcpMutexUnlock(&g_upper_half_fsbase_lock);
       break;
     }
@@ -819,7 +979,9 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     case DMTCP_EVENT_PTHREAD_EXIT: {
       // Do we need a mutex here?
       DmtcpMutexLock(&g_upper_half_fsbase_lock);
-      g_upper_half_fsbase->erase(dmtcp_get_real_tid());
+      pid_t real_tid = dmtcp_get_real_tid();
+      g_upper_half_fsbase->erase(real_tid);
+      DLOG(INFO, "tid %lu fs erased\n", real_tid);
       DmtcpMutexUnlock(&g_upper_half_fsbase_lock);
       break;
     }

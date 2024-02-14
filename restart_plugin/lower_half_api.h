@@ -34,6 +34,8 @@
 
 extern "C" int MPI_MANA_Internal(char *dummy);
 
+typedef char* VA;
+
 typedef struct __MemRange
 {
   void *start;  // Start of the address range for lower half memory allocations
@@ -493,5 +495,8 @@ static const char *MPI_Fnc_strings[] = {
 void* lh_dlsym(enum MPI_Fncs fnc);
 typedef void* (*proxyDlsym_t)(enum MPI_Fncs fnc);
 extern proxyDlsym_t pdlsym;
+
+std::vector<MmapInfo_t> &get_mmapped_list(int *num);
+typedef std::vector<MmapInfo_t>& (*get_mmapped_list_fptr_t)(int *num);
 
 #endif // ifndef _LOWER_HALF_API_H

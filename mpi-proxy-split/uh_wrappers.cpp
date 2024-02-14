@@ -41,41 +41,6 @@ extern "C" pid_t dmtcp_get_real_pid();
 LowerHalfInfo_t lh_info = {0};
 proxyDlsym_t pdlsym;
 
-#if 0
-void* sbrk(intptr_t increment) {
-  static __typeof__(&sbrk) lowerHalfSbrkWrapper = (__typeof__(&sbrk)) - 1;
-  if (!initialized) {
-    initialize_wrappers();
-  }
-  if (lowerHalfSbrkWrapper == (__typeof__(&sbrk)) - 1) {
-    lowerHalfSbrkWrapper = (__typeof__(&sbrk))lh_info.sbrk;
-  }
-  return lowerHalfSbrkWrapper(increment);
-}
-
-void* mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset) {
-  static __typeof__(&mmap) lowerHalfMmapWrapper = (__typeof__(&mmap)) - 1;
-  if (!initialized) {
-    initialize_wrappers();
-  }
-  if (lowerHalfMmapWrapper == (__typeof__(&mmap)) - 1) {
-    lowerHalfMmapWrapper = (__typeof__(&mmap))lh_info.mmap;
-  }
-  return lowerHalfMmapWrapper(addr, length, prot, flags, fd, offset);
-}
-
-int munmap(void *addr, size_t length) {
-  static __typeof__(&munmap) lowerHalfMunmapWrapper = (__typeof__(&munmap)) - 1;
-  if (!initialized) {
-    initialize_wrappers();
-  }
-  if (lowerHalfMunmapWrapper == (__typeof__(&munmap)) - 1) {
-    lowerHalfMunmapWrapper = (__typeof__(&munmap))lh_info.munmap;
-  }
-  return lowerHalfMunmapWrapper(addr, length);
-}
-#endif
-
 void initialize_wrappers() {
   if (!initialized) {
     readLhInfoAddr();
