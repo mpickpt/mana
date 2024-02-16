@@ -17,13 +17,14 @@ endif
 
 DMTCP_INCLUDE=${DMTCP_ROOT}/include
 JALIB_INCLUDE=${DMTCP_ROOT}/jalib
+MTCP_INCLUDE=${DMTCP_ROOT}/src/mtcp
 MANA_INCLUDE=${MANA_ROOT}/mpi-proxy-split
 PLUGIN_INCLUDE=${PLUGIN_ROOT}
 
-override CFLAGS += -fPIC -I${DMTCP_INCLUDE} -I${MANA_INCLUDE} -g3 -O0 \
+override CFLAGS += -fPIC -I${DMTCP_INCLUDE} -I${MANA_INCLUDE} -I${MTCP_INCLUDE} -g3 -O0 \
                    -I${DMTCP_ROOT}/src 
 override CXXFLAGS += -std=c++11 -fPIC -I${DMTCP_INCLUDE} -I${JALIB_INCLUDE} -I${MANA_INCLUDE} \
-                     -I${DMTCP_ROOT}/src
+                     -I${DMTCP_ROOT}/src -I${MTCP_INCLUDE}
 
 TEXTSEG_ADDR_FLAG=-Wl,-Ttext-segment=E000000
 

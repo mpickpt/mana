@@ -19,6 +19,8 @@
 #include "patch_trampoline.h"
 #include "lower_half_api.h"
 #include "logging.h"
+#include "mana_header.h"
+#include "mtcp_restart.h"
 
 // Uses ELF Format.  For background, read both of:
 //  * http://www.skyfree.org/linux/references/ELF_Format.pdf
@@ -47,9 +49,6 @@
 #endif
 
 #define MAX_ELF_INTERP_SZ 256
-#define PAGE_SIZE 0x1000LL
-
-LowerHalfInfo_t lh_info = {0};
 
 int write_lh_info_to_file();
 void get_elf_interpreter(int fd, Elf64_Addr *cmd_entry,
@@ -69,10 +68,16 @@ char *deepCopyStack(int argc, char **argv,
                     Elf64_auxv_t **);
 void* lh_dlsym(enum MPI_Fncs fnc);
 
+static void main_new_stack(RestoreInfo *rinfo);
+static void populate_plugin_info(RestoreInfo *rinfo, PluginInfo *pluginInfo);
+static void mtcp_plugin_hook(RestoreInfo *rinfo, PluginInfo *pluginInfo);
+
 void *ld_so_entry;
+LowerHalfInfo_t lh_info = {0};
 
 int main(int argc, char *argv[], char *envp[]) {
   int i;
+  int restore_mode = 0;
   int cmd_argc = 0;
   char **cmd_argv;
   int cmd_fd;
@@ -81,10 +86,6 @@ int main(int argc, char *argv[], char *envp[]) {
   Elf64_Ehdr ld_so_elf_hdr;
   Elf64_Addr cmd_entry;
   char elf_interpreter[MAX_ELF_INTERP_SZ];
-
-  unsigned long fsaddr = 0;
-  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
-  fprintf(stderr, "lh fsaddr: %p\n", fsaddr);
 
   // Check arguments and setup arguments for the loader program (cmd)
   for (i = 1; i < argc; i++) {
@@ -95,6 +96,8 @@ int main(int argc, char *argv[], char *envp[]) {
     } else if (strcmp(argv[i], "-a") == 0) {
       i++;
       ld_so_addr = (void *)strtoll(argv[i], NULL, 0);
+    } else if (strcmp(argv[i], "--restore") == 0) {
+      restore_mode = 1;
     } else {
       // Break at the first argument of the loader program (the program name)
       cmd_argc = argc - i;
@@ -110,8 +113,15 @@ int main(int argc, char *argv[], char *envp[]) {
     exit(1);
   }
 
-  // Open the program executable and get the elf interpreter
-  // Question: What if the program is a script?
+  // Restart case
+  if (restore_mode) {
+    int mtcp_sys_errno;
+    mtcp_restart_process_args(argc, argv, environ, &main_new_stack);
+    // The following line should not be reached.
+    MTCP_ASSERT(0);
+  }
+
+  // Launch case
   cmd_fd = open(cmd_argv[0], O_RDONLY);
   get_elf_interpreter(cmd_fd, &cmd_entry, elf_interpreter, ld_so_addr);
   // FIXME: The ELF Format manual says that we could pass the cmd_fd to ld.so,
@@ -210,6 +220,8 @@ int main(int argc, char *argv[], char *envp[]) {
   patch_trampoline(interp_base_address + sbrk_offset, (void*)&sbrk_wrapper);
 
   // Setup lower-hlaf info struct for the upper-half to read from
+  unsigned long fsaddr = 0;
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   lh_info.sbrk = (void*)&sbrk_wrapper;
   lh_info.mmap = (void*)&mmap_wrapper;
   lh_info.munmap = (void*)&munmap_wrapper;
@@ -345,12 +357,7 @@ patchAuxv(Elf64_auxv_t *av, unsigned long phnum,
   }
 }
 
-// FIXME: 0x1000 is one page; Use sysconf(PAGESIZE) instead.
-#define ROUND_DOWN(x) ((unsigned long)(x) \
-                       & ~(unsigned long)(0x1000-1))
-#define ROUND_UP(x) ((unsigned long)((x) + (0x1000-1)) \
-                     & ~(unsigned long)(0x1000-1))
-#define PAGE_OFFSET(x) ((x)-ROUND_DOWN(x))
+#define PAGE_OFFSET(x) ((x)-ROUND_DOWN(x, PAGE_SIZE))
 
 char * map_elf_interpreter_load_segment(int fd, Elf64_Phdr phdr,
                                       void *ld_so_addr) {
@@ -413,12 +420,12 @@ char * map_elf_interpreter_load_segment(int fd, Elf64_Phdr phdr,
   //       (phdr.p_vaddr - ROUND_DOWN(phdr.p_vaddr)) [PAGE_OFFSET(phdr.p_vaddr)]
   //   This yields the following parameters for mmap():
   unsigned long addr = (first_time ?
-                        (unsigned long)ld_so_addr + ROUND_DOWN(phdr.p_vaddr) :
-                        (unsigned long)base_address + ROUND_DOWN(phdr.p_vaddr));
+                        (unsigned long)ld_so_addr + ROUND_DOWN(phdr.p_vaddr, PAGE_SIZE) :
+                        (unsigned long)base_address + ROUND_DOWN(phdr.p_vaddr, PAGE_SIZE));
   // addr was rounded down, above.  To compensate, we round up here by a
   //   fractional page for phdr.p_vaddr.
   unsigned long len = phdr.p_memsz + PAGE_OFFSET(phdr.p_vaddr);
-  unsigned long offset = ROUND_DOWN(phdr.p_offset);
+  unsigned long offset = ROUND_DOWN(phdr.p_offset, PAGE_SIZE);
 
   // NOTE:
   //   As an optimized alternative, we could map the data segment with two
@@ -473,7 +480,7 @@ char * map_elf_interpreter_load_segment(int fd, Elf64_Phdr phdr,
     // accident of kernel implementation that zeroes out additional memory,
     // even though this goes beyond the specs in the ELF manual.
     char *endBSS = (char *)base_address + phdr.p_vaddr + phdr.p_memsz;
-    memset(endBSS, '\0', (char *)ROUND_UP(endBSS) - endBSS);
+    memset(endBSS, '\0', (char *)ROUND_UP(endBSS, PAGE_SIZE) - endBSS);
   }
 
   if (first_time) {
@@ -485,4 +492,100 @@ char * map_elf_interpreter_load_segment(int fd, Elf64_Phdr phdr,
 
 int MPI_MANA_Internal(char *dummy) {
   return 0;
+}
+
+void main_new_stack(RestoreInfo *rinfo) {
+  int mtcp_sys_errno;
+  PluginInfo pluginInfo;
+  MtcpHeader mtcpHdr;
+
+  MTCP_ASSERT(rinfo->fd == -1);
+
+  populate_plugin_info(rinfo, &pluginInfo);
+
+  mtcp_plugin_hook(rinfo, &pluginInfo);
+
+  MTCP_ASSERT(rinfo->fd == -1);
+  MTCP_ASSERT(rinfo->ckptImage[0] != '\0');
+
+  rinfo->fd = mtcp_open_ckpt_image_and_read_header(rinfo, &mtcpHdr);
+  if (rinfo->fd == -1) {
+    MTCP_PRINTF("***ERROR: ckpt image not found.\n");
+    mtcp_abort();
+  }
+
+  mtcp_restart(rinfo, &mtcpHdr);
+}
+
+static void populate_plugin_info(RestoreInfo *rinfo, PluginInfo *pluginInfo) {
+  const char *minLibsStartStr = mtcp_getenv("MANA_MinLibsStart", rinfo->environ);
+  if (minLibsStartStr != NULL) {
+    pluginInfo->minLibsStart = (char*) mtcp_strtoll(minLibsStartStr);
+  }
+
+  const char *maxLibsEndStr = mtcp_getenv("MANA_MaxLibsEnd", rinfo->environ);
+  if (maxLibsEndStr != NULL) {
+    pluginInfo->maxLibsEnd = (char*) mtcp_strtoll(maxLibsEndStr);
+  }
+
+  const char *minHighMemStartStr = mtcp_getenv("MANA_MinHighMemStart", rinfo->environ);
+  if (minHighMemStartStr != NULL) {
+    pluginInfo->minHighMemStart = (char*) mtcp_strtoll(minHighMemStartStr);
+  }
+
+  const char *maxHighMemEndStr = mtcp_getenv("MANA_MaxHighMemEnd", rinfo->environ);
+  if (maxHighMemEndStr != NULL) {
+    pluginInfo->maxHighMemEnd = (char*) mtcp_strtoll(maxHighMemEndStr);
+  }
+
+  pluginInfo->restartDir = mtcp_getenv("MANA_RestartDir", rinfo->environ);
+}
+
+int
+getRank(int init_flag)
+{
+  int flag;
+  int world_rank = -1;
+  int retval = MPI_SUCCESS;
+  int provided;
+
+  MPI_Initialized(&flag);
+  if (!flag) {
+    if (init_flag == MPI_INIT_NO_THREAD) {
+      retval = MPI_Init(NULL, NULL);
+    }
+    else {
+      retval = MPI_Init_thread(NULL, NULL, init_flag, &provided);
+    }
+  }
+  if (retval == MPI_SUCCESS) {
+    MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+  }
+  return world_rank;
+}
+
+static void mtcp_plugin_hook(RestoreInfo *rinfo, PluginInfo *pluginInfo) {
+  int rc = -1;
+  int world_rank = -1;
+  int ckpt_image_rank_to_be_restored = -1;
+  char full_filename[PATH_MAX];
+  set_header_filepath(full_filename, pluginInfo->restartDir);
+  ManaHeader m_header;
+  MTCP_ASSERT(load_mana_header(full_filename, &m_header) == 0);
+  // MPI_Init is called here. Network memory areas will be loaded by MPI_Init.
+  world_rank = getRank(m_header.init_flag);
+  ckpt_image_rank_to_be_restored = world_rank;
+
+  unreserve_fds_upper_half(reserved_fds, total_reserved_fds);
+  MTCP_ASSERT(ckpt_image_rank_to_be_restored != -1);
+  if (getCkptImageByDir(pluginInfo, rinfo->ckptImage, 512,
+                        ckpt_image_rank_to_be_restored) == -1) {
+    mtcp_strncpy(
+      rinfo->ckptImage,
+      getCkptImageByRank(ckpt_image_rank_to_be_restored, rinfo->environ),
+      PATH_MAX);
+  }
+
+  MTCP_PRINTF("[Rank: %d] Choosing ckpt image: %s\n",
+              ckpt_image_rank_to_be_restored, rinfo->ckptImage);
 }
