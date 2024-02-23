@@ -14,6 +14,8 @@
 #include <errno.h>
 #include <elf.h>
 
+#include "mtcp_sys.h"
+#include "mtcp_util.h"
 #include "mmap_wrapper.h"
 #include "sbrk_wrapper.h"
 #include "patch_trampoline.h"
@@ -69,13 +71,13 @@ char *deepCopyStack(int argc, char **argv,
 void* lh_dlsym(enum MPI_Fncs fnc);
 
 static void main_new_stack(RestoreInfo *rinfo);
-static void populate_plugin_info(RestoreInfo *rinfo, PluginInfo *pluginInfo);
-static void mtcp_plugin_hook(RestoreInfo *rinfo, PluginInfo *pluginInfo);
+static void mtcp_plugin_hook(RestoreInfo *rinfo, char *restart_dir);
 
 void *ld_so_entry;
 LowerHalfInfo_t lh_info = {0};
 
 int main(int argc, char *argv[], char *envp[]) {
+  int mtcp_sys_errno;
   int i;
   int restore_mode = 0;
   int cmd_argc = 0;
@@ -89,6 +91,7 @@ int main(int argc, char *argv[], char *envp[]) {
 
   // Check arguments and setup arguments for the loader program (cmd)
   for (i = 1; i < argc; i++) {
+    printf("arg %d: %s\n", i, argv[i]);
     if (strcmp(argv[i], "-h") == 0) {
       fprintf(stderr, "USAGE:  %s [-a load_address] <command_line>\n", argv[0]);
       fprintf(stderr, "  (load_address is typically a multiple of 0x200000)\n");
@@ -97,6 +100,7 @@ int main(int argc, char *argv[], char *envp[]) {
       i++;
       ld_so_addr = (void *)strtoll(argv[i], NULL, 0);
     } else if (strcmp(argv[i], "--restore") == 0) {
+      fprintf(stderr, "restore mode\n");
       restore_mode = 1;
     } else {
       // Break at the first argument of the loader program (the program name)
@@ -496,14 +500,15 @@ int MPI_MANA_Internal(char *dummy) {
 
 void main_new_stack(RestoreInfo *rinfo) {
   int mtcp_sys_errno;
-  PluginInfo pluginInfo;
   MtcpHeader mtcpHdr;
+  char *restart_dir;
+
 
   MTCP_ASSERT(rinfo->fd == -1);
 
-  populate_plugin_info(rinfo, &pluginInfo);
+  restart_dir = mtcp_getenv("MANA_RestartDir", rinfo->environ);
 
-  mtcp_plugin_hook(rinfo, &pluginInfo);
+  mtcp_plugin_hook(rinfo, restart_dir);
 
   MTCP_ASSERT(rinfo->fd == -1);
   MTCP_ASSERT(rinfo->ckptImage[0] != '\0');
@@ -515,30 +520,6 @@ void main_new_stack(RestoreInfo *rinfo) {
   }
 
   mtcp_restart(rinfo, &mtcpHdr);
-}
-
-static void populate_plugin_info(RestoreInfo *rinfo, PluginInfo *pluginInfo) {
-  const char *minLibsStartStr = mtcp_getenv("MANA_MinLibsStart", rinfo->environ);
-  if (minLibsStartStr != NULL) {
-    pluginInfo->minLibsStart = (char*) mtcp_strtoll(minLibsStartStr);
-  }
-
-  const char *maxLibsEndStr = mtcp_getenv("MANA_MaxLibsEnd", rinfo->environ);
-  if (maxLibsEndStr != NULL) {
-    pluginInfo->maxLibsEnd = (char*) mtcp_strtoll(maxLibsEndStr);
-  }
-
-  const char *minHighMemStartStr = mtcp_getenv("MANA_MinHighMemStart", rinfo->environ);
-  if (minHighMemStartStr != NULL) {
-    pluginInfo->minHighMemStart = (char*) mtcp_strtoll(minHighMemStartStr);
-  }
-
-  const char *maxHighMemEndStr = mtcp_getenv("MANA_MaxHighMemEnd", rinfo->environ);
-  if (maxHighMemEndStr != NULL) {
-    pluginInfo->maxHighMemEnd = (char*) mtcp_strtoll(maxHighMemEndStr);
-  }
-
-  pluginInfo->restartDir = mtcp_getenv("MANA_RestartDir", rinfo->environ);
 }
 
 int
@@ -564,21 +545,229 @@ getRank(int init_flag)
   return world_rank;
 }
 
-static void mtcp_plugin_hook(RestoreInfo *rinfo, PluginInfo *pluginInfo) {
+void set_header_filepath(char* full_filename, char* restartDir) {
+  char *header_filename = "ckpt_rank_0/header.mana";
+  char restart_path[PATH_MAX];
+
+#if 0
+  MTCP_ASSERT(mtcp_strlen(header_filename) +
+              mtcp_strlen(restartDir) <= PATH_MAX - 2);
+#endif
+
+  if (mtcp_strlen(restartDir) == 0) {
+    mtcp_strcpy(restart_path, "./");
+  }
+  else {
+    mtcp_strcpy(restart_path, restartDir);
+    restart_path[mtcp_strlen(restartDir)] = '/';
+    restart_path[mtcp_strlen(restartDir)+1] = '\0';
+  }
+  mtcp_strcpy(full_filename, restart_path);
+  mtcp_strncat(full_filename, header_filename, mtcp_strlen(header_filename));
+}
+
+int itoa2(int value, char* result, int base) {
+	// check that the base if valid
+	if (base < 2 || base > 36) { *result = '\0'; return 0; }
+
+	char* ptr = result, *ptr1 = result, tmp_char;
+	int tmp_value;
+
+	int len = 0;
+	do {
+		tmp_value = value;
+		value /= base;
+		*ptr++ = "zyxwvutsrqponmlkjihgfedcba9876543210123456789abcdefghijklmnopqrstuvwxyz" [35 + (tmp_value - value * base)];
+		len++;
+	} while ( value );
+
+	// Apply negative sign
+	if (tmp_value < 0) *ptr++ = '-';
+	*ptr-- = '\0';
+	while(ptr1 < ptr) {
+		tmp_char = *ptr;
+		*ptr--= *ptr1;
+		*ptr1++ = tmp_char;
+	}
+	return len;
+}
+
+int atoi2(char* str)
+{
+	// Initialize result
+	int res = 0;
+
+	// Iterate through all characters
+	// of input string and update result
+	int i;
+	for (i = 0; str[i]
+			!= '\0';
+			++i)
+		res = res * 10 + str[i] - '0';
+
+	// return result
+	return res;
+}
+
+int my_memcmp(const void *buffer1, const void *buffer2, size_t len) {
+  const uint8_t *bbuf1 = (const uint8_t *) buffer1;
+  const uint8_t *bbuf2 = (const uint8_t *) buffer2;
+  size_t i;
+  for (i = 0; i < len; ++i) {
+      if(bbuf1[i] != bbuf2[i]) return bbuf1[i] - bbuf2[i];
+  }
+  return 0;
+}
+
+// FIXME: Many style rules broken.  Code never reviewed by skilled programmer.
+int getCkptImageByDir(char *restart_dir, char *buffer, size_t buflen, int rank) {
+  int mtcp_sys_errno;
+  int total_reserved_fds = 0;
+  if(restart_dir) {
+    MTCP_PRINTF("***ERROR No restart directory found - cannot find checkpoint image by directory!");
+    return -1;
+  }
+
+  size_t len = mtcp_strlen(restart_dir);
+  if(len >= buflen){
+    MTCP_PRINTF("***ERROR Restart directory would overflow given buffer!");
+    return -1;
+  }
+  mtcp_strcpy(buffer, restart_dir); // start with directory
+
+  // ensure directory ends with /
+  if(buffer[len - 1] != '/') {
+    if(len + 2 > buflen){ // Make room for buffer(strlen:len) + '/' + '\0'
+      MTCP_PRINTF("***ERROR Restart directory would overflow given buffer!");
+      return -1;
+    }
+    buffer[len] = '/';
+    buffer[len+1] = '\0';
+    len += 1;
+  }
+
+  if(len + 10 >= buflen){
+    MTCP_PRINTF("***ERROR Ckpt directory would overflow given buffer!");
+    return -1;
+  }
+  mtcp_strcpy(buffer + len, "ckpt_rank_");
+  len += 10; // length of "ckpt_rank_"
+
+  // "Add rank"
+  len += itoa2(rank, buffer + len, 10); // TODO: this can theoretically overflow
+  if(len + 10 >= buflen){
+    MTCP_PRINTF("***ERROR Ckpt directory has overflowed the given buffer!");
+    return -1;
+  }
+
+  // append '/'
+  if(len + 1 >= buflen){
+    MTCP_PRINTF("***ERROR Ckpt directory would overflow given buffer!");
+    return -1;
+  }
+  buffer[len] = '/';
+  buffer[len + 1] = '\0'; // keep null terminated for open call
+  len += 1;
+
+  int fd = mtcp_sys_open2(buffer, O_RDONLY | O_DIRECTORY);
+  if(fd == -1) {
+      return -1;
+  }
+
+  char ldirents[256];
+  int found = 0;
+  while(!found){
+      int nread = mtcp_sys_getdents(fd, ldirents, 256);
+      if(nread == -1) {
+          MTCP_PRINTF("***ERROR reading directory entries from directory (%s); errno: %d\n",
+                      buffer, mtcp_sys_errno);
+          return -1;
+      }
+      if(nread == 0) return -1; // end of directory
+
+      int bpos = 0;
+      while(bpos < nread) {
+        struct linux_dirent *entry = (struct linux_dirent *) (ldirents + bpos);
+        int slen = mtcp_strlen(entry->d_name);
+        // int slen = entry->d_reclen - 2 - offsetof(struct linux_dirent, d_name);
+        if(slen > 6
+            && my_memcmp(entry->d_name, "ckpt", 4) == 0
+            && my_memcmp(entry->d_name + slen - 6, ".dmtcp", 6) == 0) {
+          found = 1;
+          if(len + slen >= buflen){
+            MTCP_PRINTF("***ERROR Ckpt file name would overflow given buffer!");
+            len = -1;
+            break; // don't return or we won't close the file
+          }
+          mtcp_strcpy(buffer + len, entry->d_name);
+          len += slen;
+          break;
+        }
+
+        if(entry->d_reclen == 0) {
+          MTCP_PRINTF("***ERROR Directory Entry struct invalid size of 0!");
+          found = 1; // just to exit outer loop
+          len = -1;
+          break; // don't return or we won't close the file
+        }
+        bpos += entry->d_reclen;
+      }
+  }
+
+  if(mtcp_sys_close(fd) == -1) {
+      MTCP_PRINTF("***ERROR closing ckpt directory (%s); errno: %d\n",
+                  buffer, mtcp_sys_errno);
+      return -1;
+  }
+
+  return len;
+}
+
+int
+load_mana_header (char *filename, ManaHeader *mh)
+{
+  int mtcp_sys_errno;
+  int fd = mtcp_sys_open2(filename, O_RDONLY);
+  if (fd == -1) {
+    return -1;
+  }
+  mtcp_sys_read(fd, &mh->init_flag, sizeof(int));
+  mtcp_sys_close(fd);
+  return 0;
+}
+
+NO_OPTIMIZE
+char*
+getCkptImageByRank(int rank, char **environ)
+{
+  if (rank < 0) {
+    return NULL;
+  }
+
+  char *fname = NULL;
+  char envKey[64] = {0};
+  char rankStr[20] = {0};
+  mtcp_itoa(rankStr, rank);
+  mtcp_strcpy(envKey, "MANA_CkptImage_Rank_");
+  mtcp_strncat(envKey, rankStr, mtcp_strlen(rankStr));
+  return mtcp_getenv(envKey, environ);
+}
+
+static void mtcp_plugin_hook(RestoreInfo *rinfo, char *restart_dir) {
+  int mtcp_sys_errno;
   int rc = -1;
   int world_rank = -1;
   int ckpt_image_rank_to_be_restored = -1;
   char full_filename[PATH_MAX];
-  set_header_filepath(full_filename, pluginInfo->restartDir);
+  set_header_filepath(full_filename, restart_dir);
   ManaHeader m_header;
   MTCP_ASSERT(load_mana_header(full_filename, &m_header) == 0);
   // MPI_Init is called here. Network memory areas will be loaded by MPI_Init.
   world_rank = getRank(m_header.init_flag);
   ckpt_image_rank_to_be_restored = world_rank;
 
-  unreserve_fds_upper_half(reserved_fds, total_reserved_fds);
   MTCP_ASSERT(ckpt_image_rank_to_be_restored != -1);
-  if (getCkptImageByDir(pluginInfo, rinfo->ckptImage, 512,
+  if (getCkptImageByDir(restart_dir, rinfo->ckptImage, 512,
                         ckpt_image_rank_to_be_restored) == -1) {
     mtcp_strncpy(
       rinfo->ckptImage,

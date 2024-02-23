@@ -29,6 +29,7 @@
 #include <mpi.h>
 #include <stdint.h>
 #include <stddef.h>
+#include <vector>
 
 #include "switch_context.h"
 

@@ -21,6 +21,11 @@ MTCP_INCLUDE=${DMTCP_ROOT}/src/mtcp
 MANA_INCLUDE=${MANA_ROOT}/mpi-proxy-split
 PLUGIN_INCLUDE=${PLUGIN_ROOT}
 
+DMTCP_DEPS = ${DMTCP_ROOT}/src/libdmtcprestart.a \
+	     ${DMTCP_ROOT}/src/libdmtcpinternal.a \
+	     ${DMTCP_ROOT}/src/libnohijack.a \
+	     ${DMTCP_ROOT}/src/libjalib.a
+
 override CFLAGS += -fPIC -I${DMTCP_INCLUDE} -I${MANA_INCLUDE} -I${MTCP_INCLUDE} -g3 -O0 \
                    -I${DMTCP_ROOT}/src 
 override CXXFLAGS += -std=c++11 -fPIC -I${DMTCP_INCLUDE} -I${JALIB_INCLUDE} -I${MANA_INCLUDE} \
@@ -36,8 +41,11 @@ default: kernel-loader
 .c.o:
 	${MPICXX} ${CFLAGS} -c -o $@ $<
 
-kernel-loader: get_symbol_offset.o copy_stack.o patch_trampoline.o lh_func_ptr.o mmap_wrapper.o sbrk_wrapper.o switch_context.o kernel_loader.o 
-	${MPICXX} -g3 ${TEXTSEG_ADDR_FLAG} ${CFLAGS} -o $@ $^
+kernel-loader: get_symbol_offset.o copy_stack.o patch_trampoline.o lh_func_ptr.o mmap_wrapper.o sbrk_wrapper.o switch_context.o kernel_loader.o ../../dmtcp/src/mtcp/libmtcprestart.a 
+	${MPICXX} -g3 ${TEXTSEG_ADDR_FLAG} ${CFLAGS} -o $@ $^ 
+
+dmtcp_restart_mana: dmtcp_restart_plugin.o ${DMTCP_DEPS}
+	${CXX} $(LDFLAGS) -o $@ $^ -lpthread -lrt -ldl
 
 install: kernel-loader
 	cp -f $^ ${MANA_ROOT}/bin/
