@@ -58,10 +58,7 @@ main(int argc, char **argv)
     setenv(key.c_str(), ckptImages[i].c_str(), 1);
   }
 
-//  vector<char *> mtcpArgs = getMtcpArgs(t->restoreBufAddr(), t->restoreBufLen());
-  vector<char *> mtcpArgs;
-  mtcpArgs.push_back((char *)"./kernel-loader");
-  mtcpArgs.push_back((char *)"--mpi");
+  vector<char *> mtcpArgs = getMtcpArgs(t->restoreBufAddr(), t->restoreBufLen());
   mtcpArgs.push_back((char *)"--restore");
 
   mtcpArgs.push_back(NULL);

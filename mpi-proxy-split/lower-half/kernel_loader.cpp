@@ -90,8 +90,24 @@ int main(int argc, char *argv[], char *envp[]) {
   char elf_interpreter[MAX_ELF_INTERP_SZ];
 
   // Check arguments and setup arguments for the loader program (cmd)
+  // if has "--restore", pass all arguments to mtcp_restart
   for (i = 1; i < argc; i++) {
     printf("arg %d: %s\n", i, argv[i]);
+    if (strcmp(argv[i], "--restore") == 0) {
+      fprintf(stderr, "restore mode\n");
+      restore_mode = 1;
+      break;
+    }
+  }
+  // Restart case
+  if (restore_mode) {
+    int mtcp_sys_errno;
+    mtcp_restart_process_args(argc, argv, environ, &main_new_stack);
+    // The following line should not be reached.
+    MTCP_ASSERT(0);
+  }
+
+  for (i = 1; i < argc; i++) {
     if (strcmp(argv[i], "-h") == 0) {
       fprintf(stderr, "USAGE:  %s [-a load_address] <command_line>\n", argv[0]);
       fprintf(stderr, "  (load_address is typically a multiple of 0x200000)\n");
@@ -99,9 +115,6 @@ int main(int argc, char *argv[], char *envp[]) {
     } else if (strcmp(argv[i], "-a") == 0) {
       i++;
       ld_so_addr = (void *)strtoll(argv[i], NULL, 0);
-    } else if (strcmp(argv[i], "--restore") == 0) {
-      fprintf(stderr, "restore mode\n");
-      restore_mode = 1;
     } else {
       // Break at the first argument of the loader program (the program name)
       cmd_argc = argc - i;
@@ -115,14 +128,6 @@ int main(int argc, char *argv[], char *envp[]) {
     fprintf(stderr, "USAGE:  %s [-a load_address] <command_line>\n", argv[0]);
     fprintf(stderr, "  (load_address is typically a multiple of 0x200000)\n");
     exit(1);
-  }
-
-  // Restart case
-  if (restore_mode) {
-    int mtcp_sys_errno;
-    mtcp_restart_process_args(argc, argv, environ, &main_new_stack);
-    // The following line should not be reached.
-    MTCP_ASSERT(0);
   }
 
   // Launch case
