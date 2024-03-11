@@ -311,7 +311,9 @@ void update_comm_desc_t(comm_desc_t* desc) {
 
   int comm_name_len;
   desc->comm_name = (char*)malloc(100 * sizeof(char));
-  NEXT_FUNC(Comm_get_name)(realComm, desc->comm_name, &comm_name_len);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  NEXT_FUNC(Comm_get_name)(desc->real_id, desc->comm_name, &comm_name_len);
+  RETURN_TO_UPPER_HALF();
 }
 
 // This is a communicator descriptor reconstructor.
