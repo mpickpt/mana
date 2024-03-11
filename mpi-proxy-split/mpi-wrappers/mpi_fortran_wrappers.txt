@@ -40,6 +40,8 @@ int MPI_Comm_split_type(MPI_Comm comm, int split_type, int key, MPI_Info info, M
 int MPI_Comm_create_keyval(MPI_Comm_copy_attr_function* comm_copy_attr_fn, MPI_Comm_delete_attr_function* comm_delete_attr_fn, int* comm_keyval, void* extra_state);
 int MPI_Comm_free_keyval(int* comm_keyval);
 int MPI_Comm_create_group(MPI_Comm comm, MPI_Group group, int tag, MPI_Comm* newcomm);
+int MPI_Comm_get_name(MPI_Comm comm, char *comm_name, int *resultlen);
+int MPI_Comm_set_name(MPI_Comm comm, const char *comm_name);
 
 int MPI_Cart_coords(MPI_Comm comm, int rank, int maxdims, int* coords);
 int MPI_Cart_create(MPI_Comm old_comm, int ndims, const int* dims, const int* periods, int reorder, MPI_Comm* comm_cart);

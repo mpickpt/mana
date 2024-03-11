@@ -202,6 +202,7 @@ struct ggid_desc_t {
 
 struct comm_desc_t {
     MPI_Comm real_id; // Real MPI communicator in the lower-half
+    char* comm_name;
     int handle; // A copy of the int type handle generated from the address of this struct
     ggid_desc_t* ggid_desc; // A ggid_t structure, containing CVC information for this communicator.
     int size; // Size of this communicator

@@ -308,6 +308,10 @@ void update_comm_desc_t(comm_desc_t* desc) {
 
   free(local_ranks);
   desc->ranks = global_ranks;
+
+  int comm_name_len;
+  desc->comm_name = (char*)malloc(100 * sizeof(char));
+  NEXT_FUNC(Comm_get_name)(realComm, desc->comm_name, &comm_name_len);
 }
 
 // This is a communicator descriptor reconstructor.
@@ -350,6 +354,14 @@ void reconstruct_with_comm_desc_t(comm_desc_t* desc) {
   NEXT_FUNC(Comm_create_group)(WORLD_COMM, group, 0, &desc->real_id);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
+  
+  // Restore comm_name if was set
+  if (desc->comm_name != NULL) {
+    JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+    NEXT_FUNC(Comm_set_name)(desc->real_id, (const char*) desc->comm_name);
+    RETURN_TO_UPPER_HALF();
+    free(desc->comm_name);
+  }
 }
 
 // This is a communicator descriptor destructor.

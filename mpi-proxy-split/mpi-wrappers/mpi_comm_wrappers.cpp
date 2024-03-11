@@ -246,6 +246,33 @@ USER_DEFINED_WRAPPER(int, Comm_create_group, (MPI_Comm) comm,
   return twoPhaseCommit(comm, realBarrierCb);
 }
 
+USER_DEFINED_WRAPPER(int, MPI_Comm_get_name, (MPI_Comm) comm,
+                     (char*) comm_name, (int*) resultlen)
+{
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  retval = NEXT_FUNC(Comm_get_name)(realComm, comm_name, resultlen);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return retval;
+}
+
+USER_DEFINED_WRAPPER(int, MPI_Comm_set_name, (MPI_Comm) comm,
+                     (const char*) comm_name)
+{
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  retval = NEXT_FUNC(Comm_set_name)(realComm, comm_name);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return retval;
+}
+
+
 PMPI_IMPL(int, MPI_Comm_size, MPI_Comm comm, int *world_size)
 PMPI_IMPL(int, MPI_Comm_rank, MPI_Comm comm, int *world_rank)
 PMPI_IMPL(int, MPI_Abort, MPI_Comm comm, int errorcode)

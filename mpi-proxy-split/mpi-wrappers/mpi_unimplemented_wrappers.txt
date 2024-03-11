@@ -57,13 +57,11 @@ int MPI_Dist_graph_neighbors(MPI_Comm comm, int maxindegree, int sources[], int 
 int MPI_Dist_graph_neighbors_count(MPI_Comm comm, int *inneighbors, int *outneighbors, int *weighted);
 int MPI_Comm_get_errhandler(MPI_Comm comm, MPI_Errhandler *erhandler);
 int MPI_Comm_get_info(MPI_Comm comm, MPI_Info *info_used);
-int MPI_Comm_get_name(MPI_Comm comm, char *comm_name, int *resultlen);
 int MPI_Comm_get_parent(MPI_Comm *parent);
 int MPI_Comm_join(int fd, MPI_Comm *intercomm);
 int MPI_Comm_remote_group(MPI_Comm comm, MPI_Group *group);
 int MPI_Comm_remote_size(MPI_Comm comm, int *size);
 int MPI_Comm_set_info(MPI_Comm comm, MPI_Info info);
-int MPI_Comm_set_name(MPI_Comm comm, const char *comm_name);
 int MPI_Comm_spawn(const char *command, char *argv[], int maxprocs, MPI_Info info, int root, MPI_Comm comm, MPI_Comm *intercomm, int array_of_errcodes[]);
 int MPI_Comm_spawn_multiple(int count, char *array_of_commands[], char **array_of_argv[], const int array_of_maxprocs[], const MPI_Info array_of_info[], int root, MPI_Comm comm, MPI_Comm *intercomm, int array_of_errcodes[]);
 int MPI_Comm_test_inter(MPI_Comm comm, int *flag);
