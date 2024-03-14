@@ -1,6 +1,6 @@
 /****************************************************************************
- *   Copyright (C) 2019-2021 by Gene Cooperman, Rohan Garg, Yao Xu          *
- *   gene@ccs.neu.edu, rohgarg@ccs.neu.edu, xu.yao1@northeastern.edu        *
+ *  Copyright (C) 2019-2020 by Twinkle Jain, Rohan garg, and Gene Cooperman *
+ *  jain.t@husky.neu.edu, rohgarg@ccs.neu.edu, gene@ccs.neu.edu             *
  *                                                                          *
  *  This file is part of DMTCP.                                             *
  *                                                                          *
@@ -15,34 +15,16 @@
  *  GNU Lesser General Public License for more details.                     *
  *                                                                          *
  *  You should have received a copy of the GNU Lesser General Public        *
- *  License in the files COPYING and COPYING.LESSER.  If not, see           *
+ *  License along with DMTCP:dmtcp/src.  If not, see                        *
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#ifndef SHM_INTERNAL_H
-# define SHM_INTERNAL_H 1
-
+#ifndef MMAP_WRAPPER_H
+#define MMAP_WRAPPER_H
+#include <vector>
 #include "lower_half_api.h"
-
-#ifndef __set_errno
-# define __set_errno(Val) errno = (Val)
-#endif
-
-typedef struct __ShmInfo
-{
-  int shmid;
-  size_t size;
-} ShmInfo_t;
-
-extern void* __real_shmat(int shmid, const void *shmaddr, int shmflg);
-extern int __real_shmget(key_t key, size_t size, int shmflg);
-
-extern int getShmIdx(int shmid);
-extern void addShm(int shmid, size_t size);
-
-// FIXME: Make this dynamic
-#define MAX_SHM_TRACK 20
-extern int shmidx;
-extern ShmInfo_t shms[MAX_SHM_TRACK];
-
-#endif // ifndef SHM_INTERNAL_H
+void* mmap_wrapper(void *, size_t , int , int , int , off_t );
+int munmap_wrapper(void *, size_t);
+void set_end_of_heap(void *);
+std::vector<MmapInfo_t> &get_mmapped_list(int *num);
+#endif // MMAP_WRAPPER_H

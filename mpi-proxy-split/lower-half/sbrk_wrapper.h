@@ -1,6 +1,6 @@
 /****************************************************************************
- *   Copyright (C) 2019-2021 by Gene Cooperman, Rohan Garg, Yao Xu          *
- *   gene@ccs.neu.edu, rohgarg@ccs.neu.edu, xu.yao1@northeastern.edu        *
+ *  Copyright (C) 2019-2020 by Twinkle Jain, Rohan garg, and Gene Cooperman *
+ *  jain.t@husky.neu.edu, rohgarg@ccs.neu.edu, gene@ccs.neu.edu             *
  *                                                                          *
  *  This file is part of DMTCP.                                             *
  *                                                                          *
@@ -15,33 +15,14 @@
  *  GNU Lesser General Public License for more details.                     *
  *                                                                          *
  *  You should have received a copy of the GNU Lesser General Public        *
- *  License in the files COPYING and COPYING.LESSER.  If not, see           *
+ *  License along with DMTCP:dmtcp/src.  If not, see                        *
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#ifndef _MPI_COPYBITS_H
-#define _MPI_COPYBITS_H
-
-#include <stdint.h>
-#include <ucontext.h>
-#include <link.h>
-#include <unistd.h>
-
-#include "libproxy.h"  // In order to define DLOG
-
-extern int main(int argc, char *argv[], char *envp[]);
-extern int __libc_csu_init (int argc, char **argv, char **envp);
-extern void __libc_csu_fini (void);
-
-extern int __libc_start_main(int (*main)(int, char **, char **MAIN_AUXVEC_DECL),
-                             int argc,
-                             char **argv,
-                             __typeof (main) init,
-                             void (*fini) (void),
-                             void (*rtld_fini) (void),
-                             void *stack_end);
-
-extern LowerHalfInfo_t lh_info;
-extern MemRange_t lh_memRange;
-
-#endif // #ifndef _MPI_COPYBITS_H
+#ifndef SBRK_WRAPPER_H
+#define SBRK_WRAPPER_H
+void set_end_of_heap(void *addr);
+void set_uh_brk(void *addr);
+void* sbrk_wrapper(intptr_t increment);
+void * get_end_of_heap();
+#endif // SBRK_WRAPPER_H

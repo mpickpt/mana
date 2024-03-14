@@ -19,19 +19,62 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-#ifndef _PROCMAPSUTILS_H
-#define _PROCMAPSUTILS_H
+// Needed for process_vm_readv
+#ifndef _GNU_SOURCE
+# define _GNU_SOURCE
+#endif
 
-#include "procmapsarea.h"
+#include <linux/version.h>
+#include <asm/prctl.h>
+#include <sys/prctl.h>
+#include <sys/personality.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <sys/mman.h>
+#include <libgen.h>
+#include <limits.h>
+#include <link.h>
+#include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <ucontext.h>
+#include <sys/syscall.h>
+#include <sys/uio.h>
+#include <fcntl.h>
+#include <dlfcn.h>
+#include <link.h>
 
-#ifndef EXTERNC
-# ifdef __cplusplus
-#  define EXTERNC extern "C"
-# else // ifdef __cplusplus
-#  define EXTERNC
-# endif // ifdef __cplusplus
-#endif // ifndef EXTERNC
 
-EXTERNC int readMapsLine(int , Area* );
+#include "switch_context.h"
+#include "lower_half_api.h"
 
-#endif // #ifndef _PROCMAPSUTILS_H
+bool FsGsBaseEnabled = false;
+
+bool CheckAndEnableFsGsBase()
+{
+  const char *str = getenv(ENV_VAR_FSGSBASE_ENABLED);
+  if (str != NULL && str[0] == '1') {
+    FsGsBaseEnabled = true;
+  }
+
+  return FsGsBaseEnabled;
+}
+
+SwitchContext::SwitchContext(unsigned long lowerHalfFs)
+{
+  jumpped = 0;
+  if (lowerHalfFs > 0) {
+    this->lowerHalfFs = lowerHalfFs;
+    this->upperHalfFs = getFS();
+    setFS(this->lowerHalfFs);
+    jumpped = 1;
+  }
+}
+
+SwitchContext::~SwitchContext()
+{
+  if (jumpped) {
+    setFS(this->upperHalfFs);
+    jumpped = 0;
+  }
+}
