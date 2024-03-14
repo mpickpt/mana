@@ -24,6 +24,8 @@
 #include "logging.h"
 #include "mana_header.h"
 #include "dmtcp.h"
+#include "dmtcprestartinternal.h"
+#include "procmapsarea.h"
 
 // #define UBUNTU
 // Uses ELF Format.  For background, read both of:
@@ -71,10 +73,13 @@ char *deepCopyStack(int argc, char **argv,
                     unsigned long dest_argc, char **dest_argv, char *dest_stack,
                     Elf64_auxv_t **);
 void* lh_dlsym(enum MPI_Fncs fnc);
-int load_user_program(int argc, char *argv[], char *envp[]);
+int load_user_program(int argc, char *argv[], int cmd_argc, char *cmd_argv[], char *envp[]);
+static int restoreMemoryArea(int fd, DmtcpCkptHeader *ckptHdr);
 
 void *ld_so_entry;
 LowerHalfInfo_t lh_info = {0};
+
+#define MTCP_RESTART_BINARY "mtcp_restart"
 
 int main(int argc, char *argv[], char *envp[]) {
   int restore_mode = 0;
@@ -95,28 +100,56 @@ int main(int argc, char *argv[], char *envp[]) {
     int rank;
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    // String ckpt_img_filename = get_ckpt_image_for_rank(rank);
-    // DmtcpCkptImage ckpt_img = dmtcp_parse_ckpt_image(ckpt_img_filename);
-    // Connects to the corrdinator, etc
-    // The DmtcpInfo as return value is not essential to the design
-    // info = dmtcp_register_restart_process(ckpt_img);
-    // The following line should not be reached.
-    assert(0);
+    DmtcpRestart dmtcpRestart(argc, argv, BINARY_NAME, MTCP_RESTART_BINARY);
+
+    // string restart_dir = dmtcprestart.restartDir;
+    // RestoreTarget *t = new RestoreTarget(restart_dir + "/rank" + itoa(rank) + "/");
+    string ckptImage = dmtcpRestart.ckptImages[0];
+    RestoreTarget *t = new RestoreTarget(ckptImage);
+    JASSERT(t->pid() != 0);
+
+    t->initialize();
+
+    // If we were the session leader, become one now.
+    if (t->sid() == t->pid()) {
+      if (getsid(0) != t->pid()) {
+        JWARNING(setsid() != -1)
+          (getsid(0))(JASSERT_ERRNO)
+          .Text("Failed to resotre this process as session leader.");
+      }
+    }
+
+    DmtcpCkptHeader ckpt_hdr;
+    int rc = read(t->fd(), &ckpt_hdr, sizeof(ckpt_hdr));
+    ASSERT_EQ(rc, sizeof(ckpt_hdr));
+    ASSERT_EQ(string(ckpt_hdr.ckptSignature), string(DMTCP_CKPT_SIGNATURE));
+
+    while (1) {
+      if (restoreMemoryArea(t->fd(), &ckpt_hdr) == -1) {
+        break; /* end of ckpt image */
+      }
+    }
+
+    /* Everything restored, close file and finish up */
+    close(t->fd());
+
+    // IMB; /* flush instruction cache, since mtcp_restart.c code is now gone. */
+
+    PostRestartFnPtr_t postRestart = (PostRestartFnPtr_t) ckpt_hdr.postRestartAddr;
+    postRestart(0, 0);
   } else {
     int origin_argc = argc;
     char **origin_argv = argv;
     info = dmtcp_register_new_process(&argc, (const char***) &argv);
-    load_user_program(origin_argc, origin_argv, envp);
+    load_user_program(origin_argc, origin_argv, info.argc, (char**)info.argv, envp);
   }
   return -1; // This line should not be reached
 }
 
-int load_user_program(int argc, char *argv[], char *envp[]) {
+int load_user_program(int argc, char *argv[], int cmd_argc, char **cmd_argv, char *envp[]) {
   int mtcp_sys_errno;
   int i;
   int cmd_fd;
-  int cmd_argc = 0;
-  char **cmd_argv;
   int ld_so_fd;
   void * ld_so_addr = (void*)0x80000;
   Elf64_Ehdr ld_so_elf_hdr;
@@ -124,19 +157,10 @@ int load_user_program(int argc, char *argv[], char *envp[]) {
   char elf_interpreter[MAX_ELF_INTERP_SZ];
 
   // Program name not provided
-  if (argc == 0) {
-    fprintf(stderr, "USAGE:  %s [-a load_address] <command_line>\n", argv[0]);
+  if (cmd_argc == 0) {
+    fprintf(stderr, "USAGE:  %s <command_line>\n", argv[0]);
     fprintf(stderr, "  (load_address is typically a multiple of 0x200000)\n");
     exit(1);
-  }
-  for (i = 1; i < argc; i++) {
-    if (strcmp(argv[i], "--restore") != 0 &&
-        strcmp(argv[i], "-j")) {
-      // Break at the first argument of the loader program (the program name)
-      cmd_argc = argc - i;
-      cmd_argv = argv + i;
-      break;
-    }
   }
 
   // Launch case
@@ -510,5 +534,150 @@ char * map_elf_interpreter_load_segment(int fd, Elf64_Phdr phdr,
 }
 
 int MPI_MANA_Internal(char *dummy) {
+  return 0;
+}
+
+static int restoreMemoryArea(int fd, DmtcpCkptHeader *ckptHdr)
+{
+  int imagefd;
+  void *mmappedat;
+
+  /* Read header of memory area into area; mtcp_readfile() will read header */
+  ProcMapsArea area;
+
+  int rc = read(fd, &area, sizeof area);
+  if (area.addr == NULL) {
+    return -1;
+  }
+
+  if (area.name[0] && strstr(area.name, "[heap]")
+      && (VA) brk(NULL) != area.addr + area.size) {
+    JWARNING(false);
+   // ("WARNING: break (%p) not equal to end of heap (%p)\n", mtcp_sys_brk(NULL), area.addr + area.size);
+  }
+
+  /* MAP_GROWSDOWN flag is required for stack region on restart to make
+   * stack grow automatically when application touches any address within the
+   * guard page region(usually, one page less then stack's start address).
+   *
+   * The end of stack is detected dynamically at checkpoint time. See
+   * prepareMtcpHeader() in threadlist.cpp and ProcessInfo::growStack()
+   * in processinfo.cpp.
+   */
+  if ((area.name[0] && area.name[0] != '/' && strstr(area.name, "stack"))
+      || (area.endAddr == (VA) ckptHdr->endOfStack)) {
+    area.flags = area.flags | MAP_GROWSDOWN;
+    JTRACE("Detected stack area")(ckptHdr->endOfStack) (area.endAddr);
+  }
+
+  // We could have replaced MAP_SHARED with MAP_PRIVATE in writeckpt.cpp
+  // instead of here. But we do it this way for debugging purposes. This way,
+  // readdmtcp.sh will still be able to properly list the shared memory areas.
+  if (area.flags & MAP_SHARED) {
+    area.flags = area.flags ^ MAP_SHARED;
+    area.flags = area.flags | MAP_PRIVATE | MAP_ANONYMOUS;
+  }
+
+  /* Now mmap the data of the area into memory. */
+
+  /* CASE MAPPED AS ZERO PAGE: */
+  if ((area.properties & DMTCP_ZERO_PAGE) != 0) {
+    JTRACE("restoring zero-paged anonymous area, %p bytes at %p\n") (area.size) (area.addr);
+    // No need to mmap since the region has already been mmapped by the parent
+    // header.
+    // Just restore write-protection if needed.
+    if (!(area.prot & PROT_WRITE)) {
+      JASSERT(mprotect(area.addr, area.size, area.prot) == 0);
+    }
+  }
+
+  /* CASE MAP_ANONYMOUS (usually implies MAP_PRIVATE):
+   * For anonymous areas, the checkpoint file contains the memory contents
+   * directly.  So mmap an anonymous area and read the file into it.
+   * If file exists, turn off MAP_ANONYMOUS: standard private map
+   */
+  else {
+    /* If there is a filename there, though, pretend like we're mapping
+     * to it so a new /proc/self/maps will show a filename there like with
+     * original process.  We only need read-only access because we don't
+     * want to ever write the file.
+     */
+
+    if ((area.properties & DMTCP_ZERO_PAGE_CHILD_HEADER) == 0) {
+      // MMAP only if it's not a child header.
+      imagefd = -1;
+      if (area.name[0] == '/') { /* If not null string, not [stack] or [vdso] */
+        imagefd = open(area.name, O_RDONLY, 0);
+        if (imagefd >= 0) {
+          /* If the current file size is smaller than the original, we map the region
+          * as private anonymous. Note that with this we lose the name of the region
+          * but most applications may not care.
+          */
+          off_t curr_size = lseek(imagefd, 0, SEEK_END);
+          JASSERT(curr_size != -1);
+          if ((curr_size < area.offset + area.size) && (area.prot & PROT_WRITE)) {
+            JTRACE("restoring non-anonymous area %s as anonymous: %p  bytes at %p\n") (area.name) (area.size) (area.addr);
+            close(imagefd);
+            imagefd = -1;
+            area.offset = 0;
+            area.flags |= MAP_ANONYMOUS;
+          }
+        }
+      }
+
+      if (area.flags & MAP_ANONYMOUS) {
+        JTRACE("restoring anonymous area, %p  bytes at %p\n") (area.size) (area.addr);
+      } else {
+        JTRACE("restoring to non-anonymous area,"
+                " %p bytes at %p from %s + 0x%X\n") (area.size) (area.addr) (area.name) (area.offset);
+      }
+
+      /* Create the memory area */
+
+      // If the region is marked as private but without a backing file (i.e.,
+      // the file was deleted on ckpt), restore it as MAP_ANONYMOUS.
+      // TODO: handle huge pages by detecting and passing MAP_HUGETLB in flags.
+      if (imagefd == -1 && (area.flags & MAP_PRIVATE)) {
+        area.flags |= MAP_ANONYMOUS;
+      }
+
+      /* POSIX says mmap would unmap old memory.  Munmap never fails if args
+      * are valid.  Can we unmap vdso and vsyscall in Linux?  Used to use
+      * mtcp_safemmap here to check for address conflicts.
+      */
+      mmappedat =
+        mmap(area.addr, area.size, area.prot | PROT_WRITE,
+                            area.flags | MAP_FIXED_NOREPLACE, imagefd, area.offset);
+
+      JASSERT(mmappedat == area.addr);
+
+      /* Close image file (fd only gets in the way) */
+      if (imagefd >= 0) {
+        close(imagefd);
+      }
+    }
+
+    if ((area.properties & DMTCP_ZERO_PAGE_PARENT_HEADER) == 0) {
+      // Parent header doesn't have any follow on data.
+
+      /* This mmapfile after prev. mmap is okay; use same args again.
+       *  Posix says prev. map will be munmapped.
+       */
+
+      /* ANALYZE THE CONDITION FOR DOING mmapfile MORE CAREFULLY. */
+      if (area.mmapFileSize > 0 && area.name[0] == '/') {
+        JTRACE("restoring memory region %p of %p bytes at %p\n") (area.mmapFileSize) (area.size) (area.addr);
+        int rc = read(fd, area.addr, area.mmapFileSize);
+        JASSERT(rc == area.mmapFileSize);
+      } else {
+        int rc = read(fd, area.addr, area.size);
+        JASSERT(rc == area.size);
+      }
+
+      if (!(area.prot & PROT_WRITE)) {
+        JASSERT(mprotect(area.addr, area.size, area.prot) == 0);
+      }
+    }
+  }
   return 0;
 }

@@ -26,7 +26,6 @@
 #include <cstdint>
 #include <cstddef>
 
-#include "libproxy.h"
 #include "dmtcp_dlsym.h"
 
 #define   _real_fork      NEXT_FNC_DEFAULT(fork)

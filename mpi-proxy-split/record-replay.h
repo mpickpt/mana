@@ -33,8 +33,6 @@
 #include "jassert.h"
 #include "jconvert.h"
 
-#include "libproxy.h"
-
 // Logs the MPI call to the global MPI calls log object (defined by the
 // 'MpiRecordReplay' class). 'cb' specifies the callback that will be used
 // to replay the MPI call while restoring the MPI state at restart time. 'fnc'

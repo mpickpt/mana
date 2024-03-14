@@ -24,7 +24,6 @@
 
 #include "split_process.h"
 #include "mpi_plugin.h"
-#include "libproxy.h"
 
 #define EAT(x)
 #define REM(x) x
