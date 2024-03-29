@@ -41,7 +41,7 @@ default: kernel-loader
 .c.o:
 	${MPICXX} ${CFLAGS} -c -o $@ $<
 
-kernel-loader: get_symbol_offset.o copy_stack.o patch_trampoline.o lh_func_ptr.o mmap_wrapper.o sbrk_wrapper.o switch_context.o kernel_loader.o ../../dmtcp/src/mtcp/libmtcprestart.a 
+kernel-loader: get_symbol_offset.o copy_stack.o patch_trampoline.o lh_func_ptr.o mmap_wrapper.o sbrk_wrapper.o switch_context.o kernel_loader.o
 	${MPICXX} -g3 ${TEXTSEG_ADDR_FLAG} ${CFLAGS} -o $@ $^ 
 
 dmtcp_restart_mana: dmtcp_restart_plugin.o ${DMTCP_DEPS}
