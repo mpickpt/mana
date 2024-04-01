@@ -20,6 +20,11 @@ JALIB_INCLUDE=${DMTCP_ROOT}/jalib
 MANA_INCLUDE=${MANA_ROOT}/mpi-proxy-split
 PLUGIN_INCLUDE=${PLUGIN_ROOT}
 
+DMTCP_DEPS = ${DMTCP_ROOT}/src/libdmtcprestart.a \
+	     ${DMTCP_ROOT}/src/libdmtcpinternal.a \
+	     ${DMTCP_ROOT}/src/libjalib.a \
+	     ${DMTCP_ROOT}/src/libnohijack.a 
+
 override CFLAGS += -fPIC -I${DMTCP_INCLUDE} -I${MANA_INCLUDE} -g3 -O0 \
                    -I${DMTCP_ROOT}/src 
 override CXXFLAGS += -std=c++11 -fPIC -I${DMTCP_INCLUDE} -I${JALIB_INCLUDE} -I${MANA_INCLUDE} \
@@ -35,7 +40,7 @@ default: kernel-loader
 .c.o:
 	${MPICXX} ${CFLAGS} -c -o $@ $<
 
-kernel-loader: get_symbol_offset.o copy_stack.o patch_trampoline.o lh_func_ptr.o mmap_wrapper.o sbrk_wrapper.o switch_context.o kernel_loader.o
+kernel-loader: get_symbol_offset.o copy_stack.o patch_trampoline.o lh_func_ptr.o mmap_wrapper.o sbrk_wrapper.o switch_context.o kernel_loader.o ${DMTCP_DEPS}
 	${MPICXX} -g3 ${TEXTSEG_ADDR_FLAG} ${CFLAGS} -o $@ $^ 
 
 install: kernel-loader
