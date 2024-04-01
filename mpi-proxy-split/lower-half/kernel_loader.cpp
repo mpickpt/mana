@@ -14,15 +14,11 @@
 #include <errno.h>
 #include <elf.h>
 
-#include "mtcp_sys.h"
-#include "mtcp_util.h"
 #include "mmap_wrapper.h"
 #include "sbrk_wrapper.h"
 #include "patch_trampoline.h"
 #include "lower_half_api.h"
 #include "logging.h"
-#include "mana_header.h"
-#include "mtcp_restart.h"
 
 // Uses ELF Format.  For background, read both of:
 //  * http://www.skyfree.org/linux/references/ELF_Format.pdf
@@ -70,14 +66,10 @@ char *deepCopyStack(int argc, char **argv,
                     Elf64_auxv_t **);
 void* lh_dlsym(enum MPI_Fncs fnc);
 
-static void main_new_stack(RestoreInfo *rinfo);
-static void mtcp_plugin_hook(RestoreInfo *rinfo, char *restart_dir);
-
 void *ld_so_entry;
 LowerHalfInfo_t lh_info = {0};
 
 int main(int argc, char *argv[], char *envp[]) {
-  int mtcp_sys_errno;
   int i;
   int restore_mode = 0;
   int cmd_argc = 0;
