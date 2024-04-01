@@ -49,7 +49,7 @@ off_t get_symbol_offset(char *pathname, char *symbol) {
   Elf64_Shdr sect_hdr;
   Elf64_Shdr symtab;
   Elf64_Sym symtab_entry;
-  char strtab[110000];
+  char strtab[140000];
   int i;
   // First, read the data from the shstrtab section
   // This section contains the strings corresponding to the section names
@@ -82,13 +82,22 @@ off_t get_symbol_offset(char *pathname, char *symbol) {
       //         (like Rohan's version).
       rc = readElfSection(fd, i, &elf_hdr, &tmp, &debugName);
       assert(debugName);
-      // Some versions of Linux store the debug symbol file here:
-      snprintf(debugLibName, sizeof debugLibName, "%s/%s",
-               "/usr/lib/debug/lib/x86_64-linux-gnu", debugName);
-      if (access(debugLibName, F_OK) == 0) {
-        // Debian variants store a separate debug symbol file here:
-        // All the places where the debug symbol file can hide are here:
-        //   http://sourceware.org/gdb/onlinedocs/gdb/Separate-Debug-Files.html
+      // All the places where the debug symbol file can hide are here:
+      //   http://sourceware.org/gdb/onlinedocs/gdb/Separate-Debug-Files.html
+      // Some versions of Linux store the debug symbol file as follows:
+      //   Debian/Ubuntu: /lib/debug/.build-id exists
+      //            /lib/x86_64-linux-gnu/ld-linux-x86-64.so.2 : no symtab
+      //   CentOS: /lib64/ld-2.17.so : has symtab (symtab_found will be set)
+      //           /lib/ld-linux.so.2 -> /lib64/ld-2.17.so
+      //   SUSE: [same as CentOS, but ld-31.so for SUSE release 15.4)
+      //   Rocky Linux 8.8: /lib64/ld-2.28.so : no symtab
+      //       /lib/ld-linux.so.2 -> /lib64/ld-2.28.so
+      //       /usr/lib/debug/lib64/libc-2.28.so-2.28-236.el8_9.7.x86-64.debug 
+      //       Package glibc-debuginfo-*.rpm exists: provides libc-*.debug
+      if (access("/lib/debug/.build-id", F_OK) == 0) { // If Debian/Ubuntu
+        // Debian variants use separate debug symbol file: /lib/debug/.build-id
+        snprintf(debugLibName, sizeof debugLibName, "%s/%s",
+                 "/usr/lib/debug/lib/x86_64-linux-gnu", debugName);
         assert(expandDebugFile(debugLibName, "/lib/debug/.build-id", debugName));
         close(fd);
         fd = open(debugLibName, O_RDONLY);

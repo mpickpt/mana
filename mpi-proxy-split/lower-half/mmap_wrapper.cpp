@@ -46,7 +46,6 @@ using namespace std;
 #define MMAP_OFF_MASK (MMAP_OFF_HIGH_MASK | MMAP_OFF_LOW_MASK)
 #define _real_mmap mmap
 #define _real_munmap munmap
-// #define UBUNTU 1
 
 static std::vector<MmapInfo_t> mmaps;
 
@@ -82,9 +81,9 @@ int checkLibrary(int fd, const char* name,
          procPath, strerror(errno));
     return 0;
   }
-  DLOG(INFO, "checkLibrary: %s\n", fullPath);
+  DLOG(NOISE, "checkLibrary: %s\n", fullPath);
   if (strstr(fullPath, name)) {
-    DLOG(INFO, "checkLibrary found\n", fullPath);
+    DLOG(NOISE, "checkLibrary found\n", fullPath);
     strncpy(glibcFullPath, fullPath, size);
     return 1;
   }
@@ -166,29 +165,47 @@ static void patchLibc(int fd, void *base, char *glibc)
   DLOG(INFO, "Patching libc (%s) @ %p\n", glibc, base);
   // Save incoming offset
   off_t save_offset = lseek(fd, 0, SEEK_CUR);
-  off_t mmap_offset;
-  off_t munmap_offset;
-  off_t sbrk_offset;
-#ifdef UBUNTU
-  char buf[256] = "/usr/lib/debug";
-  buf[sizeof(buf)-1] = '\0';
-  memcpy(buf+strlen(buf), glibc, strlen(glibc));
-  /* if (access(buf, F_OK) == 0) {
-    // Debian family (Ubuntu, etc.) use this scheme to store debug symbols.
-    //   http://sourceware.org/gdb/onlinedocs/gdb/Separate-Debug-Files.html
-    fprintf(stderr, "Debug symbols for interpreter in: %s\n", buf);
-  } */
-  mmap_offset = get_symbol_offset(buf, "mmap"); // elf interpreter debug path
-  munmap_offset = get_symbol_offset(buf, "munmap"); // elf interpreter debug path
-  sbrk_offset = get_symbol_offset(buf, "sbrk"); // elf interpreter debug path
-  close(debug_libc_fd);
-#else
-  mmap_offset = get_symbol_offset(glibc, "mmap");
-  munmap_offset = get_symbol_offset(glibc, "munmap");
-  sbrk_offset = get_symbol_offset(glibc, "sbrk");
-#endif
+  off_t mmap_offset = get_symbol_offset(glibc, "mmap");
+  if (! mmap_offset) {
+    char buf[256] = "/usr/lib/debug";
+    buf[sizeof(buf)-1] = '\0';
+    ssize_t rc = 0;
+    rc = readlink(glibc, buf+strlen(buf), sizeof(buf)-strlen(buf)-1);
+    if (rc != -1 && access(buf, F_OK) == 0) {
+      // Debian family (Ubuntu, etc.) use this scheme to store debug symbols.
+      //   http://sourceware.org/gdb/onlinedocs/gdb/Separate-Debug-Files.html
+      fprintf(stderr, "Debug symbols for interpreter in: %s\n", buf);
+    }
+    mmap_offset = get_symbol_offset(buf, "mmap"); // elf interpreter debug path
+  }
   assert(mmap_offset);
+  off_t munmap_offset = get_symbol_offset(glibc, "munmap");
+  if (! munmap_offset) {
+    char buf[256] = "/usr/lib/debug";
+    buf[sizeof(buf)-1] = '\0';
+    ssize_t rc = 0;
+    rc = readlink(glibc, buf+strlen(buf), sizeof(buf)-strlen(buf)-1);
+    if (rc != -1 && access(buf, F_OK) == 0) {
+      // Debian family (Ubuntu, etc.) use this scheme to store debug symbols.
+      //   http://sourceware.org/gdb/onlinedocs/gdb/Separate-Debug-Files.html
+      fprintf(stderr, "Debug symbols for interpreter in: %s\n", buf);
+    }
+    munmap_offset = get_symbol_offset(buf, "munmap"); // elf interpreter debug path
+  }
   assert(munmap_offset);
+  off_t sbrk_offset = get_symbol_offset(glibc, "sbrk");
+  if (! sbrk_offset) {
+    char buf[256] = "/usr/lib/debug";
+    buf[sizeof(buf)-1] = '\0';
+    ssize_t rc = 0;
+    rc = readlink(glibc, buf+strlen(buf), sizeof(buf)-strlen(buf)-1);
+    if (rc != -1 && access(buf, F_OK) == 0) {
+      // Debian family (Ubuntu, etc.) use this scheme to store debug symbols.
+      //   http://sourceware.org/gdb/onlinedocs/gdb/Separate-Debug-Files.html
+      fprintf(stderr, "Debug symbols for interpreter in: %s\n", buf);
+    }
+    sbrk_offset = get_symbol_offset(buf, "sbrk"); // elf interpreter debug path
+  }
   assert(sbrk_offset);
   patch_trampoline((void*)base + mmap_offset, (void*)&mmap_wrapper);
   patch_trampoline((void*)base + munmap_offset, (void*)&munmap_wrapper);

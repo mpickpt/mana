@@ -53,7 +53,7 @@ ${LIBNAME}.a: ${LIBWRAPPER_OBJS}
 
 mpi_unimplemented_wrappers.cpp: generate-mpi-unimplemented-wrappers.py \
 	mpi_unimplemented_wrappers.txt
-	python $^ > $@
+	python3 $^ > $@
 
 .c.o:
 	${MPICC} ${CFLAGS} -c -o $@ $<
@@ -103,7 +103,7 @@ mpi_stub_wrappers.c: generate-mpi-stub-wrappers.py mpi_stub_wrappers.txt
 	tmp=$@.tmp.$$$$ ; \
 	printf "%s\n\n" \
 	 "// *** THIS FILE IS AUTO-GENERATED! DO 'make' TO UPDATE. ***" >$$tmp;\
-	python $^ >> $$tmp && mv -f $$tmp $@ || (rm -f $$tmp && false)
+	python3 $^ >> $$tmp && mv -f $$tmp $@ || (rm -f $$tmp && false)
 
 mpi_fortran_wrappers.cpp: generate-mpi-fortran-wrappers.py \
                           mpi_fortran_wrappers.txt
@@ -111,7 +111,7 @@ mpi_fortran_wrappers.cpp: generate-mpi-fortran-wrappers.py \
 	tmp=$@.tmp.$$$$ ; \
 	printf "%s\n\n" \
 	 "// *** THIS FILE IS AUTO-GENERATED! DO 'make' TO UPDATE. ***" >$$tmp;\
-	python $^ >> $$tmp && mv -f $$tmp $@ || (rm -f $$tmp && false)
+	python3 $^ >> $$tmp && mv -f $$tmp $@ || (rm -f $$tmp && false)
 
 mpi_stub_wrappers.o: mpi_stub_wrappers.c
 	${MPICC} ${CFLAGS} -c -o $@ $<

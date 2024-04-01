@@ -44,9 +44,6 @@ default: kernel-loader
 kernel-loader: get_symbol_offset.o copy_stack.o patch_trampoline.o lh_func_ptr.o mmap_wrapper.o sbrk_wrapper.o switch_context.o kernel_loader.o
 	${MPICXX} -g3 ${TEXTSEG_ADDR_FLAG} ${CFLAGS} -o $@ $^ 
 
-dmtcp_restart_mana: dmtcp_restart_plugin.o ${DMTCP_DEPS}
-	${CXX} $(LDFLAGS) -o $@ $^ -lpthread -lrt -ldl
-
 install: kernel-loader
 	cp -f $^ ${MANA_ROOT}/bin/
 

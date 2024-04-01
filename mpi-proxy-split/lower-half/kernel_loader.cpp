@@ -198,33 +198,38 @@ int main(int argc, char *argv[], char *envp[]) {
   DLOG(INFO, "uh_brk: %p\n", heap_addr + PAGE_SIZE);
 
   // Insert trampolines for mmap, munmap, sbrk
-  off_t mmap_offset, sbrk_offset;
-#if UBUNTU
-  char buf[256] = "/usr/lib/debug";
-  buf[sizeof(buf)-1] = '\0';
-  ssize_t rc = 0;
-  rc = readlink(elf_interpreter, buf+strlen(buf), sizeof(buf)-strlen(buf)-1);
-  if (rc != -1 && access(buf, F_OK) == 0) {
-    // Debian family (Ubuntu, etc.) use this scheme to store debug symbols.
-    //   http://sourceware.org/gdb/onlinedocs/gdb/Separate-Debug-Files.html
-    fprintf(stderr, "Debug symbols for interpreter in: %s\n", buf);
+  off_t mmap_offset = get_symbol_offset(elf_interpreter, "mmap");
+  if (! mmap_offset) {
+    char buf[256] = "/usr/lib/debug";
+    buf[sizeof(buf)-1] = '\0';
+    ssize_t rc = 0;
+    rc = readlink(elf_interpreter, buf+strlen(buf), sizeof(buf)-strlen(buf)-1);
+    if (rc != -1 && access(buf, F_OK) == 0) {
+      // Debian family (Ubuntu, etc.) use this scheme to store debug symbols.
+      //   http://sourceware.org/gdb/onlinedocs/gdb/Separate-Debug-Files.html
+      fprintf(stderr, "Debug symbols for interpreter in: %s\n", buf);
+    }
+    mmap_offset = get_symbol_offset(buf, "mmap"); // elf interpreter debug path
   }
-  mmap_offset = get_symbol_offset(buf, "mmap"); // elf interpreter debug path
-  sbrk_offset = get_symbol_offset(buf, "sbrk"); // elf interpreter debug path
-#else
-  mmap_offset = get_symbol_offset(elf_interpreter, "mmap");
-  sbrk_offset = get_symbol_offset(elf_interpreter, "sbrk");
-#endif
   assert(mmap_offset);
+  off_t sbrk_offset = get_symbol_offset(elf_interpreter, "sbrk");
+  if (! sbrk_offset) {
+    char buf[256] = "/usr/lib/debug";
+    buf[sizeof(buf)-1] = '\0';
+    ssize_t rc = 0;
+    rc = readlink(elf_interpreter, buf+strlen(buf), sizeof(buf)-strlen(buf)-1);
+    if (rc != -1 && access(buf, F_OK) == 0) {
+      // Debian family (Ubuntu, etc.) use this scheme to store debug symbols.
+      //   http://sourceware.org/gdb/onlinedocs/gdb/Separate-Debug-Files.html
+      fprintf(stderr, "Debug symbols for interpreter in: %s\n", buf);
+    }
+    sbrk_offset = get_symbol_offset(buf, "sbrk"); // elf interpreter debug path
+  }
   assert(sbrk_offset);
-#ifdef DEBUG
   fprintf(stderr,
           "Address of 'mmap' in memory of ld.so (run-time loader):  %p\n",
           interp_base_address + mmap_offset);
-  fprintf(stderr,
-          "Address of 'sbrk' in memory of ld.so (run-time loader):  %p\n",
-          interp_base_address + sbrk_offset);
-#endif
+
   // Patch ld.so mmap() and sbrk() functions to jump to mmap() and sbrk()
   // in libc.a of this kernel-loader program.
   patch_trampoline(interp_base_address + mmap_offset, (void*)&mmap_wrapper);

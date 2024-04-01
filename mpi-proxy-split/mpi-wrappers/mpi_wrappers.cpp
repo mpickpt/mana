@@ -62,7 +62,6 @@ USER_DEFINED_WRAPPER(int, Init, (int *) argc, (char ***) argv) {
   if (isUsingCollectiveToP2p()) {
     fprintf(stderr, collective_p2p_string);
   }
-  fprintf(stderr, "MANA Wrapper triggered\n");
   DMTCP_PLUGIN_DISABLE_CKPT();
 
   g_mana_header.init_flag = MPI_INIT_NO_THREAD;
