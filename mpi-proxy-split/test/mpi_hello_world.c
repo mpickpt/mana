@@ -13,9 +13,12 @@
 #include <stdlib.h>
 #include <sys/time.h>
 #include <unistd.h>
+#include <sys/mman.h>
 int
 main(int argc, char **argv)
 {
+  void *ret = mmap(NULL, 0x1000, PROT_READ|PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+  printf("ret: %p\n", ret);
   // Initialize the MPI environment. The two arguments to MPI Init are not
   // currently used by MPI implementations, but are there in case future
   // implementations might need the arguments.

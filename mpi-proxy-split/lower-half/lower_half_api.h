@@ -103,6 +103,9 @@ typedef struct _LowerHalfInfo
   void *lh_dlsym;
   void *mmap_list_fptr;
   void *uh_end_of_heap;
+  void *set_end_of_heap;
+  void *set_uh_brk;
+  void *get_lh_fsaddr;
   MemRange_t memRange; // MemRange_t object in the lower half
 } LowerHalfInfo_t;
 
@@ -480,7 +483,7 @@ extern LowerHalfInfo_t *lh_info_addr;
 
 #define GENERATE_ENUM(ENUM) MPI_Fnc_##ENUM,
 #define GENERATE_FNC_PTR(FNC) (void*)&MPI_##FNC,
-#define GENERATE_FNC_STRING(FNC)  "MPI_" #FNC
+#define GENERATE_FNC_STRING(FNC)  "MPI_" #FNC,
 
 enum MPI_Fncs {
   MPI_Fnc_NULL,
@@ -499,5 +502,11 @@ extern proxyDlsym_t pdlsym;
 
 std::vector<MmapInfo_t> &get_mmapped_list(int *num);
 typedef std::vector<MmapInfo_t>& (*get_mmapped_list_fptr_t)(int *num);
+typedef unsigned long (*get_lh_fsaddr_t)(void);
+typedef void* (*uh_end_of_heap_t)(void);
+typedef void* (*set_end_of_heap_t)(void*);
+typedef void* (*set_uh_brk_t)(void*);
+void set_end_of_heap(void *addr);
+void set_uh_brk(void *addr);
 
 #endif // ifndef _LOWER_HALF_API_H

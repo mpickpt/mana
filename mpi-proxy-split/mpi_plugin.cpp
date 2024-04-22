@@ -75,8 +75,12 @@ extern CartesianProperties g_cartesian_properties;
 void * lh_ckpt_mem_addr = NULL;
 size_t lh_ckpt_mem_size = 0;
 int pagesize = sysconf(_SC_PAGESIZE);
-get_mmapped_list_fptr_t fnc = NULL;
-dmtcp::vector<MmapInfo_t> merged_uhmaps;
+get_mmapped_list_fptr_t get_mmapped_list_fnc = NULL;
+uh_end_of_heap_t uh_end_of_heap_fnc = NULL;
+set_end_of_heap_t set_end_of_heap_fnc = NULL;
+set_uh_brk_t set_uh_brk_fnc = NULL;
+get_lh_fsaddr_t get_lh_fsaddr_fnc = NULL;
+std::vector<MmapInfo_t> uh_mmaps;
 
 extern ManaHeader g_mana_header;
 extern std::unordered_map<MPI_File, OpenFileParameters> g_params_map;
@@ -106,9 +110,9 @@ void *heapAddr = nullptr;
 const VA HIGH_ADDR_START = (VA)0x7ffc00000000;
 
 static bool isLhDevice(const ProcMapsArea *area);
-static bool isLhRegion(const ProcMapsArea *area);
 
 void *old_brk;
+void *old_end_of_brk;
 
 // Check if haystack region contains needle region.
 static inline int
@@ -304,58 +308,8 @@ isLhDevice(const ProcMapsArea *area)
   return false;
 }
 
-void getAndMergeUhMaps()
-{
-  if (lh_info.mmap_list_fptr && fnc == NULL) {
-    fnc = (get_mmapped_list_fptr_t) lh_info.mmap_list_fptr;
-    int numUhRegions = 0;
-    std::vector<MmapInfo_t> uh_mmaps = fnc(&numUhRegions);
-
-    // merge the entries if two entries are continous
-    merged_uhmaps.push_back(uh_mmaps[0]);
-    for(size_t i = 1; i < uh_mmaps.size(); i++) {
-      MmapInfo_t last_merged = merged_uhmaps.back();
-      void *uhMmapStart = uh_mmaps[i].addr;
-      void *uhMmapEnd = (VA)uh_mmaps[i].addr + uh_mmaps[i].len;
-      void *lastmergedStart = last_merged.addr;
-      void *lastmergedEnd = (VA)last_merged.addr + last_merged.len;
-      MmapInfo_t merged_item;
-      if (regionContains(uhMmapStart, uhMmapEnd, 
-                         lastmergedStart, lastmergedEnd)) {
-        merged_uhmaps.pop_back();
-        merged_uhmaps.push_back(uh_mmaps[i]);
-      } else if (regionContains(lastmergedStart, lastmergedEnd,
-                                uhMmapStart, uhMmapEnd)) {
-        continue;
-      } else if (lastmergedStart > uhMmapStart 
-                 && uhMmapEnd >= lastmergedStart) {
-        merged_item.addr = uhMmapStart;
-        merged_item.len = (VA)lastmergedEnd - (VA)uhMmapStart;
-        merged_uhmaps.pop_back();
-        merged_uhmaps.push_back(merged_item);
-      } else if (lastmergedStart < uhMmapStart 
-                 && lastmergedEnd >= uhMmapStart) {
-        merged_item.addr = lastmergedStart;
-        merged_item.len = (VA)uhMmapEnd - (VA)lastmergedStart;
-        merged_uhmaps.pop_back();
-        merged_uhmaps.push_back(merged_item);
-      } else {
-        // insert uh_maps[i] to the merged list as a new item
-        merged_uhmaps.push_back(uh_mmaps[i]);
-      }
-    }
-    // TODO: print the content once
-  }
-}
-
-static bool
-isLhRegion(const ProcMapsArea *area)
-{
-  return 1;
-}
-
 EXTERNC int
-dmtcp_skip_memory_region_ckpting(const ProcMapsArea *area)
+dmtcp_skip_memory_region_ckpting(ProcMapsArea *area)
 {
   if (isLhDevice(area)) {
     JTRACE("Ignoring region")(area->name)((void*)area->addr);
@@ -367,93 +321,28 @@ dmtcp_skip_memory_region_ckpting(const ProcMapsArea *area)
     return 1;
   }
 
-  // get and merge uh maps
-  getAndMergeUhMaps();
-
-  // smaller than smallest uhmaps or greater than largest address
-  if ((area->endAddr < merged_uhmaps[0].addr) || \
-      (area->addr > (void *)((VA)merged_uhmaps.back().addr + \
-                              merged_uhmaps.back().len))) {
-    return 1;
-  }
-
-  size_t i = 0;
-  while (i < merged_uhmaps.size()) {
-    void *uhMmapStart = merged_uhmaps[i].addr;
-    void *uhMmapEnd = (VA)merged_uhmaps[i].addr + merged_uhmaps[i].len;
-
-    if (regionContains(uhMmapStart, uhMmapEnd, area->addr, area->endAddr)) {
-      JNOTE ("Case 1 detected") ((void*)area->addr) ((void*)area->endAddr) \
-        (uhMmapStart) (uhMmapEnd);
-      return 0; // checkpoint this region
-    } else if ((area->addr < uhMmapStart) && (uhMmapStart < area->endAddr) \
-              && (area->endAddr <= uhMmapEnd)) {
-      JNOTE ("Case 2 detected") ((void*)area->addr) ((void*)area->endAddr) \
-        (uhMmapStart) (uhMmapEnd);
-
-#if 0
-      // skip the region above the uhMmapStart
-      area->addr = (VA)uhMmapStart;
-      area->size = area->endAddr - area->addr;
-#endif
-      JNOTE ("Case 2: area to checkpoint") ((void*)area->addr) \
-        ((void*)area->endAddr) (area->size);
-      return 0; // checkpoint but values changed
-    } else if ((uhMmapStart <= area->addr) && (area->addr < uhMmapEnd)) {
-      // check the next element in the merged list if it contains in the area
-      // TODO: handle that case
-      //
-      //  traverse until uhmap's start addr is bigger than the area -> endAddr
-      //  rc = number of the item in the  array
-      //
-      JNOTE("Case 3: detected") ((void*)area->addr) ((void *)area->endAddr) \
-        (area->size);
-#if 0
-      ProcMapsArea newArea = *area;
-      newArea.endAddr = (VA)uhMmapEnd;
-      newArea.size = newArea.endAddr - newArea.addr;
-      writememoryarea(fd, &newArea, stack_was_seen);
-      // whiteAreas[count++] = newArea;
-      while(i < merged_uhmaps.size()-1 \
-            && merged_uhmaps[++i].addr < area->endAddr)
-      {
-        // TODO: Update the area after each writememoryarea
-        // remove the merged uhmaps node when it's ckpt'ed
-        ProcMapsArea newArea = *area;
-        uhMmapStart = merged_uhmaps[i].addr;
-        uhMmapEnd = (VA)merged_uhmaps[i].addr + merged_uhmaps[i].len;
-        if(regionContains(area->addr, area->endAddr, uhMmapStart, uhMmapEnd)) {
-          newArea.addr = (VA)uhMmapStart;
-          newArea.endAddr = (VA)uhMmapEnd;
-          newArea.size = newArea.endAddr - newArea.addr;
-          writememoryarea(fd, &newArea, stack_was_seen);
-        } else {
-          newArea.addr = (VA)uhMmapStart;
-          newArea.size = newArea.endAddr - newArea.addr;
-          writememoryarea(fd, &newArea, stack_was_seen);
-          return 1;
-        }
-      }
-#endif
-    } else if (regionContains(area->addr, area->endAddr,
-                              uhMmapStart, uhMmapEnd)) {
-      JNOTE("Case 4: detected") ((void*)area->addr) 
-        ((void *)area->endAddr) (area->size);
-      fflush(stdout);
-#if 0
-      // TODO: this usecase is not completed; fix it later
-      // int dummy = 1; while(dummy);
-      // JNOTE("skipping the region partially ") (area->addr) (area->endAddr)
-      //   (area->size) (array[i].len);
-      area->addr = (VA)uhMmapStart;
-      area->endAddr = (VA)uhMmapEnd;
-      area->size = area->endAddr - area->addr;
-#endif
-      break;
+  get_mmapped_list_fnc = (get_mmapped_list_fptr_t) lh_info.mmap_list_fptr;
+  int numUhRegions = 0;
+  if (uh_mmaps.size() == 0) {
+    uh_mmaps = get_mmapped_list_fnc(&numUhRegions);
+    for (auto region : uh_mmaps) {
+      printf("uh_mmaps: %p, size: %d\n", region.addr, region.len);
     }
-    i++;
   }
 
+  for (MmapInfo_t &region : uh_mmaps) {
+    if (regionContains(region.addr, region.addr + region.len,
+                       area->addr, area->endAddr)) {
+      return 0;
+    }
+    if (regionContains(area->addr, area->endAddr,
+                       region.addr, region.addr + region.len)) {
+      area->addr = (char*) region.addr;
+      area->endAddr = (char*) (region.addr + region.len);
+      area->size = area->endAddr - area->addr;
+      return 0;
+    }
+  }
   return 1;
 }
 
@@ -934,6 +823,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
         JTRACE("FSGSBASE enabled");
       }
 
+#if 0
       heapAddr = sbrk(0);
       JASSERT(heapAddr != nullptr);
       // FIXME:  If we use PROT_NONE (preferred), then an older DMTCP
@@ -948,6 +838,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       //             detect that there is an mmap'ed region just beyond it,
       //             thus causing glibc to allocate a second arena elsewhere.
       mmap(heapAddr, 4096, PROT_READ, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+#endif
 
       break;
     }
@@ -1024,6 +915,8 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       printEventToStderr("EVENT_PRECHECKPOINT (done)");
       // Save a copy of the break address before checkpoint
       old_brk = sbrk(0);
+      uh_end_of_heap_fnc = (uh_end_of_heap_t) lh_info.uh_end_of_heap;
+      old_end_of_brk = uh_end_of_heap_fnc();
       break;
     }
 
@@ -1040,15 +933,14 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     }
 
     case DMTCP_EVENT_RESTART: {
-      // Restore saved break adress to reset heap
-      // FIXME: On Perlmutter, the begining address of mtcp_restart's heap
-      // is higher than the saved break address. Therefore, calling brk
-      // in mtcp_restart cannot properly reset the break address (and heap)
-      // of the restored program. Calling brk() again here can avoid a
-      // segfault on restart. But the restored program will still use
-      // mtcp_restart's break address, instead of the saved break address
-      // as the new heap. 
-      brk(old_brk);
+      // Update lh fsaddr if changed
+      get_lh_fsaddr_fnc = (get_lh_fsaddr_t) lh_info.get_lh_fsaddr;
+      lh_info.fsaddr = (void*)get_lh_fsaddr_fnc();
+      // Reset upper half heap
+      set_end_of_heap_fnc = (set_end_of_heap_t) lh_info.set_end_of_heap;
+      set_uh_brk_fnc = (set_uh_brk_t) lh_info.set_uh_brk;
+      set_end_of_heap_fnc(old_end_of_brk);
+      set_uh_brk_fnc(old_brk);
       printEventToStderr("EVENT_RESTART");
       processingOpenCkpFileFds = false;
       logCkptFileFds();
@@ -1081,6 +973,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       const char *file = get_mpi_file_filename();
       restore_mpi_files(file);
       dmtcp_local_barrier("MPI:Restore-MPI-Files");
+      uh_mmaps.clear();
       mana_state = RUNNING;
       printEventToStderr("EVENT_RESTART (done)");
       break;

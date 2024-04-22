@@ -28,6 +28,7 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <string.h>
 
 #include "lower_half_api.h"
 
@@ -53,8 +54,9 @@ void reset_wrappers() {
 }
 
 static void readLhInfoAddr() {
-  char filename[100] = "./lh_info";
-  // snprintf(filename, 100, "./lh_info_%d", dmtcp_get_real_pid());
+  char filename[100] = "./lh_info_";
+  gethostname(filename + strlen(filename), 100 - strlen(filename));
+  snprintf(filename + strlen(filename), 100 - strlen(filename), "_%d", dmtcp_get_real_pid());
   int fd = open(filename, O_RDONLY);
   if (fd < 0) {
     printf("Could not open %s for reading.\n", filename);
@@ -65,5 +67,7 @@ static void readLhInfoAddr() {
     perror("Read fewer bytes than expected from addr.bin.\n");
     exit(-1);
   }
+  close(fd);
+  remove(filename);
   pdlsym = (proxyDlsym_t)lh_info.lh_dlsym;
 }

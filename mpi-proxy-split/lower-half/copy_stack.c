@@ -5,6 +5,7 @@
 #include <assert.h>
 #include <sys/mman.h>
 #include <elf.h>
+#include "mem_wrapper.h"
 
 #define ROUND_UP(x) ((unsigned long)((x) + (0x1000-1)) \
                      & ~(unsigned long)(0x1000-1))
@@ -70,7 +71,7 @@ char *deepCopyStack(int argc, char **argv,
   char * dest_mem_addr = dest_top_of_stack - dest_mem_len;
   // FIXME:  Consider replacing MAP_FIXED by MAP_FIXED_NOREPLACE
   //   and then checking that:  rc2 == dest_mem_addr
-  void *rc2 = mmap(dest_mem_addr - sysconf(_SC_PAGESIZE),
+  void *rc2 = mmap_wrapper(dest_mem_addr - sysconf(_SC_PAGESIZE),
                    dest_mem_len + sysconf(_SC_PAGESIZE),
                    PROT_READ|PROT_WRITE,
                    MAP_PRIVATE|MAP_ANONYMOUS|MAP_FIXED|MAP_GROWSDOWN,

@@ -14,14 +14,16 @@
 #include <errno.h>
 #include <elf.h>
 
-#include "mmap_wrapper.h"
-#include "sbrk_wrapper.h"
+#include "mem_wrapper.h"
 #include "patch_trampoline.h"
 #include "lower_half_api.h"
 #include "logging.h"
 #include "dmtcp.h"
 #include "dmtcprestartinternal.h"
 #include "procmapsarea.h"
+#include "jconvert.h"
+#include "jfilesystem.h"
+#include "util.h"
 
 // Uses ELF Format.  For background, read both of:
 //  * http://www.skyfree.org/linux/references/ELF_Format.pdf
@@ -67,7 +69,8 @@ off_t get_symbol_offset(char *pathame, char *symbol);
 char *deepCopyStack(int argc, char **argv,
                     unsigned long dest_argc, char **dest_argv, char *dest_stack,
                     Elf64_auxv_t **);
-void* lh_dlsym(enum MPI_Fncs fnc);
+void *lh_dlsym(enum MPI_Fncs fnc);
+unsigned long get_lh_fsaddr();
 static int restoreMemoryArea(int fd, DmtcpCkptHeader *ckptHdr);
 
 void *ld_so_entry;
@@ -87,6 +90,11 @@ int main(int argc, char *argv[], char *envp[]) {
   Elf64_Addr cmd_entry;
   char elf_interpreter[MAX_ELF_INTERP_SZ];
 
+  // Initialize MPI in advance
+  int rank;
+  MPI_Init(&argc, &argv);
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
   // Check arguments and setup arguments for the loader program (cmd)
   // if has "--restore", pass all arguments to mtcp_restart
   for (i = 1; i < argc; i++) {
@@ -99,19 +107,25 @@ int main(int argc, char *argv[], char *envp[]) {
   }
   // Restart case
   if (restore_mode) {
-    int rank;
-    MPI_Init(&argc, &argv);
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     DmtcpRestart dmtcpRestart(argc, argv, BINARY_NAME, MTCP_RESTART_BINARY);
 
-    /*
-    string restart_dir = dmtcpRestart.restartDir;
-    char target_path[100];
-    sprintf(target_path, "%s/ckpt_rank_%d/", restart_dir, rank);
-    RestoreTarget *t = new RestoreTarget(target_path);
-    */
-    string ckptImage = dmtcpRestart.ckptImages[0];
-    RestoreTarget *t = new RestoreTarget(ckptImage);
+    RestoreTarget *t;
+    if (dmtcpRestart.restartDir.empty()) {
+      t = new RestoreTarget(dmtcpRestart.ckptImages[0]);
+    } else {
+      string image_path;
+      string restart_dir = dmtcpRestart.restartDir;
+      string image_dir = restart_dir + "/ckpt_rank_" + jalib::XToString(rank) + "/";
+      vector<string> files = jalib::Filesystem::ListDirEntries(image_dir);
+      for (const string &file : files) {
+        if (Util::strStartsWith(file.c_str(), "ckpt") &&
+            Util::strEndsWith(file.c_str(), ".dmtcp")) {
+          image_path = image_dir + file;
+          break;
+        }
+      }
+      t = new RestoreTarget(image_path.c_str());
+    }
     JASSERT(t->pid() != 0);
 
     t->initialize();
@@ -162,6 +176,9 @@ int main(int argc, char *argv[], char *envp[]) {
       break;
     }
   }
+  if (ld_so_addr == NULL) {
+    ld_so_addr = (void*) 0x800000;
+  }
 
   // Program name not provided
   if (cmd_argc == 0) {
@@ -171,6 +188,8 @@ int main(int argc, char *argv[], char *envp[]) {
   }
 
   // Launch case
+  unsigned long fsaddr = 0;
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   cmd_fd = open(cmd_argv[0], O_RDONLY);
   get_elf_interpreter(cmd_fd, &cmd_entry, elf_interpreter, ld_so_addr);
   // FIXME: The ELF Format manual says that we could pass the cmd_fd to ld.so,
@@ -218,7 +237,7 @@ int main(int argc, char *argv[], char *envp[]) {
   // info->phnum, (uintptr_t)info->phdr, (uintptr_t)info->entryPoint);
 
   // Create new heap region to be used by RTLD
-  const uint64_t heapSize = 100 * PAGE_SIZE;
+  const uint64_t heapSize = 10000 * PAGE_SIZE;
   // We go through the mmap wrapper function to ensure that this gets added
   // to the list of upper half regions to be checkpointed.
   void *heap_addr = mmap_wrapper(0, heapSize, PROT_READ | PROT_WRITE,
@@ -228,6 +247,8 @@ int main(int argc, char *argv[], char *envp[]) {
          strerror(errno));
     exit(1);
   }
+  __startOfReservedHeap = heap_addr;
+  __endOfReservedHeap = heap_addr + heapSize;
   // Add a guard page before the start of heap; this protects
   // the heap from getting merged with a "previous" region.
   mprotect(heap_addr, PAGE_SIZE, PROT_NONE);
@@ -274,15 +295,16 @@ int main(int argc, char *argv[], char *envp[]) {
   patch_trampoline(interp_base_address + sbrk_offset, (void*)&sbrk_wrapper);
 
   // Setup lower-hlaf info struct for the upper-half to read from
-  unsigned long fsaddr = 0;
-  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   lh_info.sbrk = (void*)&sbrk_wrapper;
   lh_info.mmap = (void*)&mmap_wrapper;
   lh_info.munmap = (void*)&munmap_wrapper;
   lh_info.lh_dlsym = (void*)&lh_dlsym;
   lh_info.mmap_list_fptr = (void*)&get_mmapped_list;
   lh_info.uh_end_of_heap = (void*)&get_end_of_heap;
+  lh_info.set_end_of_heap = (void*)&set_end_of_heap;
+  lh_info.set_uh_brk = (void*)&set_uh_brk;
   lh_info.fsaddr = (void*)fsaddr;
+  lh_info.get_lh_fsaddr = (void*)get_lh_fsaddr;
   write_lh_info_to_file();
   printf("LD_PRELOAD: %s\n", getenv("LD_PRELOAD"));
   printf("UH_PRELOAD: %s\n", getenv("UH_PRELOAD"));
@@ -301,8 +323,9 @@ int main(int argc, char *argv[], char *envp[]) {
 
 int write_lh_info_to_file() {
   size_t rc = 0;
-  char filename[100] = "./lh_info";
-  // snprintf(filename, 100, "./lh_info_%d", getpid());
+  char filename[100] = "./lh_info_";
+  gethostname(filename + strlen(filename), 100 - strlen(filename));
+  snprintf(filename + strlen(filename), 100 - strlen(filename), "_%d", getpid());
   int fd = open(filename, O_WRONLY | O_CREAT, 0644);
   if (fd < 0) {
     DLOG(ERROR, "Could not create addr.bin file. Error: %s", strerror(errno));
@@ -500,11 +523,11 @@ char * map_elf_interpreter_load_segment(int fd, Elf64_Phdr phdr,
   //         and then unmap the unused portions later after all the
   //         LOAD segments are mapped.  This is what ld.so would do.
   if (first_time && ld_so_addr == NULL) {
-    rc2 = mmap((void *)addr, len, prot, MAP_PRIVATE, fd, offset);
+    rc2 = mmap_wrapper((void *)addr, len, prot, MAP_PRIVATE, fd, offset);
   } else {
     assert((char *)addr+len >=
            (char *)base_address + phdr.p_vaddr + phdr.p_memsz);
-    rc2 = mmap((void *)addr, len, prot, MAP_PRIVATE|MAP_FIXED, fd, offset);
+    rc2 = mmap_wrapper((void *)addr, len, prot, MAP_PRIVATE|MAP_FIXED, fd, offset);
   }
   if (rc2 == MAP_FAILED) {
     perror("mmap"); exit(1);
@@ -565,7 +588,7 @@ static int restoreMemoryArea(int fd, DmtcpCkptHeader *ckptHdr)
 
   if (area.name[0] && strstr(area.name, "[heap]")
       && (VA) brk(NULL) != area.addr + area.size) {
-    JWARNING(false);
+    // JWARNING(false);
    // ("WARNING: break (%p) not equal to end of heap (%p)\n", mtcp_sys_brk(NULL), area.addr + area.size);
   }
 
@@ -662,6 +685,11 @@ static int restoreMemoryArea(int fd, DmtcpCkptHeader *ckptHdr)
         mmap(area.addr, area.size, area.prot | PROT_WRITE,
                             area.flags | MAP_FIXED_NOREPLACE, imagefd, area.offset);
 
+      printf("mmappedat: %p, area.addr: %p, area.endAddr%p\n", mmappedat, area.addr, area.endAddr);
+      if (mmappedat != area.addr) {
+        volatile int dummy;
+        while (dummy);
+      }
       JASSERT(mmappedat == area.addr);
 
       /* Close image file (fd only gets in the way) */
@@ -680,11 +708,19 @@ static int restoreMemoryArea(int fd, DmtcpCkptHeader *ckptHdr)
       /* ANALYZE THE CONDITION FOR DOING mmapfile MORE CAREFULLY. */
       if (area.mmapFileSize > 0 && area.name[0] == '/') {
         JTRACE("restoring memory region %p of %p bytes at %p\n") (area.mmapFileSize) (area.size) (area.addr);
-        int rc = read(fd, area.addr, area.mmapFileSize);
-        JASSERT(rc == area.mmapFileSize);
+        int rc = 0, count = 0;
+        do {
+          rc = read(fd, area.addr + count, area.mmapFileSize - count);
+          count += rc;
+        } while (rc > 0 && count < area.mmapFileSize);
+        JASSERT(count == area.mmapFileSize);
       } else {
-        int rc = read(fd, area.addr, area.size);
-        JASSERT(rc == area.size);
+        int rc = 0, count = 0;
+        do {
+          rc = read(fd, area.addr + count, area.size - count);
+          count += rc;
+        } while (rc > 0 && count < area.size);
+        JASSERT(count == area.size);
       }
 
       if (!(area.prot & PROT_WRITE)) {
@@ -693,4 +729,10 @@ static int restoreMemoryArea(int fd, DmtcpCkptHeader *ckptHdr)
     }
   }
   return 0;
+}
+
+unsigned long get_lh_fsaddr() {
+  unsigned long fsaddr = 0;
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
+  return fsaddr;
 }
