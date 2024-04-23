@@ -128,7 +128,52 @@ int main(int argc, char *argv[], char *envp[]) {
     }
     JASSERT(t->pid() != 0);
 
+    DmtcpCkptHeader ckpt_hdr;
+    int rc = read(t->fd(), &ckpt_hdr, sizeof(ckpt_hdr));
+    ASSERT_EQ(rc, sizeof(ckpt_hdr));
+    ASSERT_EQ(string(ckpt_hdr.ckptSignature), string(DMTCP_CKPT_SIGNATURE));
+
+    ProcMapsArea area;
+    off_t ckpt_file_pos = 0;
+    ckpt_file_pos = lseek(t->fd(), 0, SEEK_CUR);
+    // Reserve space for memory areas saved in the ckpt image file.
+    while(1) {
+      int rc = read(t->fd(), &area, sizeof area);
+      if (area.addr == NULL) {
+        lseek(t->fd(), ckpt_file_pos, SEEK_SET);
+        break;
+      }
+      void *mmapedat = mmap(area.addr, area.size, PROT_NONE,
+                            MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+      assert(mmapedat != MAP_FAILED);
+      if ((area.properties & DMTCP_ZERO_PAGE) == 0 &&
+          (area.properties & DMTCP_ZERO_PAGE_PARENT_HEADER) == 0) {
+        off_t seekLen = area.size;
+        if (!(area.flags & MAP_ANONYMOUS) && area.mmapFileSize > 0) {
+          seekLen =  area.mmapFileSize;
+        }
+        lseek(t->fd(), seekLen, SEEK_CUR);
+      }
+    }
     t->initialize();
+    // Release reserved memory areas
+    while(1) {
+      int rc = read(t->fd(), &area, sizeof area);
+      assert(rc > 0);
+      if (area.addr == NULL) {
+        lseek(t->fd(), ckpt_file_pos, SEEK_SET);
+        break;
+      }
+      munmap(area.addr, area.size);
+      if ((area.properties & DMTCP_ZERO_PAGE) == 0 &&
+          (area.properties & DMTCP_ZERO_PAGE_PARENT_HEADER) == 0) {
+        off_t seekLen = area.size;
+        if (!(area.flags & MAP_ANONYMOUS) && area.mmapFileSize > 0) {
+          seekLen =  area.mmapFileSize;
+        }
+        lseek(t->fd(), seekLen, SEEK_CUR);
+      }
+    }
 
     // If we were the session leader, become one now.
     if (t->sid() == t->pid()) {
@@ -139,13 +184,9 @@ int main(int argc, char *argv[], char *envp[]) {
       }
     }
 
-    DmtcpCkptHeader ckpt_hdr;
-    int rc = read(t->fd(), &ckpt_hdr, sizeof(ckpt_hdr));
-    ASSERT_EQ(rc, sizeof(ckpt_hdr));
-    ASSERT_EQ(string(ckpt_hdr.ckptSignature), string(DMTCP_CKPT_SIGNATURE));
-
     while (1) {
-      if (restoreMemoryArea(t->fd(), &ckpt_hdr) == -1) {
+      int ret = restoreMemoryArea(t->fd(), &ckpt_hdr);
+      if (ret == -1) {
         break; /* end of ckpt image */
       }
     }
@@ -206,7 +247,7 @@ int main(int argc, char *argv[], char *envp[]) {
   close(ld_so_fd);
 
   // Insert elf interpreter before loaded program's arguments
-  char *cmd_argv2[100]; 
+  char *cmd_argv2[100];
   assert(cmd_argc+1 < 100);
   cmd_argv2[0] = elf_interpreter;
   for (i = 0; i < cmd_argc; i++) {
