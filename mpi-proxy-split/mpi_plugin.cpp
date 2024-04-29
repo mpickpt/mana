@@ -321,6 +321,14 @@ dmtcp_skip_memory_region_ckpting(ProcMapsArea *area)
     return 1;
   }
 
+  if (area->addr == (void*) 0xbda000) {
+    printf("uh_stack: %p, area->addr: %p, area->endAddr: %p\n", lh_info.uh_stack, area->addr, area->endAddr);
+  }
+  // If it's the upper-half stack, don't skip
+  if (area->addr < lh_info.uh_stack && area->endAddr > lh_info.uh_stack) {
+    return 0;
+  }
+
   get_mmapped_list_fnc = (get_mmapped_list_fptr_t) lh_info.mmap_list_fptr;
   int numUhRegions = 0;
   if (uh_mmaps.size() == 0) {
@@ -329,7 +337,7 @@ dmtcp_skip_memory_region_ckpting(ProcMapsArea *area)
       printf("uh_mmaps: %p, size: %d\n", region.addr, region.len);
     }
   }
-
+  
   for (MmapInfo_t &region : uh_mmaps) {
     if (regionContains(region.addr, region.addr + region.len,
                        area->addr, area->endAddr)) {
@@ -339,6 +347,12 @@ dmtcp_skip_memory_region_ckpting(ProcMapsArea *area)
                        region.addr, region.addr + region.len)) {
       area->addr = (char*) region.addr;
       area->endAddr = (char*) (region.addr + region.len);
+      area->size = area->endAddr - area->addr;
+      return 0;
+    }
+    if (area->addr < region.addr && region.addr < area->endAddr &&
+        area->endAddr < region.addr + region.len) {
+      area->addr = (char*) region.addr;
       area->size = area->endAddr - area->addr;
       return 0;
     }

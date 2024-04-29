@@ -54,8 +54,12 @@ bool CheckAndEnableFsGsBase()
 {
   const char *str = getenv(ENV_VAR_FSGSBASE_ENABLED);
   if (str != NULL && str[0] == '1') {
+    printf("FsGsBaseEnabled address: %p\n", &FsGsBaseEnabled);
+    printf("FsGsBaseEnabled (before): %d\n", FsGsBaseEnabled);
     FsGsBaseEnabled = true;
+    printf("FsGsBaseEnabled (after): %d\n", FsGsBaseEnabled);
   }
+  printf("FsGsBaseEnabled (before return): %d\n", FsGsBaseEnabled);
 
   return FsGsBaseEnabled;
 }

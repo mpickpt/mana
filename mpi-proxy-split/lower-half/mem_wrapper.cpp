@@ -132,8 +132,8 @@ static void* __mmap_wrapper(void *addr, size_t length, int prot,
   }
   length = ROUND_UP(length, PAGE_SIZE);
   ret = _real_mmap(addr, length, prot, flags, fd, offset);
-#if 0
-  if (ret == (void*)0x404000) {
+#if 1
+  if (ret == (void*)0x7fffacff8000) {
     volatile int dummy = 1;
     while (dummy);
   }
@@ -229,6 +229,7 @@ static void patchLibc(int fd, void *base, char *glibc)
     munmap_offset = get_symbol_offset(buf, "munmap"); // elf interpreter debug path
   }
   assert(munmap_offset);
+#if 0
   off_t sbrk_offset = get_symbol_offset(glibc, "sbrk");
   if (! sbrk_offset) {
     char buf[256] = "/usr/lib/debug";
@@ -243,11 +244,10 @@ static void patchLibc(int fd, void *base, char *glibc)
     sbrk_offset = get_symbol_offset(buf, "sbrk"); // elf interpreter debug path
   }
   assert(sbrk_offset);
+  patch_trampoline((void*)base + sbrk_offset, (void*)&sbrk_wrapper);
+#endif
   patch_trampoline((void*)base + mmap_offset, (void*)&mmap_wrapper);
   patch_trampoline((void*)base + munmap_offset, (void*)&munmap_wrapper);
-  patch_trampoline((void*)base + sbrk_offset, (void*)&sbrk_wrapper);
-  DLOG(NOISE, "Patched libc (%s) @ %p: offset(sbrk): %zx; offset(mmap): %zx\n",
-       glibc, base, sbrk_offset, mmap_offset);
   // Restore file offset to not upset the caller
   lseek(fd, save_offset, SEEK_SET);
 }
@@ -361,13 +361,12 @@ static void* __sbrk_wrapper(intptr_t increment) {
     }
 
   if ((char *)oldbrk + increment > (char *)__endOfHeap) {
-    if (mmap_wrapper(__endOfHeap,
+    void *ret = __mmap_wrapper(__endOfHeap,
                     ROUND_UP((char *)oldbrk + (char *)increment - (char *)__endOfHeap, PAGE_SIZE),
                     PROT_READ | PROT_WRITE,
-                    MAP_PRIVATE | MAP_FIXED | MAP_ANONYMOUS,
-                    -1, 0) == MAP_FAILED) {
-       return (void *) -1;
-    }
+                    MAP_PRIVATE | MAP_FIXED_NOREPLACE | MAP_ANONYMOUS,
+                    -1, 0);
+    assert (ret != MAP_FAILED);
   }
 
   __endOfHeap = (void*)ROUND_UP((char *)oldbrk + increment, PAGE_SIZE);

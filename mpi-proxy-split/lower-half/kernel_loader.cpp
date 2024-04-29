@@ -24,6 +24,11 @@
 #include "jconvert.h"
 #include "jfilesystem.h"
 #include "util.h"
+#if 0
+#include "mtcp_sys.h"
+#include "mtcp_restart.h"
+#include "mtcp_util.h"
+#endif
 
 // Uses ELF Format.  For background, read both of:
 //  * http://www.skyfree.org/linux/references/ELF_Format.pdf
@@ -72,6 +77,7 @@ char *deepCopyStack(int argc, char **argv,
 void *lh_dlsym(enum MPI_Fncs fnc);
 unsigned long get_lh_fsaddr();
 static int restoreMemoryArea(int fd, DmtcpCkptHeader *ckptHdr);
+static void restore_vdso_vvar(DmtcpCkptHeader *dmtcp_hdri, char *envrion[]);
 
 void *ld_so_entry;
 LowerHalfInfo_t lh_info = {0};
@@ -90,10 +96,16 @@ int main(int argc, char *argv[], char *envp[]) {
   Elf64_Addr cmd_entry;
   char elf_interpreter[MAX_ELF_INTERP_SZ];
 
+  CheckAndEnableFsGsBase();
   // Initialize MPI in advance
   int rank;
   MPI_Init(&argc, &argv);
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+  unsigned long fsaddr = 0;
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
+  lh_info.fsaddr = (void*)fsaddr;
+  lh_info.get_lh_fsaddr = (void*)get_lh_fsaddr;
 
   // Check arguments and setup arguments for the loader program (cmd)
   // if has "--restore", pass all arguments to mtcp_restart
@@ -138,14 +150,19 @@ int main(int argc, char *argv[], char *envp[]) {
     ckpt_file_pos = lseek(t->fd(), 0, SEEK_CUR);
     // Reserve space for memory areas saved in the ckpt image file.
     while(1) {
+      off_t cur_pos = ckpt_file_pos;
       int rc = read(t->fd(), &area, sizeof area);
+      cur_pos = lseek(t->fd(), 0, SEEK_CUR);
       if (area.addr == NULL) {
         lseek(t->fd(), ckpt_file_pos, SEEK_SET);
         break;
       }
-      void *mmapedat = mmap(area.addr, area.size, PROT_NONE,
-                            MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-      assert(mmapedat != MAP_FAILED);
+      if ((area.properties & DMTCP_ZERO_PAGE_CHILD_HEADER) == 0) {
+        void *mmapedat = mmap(area.addr, area.size, PROT_NONE,
+                              MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED_NOREPLACE,
+                              0, 0);
+        assert(mmapedat != MAP_FAILED);
+      }
       if ((area.properties & DMTCP_ZERO_PAGE) == 0 &&
           (area.properties & DMTCP_ZERO_PAGE_PARENT_HEADER) == 0) {
         off_t seekLen = area.size;
@@ -164,7 +181,9 @@ int main(int argc, char *argv[], char *envp[]) {
         lseek(t->fd(), ckpt_file_pos, SEEK_SET);
         break;
       }
-      munmap(area.addr, area.size);
+      if ((area.properties & DMTCP_ZERO_PAGE_CHILD_HEADER) == 0) {
+        munmap(area.addr, area.size);
+      }
       if ((area.properties & DMTCP_ZERO_PAGE) == 0 &&
           (area.properties & DMTCP_ZERO_PAGE_PARENT_HEADER) == 0) {
         off_t seekLen = area.size;
@@ -196,6 +215,7 @@ int main(int argc, char *argv[], char *envp[]) {
 
     // IMB; /* flush instruction cache, since mtcp_restart.c code is now gone. */
 
+    restore_vdso_vvar(&ckpt_hdr, envp);
     PostRestartFnPtr_t postRestart = (PostRestartFnPtr_t) ckpt_hdr.postRestartAddr;
     postRestart(0, 0);
     // The following line should not be reached.
@@ -218,7 +238,7 @@ int main(int argc, char *argv[], char *envp[]) {
     }
   }
   if (ld_so_addr == NULL) {
-    ld_so_addr = (void*) 0x800000;
+    ld_so_addr = (void*) 0x80000000;
   }
 
   // Program name not provided
@@ -229,8 +249,6 @@ int main(int argc, char *argv[], char *envp[]) {
   }
 
   // Launch case
-  unsigned long fsaddr = 0;
-  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   cmd_fd = open(cmd_argv[0], O_RDONLY);
   get_elf_interpreter(cmd_fd, &cmd_entry, elf_interpreter, ld_so_addr);
   // FIXME: The ELF Format manual says that we could pass the cmd_fd to ld.so,
@@ -263,6 +281,7 @@ int main(int argc, char *argv[], char *envp[]) {
   char *dest_stack = deepCopyStack(argc, argv, cmd_argc+1, cmd_argv2,
                                    interp_base_address + 0x400000,
                                    &auxv_ptr);
+  lh_info.uh_stack = dest_stack;
 
   // FIXME:
   // **************************************************************************
@@ -278,11 +297,16 @@ int main(int argc, char *argv[], char *envp[]) {
   // info->phnum, (uintptr_t)info->phdr, (uintptr_t)info->entryPoint);
 
   // Create new heap region to be used by RTLD
-  const uint64_t heapSize = 10000 * PAGE_SIZE;
+  
+  void *lh_brk = sbrk(0);
+  const uint64_t heapSize = 0x1000000;
   // We go through the mmap wrapper function to ensure that this gets added
   // to the list of upper half regions to be checkpointed.
-  void *heap_addr = mmap_wrapper(0, heapSize, PROT_READ | PROT_WRITE,
-                           MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+  void *heap_addr = mmap_wrapper(lh_brk, heapSize, PROT_NONE,
+                                 MAP_PRIVATE | MAP_ANONYMOUS |
+                                 MAP_NORESERVE | MAP_FIXED_NOREPLACE ,
+                                 -1, 0);
+  printf("emulated upper-half heal addr: %p\n", heap_addr);
   if (heap_addr == MAP_FAILED) {
     DLOG(ERROR, "Failed to mmap region. Error: %s\n",
          strerror(errno));
@@ -311,6 +335,7 @@ int main(int argc, char *argv[], char *envp[]) {
     }
     mmap_offset = get_symbol_offset(buf, "mmap"); // elf interpreter debug path
   }
+#if 0
   assert(mmap_offset);
   off_t sbrk_offset = get_symbol_offset(elf_interpreter, "sbrk");
   if (! sbrk_offset) {
@@ -329,14 +354,16 @@ int main(int argc, char *argv[], char *envp[]) {
   fprintf(stderr,
           "Address of 'mmap' in memory of ld.so (run-time loader):  %p\n",
           interp_base_address + mmap_offset);
+#endif
 
   // Patch ld.so mmap() and sbrk() functions to jump to mmap() and sbrk()
   // in libc.a of this kernel-loader program.
   patch_trampoline(interp_base_address + mmap_offset, (void*)&mmap_wrapper);
+#if 0
   patch_trampoline(interp_base_address + sbrk_offset, (void*)&sbrk_wrapper);
-
-  // Setup lower-hlaf info struct for the upper-half to read from
   lh_info.sbrk = (void*)&sbrk_wrapper;
+#endif
+  // Setup lower-hlaf info struct for the upper-half to read from
   lh_info.mmap = (void*)&mmap_wrapper;
   lh_info.munmap = (void*)&munmap_wrapper;
   lh_info.lh_dlsym = (void*)&lh_dlsym;
@@ -344,8 +371,6 @@ int main(int argc, char *argv[], char *envp[]) {
   lh_info.uh_end_of_heap = (void*)&get_end_of_heap;
   lh_info.set_end_of_heap = (void*)&set_end_of_heap;
   lh_info.set_uh_brk = (void*)&set_uh_brk;
-  lh_info.fsaddr = (void*)fsaddr;
-  lh_info.get_lh_fsaddr = (void*)get_lh_fsaddr;
   write_lh_info_to_file();
   printf("LD_PRELOAD: %s\n", getenv("LD_PRELOAD"));
   printf("UH_PRELOAD: %s\n", getenv("UH_PRELOAD"));
@@ -749,18 +774,22 @@ static int restoreMemoryArea(int fd, DmtcpCkptHeader *ckptHdr)
       /* ANALYZE THE CONDITION FOR DOING mmapfile MORE CAREFULLY. */
       if (area.mmapFileSize > 0 && area.name[0] == '/') {
         JTRACE("restoring memory region %p of %p bytes at %p\n") (area.mmapFileSize) (area.size) (area.addr);
-        int rc = 0, count = 0;
+        size_t rc = 0, count = 0;
         do {
           rc = read(fd, area.addr + count, area.mmapFileSize - count);
           count += rc;
         } while (rc > 0 && count < area.mmapFileSize);
         JASSERT(count == area.mmapFileSize);
       } else {
-        int rc = 0, count = 0;
+        size_t rc = 0, count = 0;
         do {
           rc = read(fd, area.addr + count, area.size - count);
           count += rc;
         } while (rc > 0 && count < area.size);
+        if (count != area.size) {
+          volatile int dummy = 1;
+          while (dummy);
+        }
         JASSERT(count == area.size);
       }
 
@@ -770,6 +799,250 @@ static int restoreMemoryArea(int fd, DmtcpCkptHeader *ckptHdr)
     }
   }
   return 0;
+}
+
+NO_OPTIMIZE
+static int
+mremap_move(void *dest, void *src, size_t size) {
+  int mtcp_sys_errno;
+  if (dest == src) {
+    return 0; // Success
+  }
+  void *rc = mremap(src, size, size, MREMAP_FIXED | MREMAP_MAYMOVE, dest);
+  if (rc == dest) {
+    return 0; // Success
+  } else if (rc == MAP_FAILED) {
+    fprintf(stderr, "***Error: failed to mremap; src->dest: %p->%p, size: 0x%x;"
+            " errno: %d.\n", src, dest, size, mtcp_sys_errno);
+    return -1; // Error
+  } else {
+    // Else 'MREMAP_MAYMOVE' forced the remap to the wrong location.  So, the
+    // memory was moved to the wrong desgination.  Undo the move, and return -1.
+    mremap_move(src, rc, size);
+    return -1; // Error
+  }
+}
+
+int mtcp_setauxval(char **evp, unsigned long int type, unsigned long int val)
+{ while (*evp++ != NULL) {};
+  Elf64_auxv_t *auxv = (Elf64_auxv_t *)evp;
+  Elf64_auxv_t *p;
+  for (p = auxv; p->a_type != AT_NULL; p++) {
+    if (p->a_type == type) {
+       p->a_un.a_val = val;
+       return 0;
+    }
+  }
+  return -1;
+}
+
+/* Read non-null character, return null if EOF */
+char mtcp_readchar (int fd)
+{
+  int mtcp_sys_errno;
+  char c;
+  int rc;
+
+  do {
+    rc = read (fd, &c, 1);
+  } while ( rc == -1 && mtcp_sys_errno == EINTR );
+  if (rc <= 0) return (0);
+  return (c);
+}
+
+/* Read decimal number, return value and terminating character */
+char mtcp_readdec (int fd, VA *value)
+{
+  char c;
+  unsigned long int v;
+
+  v = 0;
+  while (1) {
+    c = mtcp_readchar (fd);
+    if ((c >= '0') && (c <= '9')) c -= '0';
+    else break;
+    v = v * 10 + c;
+  }
+  *value = (VA)v;
+  return (c);
+}
+
+/* Read decimal number, return value and terminating character */
+char mtcp_readhex (int fd, VA *value)
+{
+  char c;
+  unsigned long int v;
+
+  v = 0;
+  while (1) {
+    c = mtcp_readchar (fd);
+      if ((c >= '0') && (c <= '9')) c -= '0';
+    else if ((c >= 'a') && (c <= 'f')) c -= 'a' - 10;
+    else if ((c >= 'A') && (c <= 'F')) c -= 'A' - 10;
+    else break;
+    v = v * 16 + c;
+  }
+  *value = (VA)v;
+  return (c);
+}
+
+int mtcp_readmapsline (int mapsfd, Area *area)
+{
+  int mtcp_sys_errno __attribute__((unused));
+  char c, rflag, sflag, wflag, xflag;
+  int i;
+  off_t offset;
+  unsigned int long devmajor, devminor, inodenum;
+  VA startaddr, endaddr;
+
+  c = mtcp_readhex (mapsfd, &startaddr);
+  if (c != '-') {
+    if ((c == 0) && (startaddr == 0)) return (0);
+    goto skipeol;
+  }
+  c = mtcp_readhex (mapsfd, &endaddr);
+  if (c != ' ') goto skipeol;
+  if (endaddr < startaddr) goto skipeol;
+
+  rflag = c = mtcp_readchar (mapsfd);
+  if ((c != 'r') && (c != '-')) goto skipeol;
+  wflag = c = mtcp_readchar (mapsfd);
+  if ((c != 'w') && (c != '-')) goto skipeol;
+  xflag = c = mtcp_readchar (mapsfd);
+  if ((c != 'x') && (c != '-')) goto skipeol;
+  sflag = c = mtcp_readchar (mapsfd);
+  if ((c != 's') && (c != 'p')) goto skipeol;
+
+  c = mtcp_readchar (mapsfd);
+  if (c != ' ') goto skipeol;
+
+  c = mtcp_readhex (mapsfd, (VA *)&offset);
+  if (c != ' ') goto skipeol;
+  area -> offset = offset;
+
+  c = mtcp_readhex (mapsfd, (VA *)&devmajor);
+  if (c != ':') goto skipeol;
+  c = mtcp_readhex (mapsfd, (VA *)&devminor);
+  if (c != ' ') goto skipeol;
+  c = mtcp_readdec (mapsfd, (VA *)&inodenum);
+  area -> name[0] = '\0';
+  while (c == ' ') c = mtcp_readchar (mapsfd);
+  if (c == '/' || c == '[') { /* absolute pathname, or [stack], [vdso], etc. */
+    i = 0;
+    do {
+      area -> name[i++] = c;
+      if (i == sizeof area -> name) goto skipeol;
+      c = mtcp_readchar (mapsfd);
+    } while (c != '\n');
+    area -> name[i] = '\0';
+  }
+
+  if (c != '\n') goto skipeol;
+
+  area -> addr = startaddr;
+  area -> endAddr = endaddr;
+  area -> size = endaddr - startaddr;
+  area -> prot = 0;
+  if (rflag == 'r') area -> prot |= PROT_READ;
+  if (wflag == 'w') area -> prot |= PROT_WRITE;
+  if (xflag == 'x') area -> prot |= PROT_EXEC;
+  area -> flags = MAP_FIXED;
+  if (sflag == 's') area -> flags |= MAP_SHARED;
+  if (sflag == 'p') area -> flags |= MAP_PRIVATE;
+  if (area -> name[0] == '\0') area -> flags |= MAP_ANONYMOUS;
+
+  area->devmajor = devmajor;
+  area->devminor = devminor;
+  area->inodenum = inodenum;
+  return (1);
+
+skipeol:
+  fprintf(stderr, "ERROR:  mtcp readmapsline*: bad maps line <%c", c);
+  while ((c != '\n') && (c != '\0')) {
+    c = mtcp_readchar (mapsfd);
+    fprintf(stderr, "%c", c);
+  }
+  fprintf(stderr, ">\n");
+  abort ();
+  return (0);  /* NOTREACHED : stop compiler warning */
+}
+
+NO_OPTIMIZE
+static void
+restore_vdso_vvar(DmtcpCkptHeader *dmtcp_hdr, char *environ[])
+{
+  int mtcp_sys_errno;
+
+  // Computer vdso and vvar
+  Area area;
+  char* currentVdsoStart = NULL;
+  char* currentVdsoEnd = NULL;
+  char* currentVvarStart = NULL;
+  char* currentVvarEnd = NULL;
+
+  int mapsfd = open("/proc/self/maps", O_RDONLY, 0777);
+
+  if (mapsfd < 0) {
+    printf("error opening /proc/self/maps; errno: %d\n", mtcp_sys_errno);
+    abort();
+  }
+
+  while (mtcp_readmapsline(mapsfd, &area)) {
+    if (strcmp(area.name, "[vdso]") == 0) {
+      // Do not unmap vdso.
+      currentVdsoStart = area.addr;
+      currentVdsoEnd = area.endAddr;
+      fprintf(stderr, "***INFO: vDSO found (%p..%p)\n original vDSO: (%p..%p)\n",
+              area.addr, area.endAddr, dmtcp_hdr->vdsoStart, dmtcp_hdr->vdsoEnd);
+    }
+#if defined(__i386__) && LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 18)
+    else if (area.addr == 0xfffe0000 && area.size == 4096) {
+      // It's a vdso page from a time before Linux displayed the annotation.
+      // Do not unmap vdso.
+    }
+#endif /* if defined(__i386__) && LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 18)
+          */
+    else if (strcmp(area.name, "[vvar]") == 0) {
+      // Do not unmap vvar.
+      currentVvarStart = area.addr;
+      currentVvarEnd = area.endAddr;
+    }
+  }
+
+  close(mapsfd);
+
+  if (currentVdsoEnd - currentVdsoStart != dmtcp_hdr->vdsoEnd - dmtcp_hdr->vdsoStart) {
+    printf("***Error: vdso size mismatch.\n");
+    abort();
+  }
+
+  if (currentVvarEnd - currentVvarStart != dmtcp_hdr->vvarEnd - dmtcp_hdr->vvarStart) {
+    printf("***Error: vvar size mismatch. Current: %p..%p; existing %p..%p\n",
+      currentVvarEnd, currentVvarStart, dmtcp_hdr->vvarEnd, dmtcp_hdr->vvarStart);
+    abort();
+  }
+
+  if (currentVvarStart != NULL) {
+    int rc = mremap_move((void*)dmtcp_hdr->vvarStart,
+                         currentVvarStart,
+                         currentVvarEnd - currentVvarStart);
+    if (rc == -1) {
+      printf("***Error: failed to restore vvar to pre-ckpt location.");
+      abort();
+    }
+  }
+
+  if (currentVdsoStart != NULL) {
+    int rc = mremap_move((void*)dmtcp_hdr->vdsoStart,
+                         currentVdsoStart,
+                         currentVdsoEnd - currentVdsoStart);
+    if (rc == -1) {
+      printf("***Error: failed to restore vdso to pre-ckpt location.");
+      abort();
+    }
+    mtcp_setauxval(environ, AT_SYSINFO_EHDR,
+                   (unsigned long int) dmtcp_hdr->vdsoStart);
+  }
 }
 
 unsigned long get_lh_fsaddr() {

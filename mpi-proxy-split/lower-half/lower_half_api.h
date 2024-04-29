@@ -106,6 +106,7 @@ typedef struct _LowerHalfInfo
   void *set_end_of_heap;
   void *set_uh_brk;
   void *get_lh_fsaddr;
+  void *uh_stack;
   MemRange_t memRange; // MemRange_t object in the lower half
 } LowerHalfInfo_t;
 
