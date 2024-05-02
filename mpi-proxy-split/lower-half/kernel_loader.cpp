@@ -161,7 +161,10 @@ int main(int argc, char *argv[], char *envp[]) {
         void *mmapedat = mmap(area.addr, area.size, PROT_NONE,
                               MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED_NOREPLACE,
                               0, 0);
-        assert(mmapedat != MAP_FAILED);
+        if (mmapedat == MAP_FAILED) {
+          volatile int dummy = 1;
+          while (dummy);
+        }
       }
       if ((area.properties & DMTCP_ZERO_PAGE) == 0 &&
           (area.properties & DMTCP_ZERO_PAGE_PARENT_HEADER) == 0) {
@@ -203,6 +206,10 @@ int main(int argc, char *argv[], char *envp[]) {
       }
     }
 
+    // WARNNING: Libc may cache vdso address
+    // We can't use libc until the link map is updated.
+    restore_vdso_vvar(&ckpt_hdr, envp);
+
     while (1) {
       int ret = restoreMemoryArea(t->fd(), &ckpt_hdr);
       if (ret == -1) {
@@ -215,7 +222,6 @@ int main(int argc, char *argv[], char *envp[]) {
 
     // IMB; /* flush instruction cache, since mtcp_restart.c code is now gone. */
 
-    restore_vdso_vvar(&ckpt_hdr, envp);
     PostRestartFnPtr_t postRestart = (PostRestartFnPtr_t) ckpt_hdr.postRestartAddr;
     postRestart(0, 0);
     // The following line should not be reached.
@@ -1022,6 +1028,7 @@ restore_vdso_vvar(DmtcpCkptHeader *dmtcp_hdr, char *environ[])
     abort();
   }
 
+  // Remap vdso and vvar
   if (currentVvarStart != NULL) {
     int rc = mremap_move((void*)dmtcp_hdr->vvarStart,
                          currentVvarStart,
@@ -1043,6 +1050,9 @@ restore_vdso_vvar(DmtcpCkptHeader *dmtcp_hdr, char *environ[])
     mtcp_setauxval(environ, AT_SYSINFO_EHDR,
                    (unsigned long int) dmtcp_hdr->vdsoStart);
   }
+
+  // Update vdso address in link map
+
 }
 
 unsigned long get_lh_fsaddr() {

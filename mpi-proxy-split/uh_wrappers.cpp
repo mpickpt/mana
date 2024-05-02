@@ -31,6 +31,8 @@
 #include <string.h>
 
 #include "lower_half_api.h"
+#include "dmtcp.h"
+#include "mpi_plugin.h"
 
 int initialized = 0;
 
@@ -51,6 +53,44 @@ void initialize_wrappers() {
 
 void reset_wrappers() {
   initialized = 0;
+}
+
+void* mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset) {
+  static __typeof__(&mmap) lowerHalfMmapWrapper = (__typeof__(&mmap)) - 1;
+  if (!initialized) {
+    initialize_wrappers();
+  }
+  if (lowerHalfMmapWrapper == (__typeof__(&mmap)) - 1) {
+    lowerHalfMmapWrapper = (__typeof__(&mmap))lh_info.mmap;
+  }
+  void *ret;
+  if (mana_state == RUNNING) {
+    DMTCP_PLUGIN_DISABLE_CKPT();
+  }
+  ret = lowerHalfMmapWrapper(addr, length, prot, flags, fd, offset);
+  if (mana_state == RUNNING) {
+    DMTCP_PLUGIN_ENABLE_CKPT();
+  }
+  return ret;
+}
+
+int munmap(void *addr, size_t length) {
+  static __typeof__(&munmap) lowerHalfMunmapWrapper = (__typeof__(&munmap)) - 1;
+  if (!initialized) {
+    initialize_wrappers();
+  }
+  if (lowerHalfMunmapWrapper == (__typeof__(&munmap)) - 1) {
+    lowerHalfMunmapWrapper = (__typeof__(&munmap))lh_info.munmap;
+  }
+  int ret;
+  if (mana_state == RUNNING) {
+    DMTCP_PLUGIN_DISABLE_CKPT();
+  }
+  ret = lowerHalfMunmapWrapper(addr, length);
+  if (mana_state == RUNNING) {
+    DMTCP_PLUGIN_ENABLE_CKPT();
+  }
+  return ret;
 }
 
 static void readLhInfoAddr() {

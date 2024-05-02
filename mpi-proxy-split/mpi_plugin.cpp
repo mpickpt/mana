@@ -806,7 +806,6 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       JASSERT(dmtcp_get_real_tid != NULL);
       initialize_signal_handlers();
       initialize_segv_handler();
-      initialize_wrappers();
       seq_num_init();
       mana_state = RUNNING;
 
@@ -947,6 +946,8 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     }
 
     case DMTCP_EVENT_RESTART: {
+      reset_wrappers();
+      initialize_wrappers();
       // Update lh fsaddr if changed
       get_lh_fsaddr_fnc = (get_lh_fsaddr_t) lh_info.get_lh_fsaddr;
       lh_info.fsaddr = (void*)get_lh_fsaddr_fnc();
