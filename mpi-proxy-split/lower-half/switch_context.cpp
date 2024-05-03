@@ -43,6 +43,7 @@
 #include <fcntl.h>
 #include <dlfcn.h>
 #include <link.h>
+#include <assert.h>
 
 
 #include "switch_context.h"
@@ -52,15 +53,31 @@ bool FsGsBaseEnabled = false;
 
 bool CheckAndEnableFsGsBase()
 {
-  const char *str = getenv(ENV_VAR_FSGSBASE_ENABLED);
-  if (str != NULL && str[0] == '1') {
-    printf("FsGsBaseEnabled address: %p\n", &FsGsBaseEnabled);
-    printf("FsGsBaseEnabled (before): %d\n", FsGsBaseEnabled);
-    FsGsBaseEnabled = true;
-    printf("FsGsBaseEnabled (after): %d\n", FsGsBaseEnabled);
-  }
-  printf("FsGsBaseEnabled (before return): %d\n", FsGsBaseEnabled);
+  pid_t childPid = fork();
+  assert(childPid != -1);
 
+  if (childPid == 0) {
+    unsigned long fsbase = -1;
+    // On systems without FSGSBASE support (Linux kernel < 5.9, this instruction
+    // fails with SIGILL).
+    asm volatile("rex.W\n rdfsbase %0" : "=r" (fsbase) :: "memory");
+    if (fsbase != (unsigned long)-1) {
+      exit(0);
+    }
+
+    // Also test wrfsbase in case it generates SIGILL as well.
+    asm volatile("rex.W\n wrfsbase %0" :: "r" (fsbase) : "memory");
+    exit(1);
+  }
+
+  int status = 0;
+  assert(waitpid(childPid, &status, 0) == childPid);
+
+  if (status == 0) {
+    FsGsBaseEnabled = true;
+  } else {
+    FsGsBaseEnabled = false;
+  }
   return FsGsBaseEnabled;
 }
 
