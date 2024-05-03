@@ -113,6 +113,7 @@ static bool isLhDevice(const ProcMapsArea *area);
 
 void *old_brk;
 void *old_end_of_brk;
+void *uh_stack;
 
 // Check if haystack region contains needle region.
 static inline int
@@ -321,20 +322,19 @@ dmtcp_skip_memory_region_ckpting(ProcMapsArea *area)
     return 1;
   }
 
-  if (area->addr == (void*) 0xbda000) {
-    printf("uh_stack: %p, area->addr: %p, area->endAddr: %p\n", lh_info.uh_stack, area->addr, area->endAddr);
-  }
   // If it's the upper-half stack, don't skip
   if (area->addr < lh_info.uh_stack && area->endAddr > lh_info.uh_stack) {
+    printf("area->addr: %p, area->endAddr %p, lh_info.uh_stack: %p\n", area->addr, area->endAddr, lh_info.uh_stack);
     return 0;
   }
 
   get_mmapped_list_fnc = (get_mmapped_list_fptr_t) lh_info.mmap_list_fptr;
-  int numUhRegions = 0;
+  
+  int numUhRegions;
   if (uh_mmaps.size() == 0) {
     uh_mmaps = get_mmapped_list_fnc(&numUhRegions);
-    for (auto region : uh_mmaps) {
-      printf("uh_mmaps: %p, size: %d\n", region.addr, region.len);
+    for (auto &region : uh_mmaps) {
+      printf("uh mmap region addr %p end addr %p\n", region.addr, region.addr + region.len);
     }
   }
   
@@ -928,6 +928,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       printEventToStderr("EVENT_PRECHECKPOINT (done)");
       // Save a copy of the break address before checkpoint
       old_brk = sbrk(0);
+      uh_stack = lh_info.uh_stack;
       uh_end_of_heap_fnc = (uh_end_of_heap_t) lh_info.uh_end_of_heap;
       old_end_of_brk = uh_end_of_heap_fnc();
       break;
@@ -948,9 +949,9 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     case DMTCP_EVENT_RESTART: {
       reset_wrappers();
       initialize_wrappers();
-      // Update lh fsaddr if changed
-      get_lh_fsaddr_fnc = (get_lh_fsaddr_t) lh_info.get_lh_fsaddr;
-      lh_info.fsaddr = (void*)get_lh_fsaddr_fnc();
+      lh_info.uh_stack = uh_stack;
+      fprintf(stderr, "fsaddr after restart: %lx\n", lh_info.fsaddr);
+      fflush(stderr);
       // Reset upper half heap
       set_end_of_heap_fnc = (set_end_of_heap_t) lh_info.set_end_of_heap;
       set_uh_brk_fnc = (set_uh_brk_t) lh_info.set_uh_brk;
@@ -961,6 +962,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       logCkptFileFds();
 
       mpiInitLhAreas->clear();
+      uh_mmaps.clear();
 
       g_upper_half_fsbase->clear();
       g_upper_half_fsbase->insert(std::make_pair(dmtcp_get_real_tid(), getFS()));
@@ -988,7 +990,6 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       const char *file = get_mpi_file_filename();
       restore_mpi_files(file);
       dmtcp_local_barrier("MPI:Restore-MPI-Files");
-      uh_mmaps.clear();
       mana_state = RUNNING;
       printEventToStderr("EVENT_RESTART (done)");
       break;
