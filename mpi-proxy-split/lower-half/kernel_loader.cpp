@@ -130,9 +130,7 @@ int main(int argc, char *argv[], char *envp[]) {
   // Check arguments and setup arguments for the loader program (cmd)
   // if has "--restore", pass all arguments to mtcp_restart
   for (i = 1; i < argc; i++) {
-    printf("arg %d: %s\n", i, argv[i]);
     if (strcmp(argv[i], "--restore") == 0) {
-      fprintf(stderr, "restore mode\n");
       restore_mode = 1;
       break;
     }
@@ -344,7 +342,7 @@ int main(int argc, char *argv[], char *envp[]) {
   mprotect(heap_addr, PAGE_SIZE, PROT_NONE);
   set_uh_brk((void*)((void *)heap_addr + PAGE_SIZE));
   set_end_of_heap((void*)((void *)heap_addr + heapSize));
-  DLOG(INFO, "uh_brk: %p\n", heap_addr + PAGE_SIZE);
+  DLOG(NOISE, "uh_brk: %p\n", heap_addr + PAGE_SIZE);
 
   // Insert trampolines for mmap, munmap, sbrk
   off_t mmap_offset = get_symbol_offset(elf_interpreter, "mmap");
@@ -456,8 +454,6 @@ void get_elf_interpreter(int fd, Elf64_Addr *cmd_entry,
   assert(phdr.p_filesz < MAX_ELF_INTERP_SZ);
   rc = read(fd, elf_interpreter, phdr.p_filesz);
   assert(rc == phdr.p_filesz);
-
-  fprintf(stderr, "Interpreter (ld.so): %s\n", elf_interpreter);
 }
 
 void *load_elf_interpreter(int fd, char elf_interpreter[],

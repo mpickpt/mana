@@ -818,7 +818,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       pid_t real_tid = dmtcp_get_real_tid();
       unsigned long fs = getFS();
       g_upper_half_fsbase->insert(std::make_pair(real_tid, fs));
-      DLOG(INFO, "user thread tid %lu fs %lu inserted\n", real_tid, fs);
+      DLOG(NOISE, "user thread tid %lu fs %lu inserted\n", real_tid, fs);
 
       if (g_file_flags_map != NULL) {
         delete g_file_flags_map;

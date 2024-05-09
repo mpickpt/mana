@@ -76,8 +76,6 @@ char *deepCopyStack(int argc, char **argv,
                    PROT_READ|PROT_WRITE|PROT_EXEC,
                    MAP_PRIVATE|MAP_ANONYMOUS|MAP_FIXED|MAP_GROWSDOWN,
                    -1, 0);
-  printf("upper half stack range: %p .. %p\n", rc2, rc2 + dest_mem_len + sysconf(_SC_PAGESIZE));
-  fflush(stdout);
   if (rc2 == MAP_FAILED) { perror("mmap"); exit(1); }
 
   // Now copy dest_argv[] strings into dest_strings pointer.
