@@ -5,7 +5,6 @@
 #include "virtualidtable.h"
 #include "jassert.h"
 #include "jconvert.h"
-#include "split_process.h"
 #include "dmtcp.h"
 
 #define CONCAT(a,b) a ## b
@@ -201,7 +200,7 @@
 #endif // ifndef NEXT_FUNC
 
 #ifndef REAL_CONSTANT
-# define REAL_CONSTANT(name) (__typeof__(name))lh_mpi_constants(LH_##name)
+# define REAL_CONSTANT(name) (__typeof__(MPI_##name))lh_mpi_constants(LH_MPI_##name)
 #endif // ifndef REAL_CONSTANT
 
 struct ggid_desc_t {

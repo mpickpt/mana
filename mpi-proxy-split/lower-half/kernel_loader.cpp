@@ -60,6 +60,7 @@
 #define MAX_ELF_INTERP_SZ 256
 
 int write_lh_info_to_file();
+void* get_lh_mpi_constant(enum MPI_Constants constant);
 void get_elf_interpreter(int fd, Elf64_Addr *cmd_entry,
                          char get_elf_interpreter[], void *ld_so_addr);
 void *load_elf_interpreter(int fd, char elf_interpreter[],
@@ -126,6 +127,7 @@ int main(int argc, char *argv[], char *envp[]) {
   lh_info.uh_end_of_heap = (void*)&get_end_of_heap;
   lh_info.set_end_of_heap = (void*)&set_end_of_heap;
   lh_info.set_uh_brk = (void*)&set_uh_brk;
+  lh_info.lh_mpi_constants = (void*)&get_lh_mpi_constant;
 
   // Check arguments and setup arguments for the loader program (cmd)
   // if has "--restore", pass all arguments to mtcp_restart
@@ -321,6 +323,7 @@ int main(int argc, char *argv[], char *envp[]) {
 
   // Create new heap region to be used by RTLD
   
+#if 0
   void *lh_brk = sbrk(0);
   const uint64_t heapSize = 0x1000000;
   // We go through the mmap wrapper function to ensure that this gets added
@@ -343,6 +346,7 @@ int main(int argc, char *argv[], char *envp[]) {
   set_uh_brk((void*)((void *)heap_addr + PAGE_SIZE));
   set_end_of_heap((void*)((void *)heap_addr + heapSize));
   DLOG(NOISE, "uh_brk: %p\n", heap_addr + PAGE_SIZE);
+#endif
 
   // Insert trampolines for mmap, munmap, sbrk
   off_t mmap_offset = get_symbol_offset(elf_interpreter, "mmap");

@@ -22,7 +22,7 @@
 #ifndef _MPI_PLUGIN_H
 #define _MPI_PLUGIN_H
 
-#include <mpi.h>
+#include "mpi.h"
 #include <cstdint>
 #include <cstddef>
 

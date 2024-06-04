@@ -28,6 +28,7 @@
 #include "jassert.h"
 #include "jfilesystem.h"
 #include "protectedfds.h"
+#include "lower_half_api.h"
 #include "mpi_nextfunc.h"
 #include "virtual-ids.h"
 #include "p2p_drain_send_recv.h"
@@ -74,8 +75,8 @@ USER_DEFINED_WRAPPER(int, Init, (int *) argc, (char ***) argv) {
   RETURN_TO_UPPER_HALF();
   init_lh_constants_map();
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  NEXT_FUNC(Comm_dup)(REAL_CONSTANT(MPI_COMM_WORLD), &g_world_comm);
-  NEXT_FUNC(Comm_group)(REAL_CONSTANT(MPI_COMM_WORLD), &g_world_group);
+  NEXT_FUNC(Comm_dup)(REAL_CONSTANT(COMM_WORLD), &g_world_comm);
+  NEXT_FUNC(Comm_group)(REAL_CONSTANT(COMM_WORLD), &g_world_group);
   // NEXT_FUNC(Comm_dup)((MPI_Comm)0xebc2880, &g_world_comm);
   // NEXT_FUNC(Comm_group)((MPI_Comm)0xebc2880, &g_world_group);
   RETURN_TO_UPPER_HALF();
@@ -110,8 +111,8 @@ USER_DEFINED_WRAPPER(int, Init_thread, (int *) argc, (char ***) argv,
 
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   // Create a duplicate of MPI_COMM_WORLD for internal use.
-  NEXT_FUNC(Comm_dup)(REAL_CONSTANT(MPI_COMM_WORLD), &g_world_comm);
-  NEXT_FUNC(Comm_group)(REAL_CONSTANT(MPI_COMM_WORLD), &g_world_group);
+  NEXT_FUNC(Comm_dup)(REAL_CONSTANT(COMM_WORLD), &g_world_comm);
+  NEXT_FUNC(Comm_group)(REAL_CONSTANT(COMM_WORLD), &g_world_group);
   RETURN_TO_UPPER_HALF();
 
   recordPostMpiInitMaps();

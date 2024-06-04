@@ -43,6 +43,7 @@ extern "C" pid_t dmtcp_get_real_pid();
 
 LowerHalfInfo_t lh_info = {0};
 proxyDlsym_t pdlsym;
+lh_constant_t lh_mpi_constants;
 
 void initialize_wrappers() {
   if (!initialized) {
@@ -110,4 +111,5 @@ static void readLhInfoAddr() {
   close(fd);
   remove(filename);
   pdlsym = (proxyDlsym_t)lh_info.lh_dlsym;
+  lh_mpi_constants = (lh_constant_t)lh_info.lh_mpi_constants;
 }

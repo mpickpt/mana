@@ -61,6 +61,8 @@ sem_t freepass_sync_sem;
 // std::map<unsigned int, unsigned long> target;
 // typedef std::pair<unsigned int, unsigned long> comm_seq_pair_t;
 
+constexpr const char *comm_seq_max_db = "/plugin/MANA/comm-seq-max";
+
 void seq_num_init() {
   ckpt_pending = false;
   pthread_mutex_init(&seq_num_lock, NULL);
@@ -150,7 +152,7 @@ void seq_num_broadcast(MPI_Comm comm, unsigned long new_target) {
       JUMP_TO_LOWER_HALF(lh_info.fsaddr);
       NEXT_FUNC(Group_translate_ranks)(local_group, 1, &i,
                 world_group, &world_rank);
-      NEXT_FUNC(Send)(&msg, 2, REAL_CONSTANT(MPI_UNSIGNED_LONG), world_rank,
+      NEXT_FUNC(Send)(&msg, 2, REAL_CONSTANT(UNSIGNED_LONG), world_rank,
                       0, real_world_comm);
       RETURN_TO_UPPER_HALF();
 #ifdef DEBUG_SEQ_NUM
@@ -178,7 +180,7 @@ void commit_begin(MPI_Comm comm, bool passthrough) {
       unsigned long new_target[2];
       MPI_Comm real_world_comm = VIRTUAL_TO_REAL_COMM(g_world_comm);
       JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-      NEXT_FUNC(Recv)(&new_target, 2, REAL_CONSTANT(MPI_UNSIGNED_LONG),
+      NEXT_FUNC(Recv)(&new_target, 2, REAL_CONSTANT(UNSIGNED_LONG),
           status.MPI_SOURCE, status.MPI_TAG, real_world_comm,
           MPI_STATUS_IGNORE);
       RETURN_TO_UPPER_HALF();
@@ -231,7 +233,7 @@ void commit_finish(MPI_Comm comm, bool passthrough) {
       unsigned long new_target[2];
       MPI_Comm real_world_comm = VIRTUAL_TO_REAL_COMM(g_world_comm);
       JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-      NEXT_FUNC(Recv)(&new_target, 2, REAL_CONSTANT(MPI_UNSIGNED_LONG),
+      NEXT_FUNC(Recv)(&new_target, 2, REAL_CONSTANT(UNSIGNED_LONG),
           status.MPI_SOURCE, status.MPI_TAG, real_world_comm,
           MPI_STATUS_IGNORE);
       RETURN_TO_UPPER_HALF();
@@ -266,7 +268,7 @@ void download_targets(std::map<int, ggid_desc_t*> &ggidDescriptorTable) {
   for (ggid_desc_pair pair : ggidDescriptorTable) {
     comm_ggid = pair.first;
     dmtcp::string comm_id_str(jalib::XToString(pair.first));
-    JASSERT(dmtcp::kvdb::get64(db, comm_id_str, &max_seq) ==
+    JASSERT(dmtcp::kvdb::get64(comm_seq_max_db, comm_id_str, &max_seq) ==
             KVDBResponse::SUCCESS);
     pair.second->target_num = max_seq;
   }
@@ -322,28 +324,37 @@ try_drain_mpi_collective(int attemptId)
 void
 drain_mpi_collective()
 {
-  int attemptId = 0;
+  int round_num = 0;
+  int64_t num_converged = 0;
+  int64_t in_cs = 0;
+  pthread_mutex_lock(&seq_num_lock);
+  ckpt_pending = true;
+  share_seq_nums(ggidDescriptorTable);
+  pthread_mutex_unlock(&seq_num_lock);
+  while (1) {
+    char key[32] = {0};
+    char barrier_id[32] = {0};
+    constexpr const char *cs_id = "/plugin/MANA/CRITICAL-SECTION";
+    constexpr const char *converge_id = "/plugin/MANA/CONVERGE";
+    sprintf(barrier_id, "MANA-PRESUSPEND-%06d", round_num);
+    sprintf(key, "round-%06d", round_num);
 
-  while (true) {
-    // Publish our seq_num to kvdb.
-    pthread_mutex_lock(&seq_num_lock);
-    ckpt_pending = true;
-    share_seq_nums(attemptId);
-    pthread_mutex_unlock(&seq_num_lock);
+    JASSERT(dmtcp::kvdb::request64(KVDBRequest::INCRBY, converge_id, key,
+                                   check_seq_nums(false)) ==
+            KVDBResponse::SUCCESS);
+    JASSERT(dmtcp::kvdb::request64(KVDBRequest::OR, cs_id, key,
+                                   current_phase == IN_CS) ==
+            KVDBResponse::SUCCESS);
 
-    if (try_drain_mpi_collective(attemptId)) {
-      return;
+    dmtcp_global_barrier(barrier_id);
+
+    JASSERT(dmtcp::kvdb::get64(converge_id, key, &num_converged) ==
+            KVDBResponse::SUCCESS);
+    JASSERT(dmtcp::kvdb::get64(cs_id, key, &in_cs) == KVDBResponse::SUCCESS);
+
+    if (in_cs == 0 && num_converged == g_world_size) {
+      break;
     }
-
-    // We couldn't drain the collective.  Let's try again after sleeping for a
-    // second. We set ckpt_pending to false to allow the user threads to
-    // continue for a bit.
-    pthread_mutex_lock(&seq_num_lock);
-    ckpt_pending = false;
-    pthread_mutex_unlock(&seq_num_lock);
-
-    sleep(1);
-
-    attemptId++;
+    round_num++;
   }
 }

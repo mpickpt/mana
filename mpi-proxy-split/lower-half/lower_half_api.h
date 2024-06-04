@@ -85,7 +85,6 @@ typedef struct _LowerHalfInfo
   uint64_t lh_AT_PHDR;  // The address of the program headers (AT_PHDR) from the auxiliary vector of the lower half
   void *g_appContext; // Pointer to ucontext_t of upper half application (defined in the lower half)
   void *getRankFptr;  // Pointer to getRank() function in the lower half
-  void *lh_mpi_constants;
 #ifdef SINGLE_CART_REORDER
   void *getCoordinatesFptr; // Pointer to getCoordinates() function in the lower half
   void *getCartesianCommunicatorFptr; // Pointer to getCartesianCommunicator() function in the lower half
@@ -108,7 +107,7 @@ typedef struct _LowerHalfInfo
   void *set_uh_brk;
   void *get_lh_fsaddr;
   void *uh_stack;
-  MemRange_t memRange; // MemRange_t object in the lower half
+  void *lh_mpi_constants;
 } LowerHalfInfo_t;
 
 /* Maximum core regions lh_regions_list can store */
@@ -118,6 +117,110 @@ extern LhCoreRegions_t lh_regions_list[MAX_LH_REGIONS];
 // startProxy() (called from splitProcess()) will initialize 'lh_info'
 extern LowerHalfInfo_t lh_info;  
 extern LowerHalfInfo_t *lh_info_addr;  
+
+#define FOREACH_CONSTANT(MACRO) \
+  MACRO(GROUP_NULL), \
+  MACRO(COMM_NULL), \
+  MACRO(REQUEST_NULL), \
+  MACRO(MESSAGE_NULL), \
+  MACRO(OP_NULL), \
+  MACRO(ERRHANDLER_NULL), \
+  MACRO(INFO_NULL), \
+  MACRO(WIN_NULL), \
+  MACRO(FILE_NULL), \
+  MACRO(INFO_ENV), \
+  MACRO(COMM_WORLD), \
+  MACRO(COMM_SELF), \
+  MACRO(GROUP_EMPTY), \
+  MACRO(MESSAGE_NO_PROC), \
+  MACRO(MAX), \
+  MACRO(MIN), \
+  MACRO(SUM), \
+  MACRO(PROD), \
+  MACRO(LAND), \
+  MACRO(BAND), \
+  MACRO(LOR), \
+  MACRO(BOR), \
+  MACRO(LXOR), \
+  MACRO(BXOR), \
+  MACRO(MAXLOC), \
+  MACRO(MINLOC), \
+  MACRO(REPLACE), \
+  MACRO(NO_OP), \
+  MACRO(DATATYPE_NULL), \
+  MACRO(BYTE), \
+  MACRO(PACKED), \
+  MACRO(CHAR), \
+  MACRO(SHORT), \
+  MACRO(INT), \
+  MACRO(LONG), \
+  MACRO(FLOAT), \
+  MACRO(DOUBLE), \
+  MACRO(LONG_DOUBLE), \
+  MACRO(UNSIGNED_CHAR), \
+  MACRO(SIGNED_CHAR), \
+  MACRO(UNSIGNED_SHORT), \
+  MACRO(UNSIGNED_LONG), \
+  MACRO(UNSIGNED), \
+  MACRO(FLOAT_INT), \
+  MACRO(DOUBLE_INT), \
+  MACRO(LONG_DOUBLE_INT), \
+  MACRO(LONG_INT), \
+  MACRO(SHORT_INT), \
+  MACRO(2INT), \
+  MACRO(WCHAR), \
+  MACRO(LONG_LONG_INT), \
+  MACRO(LONG_LONG), \
+  MACRO(UNSIGNED_LONG_LONG), \
+  MACRO(2COMPLEX), \
+  MACRO(2DOUBLE_COMPLEX), \
+  MACRO(CHARACTER), \
+  MACRO(LOGICAL), \
+  MACRO(LOGICAL1), \
+  MACRO(LOGICAL2), \
+  MACRO(LOGICAL4), \
+  MACRO(LOGICAL8), \
+  MACRO(INTEGER), \
+  MACRO(INTEGER1), \
+  MACRO(INTEGER2), \
+  MACRO(INTEGER4), \
+  MACRO(INTEGER8), \
+  MACRO(REAL), \
+  MACRO(REAL4), \
+  MACRO(REAL8), \
+  MACRO(REAL16), \
+  MACRO(DOUBLE_PRECISION), \
+  MACRO(COMPLEX), \
+  MACRO(COMPLEX8), \
+  MACRO(COMPLEX16), \
+  MACRO(COMPLEX32), \
+  MACRO(DOUBLE_COMPLEX), \
+  MACRO(2REAL), \
+  MACRO(2DOUBLE_PRECISION), \
+  MACRO(2INTEGER), \
+  MACRO(INT8_T), \
+  MACRO(UINT8_T), \
+  MACRO(INT16_T), \
+  MACRO(UINT16_T), \
+  MACRO(INT32_T), \
+  MACRO(UINT32_T), \
+  MACRO(INT64_T), \
+  MACRO(UINT64_T), \
+  MACRO(AINT), \
+  MACRO(OFFSET), \
+  MACRO(C_BOOL), \
+  MACRO(C_COMPLEX), \
+  MACRO(C_FLOAT_COMPLEX), \
+  MACRO(C_DOUBLE_COMPLEX), \
+  MACRO(C_LONG_DOUBLE_COMPLEX), \
+  MACRO(CXX_BOOL), \
+  MACRO(CXX_COMPLEX), \
+  MACRO(CXX_FLOAT_COMPLEX), \
+  MACRO(CXX_DOUBLE_COMPLEX), \
+  MACRO(CXX_LONG_DOUBLE_COMPLEX), \
+  MACRO(COUNT), \
+  MACRO(ERRORS_ARE_FATAL), \
+  MACRO(ERRORS_RETURN),
 
 #define FOREACH_FNC(MACRO) \
   MACRO(Init) \
@@ -486,12 +589,22 @@ extern LowerHalfInfo_t *lh_info_addr;
 #define GENERATE_ENUM(ENUM) MPI_Fnc_##ENUM,
 #define GENERATE_FNC_PTR(FNC) (void*)&MPI_##FNC,
 #define GENERATE_FNC_STRING(FNC)  "MPI_" #FNC,
+#define GENERATE_CONSTANT_ENUM(ENUM)    LH_MPI_##ENUM
+#define GENERATE_CONSTANT_VALUE(CONSTANT) MPI_##CONSTANT
+
 
 enum MPI_Fncs {
   MPI_Fnc_NULL,
   FOREACH_FNC(GENERATE_ENUM)
   MPI_Fnc_Invalid,
 };
+
+enum MPI_Constants {
+  LH_MPI_Constant_NULL,
+  FOREACH_CONSTANT(GENERATE_CONSTANT_ENUM)
+  LH_MPI_Constant_Invalid,
+};
+
 static const char *MPI_Fnc_strings[] = {
   "MPI_Fnc_NULL",
   FOREACH_FNC(GENERATE_FNC_STRING)
@@ -500,7 +613,9 @@ static const char *MPI_Fnc_strings[] = {
 
 void* lh_dlsym(enum MPI_Fncs fnc);
 typedef void* (*proxyDlsym_t)(enum MPI_Fncs fnc);
+typedef void* (*lh_constant_t)(enum MPI_Constants constant);
 extern proxyDlsym_t pdlsym;
+extern lh_constant_t lh_mpi_constants;
 
 std::vector<MmapInfo_t> &get_mmapped_list(int *num);
 typedef std::vector<MmapInfo_t>& (*get_mmapped_list_fptr_t)(int *num);
@@ -510,33 +625,5 @@ typedef void* (*set_end_of_heap_t)(void*);
 typedef void* (*set_uh_brk_t)(void*);
 void set_end_of_heap(void *addr);
 void set_uh_brk(void *addr);
-extern lh_constant_t lh_mpi_constants;
-extern LhCoreRegions_t lh_regions_list[MAX_LH_REGIONS];
-
-// API
-
-// Returns the address of an MPI API in the lower half's MPI library based on
-// the given enum value
-extern void *mydlsym(enum MPI_Fncs fnc);
-
-extern void *get_lh_mpi_constant(enum MPI_Constants constant);
-
-// Initializes the MPI library in the lower half (by calling MPI_Init()) and
-// returns the MPI rank of the current process
-extern int getRank();
-
-// Updates the lower half's global environ pointer (__environ) to the given
-// 'newenviron' pointer value
-extern void updateEnviron(const char **newenviron);
-
-// Returns a pointer to the first element of a pre-allocated array of
-// 'MmapInfo_t' objects and 'num' is set to the number of valid items in
-// the array
-extern MmapInfo_t* getMmappedList(int **num);
-
-// Clears the global, pre-allocated array of 'MmapInfo_t' objects
-extern void resetMmappedList();
-
-extern LhCoreRegions_t* getLhRegionsList(int *num);
 
 #endif // ifndef _LOWER_HALF_API_H

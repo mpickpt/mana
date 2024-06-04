@@ -1,0 +1,63 @@
+diff --git a/src/processinfo.cpp b/src/processinfo.cpp
+index 8561be14..b1e0047f 100644
+--- a/src/processinfo.cpp
++++ b/src/processinfo.cpp
+@@ -440,8 +440,9 @@ void
+ ProcessInfo::restoreHeap()
+ {
+   // Release backing memory for EndOfBrkMap memory region.
+-  ASSERT_EQ(0,
+-            madvise((void *)_initialSavedBrk, EndOfBrkMapSize, MADV_DONTNEED));
++  // FIXME: We need to create a new _initialSavedBrk after restart.
++  // ASSERT_EQ(0,
++  //           madvise((void *)_initialSavedBrk, EndOfBrkMapSize, MADV_DONTNEED));
+ 
+   /* If the original start of heap is lower than the current end of heap, we
+    * want to mmap the area between _savedBrk and current break. This
+diff --git a/src/processinfo.h b/src/processinfo.h
+index a634140b..79f6a9d6 100644
+--- a/src/processinfo.h
++++ b/src/processinfo.h
+@@ -144,6 +144,8 @@ class ProcessInfo : public DmtcpCkptHeader
+     const string& getValue(const string &key);
+ 
+     const map<string, string>& getKeyValueMap() const { return kvmap; }
++    // FIXME: This should be private with a public accessor.
++    uint64_t _initialSavedBrk;
+ 
+   private:
+     map<string, string>kvmap;
+@@ -163,7 +165,6 @@ class ProcessInfo : public DmtcpCkptHeader
+     string _compGroupStr;
+ 
+     uint64_t _savedHeapStart;
+-    uint64_t _initialSavedBrk;
+ 
+     // Put <64-bit wide variabled here to ensure they are properly aligned.
+ 
+diff --git a/src/writeckpt.cpp b/src/writeckpt.cpp
+index e6442c48..c8f9095d 100644
+--- a/src/writeckpt.cpp
++++ b/src/writeckpt.cpp
+@@ -239,6 +239,10 @@ mtcp_writememoryareas(int fd)
+     int skip = 0;
+     do {
+       memcpy(&area, &unchecked_area, sizeof(Area));
++      if (area.addr == (void*)0x7fffe7a00000) {
++        volatile int dummy = 1;
++        while (dummy);
++      }
+       if (dmtcp_skip_memory_region_ckpting) {
+         printf("checking memory area: %p\n", area.addr);
+         skip = dmtcp_skip_memory_region_ckpting(&area);
+@@ -248,6 +252,10 @@ mtcp_writememoryareas(int fd)
+               (area.name) ((void*)area.addr) (area.size);
+         break;
+       }
++      if (area.addr == (void*)ProcessInfo::instance()._initialSavedBrk) {
++        break;
++      }
++
+ 
+       unchecked_area.addr = area.endAddr;
+       unchecked_area.size = unchecked_area.endAddr - area.endAddr;

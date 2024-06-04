@@ -42,7 +42,7 @@ default: kernel-loader
 	${MPICXX} ${CFLAGS} -c -o $@ $<
 
 kernel-loader: get_symbol_offset.o copy_stack.o patch_trampoline.o lh_func_ptr.o mem_wrapper.o switch_context.o kernel_loader.o ${DMTCP_DEPS}
-	${MPICXX} -g3 ${TEXTSEG_ADDR_FLAG} ${CFLAGS} -o $@ $^
+	${MPICXX} -g3 ${TEXTSEG_ADDR_FLAG} ${CFLAGS} -o $@ $^ -ldl
 
 install: kernel-loader
 	cp -f $^ ${MANA_ROOT}/bin/
