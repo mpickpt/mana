@@ -7,6 +7,9 @@
 #include "jconvert.h"
 #include "dmtcp.h"
 
+#define WORLD_COMM (MPI_Comm)lh_constants_map[(intptr_t)MPI_COMM_WORLD]
+#define NULL_COMM (MPI_Comm)lh_constants_map[(intptr_t)MPI_COMM_NULL]
+
 #define CONCAT(a,b) a ## b
 
 // num - type - VID MASK
@@ -40,7 +43,7 @@
 #define VIRTUAL_TO_REAL(id, null, real_id_type, desc_type)    \
     ({                                              \
       desc_type* _VTR_tmp = VIRTUAL_TO_DESC(id, null, desc_type);			\
-       real_id_type _VTR_id = (_VTR_tmp == NULL) ? (real_id_type)lh_constants_map[(void*)id] : _VTR_tmp->real_id; \
+       real_id_type _VTR_id = (_VTR_tmp == NULL) ? (real_id_type)(lh_constants_map[(intptr_t)(id)]) : _VTR_tmp->real_id; \
        _VTR_id; \
      })
 
@@ -298,7 +301,7 @@ union id_desc_t {
 
 extern std::map<int, id_desc_t*> idDescriptorTable;
 extern std::map<int, ggid_desc_t*> ggidDescriptorTable; 
-extern std::map<void*, void*> lh_constants_map;
+extern std::map<intptr_t, intptr_t> lh_constants_map;
 extern int base;
 extern int nextvId;
 typedef typename std::map<int, id_desc_t*>::iterator id_desc_iterator;

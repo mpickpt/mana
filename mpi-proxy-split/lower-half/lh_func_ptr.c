@@ -15,14 +15,13 @@ void* lh_dlsym(enum MPI_Fncs fnc) {
   return MPI_Fnc_Ptrs[fnc];
 }
 
-static void*  mpi_constants[] = {
+static intptr_t mpi_constants[] = {
   NULL,
   FOREACH_CONSTANT(GENERATE_CONSTANT_VALUE)
   NULL,
 };
 
-void*
-get_lh_mpi_constant(enum MPI_Constants constant)
+intptr_t get_lh_mpi_constant(enum MPI_Constants constant)
 {
   if (constant < LH_MPI_Constant_NULL ||
       constant > LH_MPI_Constant_Invalid) {

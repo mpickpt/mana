@@ -127,7 +127,7 @@ extern LowerHalfInfo_t *lh_info_addr;
   MACRO(ERRHANDLER_NULL), \
   MACRO(INFO_NULL), \
   MACRO(WIN_NULL), \
-  MACRO(FILE_NULL), \
+/*  MACRO(FILE_NULL), */ \ 
   MACRO(INFO_ENV), \
   MACRO(COMM_WORLD), \
   MACRO(COMM_SELF), \
@@ -172,14 +172,14 @@ extern LowerHalfInfo_t *lh_info_addr;
   MACRO(LONG_LONG_INT), \
   MACRO(LONG_LONG), \
   MACRO(UNSIGNED_LONG_LONG), \
-  MACRO(2COMPLEX), \
-  MACRO(2DOUBLE_COMPLEX), \
+/*  MACRO(2COMPLEX), */ \
+/*  MACRO(2DOUBLE_COMPLEX), */ \
   MACRO(CHARACTER), \
   MACRO(LOGICAL), \
-  MACRO(LOGICAL1), \
-  MACRO(LOGICAL2), \
-  MACRO(LOGICAL4), \
-  MACRO(LOGICAL8), \
+/*  MACRO(LOGICAL1), */ \
+/*  MACRO(LOGICAL2),*/ \
+/*  MACRO(LOGICAL4),*/ \
+/*  MACRO(LOGICAL8),*/ \
   MACRO(INTEGER), \
   MACRO(INTEGER1), \
   MACRO(INTEGER2), \
@@ -214,7 +214,7 @@ extern LowerHalfInfo_t *lh_info_addr;
   MACRO(C_DOUBLE_COMPLEX), \
   MACRO(C_LONG_DOUBLE_COMPLEX), \
   MACRO(CXX_BOOL), \
-  MACRO(CXX_COMPLEX), \
+/*  MACRO(CXX_COMPLEX), */ \
   MACRO(CXX_FLOAT_COMPLEX), \
   MACRO(CXX_DOUBLE_COMPLEX), \
   MACRO(CXX_LONG_DOUBLE_COMPLEX), \
@@ -590,7 +590,7 @@ extern LowerHalfInfo_t *lh_info_addr;
 #define GENERATE_FNC_PTR(FNC) (void*)&MPI_##FNC,
 #define GENERATE_FNC_STRING(FNC)  "MPI_" #FNC,
 #define GENERATE_CONSTANT_ENUM(ENUM)    LH_MPI_##ENUM
-#define GENERATE_CONSTANT_VALUE(CONSTANT) MPI_##CONSTANT
+#define GENERATE_CONSTANT_VALUE(CONSTANT) reinterpret_cast<intptr_t>(MPI_##CONSTANT)
 
 
 enum MPI_Fncs {
@@ -613,7 +613,7 @@ static const char *MPI_Fnc_strings[] = {
 
 void* lh_dlsym(enum MPI_Fncs fnc);
 typedef void* (*proxyDlsym_t)(enum MPI_Fncs fnc);
-typedef void* (*lh_constant_t)(enum MPI_Constants constant);
+typedef intptr_t (*lh_constant_t)(enum MPI_Constants constant);
 extern proxyDlsym_t pdlsym;
 extern lh_constant_t lh_mpi_constants;
 

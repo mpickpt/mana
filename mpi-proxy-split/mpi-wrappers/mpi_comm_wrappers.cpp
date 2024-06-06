@@ -92,6 +92,10 @@ static const int MPI_WTIME_IS_GLOBAL_VAL = 0;
 USER_DEFINED_WRAPPER(int, Comm_size, (MPI_Comm) comm, (int *) world_size)
 {
   int retval;
+  if (comm == MPI_COMM_NULL || comm == REAL_CONSTANT(COMM_NULL)) {
+    *world_size = 0;
+    return MPI_SUCCESS;
+  }
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
@@ -116,15 +120,18 @@ USER_DEFINED_WRAPPER(int, Comm_rank, (MPI_Comm) comm, (int *) world_rank)
 USER_DEFINED_WRAPPER(int, Comm_create, (MPI_Comm) comm, (MPI_Group) group,
                      (MPI_Comm *) newcomm)
 {
-  std::function<int()> realBarrierCb = [=]() {
-    int retval;
-    DMTCP_PLUGIN_DISABLE_CKPT();
-    MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-    MPI_Group realGroup = VIRTUAL_TO_REAL_GROUP(group);
-    JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-    retval = NEXT_FUNC(Comm_create)(realComm, realGroup, newcomm);
-    RETURN_TO_UPPER_HALF();
-    if (retval == MPI_SUCCESS) {
+  commit_begin(comm, false);
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+  MPI_Group realGroup = VIRTUAL_TO_REAL_GROUP(group);
+  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  retval = NEXT_FUNC(Comm_create)(realComm, realGroup, newcomm);
+  RETURN_TO_UPPER_HALF();
+  if (retval == MPI_SUCCESS) {
+    if (*newcomm == REAL_CONSTANT(COMM_NULL)) {
+      *newcomm = MPI_COMM_NULL;
+    } else {
       MPI_Comm virtComm = ADD_NEW_COMM(*newcomm);
       // unsigned int gid = VirtualGlobalCommId::instance() TODO
       //.createGlobalId(virtComm);
@@ -137,10 +144,10 @@ USER_DEFINED_WRAPPER(int, Comm_create, (MPI_Comm) comm, (MPI_Group) group,
       //   target[gid] = 0;
       // }
     }
-    DMTCP_PLUGIN_ENABLE_CKPT();
-    return retval;
-  };
-  return twoPhaseCommit(comm, realBarrierCb);
+  }
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  commit_finish(comm, false);
+  return retval;
 }
 
 USER_DEFINED_WRAPPER(int, Abort, (MPI_Comm) comm, (int) errorcode)

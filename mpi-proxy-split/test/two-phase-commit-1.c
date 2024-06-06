@@ -47,11 +47,15 @@ main(int argc, char *argv[])
     return 1;
   }
   int group1_ranks[] = { 0, 1 };
+#if 1
+  int group2_ranks[] = {1, 2};
+#else
   int group2_ranks[10000];
   int i, j;
   for (i = 1; i < nprocs; i++) {
     group2_ranks[i - 1] = i;
   }
+#endif
 
   MPI_Group world_group;
   MPI_Group group1;
@@ -59,9 +63,15 @@ main(int argc, char *argv[])
   MPI_Comm_group(MPI_COMM_WORLD, &world_group);
   MPI_Group_incl(world_group, 2, group1_ranks, &group1);
   MPI_Group_incl(world_group, nprocs - 1, group2_ranks, &group2);
-
   MPI_Comm comm1; // Set to MPI_COMM_NULL by default.
   MPI_Comm comm2; // Set to MPI_COMM_NULL by default.
+  fprintf(stderr, "world comm value %p\n", MPI_COMM_WORLD);
+#if 0
+  volatile int dummy = 1;
+  while (dummy);
+#lese
+  sleep(30);
+#endif
   MPI_Comm_create(MPI_COMM_WORLD, group1, &comm1);
   MPI_Comm_create(MPI_COMM_WORLD, group2, &comm2);
   printf("rank: %d, group1: %x, comm1: %x\n", rank, group1, comm1);

@@ -89,7 +89,7 @@
 #endif // ifndef NEXT_FUNC
 
 #ifndef REAL_CONSTANT
-# define REAL_CONSTANT(name) (__typeof__(MPI_##name))lh_mpi_constants(LH_MPI_##name)
+# define REAL_CONSTANT(name) (__typeof__(MPI_##name))(lh_mpi_constants(LH_MPI_##name))
 #endif // ifndef REAL_CONSTANT
 
 // Convenience macro to define simple wrapper functions

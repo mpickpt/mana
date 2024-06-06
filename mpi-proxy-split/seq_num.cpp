@@ -35,9 +35,6 @@ pthread_mutex_t seq_num_lock;
 sem_t user_thread_sem;
 sem_t ckpt_thread_sem;
 
-extern MPI_Comm WORLD_COMM;
-extern MPI_Comm NULL_COMM;
-
 /* Freepass implemented using semaphore to avoid the following situation:
 *  T1: current_phase = STOP_BEFORE_CS;
 *  T2: freepass = true;
@@ -203,8 +200,13 @@ void commit_begin(MPI_Comm comm, bool passthrough) {
   // 2023-07-28 what happens when this is NULL?
   //   unsigned int comm_gid = VirtualGlobalCommId::instance().getGlobalId(comm);
 
-  ggid_desc_t* comm_ggid_desc = VIRTUAL_TO_DESC_COMM(comm)->ggid_desc;
+  ggid_desc_t* comm_ggid_desc;
+  comm_desc_t* comm_desc = VIRTUAL_TO_DESC_COMM(comm);
+  if (comm_desc == NULL) {
+  } else {
+    comm_ggid_desc = VIRTUAL_TO_DESC_COMM(comm)->ggid_desc;
     comm_ggid_desc->seq_num++;
+  }
   pthread_mutex_unlock(&seq_num_lock);
 #ifdef DEBUG_SEQ_NUM
   print_seq_nums();

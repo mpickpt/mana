@@ -60,7 +60,7 @@
 #define MAX_ELF_INTERP_SZ 256
 
 int write_lh_info_to_file();
-void* get_lh_mpi_constant(enum MPI_Constants constant);
+uintptr_t get_lh_mpi_constant(enum MPI_Constants constant);
 void get_elf_interpreter(int fd, Elf64_Addr *cmd_entry,
                          char get_elf_interpreter[], void *ld_so_addr);
 void *load_elf_interpreter(int fd, char elf_interpreter[],
@@ -100,6 +100,30 @@ void set_addr_no_randomize(char *argv[]) {
 
 int main(int argc, char *argv[], char *envp[]) {
   set_addr_no_randomize(argv);
+  // Researve area above the heap to prevent the heap from growing.
+  void *lh_brk = sbrk(0);
+  const uint64_t heapSize = 0x1000000;
+  // We go through the mmap wrapper function to ensure that this gets added
+  // to the list of upper half regions to be checkpointed.
+  void *heap_addr = mmap_wrapper(lh_brk, heapSize, PROT_NONE,
+                                 MAP_PRIVATE | MAP_ANONYMOUS |
+                                 MAP_NORESERVE | MAP_FIXED_NOREPLACE ,
+                                 -1, 0);
+  printf("emulated upper-half heal addr: %p\n", heap_addr);
+  if (heap_addr == MAP_FAILED) {
+    DLOG(ERROR, "Failed to mmap region. Error: %s\n",
+         strerror(errno));
+    exit(1);
+  }
+  __startOfReservedHeap = heap_addr;
+  __endOfReservedHeap = heap_addr + heapSize;
+  // Add a guard page before the start of heap; this protects
+  // the heap from getting merged with a "previous" region.
+  mprotect(heap_addr, PAGE_SIZE, PROT_NONE);
+  set_uh_brk((void*)((void *)heap_addr + PAGE_SIZE));
+  set_end_of_heap((void*)((void *)heap_addr + heapSize));
+  DLOG(NOISE, "uh_brk: %p\n", heap_addr + PAGE_SIZE);
+
   int i;
   int restore_mode = 0;
   int cmd_argc = 0;
@@ -177,6 +201,10 @@ int main(int argc, char *argv[], char *envp[]) {
       if (area.addr == NULL) {
         lseek(t->fd(), ckpt_file_pos, SEEK_SET);
         break;
+      }
+      if (area.addr == heap_addr && area.size == heapSize) {
+        // it's the reserved area above heap, ignore
+        continue;
       }
       if ((area.properties & DMTCP_ZERO_PAGE_CHILD_HEADER) == 0) {
         void *mmapedat = mmap(area.addr, area.size, PROT_NONE,
@@ -320,33 +348,6 @@ int main(int argc, char *argv[], char *envp[]) {
             (unsigned long)(interp_base_address + ld_so_elf_hdr.e_phoff),
             (unsigned long)interp_base_address + ld_so_elf_hdr.e_entry);
   // info->phnum, (uintptr_t)info->phdr, (uintptr_t)info->entryPoint);
-
-  // Create new heap region to be used by RTLD
-  
-#if 0
-  void *lh_brk = sbrk(0);
-  const uint64_t heapSize = 0x1000000;
-  // We go through the mmap wrapper function to ensure that this gets added
-  // to the list of upper half regions to be checkpointed.
-  void *heap_addr = mmap_wrapper(lh_brk, heapSize, PROT_NONE,
-                                 MAP_PRIVATE | MAP_ANONYMOUS |
-                                 MAP_NORESERVE | MAP_FIXED_NOREPLACE ,
-                                 -1, 0);
-  printf("emulated upper-half heal addr: %p\n", heap_addr);
-  if (heap_addr == MAP_FAILED) {
-    DLOG(ERROR, "Failed to mmap region. Error: %s\n",
-         strerror(errno));
-    exit(1);
-  }
-  __startOfReservedHeap = heap_addr;
-  __endOfReservedHeap = heap_addr + heapSize;
-  // Add a guard page before the start of heap; this protects
-  // the heap from getting merged with a "previous" region.
-  mprotect(heap_addr, PAGE_SIZE, PROT_NONE);
-  set_uh_brk((void*)((void *)heap_addr + PAGE_SIZE));
-  set_end_of_heap((void*)((void *)heap_addr + heapSize));
-  DLOG(NOISE, "uh_brk: %p\n", heap_addr + PAGE_SIZE);
-#endif
 
   // Insert trampolines for mmap, munmap, sbrk
   off_t mmap_offset = get_symbol_offset(elf_interpreter, "mmap");
