@@ -266,7 +266,7 @@ MPI_Comm get_vcomm_internal(MPI_Comm realComm) {
 
   DMTCP_PLUGIN_DISABLE_CKPT();
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  NEXT_FUNC(Comm_rank)(MPI_COMM_WORLD, &worldRank);
+  NEXT_FUNC(Comm_rank)(REAL_CONSTANT(COMM_WORLD), &worldRank);
   NEXT_FUNC(Comm_size)(realComm, &commSize);
   NEXT_FUNC(Comm_rank)(realComm, &localRank);
   RETURN_TO_UPPER_HALF();

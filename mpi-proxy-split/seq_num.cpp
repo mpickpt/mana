@@ -179,7 +179,7 @@ void commit_begin(MPI_Comm comm, bool passthrough) {
       JUMP_TO_LOWER_HALF(lh_info.fsaddr);
       NEXT_FUNC(Recv)(&new_target, 2, REAL_CONSTANT(UNSIGNED_LONG),
           status.MPI_SOURCE, status.MPI_TAG, real_world_comm,
-          MPI_STATUS_IGNORE);
+          (MPI_Status*)MPI_STATUS_IGNORE);
       RETURN_TO_UPPER_HALF();
       unsigned int updated_comm = (unsigned int) new_target[0];
       unsigned long updated_target = new_target[1];
@@ -237,7 +237,7 @@ void commit_finish(MPI_Comm comm, bool passthrough) {
       JUMP_TO_LOWER_HALF(lh_info.fsaddr);
       NEXT_FUNC(Recv)(&new_target, 2, REAL_CONSTANT(UNSIGNED_LONG),
           status.MPI_SOURCE, status.MPI_TAG, real_world_comm,
-          MPI_STATUS_IGNORE);
+          (MPI_Status*)MPI_STATUS_IGNORE);
       RETURN_TO_UPPER_HALF();
       unsigned int updated_comm = (unsigned int) new_target[0];
       unsigned long updated_target = new_target[1];

@@ -38,6 +38,7 @@ override CFLAGS += -fPIC -I${DMTCP_INCLUDE} -I${PLUGIN_HALF_SRCDIR} \
 override CXXFLAGS += -fPIC -I${DMTCP_INCLUDE} -I${JALIB_INCLUDE} \
                      -I${PLUGIN_HALF_SRCDIR} -I${DMTCP_ROOT}/src \
                      -I${LOWER_HALF_SRCDIR}
+MUKFLAGS=-L${HOME}/mukautuva/ -I${HOME}/mukautuva -Wl,-rpath,'$$ORIGIN' -lmuk
 
 # We don't build libmpiwrappers.a.  Instead, we use *.o to build libmana.so.
 default: ${LIBNAME}.a libmpistub.so
@@ -56,30 +57,31 @@ mpi_unimplemented_wrappers.cpp: generate-mpi-unimplemented-wrappers.py \
 	python3 $^ > $@
 
 .c.o:
-	${MPICC} ${CFLAGS} -c -o $@ $<
+	${CC} ${CFLAGS} -c -o $@ $< ${MUKFLAGS}
 
 mana_p2p_update_logs: mana_p2p_update_logs.c
-	${MPICC} ${CFLAGS} -o $@ $<
+	${CC} ${CFLAGS} -o $@ $< ${MUKFLAGS}
 
 .cpp.o: ../virtual-ids.h
-	${MPICXX} ${CXXFLAGS} -c -o $@ $<
+	${CXX} ${CXXFLAGS} -c -o $@ $< ${MUKFLAGS}
 
 p2p-deterministic.h: p2p-deterministic.txt p2p-deterministic.py
 	./p2p-deterministic.py $< > $@
 
 p2p-deterministic.o: p2p-deterministic.c p2p-deterministic.h
-	${MPICC} ${CFLAGS} -c -o $@ $<
+	${CC} ${CFLAGS} -c -o $@ $< ${MUKFLAGS}
 
 mpi_p2p_wrappers.o: mpi_p2p_wrappers.cpp p2p-deterministic.h
-	${MPICXX} ${CXXFLAGS} -c -o $@ $<
+	${CXX} ${CXXFLAGS} -c -o $@ $< ${MUKFLAGS}
+
 
 mpi_request_wrappers.o: mpi_request_wrappers.cpp p2p-deterministic.h
-	${MPICXX} ${CXXFLAGS} -c -o $@ $<
+	${CXX} ${CXXFLAGS} -c -o $@ $< ${MUKFLAGS}
 
 # FIXME:  This assumes 'CFLAGS' is compatible with FORTRAN, since MANA does not
 #         define 'FFLAGS'.  But Fortran doesn't use '-std=gnu11' from CFLAGS.
 fortran_constants.o: fortran_constants.f90
-	${MPIFORTRAN} ${CFLAGS} -fPIC -c -o $@ $<
+	${MPIFORTRAN} ${CFLAGS} -fPIC -c -o $@ $< ${MUKFLAGS}
 
 mpi_collective_wrappers.o: mpi_collective_wrappers.cpp ../virtual-ids.h \
                            mpi_collective_p2p.c
@@ -88,13 +90,13 @@ mpi_collective_wrappers.o: mpi_collective_wrappers.cpp ../virtual-ids.h \
 	else \
 	  DEFINE_mpi_collective_p2p=""; \
 	fi && \
-	${MPICXX} ${CXXFLAGS} -Wall -DDEBUG -fPIC $$DEFINE_mpi_collective_p2p \
-          -I.. -I../lower-half -c $<
+	${CXX} ${CXXFLAGS} -Wall -DDEBUG -fPIC $$DEFINE_mpi_collective_p2p \
+          -I.. -I../lower-half -c $< ${MUKFLAGS}
 
 # Some of these functions are also collective; e.g., MPI_Win_allocate_shared
 mpi_win_wrappers.o: mpi_win_wrappers.cpp ../virtual-ids.h
-	${MPICXX} ${CXXFLAGS} -Wall -DDEBUG -fPIC \
-          -I.. -I../lower-half -c $<
+	${CXX} ${CXXFLAGS} -Wall -DDEBUG -fPIC \
+          -I.. -I../lower-half -c $< ${MUKFLAGS}
 
 # We need to write to mpi_stub_wrappers.c.tmp.$$ first, in case of 'make -j'.
 # The parallel make would generate mpi_stub_wrappers.c 3 times, and overwrite.
@@ -114,10 +116,10 @@ mpi_fortran_wrappers.cpp: generate-mpi-fortran-wrappers.py \
 	python3 $^ >> $$tmp && mv -f $$tmp $@ || (rm -f $$tmp && false)
 
 mpi_stub_wrappers.o: mpi_stub_wrappers.c
-	${MPICC} ${CFLAGS} -c -o $@ $<
+	${CC} ${CFLAGS} -c -o $@ $< ${MUKFLAGS}
 
 libmpistub.so: mpi_stub_wrappers.o
-	${CC} -fPIC $< -shared -o $@
+	${CC} -fPIC $< -shared -o $@ ${MUKFLAGS}
 
 libmpich_gnu_82.so.3.0.1: libmpistub.so
 	ln -sf $< $@

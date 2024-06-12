@@ -98,7 +98,7 @@ recvMsgIntoInternalBuffer(MPI_Status status, MPI_Comm comm)
   JASSERT(size == 1);
   void *buf = JALLOC_HELPER_MALLOC(count);
   int retval = MPI_Recv(buf, count, MPI_BYTE, status.MPI_SOURCE, status.MPI_TAG,
-           comm, MPI_STATUS_IGNORE);
+           comm, (MPI_Status*)MPI_STATUS_IGNORE);
   JASSERT(retval == MPI_SUCCESS);
 
   mpi_message_t *message = (mpi_message_t *)JALLOC_HELPER_MALLOC(sizeof(mpi_message_t));
@@ -209,7 +209,7 @@ drainRemainingP2pMsgs()
           // on the request to complete the communication.
           // Otherwise, the message will be drained to the MANA internal buffer,
           // and then be received out of order, after restart.
-          MPI_Wait(&matched_request, MPI_STATUS_IGNORE);
+          MPI_Wait(&matched_request, (MPI_Status*)MPI_STATUS_IGNORE);
         } else {
           bytesReceived += recvMsgIntoInternalBuffer(status, *comm);
         }

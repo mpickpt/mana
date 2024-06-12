@@ -63,17 +63,18 @@ default: ${MANA_COORD_OBJS}
 
 # ${WRAPPERS_SRCDIR}/libmpiwrappers.a made in install/default before libmana.so
 libmana.so: ${LIBOBJS} ${WRAPPERS_SRCDIR}/libmpiwrappers.a
-	${CXX} -shared -fPIC -g3 -O0 -o $@ ${LIBOBJS} -Wl,--whole-archive ${WRAPPERS_SRCDIR}/libmpiwrappers.a -Wl,--no-whole-archive
+	${CXX} -shared -fPIC -g3 -O0 -o $@ ${LIBOBJS} -Wl,--whole-archive ${WRAPPERS_SRCDIR}/libmpiwrappers.a -Wl,--no-whole-archive -L${HOME}/mukautuva/ -I${HOME}/mukautuva -Wl,-rpath,'$$ORIGIN' -lmuk
+
 
 mpi_unimplemented_wrappers.cpp: generate-mpi-unimplemented-wrappers.py \
                                 mpi_unimplemented_wrappers.txt
 	python $^ > $@
 
 .c.o:
-	${MPICC} ${CFLAGS} -c -o $@ $<
+	${CC} ${CFLAGS} -c -o $@ $< -L${HOME}/mukautuva/ -I${HOME}/mukautuva -Wl,-rpath,'$$ORIGIN' -lmuk
 
 .cpp.o: virtual-ids.h
-	${MPICXX} ${CXXFLAGS} -c -o $@ $<
+	${CC} ${CXXFLAGS} -c -o $@ $< -L${HOME}/mukautuva/ -I${HOME}/mukautuva -Wl,-rpath,'$$ORIGIN' -lmuk
 
 ${LOWER_HALF_SRCDIR}/procmapsutils.o: ${LOWER_HALF_SRCDIR}/procmapsutils.c
 	@make -C ${LOWER_HALF_SRCDIR} procmapsutils.o

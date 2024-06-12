@@ -32,17 +32,18 @@ override CXXFLAGS += -std=c++11 -fPIC -I${DMTCP_INCLUDE} -I${JALIB_INCLUDE} -I${
                      -I${DMTCP_ROOT}/src
 
 TEXTSEG_ADDR_FLAG=-Wl,-Ttext-segment=0x10000000
+MUKFLAGS=-L${HOME}/mukautuva/ -I${HOME}/mukautuva -Wl,-rpath,'$$ORIGIN' -lmuk
 
 default: kernel-loader
 
 .cpp.o:
-	${MPICXX} ${CXXFLAGS} -c -o $@ $<
+	${CXX} ${CXXFLAGS} -c -o $@ $< ${MUKFLAGS}
 
 .c.o:
-	${MPICXX} ${CFLAGS} -c -o $@ $<
+	${CXX} ${CFLAGS} -c -o $@ $< ${MUKFLAGS}
 
 kernel-loader: get_symbol_offset.o copy_stack.o patch_trampoline.o lh_func_ptr.o mem_wrapper.o switch_context.o kernel_loader.o ${DMTCP_DEPS}
-	${MPICXX} -g3 ${TEXTSEG_ADDR_FLAG} ${CFLAGS} -o $@ $^ -ldl
+	${CXX} -g3 ${TEXTSEG_ADDR_FLAG} ${CFLAGS} -o $@ $^ -ldl -lpthread ${MUKFLAGS}
 
 install: kernel-loader
 	cp -f $^ ${MANA_ROOT}/bin/

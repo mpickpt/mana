@@ -590,7 +590,11 @@ extern LowerHalfInfo_t *lh_info_addr;
 #define GENERATE_FNC_PTR(FNC) (void*)&MPI_##FNC,
 #define GENERATE_FNC_STRING(FNC)  "MPI_" #FNC,
 #define GENERATE_CONSTANT_ENUM(ENUM)    LH_MPI_##ENUM
+#if 0
 #define GENERATE_CONSTANT_VALUE(CONSTANT) static_cast<intptr_t>(MPI_##CONSTANT)
+#else 
+#define GENERATE_CONSTANT_VALUE(CONSTANT) (intptr_t)(MPI_##CONSTANT)
+#endif
 
 
 enum MPI_Fncs {

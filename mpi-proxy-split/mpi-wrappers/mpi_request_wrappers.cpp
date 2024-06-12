@@ -140,7 +140,7 @@ USER_DEFINED_WRAPPER(int, Testall, (int) count,
                         &local_array_of_statuses[i]);
     } else {
       retval = MPI_Test(&local_array_of_requests[i], local_flag,
-                        MPI_STATUS_IGNORE);
+                        (MPI_Status*)MPI_STATUS_IGNORE);
     }
     if (retval != MPI_SUCCESS) {
       *local_flag = 0;
@@ -228,7 +228,7 @@ USER_DEFINED_WRAPPER(int, Waitall, (int) count,
       retval = MPI_Wait(&local_array_of_requests[i],
                         &local_array_of_statuses[i]);
     } else {
-      retval = MPI_Wait(&local_array_of_requests[i], MPI_STATUS_IGNORE);
+      retval = MPI_Wait(&local_array_of_requests[i], (MPI_Status*)MPI_STATUS_IGNORE);
     }
     if (retval != MPI_SUCCESS) {
       break;
