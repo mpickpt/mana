@@ -724,13 +724,15 @@ computeUnionOfCkptImageAddresses()
      *         and then re-use that information here, during a second restart.
      *  if (strcmp(area.name, "[stack]") == 0)
      */
-    if (prev_addr_end != NULL && prev_addr_end == libsEnd)
-    {
-      highMemStart = area.addr; // This should be the start of the stack.
-    }
+    static void* stackEndAddr = NULL;
     if (strcmp(area.name, "[stack]") == 0)
     {
       highMemStart = area.addr; // This should be the start of the stack.
+      stackEndAddr = area.endAddr;
+    }
+    if (stackEndAddr && area.endAddr == stackEndAddr) {
+      void* stackStartAddr = stackEndAddr - area.size;
+      highMemStart = stackStartAddr;
     }
     // FIXME:  We are no longer using min/maxAddrBeyondHeap.
     //         Given that heapAddr is poorly defined between launch and restart,
