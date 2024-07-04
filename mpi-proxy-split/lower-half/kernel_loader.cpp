@@ -182,8 +182,7 @@ int main(int argc, char *argv[], char *envp[]) {
                               0, 0);
         if (mmapedat == MAP_FAILED) {
           fprintf(stderr, "restore failed area.addr: %p, area.endAddr%p\n", area.addr, area.endAddr);
-          volatile int dummy = 1;
-          while (dummy);
+          exit(1);
         }
       }
       if ((area.properties & DMTCP_ZERO_PAGE) == 0 &&
@@ -329,7 +328,6 @@ int main(int argc, char *argv[], char *envp[]) {
                                  MAP_PRIVATE | MAP_ANONYMOUS |
                                  MAP_NORESERVE | MAP_FIXED_NOREPLACE ,
                                  -1, 0);
-  printf("emulated upper-half heal addr: %p\n", heap_addr);
   if (heap_addr == MAP_FAILED) {
     DLOG(ERROR, "Failed to mmap region. Error: %s\n",
          strerror(errno));
@@ -386,9 +384,6 @@ int main(int argc, char *argv[], char *envp[]) {
   patch_trampoline(interp_base_address + sbrk_offset, (void*)&sbrk_wrapper);
   lh_info.sbrk = (void*)&sbrk_wrapper;
 #endif
-  // Setup lower-hlaf info struct for the upper-half to read from
-  printf("LD_PRELOAD: %s\n", getenv("LD_PRELOAD"));
-  printf("UH_PRELOAD: %s\n", getenv("UH_PRELOAD"));
 
   // Then jump to _start, ld_so_entry, in ld.so (or call it
   //   as fnc that never returns).
