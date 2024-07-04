@@ -31,7 +31,7 @@ override CFLAGS += -fPIC -I${DMTCP_INCLUDE} -I${MANA_INCLUDE} -g3 -O0 \
 override CXXFLAGS += -std=c++11 -fPIC -I${DMTCP_INCLUDE} -I${JALIB_INCLUDE} -I${MANA_INCLUDE} -I${DMTCP_ROOT}/src/mtcp \
                      -I${DMTCP_ROOT}/src
 
-TEXTSEG_ADDR_FLAG=-Wl,-Ttext-segment=0x10000000
+TEXTSEG_ADDR_FLAG=-Wl,-Ttext-segment=0x70000000
 
 default: kernel-loader
 
