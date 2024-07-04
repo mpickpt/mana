@@ -95,7 +95,7 @@ USER_DEFINED_WRAPPER(int, Init_thread, (int *) argc, (char ***) argv,
   recordPreMpiInitMaps();
 
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  retval = NEXT_FUNC(Init_thread)(argc, argv, required, provided);
+  // retval = NEXT_FUNC(Init_thread)(argc, argv, required, provided);
   // Create a duplicate of MPI_COMM_WORLD for internal use.
   NEXT_FUNC(Comm_dup)(MPI_COMM_WORLD, &g_world_comm);
   RETURN_TO_UPPER_HALF();
