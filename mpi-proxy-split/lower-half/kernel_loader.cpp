@@ -80,7 +80,7 @@ static int restoreMemoryArea(int fd, DmtcpCkptHeader *ckptHdr);
 static void restore_vdso_vvar(DmtcpCkptHeader *dmtcp_hdri, char *envrion[]);
 
 void *ld_so_entry;
-LowerHalfInfo_t lh_info = {0};
+LowerHalfInfo_t *lh_info;
 
 #define MTCP_RESTART_BINARY "mtcp_restart"
 
@@ -116,16 +116,123 @@ int main(int argc, char *argv[], char *envp[]) {
   MPI_Init(&argc, &argv);
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
+  // Fill in lh_info contents
+  lh_info = (LowerHalfInfo_t*) malloc(sizeof(LowerHalfInfo_t));
+  memset(lh_info, 0, sizeof(LowerHalfInfo_t));
   unsigned long fsaddr = 0;
   syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
-  lh_info.fsaddr = (void*)fsaddr;
-  lh_info.mmap = (void*)&mmap_wrapper;
-  lh_info.munmap = (void*)&munmap_wrapper;
-  lh_info.lh_dlsym = (void*)&lh_dlsym;
-  lh_info.mmap_list_fptr = (void*)&get_mmapped_list;
-  lh_info.uh_end_of_heap = (void*)&get_end_of_heap;
-  lh_info.set_end_of_heap = (void*)&set_end_of_heap;
-  lh_info.set_uh_brk = (void*)&set_uh_brk;
+  lh_info->fsaddr = (void*)fsaddr;
+  lh_info->mmap = (void*)&mmap_wrapper;
+  lh_info->munmap = (void*)&munmap_wrapper;
+  lh_info->lh_dlsym = (void*)&lh_dlsym;
+  lh_info->mmap_list_fptr = (void*)&get_mmapped_list;
+  // MPI constants values
+  lh_info->MANA_GROUP_NULL = MPI_GROUP_NULL;
+  lh_info->MANA_COMM_NULL = MPI_COMM_NULL;
+  lh_info->MANA_REQUEST_NULL = MPI_REQUEST_NULL;
+  lh_info->MANA_MESSAGE_NULL = MPI_MESSAGE_NULL;
+  lh_info->MANA_OP_NULL = MPI_OP_NULL;
+  lh_info->MANA_ERRHANDLER_NULL = MPI_ERRHANDLER_NULL;
+  lh_info->MANA_INFO_NULL = MPI_INFO_NULL;
+  lh_info->MANA_WIN_NULL = MPI_WIN_NULL;
+  lh_info->MANA_FILE_NULL = MPI_FILE_NULL;
+  lh_info->MANA_INFO_ENV = MPI_INFO_ENV;
+  lh_info->MANA_COMM_WORLD = MPI_COMM_WORLD;
+  lh_info->MANA_COMM_SELF = MPI_COMM_SELF;
+  lh_info->MANA_GROUP_EMPTY = MPI_GROUP_EMPTY;
+  lh_info->MANA_MESSAGE_NO_PROC = MPI_MESSAGE_NO_PROC;
+  lh_info->MANA_MAX = MPI_MAX;
+  lh_info->MANA_MIN = MPI_MIN;
+  lh_info->MANA_SUM = MPI_SUM;
+  lh_info->MANA_PROD = MPI_PROD;
+  lh_info->MANA_LAND = MPI_LAND;
+  lh_info->MANA_BAND = MPI_BAND;
+  lh_info->MANA_LOR = MPI_LOR;
+  lh_info->MANA_BOR = MPI_BOR;
+  lh_info->MANA_LXOR = MPI_LXOR;
+  lh_info->MANA_BXOR = MPI_BXOR;
+  lh_info->MANA_MAXLOC = MPI_MAXLOC;
+  lh_info->MANA_MINLOC = MPI_MINLOC;
+  lh_info->MANA_REPLACE = MPI_REPLACE;
+  lh_info->MANA_NO_OP = MPI_NO_OP;
+  lh_info->MANA_DATATYPE_NULL = MPI_DATATYPE_NULL;
+  lh_info->MANA_BYTE = MPI_BYTE;
+  lh_info->MANA_PACKED = MPI_PACKED;
+  lh_info->MANA_CHAR = MPI_CHAR;
+  lh_info->MANA_SHORT = MPI_SHORT;
+  lh_info->MANA_INT = MPI_INT;
+  lh_info->MANA_LONG = MPI_LONG;
+  lh_info->MANA_FLOAT = MPI_FLOAT;
+  lh_info->MANA_DOUBLE = MPI_DOUBLE;
+  lh_info->MANA_LONG_DOUBLE = MPI_LONG_DOUBLE;
+  lh_info->MANA_UNSIGNED_CHAR = MPI_UNSIGNED_CHAR;
+  lh_info->MANA_SIGNED_CHAR = MPI_SIGNED_CHAR;
+  lh_info->MANA_UNSIGNED_SHORT = MPI_UNSIGNED_SHORT;
+  lh_info->MANA_UNSIGNED_LONG = MPI_UNSIGNED_LONG;
+  lh_info->MANA_UNSIGNED = MPI_UNSIGNED;
+  lh_info->MANA_FLOAT_INT = MPI_FLOAT_INT;
+  lh_info->MANA_DOUBLE_INT = MPI_DOUBLE_INT;
+  lh_info->MANA_LONG_DOUBLE_INT = MPI_LONG_DOUBLE_INT;
+  lh_info->MANA_LONG_INT = MPI_LONG_INT;
+  lh_info->MANA_SHORT_INT = MPI_SHORT_INT;
+  lh_info->MANA_2INT = MPI_2INT;
+  lh_info->MANA_WCHAR = MPI_WCHAR;
+  lh_info->MANA_LONG_LONG_INT = MPI_LONG_LONG_INT;
+  lh_info->MANA_LONG_LONG = MPI_LONG_LONG;
+  lh_info->MANA_UNSIGNED_LONG_LONG = MPI_UNSIGNED_LONG_LONG;
+#if 0
+  lh_info->MANA_2COMPLEX = MPI_2COMPLEX;
+  lh_info->MANA_CXX_COMPLEX = MPI_CXX_COMPLEX;
+  lh_info->MANA_2DOUBLE_COMPLEX = MPI_2DOUBLE_COMPLEX;
+#endif
+  lh_info->MANA_CHARACTER = MPI_CHARACTER;
+  lh_info->MANA_LOGICAL = MPI_LOGICAL;
+#if 0
+  lh_info->MANA_LOGICAL1 = MPI_LOGICAL1;
+  lh_info->MANA_LOGICAL2 = MPI_LOGICAL2;
+  lh_info->MANA_LOGICAL4 = MPI_LOGICAL4;
+  lh_info->MANA_LOGICAL8 = MPI_LOGICAL8;
+#endif
+  lh_info->MANA_INTEGER = MPI_INTEGER;
+  lh_info->MANA_INTEGER1 = MPI_INTEGER1;
+  lh_info->MANA_INTEGER2 = MPI_INTEGER2;
+  lh_info->MANA_INTEGER4 = MPI_INTEGER4;
+  lh_info->MANA_INTEGER8 = MPI_INTEGER8;
+  lh_info->MANA_REAL = MPI_REAL;
+  lh_info->MANA_REAL4 = MPI_REAL4;
+  lh_info->MANA_REAL8 = MPI_REAL8;
+  lh_info->MANA_REAL16 = MPI_REAL16;
+  lh_info->MANA_DOUBLE_PRECISION = MPI_DOUBLE_PRECISION;
+  lh_info->MANA_COMPLEX = MPI_COMPLEX;
+  lh_info->MANA_COMPLEX8 = MPI_COMPLEX8;
+  lh_info->MANA_COMPLEX16 = MPI_COMPLEX16;
+  lh_info->MANA_COMPLEX32 = MPI_COMPLEX32;
+  lh_info->MANA_DOUBLE_COMPLEX = MPI_DOUBLE_COMPLEX;
+  lh_info->MANA_2REAL = MPI_2REAL;
+  lh_info->MANA_2DOUBLE_PRECISION = MPI_2DOUBLE_PRECISION;
+  lh_info->MANA_2INTEGER = MPI_2INTEGER;
+  lh_info->MANA_INT8_T = MPI_INT8_T;
+  lh_info->MANA_UINT8_T = MPI_UINT8_T;
+  lh_info->MANA_INT16_T = MPI_INT16_T;
+  lh_info->MANA_UINT16_T = MPI_UINT16_T;
+  lh_info->MANA_INT32_T = MPI_INT32_T;
+  lh_info->MANA_UINT32_T = MPI_UINT32_T;
+  lh_info->MANA_INT64_T = MPI_INT64_T;
+  lh_info->MANA_UINT64_T = MPI_UINT64_T;
+  lh_info->MANA_AINT = MPI_AINT;
+  lh_info->MANA_OFFSET = MPI_OFFSET;
+  lh_info->MANA_C_BOOL = MPI_C_BOOL;
+  lh_info->MANA_C_COMPLEX = MPI_C_COMPLEX;
+  lh_info->MANA_C_FLOAT_COMPLEX = MPI_C_FLOAT_COMPLEX;
+  lh_info->MANA_C_DOUBLE_COMPLEX = MPI_C_DOUBLE_COMPLEX;
+  lh_info->MANA_C_LONG_DOUBLE_COMPLEX = MPI_C_LONG_DOUBLE_COMPLEX;
+  lh_info->MANA_CXX_BOOL = MPI_CXX_BOOL;
+  lh_info->MANA_CXX_FLOAT_COMPLEX = MPI_CXX_FLOAT_COMPLEX;
+  lh_info->MANA_CXX_DOUBLE_COMPLEX = MPI_CXX_DOUBLE_COMPLEX;
+  lh_info->MANA_CXX_LONG_DOUBLE_COMPLEX = MPI_CXX_LONG_DOUBLE_COMPLEX;
+  lh_info->MANA_COUNT = MPI_COUNT;
+  lh_info->MANA_ERRORS_ARE_FATAL = MPI_ERRORS_ARE_FATAL;
+  lh_info->MANA_ERRORS_RETURN = MPI_ERRORS_RETURN;
 
   // Check arguments and setup arguments for the loader program (cmd)
   // if has "--restore", pass all arguments to mtcp_restart
@@ -303,7 +410,6 @@ int main(int argc, char *argv[], char *envp[]) {
   char *dest_stack = deepCopyStack(argc, argv, cmd_argc+1, cmd_argv2,
                                    interp_base_address + 0x400000,
                                    &auxv_ptr);
-  lh_info.uh_stack = dest_stack;
   write_lh_info_to_file();
 
   // FIXME:

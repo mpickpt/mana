@@ -39,7 +39,7 @@ USER_DEFINED_WRAPPER(int, Op_create,
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Op_create)(user_fn, commute, op);
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS && MPI_LOGGING()) {
@@ -59,7 +59,7 @@ USER_DEFINED_WRAPPER(int, Op_free, (MPI_Op*) op)
   if (op) {
     realOp = VIRTUAL_TO_REAL_OP(*op);
   }
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Op_free)(&realOp);
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS && MPI_LOGGING()) {
@@ -82,7 +82,7 @@ USER_DEFINED_WRAPPER(int, Reduce_local,
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
   MPI_Op realOp = VIRTUAL_TO_REAL_OP(op);
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Reduce_local)(inbuf, inoutbuf, count, realType, realOp);
   RETURN_TO_UPPER_HALF();
   // This is non-blocking.  No need to log it.

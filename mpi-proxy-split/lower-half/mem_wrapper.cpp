@@ -116,7 +116,7 @@ void* mmap_wrapper(void *addr, size_t length, int prot,
     __endOfReservedHeap = addr;
   }
   void *ret = MAP_FAILED;
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   ret = __mmap_wrapper(addr, length, prot, flags, fd, offset);
   RETURN_TO_UPPER_HALF();
   return ret;
@@ -173,7 +173,7 @@ static void* __mmap_wrapper(void *addr, size_t length, int prot,
 
 int munmap_wrapper(void *addr, size_t length) {
   int ret = -1;
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   ret = __munmap_wrapper(addr, length);
   RETURN_TO_UPPER_HALF();
   return ret;
@@ -324,7 +324,7 @@ void updateMmaps(void *addr, size_t length) {
 
 void* sbrk_wrapper(intptr_t increment) {
   void *addr = NULL;
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   addr = __sbrk_wrapper(increment);
   RETURN_TO_UPPER_HALF();
   return addr;

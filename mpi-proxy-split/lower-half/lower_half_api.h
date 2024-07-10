@@ -19,10 +19,6 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-/* WARNING:  The original of this file is in the lower-half directory.
- * DO NOT EDIT THE VERSION IN THE restart_plugin DIRECTORY.
- */
-
 #ifndef _LOWER_HALF_API_H
 #define _LOWER_HALF_API_H
 
@@ -37,86 +33,140 @@ extern "C" int MPI_MANA_Internal(char *dummy);
 
 typedef char* VA;
 
-typedef struct __MemRange
-{
-  void *start;  // Start of the address range for lower half memory allocations
-  void *end;    // End of the address range for lower half memory allocations
-} MemRange_t;
-
-#if 0
-typedef struct __MmapInfo
-{
-  void *addr;   // Start address of mmapped region
-  size_t len;   // Length (in bytes) of mmapped region
-  int unmapped; // 1 if the region was unmapped; 0 otherwise
-  int dontuse;  // 1 if preexisting mmap in region (e.g., xpmem); 0 otherwise
-  int guard;    // 1 if the region has additional guard pages around it; 0 otherwise
-} MmapInfo_t;
-#else
 typedef struct __MmapInfo
 {
   void *addr;
   size_t len;
 } MmapInfo_t;
-#endif
-
-typedef struct __LhCoreRegions
-{
-  void * start_addr; // Start address of a LH memory segment
-  void * end_addr; // End address
-  int prot; // Protection flag
-} LhCoreRegions_t;
 
 // The transient lh_proxy process introspects its memory layout and passes this
 // information back to the main application process using this struct.
 // This must be same in restart_plugin and low
 typedef struct _LowerHalfInfo
 {
-  void *startText; // Start address of text segment (R-X) of lower half
-  void *endText;   // End address of text segmeent (R-X) of lower half
-  void *endOfHeap; // Pointer to the end of heap segment of lower half
-  int *endOfHeapFrozenAddr; // Pointer to boolean; Stopextending heap
-  void *libc_start_main; // Pointer to libc's __libc_start_main function in statically-linked lower half
-  void *main;      // Pointer to the main() function in statically-linked lower half
-  void *libc_csu_init; // Pointer to libc's __libc_csu_init() function in statically-linked lower half
-  void *libc_csu_fini; // Pointer ot libc's __libc_csu_fini() function in statically-linked lower half
   void *fsaddr; // The base value of the FS register of the lower half
-  uint64_t lh_AT_PHNUM; // The number of program headers (AT_PHNUM) from the auxiliary vector of the lower half
-  uint64_t lh_AT_PHDR;  // The address of the program headers (AT_PHDR) from the auxiliary vector of the lower half
-  void *g_appContext; // Pointer to ucontext_t of upper half application (defined in the lower half)
-  void *getRankFptr;  // Pointer to getRank() function in the lower half
 #ifdef SINGLE_CART_REORDER
   void *getCoordinatesFptr; // Pointer to getCoordinates() function in the lower half
   void *getCartesianCommunicatorFptr; // Pointer to getCartesianCommunicator() function in the lower half
 #endif
-  void *parentStackStart; // Address to the start of the stack of the parent process (FIXME: Not currently used anywhere)
-  void *updateEnvironFptr; // Pointer to updateEnviron() function in the lower half
   void *getMmappedListFptr; // Pointer to getMmappedList() function in the lower half
   void *resetMmappedListFptr; // Pointer to resetMmappedList() function in the lower half
-  int numCoreRegions; // total number of core regions in the lower half
-  LhCoreRegions_t *lh_regions_list;
-  void *getLhRegionsListFptr; // Pointer to getLhRegionsList() function in the lower half
-  void *vdsoLdAddrInLinkMap; // vDSO's LD address in the lower half's linkmap
-  void *sbrk;
   void *mmap;
   void *munmap;
-  void *lh_dlsym;
   void *mmap_list_fptr;
-  void *uh_end_of_heap;
-  void *set_end_of_heap;
-  void *set_uh_brk;
-  void *get_lh_fsaddr;
+  void *lh_dlsym;
   void *uh_stack;
-  MemRange_t memRange; // MemRange_t object in the lower half
+
+  // MPI Constants
+  MPI_Group MANA_GROUP_NULL;
+  MPI_Comm MANA_COMM_NULL;
+  MPI_Request MANA_REQUEST_NULL;
+  MPI_Message MANA_MESSAGE_NULL;
+  MPI_Op MANA_OP_NULL;
+  MPI_Errhandler MANA_ERRHANDLER_NULL;
+  MPI_Info MANA_INFO_NULL;
+  MPI_Win MANA_WIN_NULL;
+  MPI_File MANA_FILE_NULL;
+  MPI_Info MANA_INFO_ENV;
+  MPI_Comm MANA_COMM_WORLD;
+  MPI_Comm MANA_COMM_SELF;
+  MPI_Group MANA_GROUP_EMPTY;
+  MPI_Message MANA_MESSAGE_NO_PROC;
+  MPI_Op MANA_MAX;
+  MPI_Op MANA_MIN;
+  MPI_Op MANA_SUM;
+  MPI_Op MANA_PROD;
+  MPI_Op MANA_LAND;
+  MPI_Op MANA_BAND;
+  MPI_Op MANA_LOR;
+  MPI_Op MANA_BOR;
+  MPI_Op MANA_LXOR;
+  MPI_Op MANA_BXOR;
+  MPI_Op MANA_MAXLOC;
+  MPI_Op MANA_MINLOC;
+  MPI_Op MANA_REPLACE;
+  MPI_Op MANA_NO_OP;
+  MPI_Datatype MANA_DATATYPE_NULL;
+  MPI_Datatype MANA_BYTE;
+  MPI_Datatype MANA_PACKED;
+  MPI_Datatype MANA_CHAR;
+  MPI_Datatype MANA_SHORT;
+  MPI_Datatype MANA_INT;
+  MPI_Datatype MANA_LONG;
+  MPI_Datatype MANA_FLOAT;
+  MPI_Datatype MANA_DOUBLE;
+  MPI_Datatype MANA_LONG_DOUBLE;
+  MPI_Datatype MANA_UNSIGNED_CHAR;
+  MPI_Datatype MANA_SIGNED_CHAR;
+  MPI_Datatype MANA_UNSIGNED_SHORT;
+  MPI_Datatype MANA_UNSIGNED_LONG;
+  MPI_Datatype MANA_UNSIGNED;
+  MPI_Datatype MANA_FLOAT_INT;
+  MPI_Datatype MANA_DOUBLE_INT;
+  MPI_Datatype MANA_LONG_DOUBLE_INT;
+  MPI_Datatype MANA_LONG_INT;
+  MPI_Datatype MANA_SHORT_INT;
+  MPI_Datatype MANA_2INT;
+  MPI_Datatype MANA_WCHAR;
+  MPI_Datatype MANA_LONG_LONG_INT;
+  MPI_Datatype MANA_LONG_LONG;
+  MPI_Datatype MANA_UNSIGNED_LONG_LONG;
+#if 0
+  MPI_Datatype MANA_2COMPLEX;
+  MPI_Datatype MANA_2DOUBLE_COMPLEX;
+  MPI_Datatype MANA_CXX_COMPLEX;
+#endif
+  MPI_Datatype MANA_CHARACTER;
+  MPI_Datatype MANA_LOGICAL;
+#if 0
+  MPI_Datatype MANA_LOGICAL1;
+  MPI_Datatype MANA_LOGICAL2;
+  MPI_Datatype MANA_LOGICAL4;
+  MPI_Datatype MANA_LOGICAL8;
+#endif
+  MPI_Datatype MANA_INTEGER;
+  MPI_Datatype MANA_INTEGER1;
+  MPI_Datatype MANA_INTEGER2;
+  MPI_Datatype MANA_INTEGER4;
+  MPI_Datatype MANA_INTEGER8;
+  MPI_Datatype MANA_REAL;
+  MPI_Datatype MANA_REAL4;
+  MPI_Datatype MANA_REAL8;
+  MPI_Datatype MANA_REAL16;
+  MPI_Datatype MANA_DOUBLE_PRECISION;
+  MPI_Datatype MANA_COMPLEX;
+  MPI_Datatype MANA_COMPLEX8;
+  MPI_Datatype MANA_COMPLEX16;
+  MPI_Datatype MANA_COMPLEX32;
+  MPI_Datatype MANA_DOUBLE_COMPLEX;
+  MPI_Datatype MANA_2REAL;
+  MPI_Datatype MANA_2DOUBLE_PRECISION;
+  MPI_Datatype MANA_2INTEGER;
+  MPI_Datatype MANA_INT8_T;
+  MPI_Datatype MANA_UINT8_T;
+  MPI_Datatype MANA_INT16_T;
+  MPI_Datatype MANA_UINT16_T;
+  MPI_Datatype MANA_INT32_T;
+  MPI_Datatype MANA_UINT32_T;
+  MPI_Datatype MANA_INT64_T;
+  MPI_Datatype MANA_UINT64_T;
+  MPI_Datatype MANA_AINT;
+  MPI_Datatype MANA_OFFSET;
+  MPI_Datatype MANA_C_BOOL;
+  MPI_Datatype MANA_C_COMPLEX;
+  MPI_Datatype MANA_C_FLOAT_COMPLEX;
+  MPI_Datatype MANA_C_DOUBLE_COMPLEX;
+  MPI_Datatype MANA_C_LONG_DOUBLE_COMPLEX;
+  MPI_Datatype MANA_CXX_BOOL;
+  MPI_Datatype MANA_CXX_FLOAT_COMPLEX;
+  MPI_Datatype MANA_CXX_DOUBLE_COMPLEX;
+  MPI_Datatype MANA_CXX_LONG_DOUBLE_COMPLEX;
+  MPI_Datatype MANA_COUNT;
+  MPI_Errhandler MANA_ERRORS_ARE_FATAL;
+  MPI_Errhandler MANA_ERRORS_RETURN;
 } LowerHalfInfo_t;
 
-/* Maximum core regions lh_regions_list can store */
-#define MAX_LH_REGIONS 500
-extern LhCoreRegions_t lh_regions_list[MAX_LH_REGIONS];
-
-// startProxy() (called from splitProcess()) will initialize 'lh_info'
-extern LowerHalfInfo_t lh_info;  
-extern LowerHalfInfo_t *lh_info_addr;  
+extern LowerHalfInfo_t *lh_info;  
 
 #define FOREACH_FNC(MACRO) \
   MACRO(Init) \
@@ -484,7 +534,7 @@ extern LowerHalfInfo_t *lh_info_addr;
 
 #define GENERATE_ENUM(ENUM) MPI_Fnc_##ENUM,
 #define GENERATE_FNC_PTR(FNC) (void*)&MPI_##FNC,
-#define GENERATE_FNC_STRING(FNC)  "MPI_" #FNC,
+#define GENERATE_FNC_STRING(FNC)  "MPI_" #FNC
 
 enum MPI_Fncs {
   MPI_Fnc_NULL,
@@ -500,14 +550,7 @@ static const char *MPI_Fnc_strings[] = {
 void* lh_dlsym(enum MPI_Fncs fnc);
 typedef void* (*proxyDlsym_t)(enum MPI_Fncs fnc);
 extern proxyDlsym_t pdlsym;
-
 std::vector<MmapInfo_t> &get_mmapped_list(int *num);
 typedef std::vector<MmapInfo_t>& (*get_mmapped_list_fptr_t)(int *num);
-typedef unsigned long (*get_lh_fsaddr_t)(void);
-typedef void* (*uh_end_of_heap_t)(void);
-typedef void* (*set_end_of_heap_t)(void*);
-typedef void* (*set_uh_brk_t)(void*);
-void set_end_of_heap(void *addr);
-void set_uh_brk(void *addr);
 
 #endif // ifndef _LOWER_HALF_API_H

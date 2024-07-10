@@ -46,7 +46,7 @@ USER_DEFINED_WRAPPER(int, File_open, (MPI_Comm) comm, (const char *) filename,
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(File_open)(realComm, filename, amode, info, fh);
   RETURN_TO_UPPER_HALF();
 
@@ -78,7 +78,7 @@ USER_DEFINED_WRAPPER(int, File_get_atomicity, (MPI_File) fh, (int*) flag)
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_File realFile = VIRTUAL_TO_REAL_FILE(fh);
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(File_get_atomicity)(realFile, flag);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -90,7 +90,7 @@ USER_DEFINED_WRAPPER(int, File_set_atomicity, (MPI_File) fh, (int) flag)
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_File realFile = VIRTUAL_TO_REAL_FILE(fh);
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(File_set_atomicity)(realFile, flag);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -102,7 +102,7 @@ USER_DEFINED_WRAPPER(int, File_set_size, (MPI_File) fh, (MPI_Offset) size)
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_File realFile = VIRTUAL_TO_REAL_FILE(fh);
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(File_set_size)(realFile, size);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -114,7 +114,7 @@ USER_DEFINED_WRAPPER(int, File_get_size, (MPI_File) fh, (MPI_Offset *) size)
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_File realFile = VIRTUAL_TO_REAL_FILE(fh);
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(File_get_size)(realFile, size);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -130,7 +130,7 @@ USER_DEFINED_WRAPPER(int, File_set_view, (MPI_File) fh, (MPI_Offset) disp,
   MPI_File realFile = VIRTUAL_TO_REAL_FILE(fh);
   MPI_Datatype realEtype = VIRTUAL_TO_REAL_TYPE(etype);
   MPI_Datatype realFtype = VIRTUAL_TO_REAL_TYPE(filetype);
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(File_set_view)(realFile, disp, realEtype, realFtype,
                                     datarep, info);
   RETURN_TO_UPPER_HALF();
@@ -159,7 +159,7 @@ USER_DEFINED_WRAPPER(int, File_get_view, (MPI_File) fh, (MPI_Offset*) disp,
   MPI_File realFile = VIRTUAL_TO_REAL_FILE(fh);
   MPI_Datatype realEtype;
   MPI_Datatype realFtype;
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(File_get_view)(realFile, disp, &realEtype, &realFtype,
                                     datarep);
   RETURN_TO_UPPER_HALF();
@@ -176,7 +176,7 @@ USER_DEFINED_WRAPPER(int, File_read, (MPI_File) fh, (void*) buf, (int) count,
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_File realFile = VIRTUAL_TO_REAL_FILE(fh);
   MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(File_read)(realFile, buf, count, realType, status);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -191,7 +191,7 @@ USER_DEFINED_WRAPPER(int, File_read_at, (MPI_File) fh, (MPI_Offset) offset,
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_File realFile = VIRTUAL_TO_REAL_FILE(fh);
   MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(File_read_at)(realFile, offset, buf, count, realType,
                                    status);
   RETURN_TO_UPPER_HALF();
@@ -212,7 +212,7 @@ USER_DEFINED_WRAPPER(int, File_read_at_all, (MPI_File) fh, (MPI_Offset) offset,
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_File realFile = VIRTUAL_TO_REAL_FILE(fh);
   MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(File_read_at_all)(realFile, offset, buf, count, realType,
                                        status);
   RETURN_TO_UPPER_HALF();
@@ -232,7 +232,7 @@ USER_DEFINED_WRAPPER(int, File_read_all, (MPI_File) fh, (void*) buf,
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_File realFile = VIRTUAL_TO_REAL_FILE(fh);
   MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(File_read_all)(realFile, buf, count, realType, status);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -246,7 +246,7 @@ USER_DEFINED_WRAPPER(int, File_write, (MPI_File) fh, (const void*) buf,
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_File realFile = VIRTUAL_TO_REAL_FILE(fh);
   MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(File_write)(realFile, buf, count, realType, status);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -261,7 +261,7 @@ USER_DEFINED_WRAPPER(int, File_write_at, (MPI_File) fh, (MPI_Offset) offset,
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_File realFile = VIRTUAL_TO_REAL_FILE(fh);
   MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(File_write_at)(realFile, offset, buf, count, realType,
                                     status);
   RETURN_TO_UPPER_HALF();
@@ -278,7 +278,7 @@ USER_DEFINED_WRAPPER(int, File_write_at_all, (MPI_File) fh, (MPI_Offset) offset,
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_File realFile = VIRTUAL_TO_REAL_FILE(fh);
   MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(File_write_at_all)(realFile, offset, buf, count,
                                         realType, status);
   RETURN_TO_UPPER_HALF();
@@ -294,7 +294,7 @@ USER_DEFINED_WRAPPER(int, File_write_all, (MPI_File) fh, (const void*) buf,
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_File realFile = VIRTUAL_TO_REAL_FILE(fh);
   MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(File_write_all)(realFile, buf, count, realType, status);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -306,7 +306,7 @@ USER_DEFINED_WRAPPER(int, File_sync, (MPI_File) fh)
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_File realFile = VIRTUAL_TO_REAL_FILE(fh);
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(File_sync)(realFile);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -319,7 +319,7 @@ USER_DEFINED_WRAPPER(int, File_get_position, (MPI_File) fh,
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_File realFile = VIRTUAL_TO_REAL_FILE(fh);
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(File_get_position)(realFile, offset);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -332,7 +332,7 @@ USER_DEFINED_WRAPPER(int, File_seek, (MPI_File) fh, (MPI_Offset) offset,
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_File realFile = VIRTUAL_TO_REAL_FILE(fh);
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(File_seek)(realFile, offset, whence);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -344,7 +344,7 @@ USER_DEFINED_WRAPPER(int, File_close, (MPI_File*) fh)
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_File realFile = VIRTUAL_TO_REAL_FILE(*fh);
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(File_close)(&realFile);
   RETURN_TO_UPPER_HALF();
 
@@ -363,7 +363,7 @@ USER_DEFINED_WRAPPER(int, File_delete, (const char *) filename, (MPI_Info) info)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(File_delete)(filename, info);
   RETURN_TO_UPPER_HALF();
 
@@ -386,7 +386,7 @@ USER_DEFINED_WRAPPER(int, File_set_errhandler, (MPI_File) file,
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_File realFile = VIRTUAL_TO_REAL_FILE(file);
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(File_set_errhandler)(realFile, errhandler);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -399,7 +399,7 @@ USER_DEFINED_WRAPPER(int, File_get_errhandler, (MPI_File) file,
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_File realFile = VIRTUAL_TO_REAL_FILE(file);
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(File_get_errhandler)(realFile, errhandler);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();

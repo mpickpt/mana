@@ -806,6 +806,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       JASSERT(dmtcp_get_real_tid != NULL);
       initialize_signal_handlers();
       initialize_segv_handler();
+      init_virt_id_table(&virt_ids);
       seq_num_init();
       mana_state = RUNNING;
 
@@ -835,30 +836,13 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       if (CheckAndEnableFsGsBase()) {
         JTRACE("FSGSBASE enabled");
       }
-
-#if 0
-      heapAddr = sbrk(0);
-      JASSERT(heapAddr != nullptr);
-      // FIXME:  If we use PROT_NONE (preferred), then an older DMTCP
-      //         will not restore this memory region.
-      // By creating a memory page just beyond the end of the heap,
-      // this will prevent glibc from extending the main malloc arena.
-      // So, glibc will create a second arena.
-      // NOTE:  This is needed for mtcp_restart, lh_proxy, and the upper half.
-      // Rationale:  On restart, the end-of-heap is not here, but at
-      //             the end-of-heap for mtcp_restart.  Luckily, glibc
-      //             caches 'sbrk(0)', which is here.  So, glibc should
-      //             detect that there is an mmap'ed region just beyond it,
-      //             thus causing glibc to allocate a second arena elsewhere.
-      mmap(heapAddr, 4096, PROT_READ, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
-#endif
-
       break;
     }
     case DMTCP_EVENT_EXIT: {
       printEventToStderr("EVENT_EXIT");
       JTRACE("*** DMTCP_EVENT_EXIT");
       seq_num_destroy();
+      free_virt_id_table(virt_ids);
       break;
     }
 

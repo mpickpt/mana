@@ -45,7 +45,7 @@ USER_DEFINED_WRAPPER(int, Cart_coords, (MPI_Comm) comm, (int) rank,
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Cart_coords)(realComm, rank, maxdims, coords);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -58,7 +58,7 @@ USER_DEFINED_WRAPPER(int, Cart_get, (MPI_Comm) comm, (int) maxdims,
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Cart_get)(realComm, maxdims, dims, periods, coords);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -71,7 +71,7 @@ USER_DEFINED_WRAPPER(int, Cart_map, (MPI_Comm) comm, (int) ndims,
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   // FIXME: Need to virtualize this newrank??
   retval = NEXT_FUNC(Cart_map)(realComm, ndims, dims, periods, newrank);
   RETURN_TO_UPPER_HALF();
@@ -90,7 +90,7 @@ USER_DEFINED_WRAPPER(int, Cart_rank, (MPI_Comm) comm,
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Cart_rank)(realComm, coords, rank);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -103,7 +103,7 @@ USER_DEFINED_WRAPPER(int, Cart_shift, (MPI_Comm) comm, (int) direction,
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Cart_shift)(realComm, direction,
                                  disp, rank_source, rank_dest);
   RETURN_TO_UPPER_HALF();
@@ -122,7 +122,7 @@ USER_DEFINED_WRAPPER(int, Cart_sub, (MPI_Comm) comm,
 
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Cart_sub)(realComm, remain_dims, new_comm);
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS && MPI_LOGGING()) {
@@ -144,7 +144,7 @@ USER_DEFINED_WRAPPER(int, Cartdim_get, (MPI_Comm) comm, (int *) ndims)
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Cartdim_get)(realComm, ndims);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -155,7 +155,7 @@ USER_DEFINED_WRAPPER(int, Dims_create, (int)nnodes, (int)ndims, (int *)dims)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Dims_create)(nnodes, ndims, dims);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -182,7 +182,7 @@ USER_DEFINED_WRAPPER(int, Cart_create, (MPI_Comm)old_comm, (int)ndims,
     int retval;
     DMTCP_PLUGIN_DISABLE_CKPT();
     MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(old_comm);
-    JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+    JUMP_TO_LOWER_HALF(lh_info->fsaddr);
     retval = NEXT_FUNC(Cart_create)(realComm, ndims, dims, periods, reorder,
                                     comm_cart);
     RETURN_TO_UPPER_HALF();
@@ -245,7 +245,7 @@ USER_DEFINED_WRAPPER(int, Cart_create, (MPI_Comm) old_comm, (int) ndims,
   reorder = 0;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(old_comm);
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Cart_create)(realComm, ndims, dims,
                                   periods, reorder, comm_cart);
   RETURN_TO_UPPER_HALF();

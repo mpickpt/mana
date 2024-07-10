@@ -30,7 +30,7 @@
 #include "protectedfds.h"
 #include "record-replay.h"
 #include "mpi_nextfunc.h"
-#include "virtual-ids.h"
+#include "virtual_id.h"
 #include "p2p_drain_send_recv.h"
 #include "mana_header.h"
 #include "seq_num.h"
@@ -38,11 +38,6 @@
 
 using namespace dmtcp_mpi;
 
-#if 0
-DEFINE_FNC(int, Init, (int *) argc, (char ***) argv)
-DEFINE_FNC(int, Init_thread, (int *) argc, (char ***) argv,
-           (int) required, (int *) provided)
-#else
 static const char collective_p2p_string[] =
    "\n"
    "   ***************************************************************************\n"
@@ -57,7 +52,6 @@ static const char collective_p2p_string[] =
 ManaHeader g_mana_header = { .init_flag = MPI_INIT_NO_THREAD };
 
 USER_DEFINED_WRAPPER(int, Init, (int *) argc, (char ***) argv) {
-  // initialize_wrappers();
   int retval;
   if (isUsingCollectiveToP2p()) {
     fprintf(stderr, collective_p2p_string);
@@ -68,23 +62,20 @@ USER_DEFINED_WRAPPER(int, Init, (int *) argc, (char ***) argv) {
 
   recordPreMpiInitMaps();
 
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-  // retval = NEXT_FUNC(Init)(argc, argv);
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   // Create a duplicate of MPI_COMM_WORLD for internal use.
-  NEXT_FUNC(Comm_dup)(MPI_COMM_WORLD, &g_world_comm);
+  NEXT_FUNC(Comm_dup)(lh_info->MANA_COMM_WORLD, &g_world_comm);
   RETURN_TO_UPPER_HALF();
 
   recordPostMpiInitMaps();
 
-  g_world_comm = ADD_NEW_COMM(g_world_comm);
-  LOG_CALL(restoreComms, Comm_dup, MPI_COMM_WORLD, g_world_comm);
+  g_world_comm = new_virt_comm(g_world_comm);
   initialize_drain_send_recv();
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
 USER_DEFINED_WRAPPER(int, Init_thread, (int *) argc, (char ***) argv,
                      (int) required, (int *) provided) {
-  pdlsym = (proxyDlsym_t)lh_info.lh_dlsym;
   int retval;
   if (isUsingCollectiveToP2p()) {
     fprintf(stderr, collective_p2p_string);
@@ -94,21 +85,20 @@ USER_DEFINED_WRAPPER(int, Init_thread, (int *) argc, (char ***) argv,
 
   recordPreMpiInitMaps();
 
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Init_thread)(argc, argv, required, provided);
   // Create a duplicate of MPI_COMM_WORLD for internal use.
-  NEXT_FUNC(Comm_dup)(MPI_COMM_WORLD, &g_world_comm);
+  NEXT_FUNC(Comm_dup)(lh_info->MANA_COMM_WORLD, &g_world_comm);
   RETURN_TO_UPPER_HALF();
 
   recordPostMpiInitMaps();
 
-  g_world_comm = ADD_NEW_COMM(g_world_comm);
-  LOG_CALL(restoreComms, Comm_dup, MPI_COMM_WORLD, g_world_comm);
+  g_world_comm = new_virt_comm(g_world_comm);
   initialize_drain_send_recv();
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
-#endif
+//
 // FIXME: See the comment in the wrapper function, defined
 // later in the file.
 // DEFINE_FNC(int, Finalize, (void))
@@ -146,7 +136,7 @@ USER_DEFINED_WRAPPER(int, Get_count,
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Get_count)(status, realType, count);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -158,7 +148,7 @@ USER_DEFINED_WRAPPER(int, Get_library_version, (char *) version,
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Get_library_version)(version, resultlen);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -170,7 +160,7 @@ USER_DEFINED_WRAPPER(int, Get_address, (const void *) location,
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Get_address)(location, address);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -194,7 +184,7 @@ USER_DEFINED_WRAPPER(int, MANA_Internal, (char *) dummy)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(MANA_Internal)(dummy);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();

@@ -41,7 +41,7 @@ void reset_wrappers();
 static void readLhInfoAddr();
 extern "C" pid_t dmtcp_get_real_pid();
 
-LowerHalfInfo_t lh_info = {0};
+LowerHalfInfo_t *lh_info;
 proxyDlsym_t pdlsym;
 
 void initialize_wrappers() {
@@ -61,7 +61,7 @@ void* mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset)
     initialize_wrappers();
   }
   if (lowerHalfMmapWrapper == (__typeof__(&mmap)) - 1) {
-    lowerHalfMmapWrapper = (__typeof__(&mmap))lh_info.mmap;
+    lowerHalfMmapWrapper = (__typeof__(&mmap))lh_info->mmap;
   }
   void *ret;
   if (mana_state == RUNNING) {
@@ -80,7 +80,7 @@ int munmap(void *addr, size_t length) {
     initialize_wrappers();
   }
   if (lowerHalfMunmapWrapper == (__typeof__(&munmap)) - 1) {
-    lowerHalfMunmapWrapper = (__typeof__(&munmap))lh_info.munmap;
+    lowerHalfMunmapWrapper = (__typeof__(&munmap))lh_info->munmap;
   }
   int ret;
   if (mana_state == RUNNING) {
@@ -109,5 +109,5 @@ static void readLhInfoAddr() {
   }
   close(fd);
   remove(filename);
-  pdlsym = (proxyDlsym_t)lh_info.lh_dlsym;
+  pdlsym = (proxyDlsym_t)lh_info->lh_dlsym;
 }
