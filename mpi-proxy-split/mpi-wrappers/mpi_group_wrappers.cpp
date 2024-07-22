@@ -29,62 +29,44 @@
 
 #include "mpi_nextfunc.h"
 #include "record-replay.h"
-#include "virtual-ids.h"
+#include "virtual_id.h"
 
 using namespace dmtcp_mpi;
 
 USER_DEFINED_WRAPPER(int, Comm_group, (MPI_Comm) comm, (MPI_Group *) group)
 {
-  int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
-  retval = NEXT_FUNC(Comm_group)(realComm, group);
-  RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
-    MPI_Group virtGroup = ADD_NEW_GROUP(*group);
-    *group = virtGroup;
-    LOG_CALL(restoreGroups, Comm_group, comm, *group);
-  }
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  int retval = MPI_SUCCESS;
+  mana_comm_desc *comm_desc = (mana_comm_desc*)get_virt_id_desc({.comm = comm});
+  comm_desc->group_desc->ref_count++;
+  *group = comm_desc->group;
   return retval;
 }
 
 USER_DEFINED_WRAPPER(int, Group_size, (MPI_Group) group, (int *) size)
 {
-  int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Group realGroup = VIRTUAL_TO_REAL_GROUP(group);
-  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
-  retval = NEXT_FUNC(Group_size)(realGroup, size);
-  RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
-  return retval;
-}
-
-int
-MPI_Group_free_internal(MPI_Group *group)
-{
-  int retval;
-  MPI_Group realGroup = VIRTUAL_TO_REAL_GROUP(*group);
-  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
-  retval = NEXT_FUNC(Group_free)(&realGroup);
-  RETURN_TO_UPPER_HALF();
+  int retval = MPI_SUCCESS;
+  mana_group_desc *group_desc = (mana_group_desc*)get_virt_id_desc({.group = group});
+  *size = group_desc->size;
   return retval;
 }
 
 USER_DEFINED_WRAPPER(int, Group_free, (MPI_Group *) group)
 {
+  int retval = MPI_SUCCESS;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  int retval = MPI_Group_free_internal(group);
-  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
-    // NOTE: We cannot remove the old group, since we'll need
-    // to replay this call to reconstruct any comms that might
-    // have been created using this group.
-    //
-    // realGroup = REMOVE_OLD_GROUP(*group);
-    // CLEAR_GROUP_LOGS(*group);
-    LOG_CALL(restoreGroups, Group_free, *group);
+  mana_group_desc *group_desc = (mana_group_desc*)get_virt_id_desc({.group = *group});
+  group_desc->ref_count--;
+  // Free the group object in MPI library and virtual id table
+  // if its ref count is 0;
+  if (group_desc->ref_count == 0) {
+    // Free the MPI_Group object in MPI library
+    MPI_Group real_group = get_real_id({.group = *group}).group;
+    JUMP_TO_LOWER_HALF(lh_info->fsaddr);
+    retval = NEXT_FUNC(Group_free)(&real_group);
+    RETURN_TO_UPPER_HALF();
+    // Free the group descriptor in MANA
+    free(group_desc->global_ranks);
+    free(group_desc);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -95,10 +77,10 @@ USER_DEFINED_WRAPPER(int, Group_compare, (MPI_Group) group1,
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Group realGroup1 = VIRTUAL_TO_REAL_GROUP(group1);
-  MPI_Group realGroup2 = VIRTUAL_TO_REAL_GROUP(group2);
+  MPI_Group real_group1 = get_real_id({.group = group1}).group;
+  MPI_Group real_group2 = get_real_id({.group = group2}).group;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
-  retval = NEXT_FUNC(Group_compare)(realGroup1, realGroup2, result);
+  retval = NEXT_FUNC(Group_compare)(real_group1, real_group2, result);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -106,13 +88,9 @@ USER_DEFINED_WRAPPER(int, Group_compare, (MPI_Group) group1,
 
 USER_DEFINED_WRAPPER(int, Group_rank, (MPI_Group) group, (int *) rank)
 {
-  int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Group realGroup = VIRTUAL_TO_REAL_GROUP(group);
-  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
-  retval = NEXT_FUNC(Group_rank)(realGroup, rank);
-  RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  int retval = MPI_SUCCESS;
+  mana_group_desc *group_desc = (mana_group_desc*)get_virt_id_desc({.group = group});
+  *rank = group_desc->rank;
   return retval;
 }
 
@@ -121,15 +99,12 @@ USER_DEFINED_WRAPPER(int, Group_incl, (MPI_Group) group, (int) n,
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Group realGroup = VIRTUAL_TO_REAL_GROUP(group);
+  MPI_Group real_group = get_real_id({.group = group}).group;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
-  retval = NEXT_FUNC(Group_incl)(realGroup, n, ranks, newgroup);
+  retval = NEXT_FUNC(Group_incl)(real_group, n, ranks, newgroup);
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS && MPI_LOGGING()) {
-    MPI_Group virtGroup = ADD_NEW_GROUP(*newgroup);
-    *newgroup = virtGroup;
-    FncArg rs = CREATE_LOG_BUF(ranks, n * sizeof(int));
-    LOG_CALL(restoreGroups, Group_incl, group, n, rs, *newgroup);
+    *newgroup = new_virt_group(*newgroup);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -141,11 +116,11 @@ USER_DEFINED_WRAPPER(int, Group_translate_ranks, (MPI_Group) group1,
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Group realGroup1 = VIRTUAL_TO_REAL_GROUP(group1);
-  MPI_Group realGroup2 = VIRTUAL_TO_REAL_GROUP(group2);
+  MPI_Group real_group1 = get_real_id({.group = group1}).group;
+  MPI_Group real_group2 = get_real_id({.group = group2}).group;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
-  retval = NEXT_FUNC(Group_translate_ranks)(realGroup1, n, ranks1,
-                                            realGroup2, ranks2);
+  retval = NEXT_FUNC(Group_translate_ranks)(real_group1, n, ranks1,
+                                            real_group2, ranks2);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;

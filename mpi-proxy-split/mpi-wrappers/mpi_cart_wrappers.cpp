@@ -29,7 +29,7 @@
 
 #include "mpi_nextfunc.h"
 #include "record-replay.h"
-#include "virtual-ids.h"
+#include "virtual_id.h"
 #ifdef SINGLE_CART_REORDER
 #include "two-phase-algo.h"
 #include "seq_num.h"
@@ -44,7 +44,7 @@ USER_DEFINED_WRAPPER(int, Cart_coords, (MPI_Comm) comm, (int) rank,
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+  MPI_Comm realComm = get_real_id({.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Cart_coords)(realComm, rank, maxdims, coords);
   RETURN_TO_UPPER_HALF();
@@ -57,7 +57,7 @@ USER_DEFINED_WRAPPER(int, Cart_get, (MPI_Comm) comm, (int) maxdims,
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+  MPI_Comm realComm = get_real_id({.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Cart_get)(realComm, maxdims, dims, periods, coords);
   RETURN_TO_UPPER_HALF();
@@ -70,7 +70,7 @@ USER_DEFINED_WRAPPER(int, Cart_map, (MPI_Comm) comm, (int) ndims,
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+  MPI_Comm realComm = get_real_id({.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   // FIXME: Need to virtualize this newrank??
   retval = NEXT_FUNC(Cart_map)(realComm, ndims, dims, periods, newrank);
@@ -89,7 +89,7 @@ USER_DEFINED_WRAPPER(int, Cart_rank, (MPI_Comm) comm,
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+  MPI_Comm realComm = get_real_id({.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Cart_rank)(realComm, coords, rank);
   RETURN_TO_UPPER_HALF();
@@ -102,7 +102,7 @@ USER_DEFINED_WRAPPER(int, Cart_shift, (MPI_Comm) comm, (int) direction,
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+  MPI_Comm realComm = get_real_id({.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Cart_shift)(realComm, direction,
                                  disp, rank_source, rank_dest);
@@ -121,19 +121,14 @@ USER_DEFINED_WRAPPER(int, Cart_sub, (MPI_Comm) comm,
   int retval;
 
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+  MPI_Comm realComm = get_real_id({.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Cart_sub)(realComm, remain_dims, new_comm);
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS && MPI_LOGGING()) {
     int ndims = 0;
     MPI_Cartdim_get(comm, &ndims);
-    MPI_Comm virtComm = ADD_NEW_COMM(*new_comm);
-    VirtualGlobalCommId::instance().createGlobalId(virtComm);
-    *new_comm = virtComm;
-    active_comms.insert(virtComm);
-    FncArg rs = CREATE_LOG_BUF(remain_dims, ndims * sizeof(int));
-    LOG_CALL(restoreCarts, Cart_sub, comm, ndims, rs, virtComm);
+    *new_comm = new_virt_comm(*new_comm);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -143,7 +138,7 @@ USER_DEFINED_WRAPPER(int, Cartdim_get, (MPI_Comm) comm, (int *) ndims)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+  MPI_Comm realComm = get_real_id({.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Cartdim_get)(realComm, ndims);
   RETURN_TO_UPPER_HALF();
@@ -181,7 +176,7 @@ USER_DEFINED_WRAPPER(int, Cart_create, (MPI_Comm)old_comm, (int)ndims,
   std::function<int()> realBarrierCb = [=]() {
     int retval;
     DMTCP_PLUGIN_DISABLE_CKPT();
-    MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(old_comm);
+    MPI_Comm realComm = get_real_id(old_comm).comm;
     JUMP_TO_LOWER_HALF(lh_info->fsaddr);
     retval = NEXT_FUNC(Cart_create)(realComm, ndims, dims, periods, reorder,
                                     comm_cart);
@@ -201,15 +196,7 @@ USER_DEFINED_WRAPPER(int, Cart_create, (MPI_Comm)old_comm, (int)ndims,
                     g_cartesian_properties.coordinates);
 
     if (retval == MPI_SUCCESS && MPI_LOGGING()) {
-      MPI_Comm virtComm = ADD_NEW_COMM(*comm_cart);
-      VirtualGlobalCommId::instance().createGlobalId(virtComm);
-      *comm_cart = virtComm;
-      active_comms.insert(virtComm);
-
-      FncArg ds = CREATE_LOG_BUF(dims, ndims * sizeof(int));
-      FncArg ps = CREATE_LOG_BUF(periods, ndims * sizeof(int));
-      LOG_CALL(restoreCarts, Cart_create, old_comm, ndims, ds, ps, reorder,
-               virtComm);
+      *comm_cart = new_virt_comm(*comm_cart);
     }
     DMTCP_PLUGIN_ENABLE_CKPT();
     return retval;
@@ -244,20 +231,13 @@ USER_DEFINED_WRAPPER(int, Cart_create, (MPI_Comm) old_comm, (int) ndims,
                                      "support reordered ranks.");
   reorder = 0;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(old_comm);
+  MPI_Comm realComm = get_real_id({.comm = old_comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Cart_create)(realComm, ndims, dims,
                                   periods, reorder, comm_cart);
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS && MPI_LOGGING()) {
-    MPI_Comm virtComm = ADD_NEW_COMM(*comm_cart);
-    VirtualGlobalCommId::instance().createGlobalId(virtComm);
-    *comm_cart = virtComm;
-    active_comms.insert(virtComm);
-    FncArg ds = CREATE_LOG_BUF(dims, ndims * sizeof(int));
-    FncArg ps = CREATE_LOG_BUF(periods, ndims * sizeof(int));
-    LOG_CALL(restoreCarts, Cart_create, old_comm, ndims,
-             ds, ps, reorder, virtComm);
+    *comm_cart = new_virt_comm(*comm_cart);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;

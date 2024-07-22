@@ -30,7 +30,7 @@
 #include "jfilesystem.h"
 #include "protectedfds.h"
 #include "mpi_nextfunc.h"
-#include "virtual-ids.h"
+#include "virtual_id.h"
 #include "record-replay.h"
 // To support MANA_P2P_LOG and MANA_P2P_REPLAY:
 #include "p2p-deterministic.h"
@@ -42,16 +42,6 @@ USER_DEFINED_WRAPPER(int, Send,
                      (int) dest, (int) tag, (MPI_Comm) comm)
 {
   int retval;
-#if 0
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-  MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
-  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
-  retval = NEXT_FUNC(Send)(buf, count, realType, dest, tag, realComm);
-  RETURN_TO_UPPER_HALF();
-  updateLocalSends(count);
-  DMTCP_PLUGIN_ENABLE_CKPT();
-#else
   MPI_Request req;
   MPI_Status st;
   retval = MPI_Isend(buf, count, datatype, dest, tag, comm, &req);
@@ -61,7 +51,6 @@ USER_DEFINED_WRAPPER(int, Send,
   p2p_deterministic_skip_save_request = 1;
   retval = MPI_Wait(&req, &st);
   p2p_deterministic_skip_save_request = 0;
-#endif
   return retval;
 }
 
@@ -72,8 +61,8 @@ USER_DEFINED_WRAPPER(int, Isend,
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-  MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
+  MPI_Comm realComm = get_real_id({.comm = comm}).comm;
+  MPI_Datatype realType = get_real_id({.datatype = datatype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Isend)(buf, count, realType, dest, tag, realComm, request);
   RETURN_TO_UPPER_HALF();
@@ -89,8 +78,7 @@ USER_DEFINED_WRAPPER(int, Isend,
     fflush(stdout);
 #endif
     // Virtualize request
-    MPI_Request virtRequest = ADD_NEW_REQUEST(*request);
-    *request = virtRequest;
+    *request = new_virt_request(*request);
     addPendingRequestToLog(ISEND_REQUEST, buf, NULL, count,
                            datatype, dest, tag, comm, *request);
 #ifdef USE_REQUEST_LOG
@@ -108,8 +96,8 @@ USER_DEFINED_WRAPPER(int, Rsend, (const void*) ibuf, (int) count,
   // FIXME: Implement this wrapper with MPI_Irsend
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-  MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
+  MPI_Comm realComm = get_real_id({.comm = comm}).comm;
+  MPI_Datatype realType = get_real_id({.datatype = datatype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Rsend)(ibuf, count, realType, dest, tag, realComm);
   RETURN_TO_UPPER_HALF();
@@ -136,14 +124,6 @@ USER_DEFINED_WRAPPER(int, Recv,
                      (MPI_Comm) comm, (MPI_Status *) status)
 {
   int retval;
-#if 0
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-  MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
-  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
-  retval = NEXT_FUNC(Recv)(buf, count, realType, source, tag, realComm, status);
-  RETURN_TO_UPPER_HALF();
-#else
   MPI_Request req;
   retval = MPI_Irecv(buf, count, datatype, source, tag, comm, &req);
   if (retval != MPI_SUCCESS) {
@@ -151,8 +131,6 @@ USER_DEFINED_WRAPPER(int, Recv,
   }
   p2p_deterministic_skip_save_request = 0;
   retval = MPI_Wait(&req, status);
-#endif
-  // updateLocalRecvs();
 #if 0
   DMTCP_PLUGIN_ENABLE_CKPT();
 #endif
@@ -203,8 +181,10 @@ USER_DEFINED_WRAPPER(int, Irecv,
     // FIXME:  In the wrappers for MPI_Waitany/Waitsome/Testany/Testsome
     //    We should add a comment that MPI_REQUEST_FAKE_NULL can occr,
     //    and that the details are in the comments for the MPI_Irecv wrapper.
-    MPI_Request virtRequest = ADD_NEW_REQUEST(MPI_REQUEST_NULL+1);
-    UPDATE_REQUEST_MAP(virtRequest, MPI_REQUEST_NULL);
+    MPI_Request virtRequest = new_virt_request(MPI_REQUEST_NULL+1);
+    mana_handle real_request_null;
+    real_request_null.request = MPI_REQUEST_NULL;
+    update_virt_id({.request = virtRequest}, real_request_null, NULL);
     *request = virtRequest;
     retval = MPI_SUCCESS;
     DMTCP_PLUGIN_ENABLE_CKPT();
@@ -213,15 +193,14 @@ USER_DEFINED_WRAPPER(int, Irecv,
   LOG_PRE_Irecv(&status);
   REPLAY_PRE_Irecv(count,datatype,source,tag,comm);
 
-  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
-  MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
+  MPI_Comm realComm = get_real_id({.comm = comm}).comm;
+  MPI_Datatype realType = get_real_id({.datatype = datatype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Irecv)(buf, count, realType,
                             source, tag, realComm, request);
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS) {
-    MPI_Request virtRequest = ADD_NEW_REQUEST(*request);
-    *request = virtRequest;
+    *request = new_virt_request(*request);
     addPendingRequestToLog(IRECV_REQUEST, NULL, buf, count,
                            datatype, source, tag, comm, *request);
 #ifdef USE_REQUEST_LOG
@@ -243,7 +222,7 @@ USER_DEFINED_WRAPPER(int, Sendrecv, (const void *) sendbuf, (int) sendcount,
   int retval;
 #if 0
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+  MPI_Comm realComm = get_real_id(comm).real_comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Sendrecv)(sendbuf, sendcount, sendtype, dest, sendtag,
                                recvbuf, recvcount, recvtype, source, recvtag,

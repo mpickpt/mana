@@ -28,7 +28,7 @@
 #include "protectedfds.h"
 #include "mpi_nextfunc.h"
 #include "record-replay.h"
-#include "virtual-ids.h"
+#include "virtual_id.h"
 
 using namespace dmtcp_mpi;
 
@@ -42,10 +42,11 @@ USER_DEFINED_WRAPPER(int, Op_create,
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Op_create)(user_fn, commute, op);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
-    MPI_Op virtOp = ADD_NEW_OP(*op);
-    *op = virtOp;
-    LOG_CALL(restoreOps, Op_create, user_fn, commute, virtOp);
+  if (retval == MPI_SUCCESS) {
+    *op = new_virt_op(*op);
+    mana_op_desc *op_desc = (mana_op_desc*)get_virt_id_desc({.op = *op});
+    op_desc->user_fn = user_fn;
+    op_desc->commute = commute;
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -55,20 +56,15 @@ USER_DEFINED_WRAPPER(int, Op_free, (MPI_Op*) op)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Op realOp = MPI_OP_NULL;
+  MPI_Op real_op = MPI_OP_NULL;
   if (op) {
-    realOp = VIRTUAL_TO_REAL_OP(*op);
+    real_op = get_real_id({.op = *op}).op;
   }
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
-  retval = NEXT_FUNC(Op_free)(&realOp);
+  retval = NEXT_FUNC(Op_free)(&real_op);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
-    // NOTE: We cannot remove the old op, since we'll need
-    // to replay this call to reconstruct any new op that might
-    // have been created using this op.
-    //
-    // realOp = REMOVE_OLD_OP(*op);
-    LOG_CALL(restoreOps, Op_free, *op);
+  if (retval == MPI_SUCCESS) {
+    free_virt_id({.op = *op});
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -80,10 +76,10 @@ USER_DEFINED_WRAPPER(int, Reduce_local,
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
-  MPI_Op realOp = VIRTUAL_TO_REAL_OP(op);
+  MPI_Datatype real_datatype = get_real_id({.datatype = datatype}).datatype;
+  MPI_Op real_op = get_real_id({.op = op}).op;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
-  retval = NEXT_FUNC(Reduce_local)(inbuf, inoutbuf, count, realType, realOp);
+  retval = NEXT_FUNC(Reduce_local)(inbuf, inoutbuf, count, real_datatype, real_op);
   RETURN_TO_UPPER_HALF();
   // This is non-blocking.  No need to log it.
   DMTCP_PLUGIN_ENABLE_CKPT();

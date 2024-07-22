@@ -33,7 +33,7 @@
 #include "p2p_drain_send_recv.h"
 #include "mpi_plugin.h"
 #include "mpi_nextfunc.h"
-#include "virtual-ids.h"
+#include "virtual_id.h"
 // To support MANA_P2P_LOG and MANA_P2P_REPLAY:
 #include "p2p-deterministic.h"
 
@@ -43,15 +43,15 @@ int MPI_Test_internal(MPI_Request *request, int *flag, MPI_Status *status,
                       bool isRealRequest)
 {
   int retval;
-  MPI_Request realRequest;
+  MPI_Request real_request;
   if (isRealRequest) {
-    realRequest = *request;
+    real_request = *request;
   } else {
-    realRequest = VIRTUAL_TO_REAL_REQUEST(*request);
+    real_request = get_real_id({.request = *request}).request;
   }
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   // MPI_Test can change the *request argument
-  retval = NEXT_FUNC(Test)(&realRequest, flag, status);
+  retval = NEXT_FUNC(Test)(&real_request, flag, status);
 
   RETURN_TO_UPPER_HALF();
   return retval;
@@ -76,18 +76,18 @@ USER_DEFINED_WRAPPER(int, Test, (MPI_Request*) request,
       statusPtr == FORTRAN_MPI_STATUS_IGNORE) {
     statusPtr = &statusBuffer;
   }
-  MPI_Request realRequest;
-  realRequest = VIRTUAL_TO_REAL_REQUEST(*request);
-  if (*request != MPI_REQUEST_NULL && realRequest == MPI_REQUEST_NULL) {
+  MPI_Request real_request;
+  real_request = get_real_id({.request = *request}).request;
+  if (*request != MPI_REQUEST_NULL && real_request == MPI_REQUEST_NULL) {
     *flag = 1;
-    REMOVE_OLD_REQUEST(*request);
+    free_virt_id({.request = *request});
     *request = MPI_REQUEST_NULL;
     DMTCP_PLUGIN_ENABLE_CKPT();
     // FIXME: We should also fill in the status
     return MPI_SUCCESS;
   }
 
-  retval = MPI_Test_internal(&realRequest, flag, statusPtr, true);
+  retval = MPI_Test_internal(&real_request, flag, statusPtr, true);
   // Updating global counter of recv bytes
   // FIXME: This if statement should be merged into
   // clearPendingRequestFromLog()
@@ -111,7 +111,7 @@ USER_DEFINED_WRAPPER(int, Test, (MPI_Request*) request,
   LOG_POST_Test(request, statusPtr);
   if (retval == MPI_SUCCESS && *flag && MPI_LOGGING()) {
     clearPendingRequestFromLog(*request);
-    REMOVE_OLD_REQUEST(*request);
+    free_virt_id({.request = *request});
     LOG_REMOVE_REQUEST(*request); // remove from record-replay log
     *request = MPI_REQUEST_NULL;
   }
@@ -200,7 +200,7 @@ USER_DEFINED_WRAPPER(int, Waitall, (int) count,
                      (MPI_Request *) array_of_requests,
                      (MPI_Status *) array_of_statuses)
 {
-  // FIXME: Revisit this wrapper - call VIRTUAL_TO_REAL_REQUEST on array
+  // FIXME: Revisit this wrapper - call get_real_id on array
   int retval = MPI_SUCCESS;
 #if 0
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -298,7 +298,7 @@ USER_DEFINED_WRAPPER(int, Waitany, (int) count,
 
         if (MPI_LOGGING()) {
           clearPendingRequestFromLog(local_array_of_requests[i]);
-          REMOVE_OLD_REQUEST(local_array_of_requests[i]);
+          free_virt_id({.request = local_array_of_requests[i]});
           local_array_of_requests[i] = MPI_REQUEST_NULL;
         }
 
@@ -365,7 +365,7 @@ USER_DEFINED_WRAPPER(int, Wait, (MPI_Request*) request, (MPI_Status*) status)
     }
     if (flag && MPI_LOGGING()) {
       clearPendingRequestFromLog(*request); // Remove from g_nonblocking_calls
-      REMOVE_OLD_REQUEST(*request); // Remove from virtual id
+      free_virt_id({.request = *request}); // Remove from virtual id
       LOG_REMOVE_REQUEST(*request); // Remove from record-replay log
       *request = MPI_REQUEST_NULL;
     }
@@ -392,7 +392,7 @@ USER_DEFINED_WRAPPER(int, Iprobe, (int) source, (int) tag, (MPI_Comm) comm,
   DMTCP_PLUGIN_DISABLE_CKPT();
   // LOG_PRE_Iprobe(status);
 
-  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(comm);
+  MPI_Comm realComm = get_real_id({.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Iprobe)(source, tag, realComm, flag, status);
   RETURN_TO_UPPER_HALF();
@@ -407,9 +407,9 @@ USER_DEFINED_WRAPPER(int, Request_get_status, (MPI_Request) request,
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Request realRequest = VIRTUAL_TO_REAL_REQUEST(request);
+  MPI_Request real_request = get_real_id({.request = request}).request;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
-  retval = NEXT_FUNC(Request_get_status)(realRequest, flag, status);
+  retval = NEXT_FUNC(Request_get_status)(real_request, flag, status);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;

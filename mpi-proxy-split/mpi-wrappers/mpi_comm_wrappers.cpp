@@ -93,12 +93,14 @@ static const int MPI_WTIME_IS_GLOBAL_VAL = 0;
 
 USER_DEFINED_WRAPPER(int, Comm_size, (MPI_Comm) comm, (int *) world_size)
 {
-  return get_virt_id_desc(comm)->group_desc->size;
+  mana_comm_desc *comm_desc = (mana_comm_desc*)get_virt_id_desc({.comm = comm});
+  return comm_desc->group_desc->size;
 }
 
 USER_DEFINED_WRAPPER(int, Comm_rank, (MPI_Comm) comm, (int *) world_rank)
 {
-  return get_virt_id_desc(comm)->gropu_desc->rank;
+  mana_comm_desc *comm_desc = (mana_comm_desc*)get_virt_id_desc({.comm = comm});
+  return comm_desc->group_desc->rank;
 }
 
 USER_DEFINED_WRAPPER(int, Comm_create, (MPI_Comm) comm, (MPI_Group) group,
@@ -107,8 +109,8 @@ USER_DEFINED_WRAPPER(int, Comm_create, (MPI_Comm) comm, (MPI_Group) group,
   int retval;
   commit_begin(comm, false);
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm real_comm = get_real_id(comm);
-  MPI_Group real_group = get_real_id(group);
+  MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
+  MPI_Group real_group = get_real_id({.group = group}).group;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Comm_create)(real_comm, real_group, newcomm);
   RETURN_TO_UPPER_HALF();
@@ -118,7 +120,7 @@ USER_DEFINED_WRAPPER(int, Comm_create, (MPI_Comm) comm, (MPI_Group) group,
     // TODO: Fix the ggid design
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
-  commit_finish();
+  commit_finish(comm, false);
   return retval;
 }
 
@@ -126,7 +128,7 @@ USER_DEFINED_WRAPPER(int, Abort, (MPI_Comm) comm, (int) errorcode)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm real_comm = get_real_id(comm);
+  MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Abort)(real_comm, errorcode);
   RETURN_TO_UPPER_HALF();
@@ -139,8 +141,8 @@ USER_DEFINED_WRAPPER(int, Comm_compare,
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm real_comm1 = get_real_id(comm1);
-  MPI_Comm real_comm2 = get_real_id(comm2);
+  MPI_Comm real_comm1 = get_real_id({.comm = comm1}).comm;
+  MPI_Comm real_comm2 = get_real_id({.comm = comm2}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Comm_compare)(real_comm1, real_comm2, result);
   RETURN_TO_UPPER_HALF();
@@ -154,7 +156,7 @@ int
 MPI_Comm_free_internal(MPI_Comm *comm)
 {
   int retval;
-  MPI_Comm real_comm = get_real_id(*comm);
+  MPI_Comm real_comm = get_real_id({.comm = *comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Comm_free)(&real_comm);
   RETURN_TO_UPPER_HALF();
@@ -184,7 +186,7 @@ USER_DEFINED_WRAPPER(int, Comm_free, (MPI_Comm *) comm)
   DMTCP_PLUGIN_DISABLE_CKPT();
   int retval = MPI_Comm_free_internal(comm);
   if (retval == MPI_SUCCESS) {
-    free_virt_id(comm);
+    free_virt_id({.comm = *comm});
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -287,7 +289,7 @@ USER_DEFINED_WRAPPER(int, Comm_set_errhandler,
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm real_comm = get_real_id(comm);
+  MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Comm_set_errhandler)(real_comm, errhandler);
   RETURN_TO_UPPER_HALF();
@@ -303,7 +305,7 @@ USER_DEFINED_WRAPPER(int, Topo_test,
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm real_comm = get_real_id(comm);
+  MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Topo_test)(real_comm, status);
   RETURN_TO_UPPER_HALF();
@@ -316,14 +318,12 @@ USER_DEFINED_WRAPPER(int, Comm_split_type, (MPI_Comm) comm, (int) split_type,
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm real_comm = get_real_id(comm);
+  MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Comm_split_type)(real_comm, split_type, key, inf, newcomm);
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS) {
-    MPI_Comm virtComm = new_virt_comm(*newcomm);
-    *newcomm = virtComm;
-    // FIXME: Fix the ggid logic
+    *newcomm = new_virt_comm(*newcomm);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -336,10 +336,9 @@ USER_DEFINED_WRAPPER(int, Attr_get, (MPI_Comm) comm, (int) keyval,
     "Use of MPI_Attr_get is deprecated - use MPI_Comm_get_attr instead");
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm real_comm = get_real_id(comm);
-  int real_commKeyval = get_real_id_KEYVAL(keyval);
+  MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
-  retval = NEXT_FUNC(Attr_get)(real_comm, real_commKeyval, attribute_val, flag);
+  retval = NEXT_FUNC(Attr_get)(real_comm, keyval, attribute_val, flag);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -352,10 +351,9 @@ USER_DEFINED_WRAPPER(int, Attr_delete, (MPI_Comm) comm, (int) keyval)
     "Use of MPI_Attr_delete is deprecated - use MPI_Comm_delete_attr instead");
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm real_comm = get_real_id(comm);
-  int real_commKeyval = get_real_id_KEYVAL(keyval);
+  MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
-  retval = NEXT_FUNC(Attr_delete)(real_comm, real_commKeyval);
+  retval = NEXT_FUNC(Attr_delete)(real_comm, keyval);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -368,10 +366,9 @@ USER_DEFINED_WRAPPER(int, Attr_put, (MPI_Comm) comm,
     "Use of MPI_Attr_put is deprecated - use MPI_Comm_set_attr instead");
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm real_comm = get_real_id(comm);
-  int real_commKeyval = get_real_id_KEYVAL(keyval);
+  MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
-  retval = NEXT_FUNC(Attr_put)(real_comm, real_commKeyval, attribute_val);
+  retval = NEXT_FUNC(Attr_put)(real_comm, keyval, attribute_val);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -428,8 +425,8 @@ MPI_Comm_create_group_internal(MPI_Comm comm, MPI_Group group, int tag,
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm real_comm = get_real_id(comm);
-  MPI_Group real_group = VIRTUAL_TO_REAL_GROUP(group);
+  MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
+  MPI_Group real_group = get_real_id({.group = group}).group;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Comm_create_group)(real_comm, real_group, tag, newcomm);
   RETURN_TO_UPPER_HALF();
@@ -443,11 +440,9 @@ USER_DEFINED_WRAPPER(int, Comm_create_group, (MPI_Comm) comm,
   commit_begin(comm, false);
   int retval = MPI_Comm_create_group_internal(comm, group, tag, newcomm);
   if (retval == MPI_SUCCESS && MPI_LOGGING()) {
-    MPI_Comm virtComm = new_virt_comm(*newcomm);
-    *newcomm = virtComm;
-    // FIXME: Fix the ggid logic.
+    *newcomm = new_virt_comm(*newcomm);
   }
-  commit_finish(comm);
+  commit_finish(comm, false);
   return retval;
 }
 

@@ -61,7 +61,7 @@ mpi_unimplemented_wrappers.cpp: generate-mpi-unimplemented-wrappers.py \
 mana_p2p_update_logs: mana_p2p_update_logs.c
 	${MPICC} ${CFLAGS} -o $@ $<
 
-.cpp.o: ../virtual-ids.h
+.cpp.o: ../virtual_id.h
 	${MPICXX} ${CXXFLAGS} -c -o $@ $<
 
 p2p-deterministic.h: p2p-deterministic.txt p2p-deterministic.py
@@ -81,7 +81,7 @@ mpi_request_wrappers.o: mpi_request_wrappers.cpp p2p-deterministic.h
 fortran_constants.o: fortran_constants.f90
 	${MPIFORTRAN} ${CFLAGS} -fPIC -c -o $@ $<
 
-mpi_collective_wrappers.o: mpi_collective_wrappers.cpp ../virtual-ids.h \
+mpi_collective_wrappers.o: mpi_collective_wrappers.cpp ../virtual_id.h \
                            mpi_collective_p2p.c
 	if [ ! -z "$$MPI_COLLECTIVE_P2P" ]; then \
 	  DEFINE_mpi_collective_p2p="-DMPI_COLLECTIVE_P2P"; \
@@ -92,7 +92,7 @@ mpi_collective_wrappers.o: mpi_collective_wrappers.cpp ../virtual-ids.h \
           -I.. -I../lower-half -c $<
 
 # Some of these functions are also collective; e.g., MPI_Win_allocate_shared
-mpi_win_wrappers.o: mpi_win_wrappers.cpp ../virtual-ids.h
+mpi_win_wrappers.o: mpi_win_wrappers.cpp ../virtual_id.h
 	${MPICXX} ${CXXFLAGS} -Wall -DDEBUG -fPIC \
           -I.. -I../lower-half -c $<
 

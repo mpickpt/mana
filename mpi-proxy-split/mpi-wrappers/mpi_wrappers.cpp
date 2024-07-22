@@ -135,7 +135,7 @@ USER_DEFINED_WRAPPER(int, Get_count,
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(datatype);
+  MPI_Datatype realType = get_real_id({.datatype = datatype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Get_count)(status, realType, count);
   RETURN_TO_UPPER_HALF();

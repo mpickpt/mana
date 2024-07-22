@@ -4,7 +4,7 @@
 #include "virtual_id.h"
 #include "switch_context.h"
 
-virt_id_table virt_ids;
+std::unordered_map<int, virt_id_entry*> virt_ids;
 
 // Hash function on integers. Consult https://stackoverflow.com/questions/664014/.
 // Returns a hash.
@@ -12,7 +12,7 @@ inline int hash(int i) {
   return i * 2654435761 % ((unsigned long)1 << 32);
 }
 
-int get_ggid(int *ranks, int size) {
+int generate_ggid(int *ranks, int size) {
   int ggid = 0;
   for (int i = 0; i < size; i++) {
     ggid ^= hash(ranks[i] + 1);
@@ -25,7 +25,6 @@ MPI_Comm new_virt_comm(MPI_Comm real_comm) {
   int *local_ranks;
   mana_comm_desc *desc = (mana_comm_desc*)malloc(sizeof(mana_comm_desc));
 
-  desc->real_id = real_comm;
   // Cache the group of the communicator
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   NEXT_FUNC(Comm_group)(real_comm, &local_group);
@@ -33,19 +32,32 @@ MPI_Comm new_virt_comm(MPI_Comm real_comm) {
   desc->group = new_virt_group(local_group);
   desc->group_desc = get_virt_id_desc(virt_ids, desc->group);
 
-  desc->ggid = generate_ggid(desc->group_desc->global_ranks,
-                             desc->group_desc->size);
-  desc->seq_num = 0;
-  desc->target_num = 0;
+  int ggid = generate_ggid(desc->group_desc->global_ranks,
+                           desc->group_desc->size);
+  std::unordered_map<int, mana_ggid_desc*>::iterator it = ggid_table.find(ggid);
+  if (it != ggid.end()) {
+    mana_ggid_desc *ggid_desc = malloc(sizeof(mana_comm_ggid));
+    ggid_desc->seq_num = 0;
+    ggid_desc->target_num = 0;
+    ggid_table[ggid] = ggid_desc;
 
-  return (MPI_Comm)add_virt_id(virt_ids, real_comm, desc, COMM_MASK);
+    desc->ggid_desc = ggid_desc;
+  } else {
+    desc->ggid_desc = it.second;
+  }
+
+  mana_handle real_id, virt_id;
+  real_id.comm = real_comm;
+  virt_id = add_virt_id(real_id, desc, COMM_KIND);
+
+  return virt_id.comm;
 }
 
 MPI_Group new_virt_group(MPI_Group real_group) {
   int *local_ranks;
   mana_group_desc *desc = (mana_group_desc*)malloc(sizeof(mana_group_desc));
 
-  desc->real_id = real_group;
+  desc->ref_count = 1;
   JUMP_TO_LOWER_HALF(lh_info.fsaddr);
   NEXT_FUNC(Group_size)(real_comm, &desc->size);
   NEXT_FUNC(Group_rank)(real_comm, &desc->rank);
@@ -61,13 +73,21 @@ MPI_Group new_virt_group(MPI_Group real_group) {
   NEXT_FUNC(Group_free)(local_group);
   RETURN_TO_UPPER_HALF();
 
-  return (MPI_Comm)add_virt_id(virt_ids, real_group, desc, GROUP_MASK);
+  mana_handle real_id, virt_id;
+  real_id.group = real_group;
+  virt_id = add_virt_id(real_id, desc, GROUP_KIND);
+
+  return virt_id.group;
 }
 
-MPI_Request new_virt_req(MPI_Request real_req) {
+MPI_Request new_virt_req(MPI_Request real_request) {
   mana_request_desc *desc = (mana_request_desc*)malloc(sizeof(mana_request_desc));
   // See comment in request_desc definition.
-  return (MPI_Comm)add_virt_id(virt_ids, real_req, NULL, REQUEST_MASK);
+  mana_handle real_id, virt_id;
+  real_id.request = real_request;
+  virt_id = add_virt_id(real_req, NULL, REQUEST_KIND);
+
+  return virt_id.request;
 }
 
 MPI_Op new_virt_op(MPI_Op real_op) {
@@ -76,15 +96,30 @@ MPI_Op new_virt_op(MPI_Op real_op) {
   // So this function only creates the descriptor for the real_op,
   // and let the MPI_Op_create wrapper to fill-in these two fields
   // in the descriptor.
-  return (MPI_Comm)add_virt_id(virt_ids, real_op, desc, OP_MASK);
+
+  mana_handle real_id, virt_id;
+  real_id.op = real_op;
+  virt_id = add_virt_id(real_op, desc, OP_KIND);
+
+  return virt_id.op;
 }
 
 MPI_Datatype new_virt_datatype(MPI_Datatype real_datatype) {
   mana_datatype_desc *desc = (mana_datatype_desc*)
                              malloc(sizeof(mana_datatype_desc));
-  desc->real_id = real_datatype;
   // TODO: Fill Datatype information in the struct
 
-  return (MPI_Comm)add_virt_id(virt_ids, real_datatype, desc, DATATYPE_MASK);
+  mana_handle real_id, virt_id;
+  real_id.datatype = real_datatype;
+  virt_id = add_virt_id(real_datatype, desc, DATATYPE_KIND);
+
+  return virt_id.datatype;
 }
 
+// TODO: Do we need take special care of these two handle types?
+MPI_File new_virt_file(MPI_File real_file) {
+  mana_handle real_id, virt_id;
+  real_id.file = real_file;
+  virt_id = add_virt_id(real_file, NULL, NULL);
+  return virt_id.file;
+}

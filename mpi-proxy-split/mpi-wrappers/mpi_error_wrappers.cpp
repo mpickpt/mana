@@ -29,7 +29,6 @@
 
 #include "mpi_nextfunc.h"
 #include "record-replay.h"
-#include "virtual-ids.h"
 
 DEFINE_FNC(int, Error_class, (int) errorcode, (int *) errorclass);
 DEFINE_FNC(int, Error_string, (int) errorcode, (char *) string,

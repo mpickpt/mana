@@ -30,7 +30,7 @@
 #include "record-replay.h"
 #include "mpi_nextfunc.h"
 #include "seq_num.h"
-#include "virtual-ids.h"
+#include "virtual_id.h"
 #include "p2p_log_replay.h"
 #include "p2p_drain_send_recv.h"
 
@@ -61,10 +61,10 @@ USER_DEFINED_WRAPPER(int, Bcast,
   commit_begin(comm, passthrough);
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm realComm = get_real_id(comm);
-  MPI_Datatype realType = get_real_id(datatype);
+  MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
+  MPI_Datatype real_datatype = get_real_id({.datatype = datatype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
-  retval = NEXT_FUNC(Bcast)(buffer, count, realType, root, realComm);
+  retval = NEXT_FUNC(Bcast)(buffer, count, real_datatype, root, real_comm);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
   commit_finish(comm, passthrough);
@@ -78,11 +78,11 @@ USER_DEFINED_WRAPPER(int, Ibcast,
   int retval;
   commit_begin(comm, false);
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm realComm = get_real_id(comm);
-  MPI_Datatype realType = get_real_id(datatype);
+  MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
+  MPI_Datatype real_datatype = get_real_id({.datatype = datatype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
-  retval = NEXT_FUNC(Ibcast)(buffer, count, realType,
-      root, realComm, request);
+  retval = NEXT_FUNC(Ibcast)(buffer, count, real_datatype,
+      root, real_comm, request);
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS) {
     MPI_Request virtRequest = new_virt_request(*request);
@@ -102,9 +102,9 @@ USER_DEFINED_WRAPPER(int, Barrier, (MPI_Comm) comm)
   commit_begin(comm, passthrough);
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm realComm = get_real_id(comm);
+  MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
-  retval = NEXT_FUNC(Barrier)(realComm);
+  retval = NEXT_FUNC(Barrier)(real_comm);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
   commit_finish(comm, passthrough);
@@ -116,9 +116,9 @@ USER_DEFINED_WRAPPER(int, Ibarrier, (MPI_Comm) comm, (MPI_Request *) request)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm realComm = get_real_id(comm);
+  MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
-  retval = NEXT_FUNC(Ibarrier)(realComm, request);
+  retval = NEXT_FUNC(Ibarrier)(real_comm, request);
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS) {
     MPI_Request virtRequest = new_virt_request(*request);
@@ -226,16 +226,16 @@ USER_DEFINED_WRAPPER(int, Allreduce,
     retval = MPI_Allreduce_reproducible(sendbuf, recvbuf, count, datatype, op,
                                         comm, 0);
   else {
-    MPI_Comm realComm = get_real_id(comm);
-    MPI_Datatype realType = get_real_id(datatype);
-    MPI_Op realOp = get_real_id(op);
+    MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
+    MPI_Datatype real_datatype = get_real_id({.datatype = datatype}).datatype;
+    MPI_Op real_op = get_real_id({.op = op}).op;
     // FIXME: Ideally, check FORTRAN_MPI_IN_PLACE only in the Fortran wrapper.
     if (sendbuf == FORTRAN_MPI_IN_PLACE) {
       sendbuf = MPI_IN_PLACE;
     }
     JUMP_TO_LOWER_HALF(lh_info->fsaddr);
     retval =
-      NEXT_FUNC(Allreduce)(sendbuf, recvbuf, count, realType, realOp, realComm);
+      NEXT_FUNC(Allreduce)(sendbuf, recvbuf, count, real_datatype, real_op, real_comm);
     RETURN_TO_UPPER_HALF();
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -252,16 +252,16 @@ USER_DEFINED_WRAPPER(int, Reduce,
   commit_begin(comm, passthrough);
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm realComm = get_real_id(comm);
-  MPI_Datatype realType = get_real_id(datatype);
-  MPI_Op realOp = get_real_id(op);
+  MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
+  MPI_Datatype real_datatype = get_real_id({.datatype = datatype}).datatype;
+  MPI_Op real_op = get_real_id({.op = op}).op;
   // FIXME: Ideally, check FORTRAN_MPI_IN_PLACE only in the Fortran wrapper.
   if (sendbuf == FORTRAN_MPI_IN_PLACE) {
     sendbuf = MPI_IN_PLACE;
   }
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Reduce)(sendbuf, recvbuf, count,
-                             realType, realOp, root, realComm);
+                             real_datatype, real_op, root, real_comm);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
   commit_finish(comm, passthrough);
@@ -275,22 +275,20 @@ USER_DEFINED_WRAPPER(int, Ireduce,
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm realComm = get_real_id(comm);
-  MPI_Datatype realType = get_real_id(datatype);
-  MPI_Op realOp = get_real_id(op);
+  MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
+  MPI_Datatype real_datatype = get_real_id({.datatype = datatype}).datatype;
+  MPI_Op real_op = get_real_id({.op = op}).op;
   // FIXME: Ideally, check FORTRAN_MPI_IN_PLACE only in the Fortran wrapper.
   if (sendbuf == FORTRAN_MPI_IN_PLACE) {
     sendbuf = MPI_IN_PLACE;
   }
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Ireduce)(sendbuf, recvbuf, count,
-      realType, realOp, root, realComm, request);
+      real_datatype, real_op, root, real_comm, request);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
-    MPI_Request virtRequest = ADD_NEW_REQUEST(*request);
+  if (retval == MPI_SUCCESS) {
+    MPI_Request virtRequest = new_virt_request(*request);
     *request = virtRequest;
-    LOG_CALL(restoreRequests, Ireduce, sendbuf, recvbuf,
-        count, datatype, op, root, comm, *request);
 #ifdef USE_REQUEST_LOG
     logRequestInfo(*request, IREDUCE_REQUEST);
 #endif
@@ -308,16 +306,16 @@ USER_DEFINED_WRAPPER(int, Reduce_scatter,
   commit_begin(comm, passthrough);
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm realComm = get_real_id(comm);
-  MPI_Datatype realType = get_real_id(datatype);
-  MPI_Op realOp = get_real_id(op);
+  MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
+  MPI_Datatype real_datatype = get_real_id({.datatype = datatype}).datatype;
+  MPI_Op real_op = get_real_id({.op = op}).op;
   // FIXME: Ideally, check FORTRAN_MPI_IN_PLACE only in the Fortran wrapper.
   if (sendbuf == FORTRAN_MPI_IN_PLACE) {
     sendbuf = MPI_IN_PLACE;
   }
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Reduce_scatter)(sendbuf, recvbuf, recvcounts,
-                                     realType, realOp, realComm);
+                                     real_datatype, real_op, real_comm);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
   commit_finish(comm, passthrough);
@@ -340,16 +338,16 @@ MPI_Alltoall_internal(const void *sendbuf, int sendcount,
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm realComm = get_real_id(comm);
-  MPI_Datatype realSendType = get_real_id(sendtype);
-  MPI_Datatype realRecvType = get_real_id(recvtype);
+  MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
+  MPI_Datatype realSendType = get_real_id({.datatype = sendtype}).datatype;
+  MPI_Datatype realRecvType = get_real_id({.datatype = recvtype}).datatype;
   // FIXME: Ideally, check FORTRAN_MPI_IN_PLACE only in the Fortran wrapper.
   if (sendbuf == FORTRAN_MPI_IN_PLACE) {
     sendbuf = MPI_IN_PLACE;
   }
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Alltoall)(sendbuf, sendcount, realSendType, recvbuf,
-      recvcount, realRecvType, realComm);
+      recvcount, realRecvType, real_comm);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -379,9 +377,9 @@ MPI_Alltoall_internal(const void *sendbuf, int sendcount,
   MPI_Type_get_extent(sendtype, &slb, &sendtype_extent);
   MPI_Type_get_extent(recvtype, &rlb, &recvtype_extent);
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm realComm = get_real_id(comm);
-  MPI_Datatype realSendType = get_real_id(sendtype);
-  MPI_Datatype realRecvType = get_real_id(recvtype);
+  MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
+  MPI_Datatype realSendType = get_real_id({.datatype = sendtype}).datatype;
+  MPI_Datatype realRecvType = get_real_id({.datatype = recvtype}).datatype;
   // FIXME: Ideally, check FORTRAN_MPI_IN_PLACE only in the Fortran wrapper.
   if (sendbuf == FORTRAN_MPI_IN_PLACE) {
     sendbuf = MPI_IN_PLACE;
@@ -400,13 +398,13 @@ MPI_Alltoall_internal(const void *sendbuf, int sendcount,
     for (i = 0; i < ss; i++) {
       dst = (rank + i + ii) % comm_size;
       NEXT_FUNC(Irecv)(recvbuf + dst * recvcount * recvtype_extent, recvcount, realRecvType,
-          dst, MPI_ALLTOALL_TAG, realComm, &reqarray[i]);
+          dst, MPI_ALLTOALL_TAG, real_comm, &reqarray[i]);
     }
     for (i = 0; i < ss; i++) {
       dst = (rank - i - ii + comm_size) % comm_size;
       // MPI_Issend starts a nonblocking synchronous send
       NEXT_FUNC(Issend)(sendbuf + dst * sendcount * sendtype_extent, sendcount, realSendType,
-          dst, MPI_ALLTOALL_TAG, realComm, &reqarray[i + ss]);
+          dst, MPI_ALLTOALL_TAG, real_comm, &reqarray[i + ss]);
     }
   }
   int flag = 0;
@@ -458,13 +456,13 @@ USER_DEFINED_WRAPPER(int, Alltoallv,
     sendbuf = MPI_IN_PLACE;
   }
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm realComm = get_real_id(comm);
-  MPI_Datatype realSendType = get_real_id(sendtype);
-  MPI_Datatype realRecvType = get_real_id(recvtype);
+  MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
+  MPI_Datatype realSendType = get_real_id({.datatype = sendtype}).datatype;
+  MPI_Datatype realRecvType = get_real_id({.datatype = recvtype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Alltoallv)(sendbuf, sendcounts, sdispls, realSendType,
                                 recvbuf, recvcounts, rdispls, realRecvType,
-                                realComm);
+                                real_comm);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
   commit_finish(comm, passthrough);
@@ -483,9 +481,9 @@ USER_DEFINED_WRAPPER(int, Gather, (const void *) sendbuf, (int) sendcount,
     sendbuf = MPI_IN_PLACE;
   }
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm realComm = get_real_id(comm);
-  MPI_Datatype realSendType = get_real_id(sendtype);
-  MPI_Datatype realRecvType = get_real_id(recvtype);
+  MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
+  MPI_Datatype realSendType = get_real_id({.datatype = sendtype}).datatype;
+  MPI_Datatype realRecvType = get_real_id({.datatype = recvtype}).datatype;
   // FIXME: Ideally, check FORTRAN_MPI_IN_PLACE only in the Fortran wrapper.
   if (sendbuf == FORTRAN_MPI_IN_PLACE) {
     sendbuf = MPI_IN_PLACE;
@@ -493,7 +491,7 @@ USER_DEFINED_WRAPPER(int, Gather, (const void *) sendbuf, (int) sendcount,
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Gather)(sendbuf, sendcount, realSendType,
                              recvbuf, recvcount, realRecvType,
-                             root, realComm);
+                             root, real_comm);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
   commit_finish(comm, passthrough);
@@ -513,13 +511,13 @@ USER_DEFINED_WRAPPER(int, Gatherv, (const void *) sendbuf, (int) sendcount,
     sendbuf = MPI_IN_PLACE;
   }
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm realComm = get_real_id(comm);
-  MPI_Datatype realSendType = get_real_id(sendtype);
-  MPI_Datatype realRecvType = get_real_id(recvtype);
+  MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
+  MPI_Datatype realSendType = get_real_id({.datatype = sendtype}).datatype;
+  MPI_Datatype realRecvType = get_real_id({.datatype = recvtype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Gatherv)(sendbuf, sendcount, realSendType,
                               recvbuf, recvcounts, displs, realRecvType,
-                              root, realComm);
+                              root, real_comm);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
   commit_finish(comm, passthrough);
@@ -538,13 +536,13 @@ USER_DEFINED_WRAPPER(int, Scatter, (const void *) sendbuf, (int) sendcount,
     recvbuf = MPI_IN_PLACE;
   }
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm realComm = get_real_id(comm);
-  MPI_Datatype realSendType = get_real_id(sendtype);
-  MPI_Datatype realRecvType = get_real_id(recvtype);
+  MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
+  MPI_Datatype realSendType = get_real_id({.datatype = sendtype}).datatype;
+  MPI_Datatype realRecvType = get_real_id({.datatype = recvtype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Scatter)(sendbuf, sendcount, realSendType,
                               recvbuf, recvcount, realRecvType,
-                              root, realComm);
+                              root, real_comm);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
   commit_finish(comm, passthrough);
@@ -564,13 +562,13 @@ USER_DEFINED_WRAPPER(int, Scatterv, (const void *) sendbuf,
     recvbuf = MPI_IN_PLACE;
   }
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm realComm = get_real_id(comm);
-  MPI_Datatype realSendType = get_real_id(sendtype);
-  MPI_Datatype realRecvType = get_real_id(recvtype);
+  MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
+  MPI_Datatype realSendType = get_real_id({.datatype = sendtype}).datatype;
+  MPI_Datatype realRecvType = get_real_id({.datatype = recvtype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Scatterv)(sendbuf, sendcounts, displs, realSendType,
                                recvbuf, recvcount, realRecvType,
-                               root, realComm);
+                               root, real_comm);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
   commit_finish(comm, passthrough);
@@ -589,13 +587,13 @@ USER_DEFINED_WRAPPER(int, Allgather, (const void *) sendbuf, (int) sendcount,
     sendbuf = MPI_IN_PLACE;
   }
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm realComm = get_real_id(comm);
-  MPI_Datatype realSendType = get_real_id(sendtype);
-  MPI_Datatype realRecvType = get_real_id(recvtype);
+  MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
+  MPI_Datatype realSendType = get_real_id({.datatype = sendtype}).datatype;
+  MPI_Datatype realRecvType = get_real_id({.datatype = recvtype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Allgather)(sendbuf, sendcount, realSendType,
                                 recvbuf, recvcount, realRecvType,
-                                realComm);
+                                real_comm);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
   commit_finish(comm, passthrough);
@@ -615,13 +613,13 @@ USER_DEFINED_WRAPPER(int, Allgatherv, (const void *) sendbuf, (int) sendcount,
     sendbuf = MPI_IN_PLACE;
   }
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm realComm = get_real_id(comm);
-  MPI_Datatype realSendType = get_real_id(sendtype);
-  MPI_Datatype realRecvType = get_real_id(recvtype);
+  MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
+  MPI_Datatype realSendType = get_real_id({.datatype = sendtype}).datatype;
+  MPI_Datatype realRecvType = get_real_id({.datatype = recvtype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Allgatherv)(sendbuf, sendcount, realSendType,
                                  recvbuf, recvcounts, displs, realRecvType,
-                                 realComm);
+                                 real_comm);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
   commit_finish(comm, passthrough);
@@ -636,16 +634,16 @@ USER_DEFINED_WRAPPER(int, Scan, (const void *) sendbuf, (void *) recvbuf,
   commit_begin(comm, passthrough);
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm realComm = get_real_id(comm);
-  MPI_Datatype realType = get_real_id(datatype);
+  MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
+  MPI_Datatype real_datatype = get_real_id({.datatype = datatype}).datatype;
   // FIXME: Ideally, check FORTRAN_MPI_IN_PLACE only in the Fortran wrapper.
   if (sendbuf == FORTRAN_MPI_IN_PLACE) {
     sendbuf = MPI_IN_PLACE;
   }
-  MPI_Op realOp = get_real_id(op);
+  MPI_Op real_op = get_real_id({.op = op}).op;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Scan)(sendbuf, recvbuf, count,
-                           realType, realOp, realComm);
+                           real_datatype, real_op, real_comm);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
   commit_finish(comm, passthrough);
@@ -661,16 +659,12 @@ USER_DEFINED_WRAPPER(int, Comm_split, (MPI_Comm) comm, (int) color, (int) key,
   commit_begin(comm, passthrough);
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm realComm = get_real_id(comm);
+  MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
-  retval = NEXT_FUNC(Comm_split)(realComm, color, key, newcomm);
+  retval = NEXT_FUNC(Comm_split)(real_comm, color, key, newcomm);
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS && MPI_LOGGING()) {
-    MPI_Comm virtComm = ADD_NEW_COMM(*newcomm);
-    VirtualGlobalCommId::instance().createGlobalId(virtComm);
-    *newcomm = virtComm;
-    active_comms.insert(virtComm);
-    LOG_CALL(restoreComms, Comm_split, comm, color, key, *newcomm);
+    *newcomm = new_virt_comm(*newcomm);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   commit_finish(comm, passthrough);
@@ -683,16 +677,12 @@ USER_DEFINED_WRAPPER(int, Comm_dup, (MPI_Comm) comm, (MPI_Comm *) newcomm)
   commit_begin(comm, passthrough);
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm realComm = get_real_id(comm);
+  MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
-  retval = NEXT_FUNC(Comm_dup)(realComm, newcomm);
+  retval = NEXT_FUNC(Comm_dup)(real_comm, newcomm);
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS && MPI_LOGGING()) {
-    MPI_Comm virtComm = ADD_NEW_COMM(*newcomm);
-    VirtualGlobalCommId::instance().createGlobalId(virtComm);
-    *newcomm = virtComm;
-    active_comms.insert(virtComm);
-    LOG_CALL(restoreComms, Comm_dup, comm, *newcomm);
+    *newcomm = new_virt_comm(*newcomm);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   commit_finish(comm, passthrough);
