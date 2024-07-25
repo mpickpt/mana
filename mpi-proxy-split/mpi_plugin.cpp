@@ -48,7 +48,7 @@
 #include "record-replay.h"
 #include "seq_num.h"
 #include "mpi_nextfunc.h"
-#include "virtual-ids.h"
+#include "virtual_id.h"
 #include "uh_wrappers.h"
 #include "logging.h"
 
@@ -76,10 +76,6 @@ void * lh_ckpt_mem_addr = NULL;
 size_t lh_ckpt_mem_size = 0;
 int pagesize = sysconf(_SC_PAGESIZE);
 get_mmapped_list_fptr_t get_mmapped_list_fnc = NULL;
-uh_end_of_heap_t uh_end_of_heap_fnc = NULL;
-set_end_of_heap_t set_end_of_heap_fnc = NULL;
-set_uh_brk_t set_uh_brk_fnc = NULL;
-get_lh_fsaddr_t get_lh_fsaddr_fnc = NULL;
 std::vector<MmapInfo_t> uh_mmaps;
 
 extern ManaHeader g_mana_header;
@@ -322,13 +318,7 @@ dmtcp_skip_memory_region_ckpting(ProcMapsArea *area)
     return 1;
   }
 
-  // If it's the upper-half stack, don't skip
-  if (area->addr < lh_info.uh_stack && area->endAddr > lh_info.uh_stack) {
-    printf("area->addr: %p, area->endAddr %p, lh_info.uh_stack: %p\n", area->addr, area->endAddr, lh_info.uh_stack);
-    return 0;
-  }
-
-  get_mmapped_list_fnc = (get_mmapped_list_fptr_t) lh_info.mmap_list_fptr;
+  get_mmapped_list_fnc = (get_mmapped_list_fptr_t) lh_info->mmap_list_fptr;
   
   int numUhRegions;
   if (uh_mmaps.size() == 0) {
@@ -683,15 +673,15 @@ restore_mpi_files(const char *filename)
     // Re-create file with initial parameters
     int retval;
     MPI_File fh;
-    MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(itr->second._comm);
-    JUMP_TO_LOWER_HALF(lh_info.fsaddr);
-    retval = NEXT_FUNC(File_open)(realComm, itr->second._filepath,
+    MPI_Comm real_comm = get_real_id({.comm = itr->second._comm}).comm;
+    JUMP_TO_LOWER_HALF(lh_info->fsaddr);
+    retval = NEXT_FUNC(File_open)(real_comm, itr->second._filepath,
                                   itr->second._mode, itr->second._info, &fh);
     RETURN_TO_UPPER_HALF();
     JASSERT(retval == 0).Text("Restoration of MPI_File_open failed");
 
     // Update virtual mapping with newly created file
-    UPDATE_FILE_MAP(itr->first, fh);
+    update_virt_id({.file = itr->first}, {.file = fh});
 
     // Restore file characteristics that are universal to the entire file
     // These are characteristics that do not have to be replayed in order,
@@ -806,7 +796,6 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       JASSERT(dmtcp_get_real_tid != NULL);
       initialize_signal_handlers();
       initialize_segv_handler();
-      init_virt_id_table(&virt_ids);
       seq_num_init();
       mana_state = RUNNING;
 
@@ -819,7 +808,6 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       pid_t real_tid = dmtcp_get_real_tid();
       unsigned long fs = getFS();
       g_upper_half_fsbase->insert(std::make_pair(real_tid, fs));
-      DLOG(NOISE, "user thread tid %lu fs %lu inserted\n", real_tid, fs);
 
       if (g_file_flags_map != NULL) {
         delete g_file_flags_map;
@@ -839,10 +827,9 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       break;
     }
     case DMTCP_EVENT_EXIT: {
+      seq_num_destroy();
       printEventToStderr("EVENT_EXIT");
       JTRACE("*** DMTCP_EVENT_EXIT");
-      seq_num_destroy();
-      free_virt_id_table(virt_ids);
       break;
     }
 
@@ -858,7 +845,6 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       pid_t real_tid = dmtcp_get_real_tid();
       unsigned long fs = getFS();
       g_upper_half_fsbase->insert(std::make_pair(real_tid, fs));
-      DLOG(INFO, "pthread_start tid %lu fs %lu inserted\n", real_tid, fs);
       DmtcpMutexUnlock(&g_upper_half_fsbase_lock);
       break;
     }
@@ -869,7 +855,6 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       DmtcpMutexLock(&g_upper_half_fsbase_lock);
       pid_t real_tid = dmtcp_get_real_tid();
       g_upper_half_fsbase->erase(real_tid);
-      DLOG(INFO, "tid %lu fs erased\n", real_tid);
       DmtcpMutexUnlock(&g_upper_half_fsbase_lock);
       break;
     }
@@ -912,9 +897,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       printEventToStderr("EVENT_PRECHECKPOINT (done)");
       // Save a copy of the break address before checkpoint
       old_brk = sbrk(0);
-      uh_stack = lh_info.uh_stack;
-      uh_end_of_heap_fnc = (uh_end_of_heap_t) lh_info.uh_end_of_heap;
-      old_end_of_brk = uh_end_of_heap_fnc();
+      uh_stack = lh_info->uh_stack;
       break;
     }
 
@@ -923,7 +906,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       processingOpenCkpFileFds = false;
       dmtcp_local_barrier("MPI:Reset-Drain-Send-Recv-Counters");
       resetDrainCounters(); // p2p_drain_send_recv.cpp
-      seq_num_reset(RESUME);
+      seq_num_reset();
       dmtcp_local_barrier("MPI:seq_num_reset");
       mana_state = RUNNING;
       printEventToStderr("EVENT_RESUME (done)");
@@ -933,14 +916,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     case DMTCP_EVENT_RESTART: {
       reset_wrappers();
       initialize_wrappers();
-      lh_info.uh_stack = uh_stack;
-      fprintf(stderr, "fsaddr after restart: %lx\n", lh_info.fsaddr);
-      fflush(stderr);
-      // Reset upper half heap
-      set_end_of_heap_fnc = (set_end_of_heap_t) lh_info.set_end_of_heap;
-      set_uh_brk_fnc = (set_uh_brk_t) lh_info.set_uh_brk;
-      set_end_of_heap_fnc(old_end_of_brk);
-      set_uh_brk_fnc(old_brk);
+      lh_info->uh_stack = uh_stack;
       printEventToStderr("EVENT_RESTART");
       processingOpenCkpFileFds = false;
       logCkptFileFds();
@@ -969,7 +945,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       dmtcp_global_barrier("MPI:record-replay.cpp-void");
       replayMpiP2pOnRestart(); // p2p_log_replay.cpp
       dmtcp_local_barrier("MPI:p2p_log_replay.cpp-void");
-      seq_num_reset(RESTART);
+      seq_num_reset();
       dmtcp_local_barrier("MPI:seq_num_reset");
       const char *file = get_mpi_file_filename();
       restore_mpi_files(file);

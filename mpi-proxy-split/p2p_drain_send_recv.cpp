@@ -28,7 +28,7 @@
 #include "p2p_drain_send_recv.h"
 #include "p2p_log_replay.h"
 #include "mpi_nextfunc.h"
-#include "virtual-ids.h"
+#include "virtual_id.h"
 
 extern int MPI_Alltoall_internal(const void *sendbuf, int sendcount,
                                  MPI_Datatype sendtype, void *recvbuf,
@@ -152,7 +152,7 @@ completePendingP2pRequests()
         g_recvBytesByRank[worldRank] += call->count * size;
         bytesReceived += call->count * size;
       }
-      UPDATE_REQUEST_MAP(request, MPI_REQUEST_NULL);
+      update_virt_id({.request = request}, {.request = MPI_REQUEST_NULL});
       it = g_nonblocking_calls.erase(it);
     } else {
       /*  We update the iterator even if the MPI_Test fails.
@@ -344,8 +344,8 @@ localRankToGlobalRank(int localRank, MPI_Comm localComm)
   // FIXME: For interface8, use the new architecture.
   // This only works for interface7
   MPI_Group worldGroup, localGroup;
-  MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(localComm);
-  JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+  MPI_Comm realComm = get_real_id({.comm = localComm}).comm;
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   NEXT_FUNC(Comm_group)(MPI_COMM_WORLD, &worldGroup);
   NEXT_FUNC(Comm_group)(realComm, &localGroup);
   NEXT_FUNC(Group_translate_ranks)(localGroup, 1, &localRank,

@@ -37,7 +37,7 @@
 #include "mpi_nextfunc.h"
 #include "p2p_log_replay.h"
 #include "p2p_drain_send_recv.h"
-#include "virtual-ids.h"
+#include "virtual_id.h"
 
 using namespace dmtcp;
 
@@ -99,7 +99,7 @@ logRequestInfo(MPI_Request request, mpi_req_t req_type)
     if (req_info->update_counter <= REAL_REQUEST_LOG_LEVEL) {
       req_info->update_counter++;
       req_info->real_request[req_info->update_counter] =
-        VIRTUAL_TO_REAL_REQUEST(request);
+        get_real_id({.request = request}).request;
     } else {
       JWARNING(false).Text("Too many real request update");
     }
@@ -111,7 +111,7 @@ logRequestInfo(MPI_Request request, mpi_req_t req_type)
         sizeof(MPI_Request) * REAL_REQUEST_LOG_LEVEL);
     memset(&req_info->backtrace, 0, sizeof(void*) * STACK_TRACK_LEVEL);
     req_info->type = req_type;
-    req_info->real_request[0] = VIRTUAL_TO_REAL_REQUEST(request);
+    req_info->real_request[0] = get_real_id({.request = request}).request;
     req_info->update_counter = 0;
     backtrace(&(req_info->backtrace[0]), STACK_TRACK_LEVEL);
     pthread_mutex_lock(&logMutex);
@@ -180,8 +180,8 @@ replayMpiP2pOnRestart()
     int retval = 0;
     request = it.first;
     call = it.second;
-    MPI_Comm realComm = VIRTUAL_TO_REAL_COMM(call->comm);
-    MPI_Datatype realType = VIRTUAL_TO_REAL_TYPE(call->datatype);
+    MPI_Comm realComm = get_real_id({.comm = call->comm}).comm;
+    MPI_Datatype realType = get_real_id({.datatype = call->datatype}).datatype;
     MPI_Request realRequest;
     switch (call->type) {
       case IRECV_REQUEST:
@@ -191,12 +191,12 @@ replayMpiP2pOnRestart()
                   realType, call->remote_node,
                   call->tag, realComm, &request);
 #else
-        JUMP_TO_LOWER_HALF(lh_info.fsaddr);
+        JUMP_TO_LOWER_HALF(lh_info->fsaddr);
         NEXT_FUNC(Irecv)(call->recvbuf, call->count,
                          realType, call->remote_node,
                          call->tag, realComm, &realRequest);
         RETURN_TO_UPPER_HALF();
-        UPDATE_REQUEST_MAP(request, realRequest);
+        update_virt_id({.request = request}, {.request = realRequest});
 #endif
         JASSERT(retval == MPI_SUCCESS).Text("Error while replaying recv");
         break;

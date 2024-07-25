@@ -184,7 +184,7 @@ USER_DEFINED_WRAPPER(int, Irecv,
     MPI_Request virtRequest = new_virt_request(MPI_REQUEST_NULL+1);
     mana_handle real_request_null;
     real_request_null.request = MPI_REQUEST_NULL;
-    update_virt_id({.request = virtRequest}, real_request_null, NULL);
+    update_virt_id({.request = virtRequest}, real_request_null);
     *request = virtRequest;
     retval = MPI_SUCCESS;
     DMTCP_PLUGIN_ENABLE_CKPT();

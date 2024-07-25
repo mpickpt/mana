@@ -29,26 +29,10 @@
 #include "jconvert.h"
 
 #include "record-replay.h"
-#include "virtual-ids.h"
+#include "virtual_id.h"
 #include "p2p_log_replay.h"
 
 using namespace dmtcp_mpi;
-
-static int restoreCommSplit(MpiRecord& rec);
-static int restoreCommSplitType(MpiRecord& rec);
-static int restoreCommDup(MpiRecord& rec);
-static int restoreCommCreate(MpiRecord& rec);
-static int restoreCommCreateGroup(MpiRecord& rec);
-static int restoreCommErrHandler(MpiRecord& rec);
-static int restoreCommFree(MpiRecord& rec);
-static int restoreAttrPut(MpiRecord& rec);
-static int restoreAttrDelete(MpiRecord& rec);
-static int restoreCommCreateKeyval(MpiRecord& rec);
-static int restoreCommFreeKeyval(MpiRecord& rec);
-
-static int restoreCommGroup(MpiRecord& rec);
-static int restoreGroupFree(MpiRecord& rec);
-static int restoreGroupIncl(MpiRecord& rec);
 
 static int restoreTypeContiguous(MpiRecord& rec);
 static int restoreTypeCommit(MpiRecord& rec);
@@ -64,13 +48,6 @@ static int restoreCartCreate(MpiRecord& rec);
 static int restoreCartMap(MpiRecord& rec);
 static int restoreCartShift(MpiRecord& rec);
 static int restoreCartSub(MpiRecord& rec);
-
-static int restoreOpCreate(MpiRecord& rec);
-static int restoreOpFree(MpiRecord& rec);
-
-static int restoreIbcast(MpiRecord& rec);
-static int restoreIreduce(MpiRecord& rec);
-static int restoreIbarrier(MpiRecord& rec);
 
 #ifdef SINGLE_CART_REORDER
 void create_cartesian_info_mpi_datatype(MPI_Datatype *cidt);
@@ -96,91 +73,7 @@ restoreMpiLogState()
           .Text("Failed to restore MPI state");
 }
 
-int
-dmtcp_mpi::restoreComms(MpiRecord &rec)
-{
-  int rc = -1;
-  JTRACE("Restoring MPI communicators");
-  switch (rec.getType()) {
-    case GENERATE_ENUM(Comm_split):
-      JTRACE("restoreCommSplit");
-      rc = restoreCommSplit(rec);
-      break;
-    case GENERATE_ENUM(Comm_split_type):
-      JTRACE("restoreCommSplitType");
-      rc = restoreCommSplitType(rec);
-      break;
-    case GENERATE_ENUM(Comm_dup):
-      JTRACE("restoreCommDup");
-      rc = restoreCommDup(rec);
-      break;
-    case GENERATE_ENUM(Comm_create):
-      JTRACE("restoreCommCreate");
-      rc = restoreCommCreate(rec);
-      break;
-    case GENERATE_ENUM(Comm_create_group):
-      JTRACE("restoreCommCreateGroup");
-      rc = restoreCommCreateGroup(rec);
-      break;
-    case GENERATE_ENUM(Comm_set_errhandler):
-      JTRACE("restoreCommErrHandler");
-      rc = restoreCommErrHandler(rec);
-      break;
-    case GENERATE_ENUM(Comm_free):
-      JTRACE("restoreCommFree");
-      rc = restoreCommFree(rec);
-      break;
-    case GENERATE_ENUM(Attr_put):
-      JTRACE("restoreAtrrPut");
-      rc = restoreAttrPut(rec);
-      break;
-    case GENERATE_ENUM(Attr_delete):
-      JTRACE("restoreAtrrDelete");
-      rc = restoreAttrDelete(rec);
-      break;
-    case GENERATE_ENUM(Comm_create_keyval):
-      JTRACE("restoreCommCreateKeyval");
-      rc = restoreCommCreateKeyval(rec);
-      break;
-    case GENERATE_ENUM(Comm_free_keyval):
-      JTRACE("restoreCommFreeKeyval");
-      rc = restoreCommFreeKeyval(rec);
-      break;
-    default:
-      JWARNING(false)(rec.getType()).Text("Unknown call");
-      break;
-  }
-  return rc;
-}
-
-int
-dmtcp_mpi::restoreGroups(MpiRecord &rec)
-{
-  int rc = -1;
-  JTRACE("Restoring MPI groups");
-  switch (rec.getType()) {
-    case GENERATE_ENUM(Comm_group):
-      JTRACE("restoreCommGroup");
-      rc = restoreCommGroup(rec);
-      break;
-    case GENERATE_ENUM(Group_free):
-      JTRACE("restoreGroupFree");
-      rc = restoreGroupFree(rec);
-      break;
-    case GENERATE_ENUM(Group_incl):
-      JTRACE("restoreGroupIncl");
-      rc = restoreGroupIncl(rec);
-      break;
-    default:
-      JWARNING(false)(rec.getType()).Text("Unknown call");
-      break;
-  }
-  return rc;
-}
-
-int
-dmtcp_mpi::restoreTypes(MpiRecord &rec)
-{
+int dmtcp_mpi::restoreTypes(MpiRecord &rec) {
   int rc = -1;
   JTRACE("Restoring MPI derived types");
   switch (rec.getType()) {
@@ -256,264 +149,6 @@ dmtcp_mpi::restoreCarts(MpiRecord &rec)
   return rc;
 }
 
-int
-dmtcp_mpi::restoreOps(MpiRecord &rec)
-{
-  int rc = -1;
-  JTRACE("Restoring MPI Ops");
-  switch (rec.getType()) {
-    case GENERATE_ENUM(Op_create):
-      JTRACE("restoreOpCreate");
-      rc = restoreOpCreate(rec);
-      break;
-    case GENERATE_ENUM(Op_free):
-      JTRACE("restoreOpFree");
-      rc = restoreOpFree(rec);
-      break;
-    default:
-      JWARNING(false)(rec.getType()).Text("Unknown call");
-      break;
-  }
-  return rc;
-}
-
-int
-dmtcp_mpi::restoreRequests(MpiRecord &rec)
-{
-  int rc = -1;
-  JTRACE("Restoring MPI Requests");
-  switch (rec.getType()) {
-    case GENERATE_ENUM(Ibarrier):
-      JTRACE("restoreIbarrier");
-      rc = restoreIbarrier(rec);
-      break;
-    case GENERATE_ENUM(Ireduce):
-      JTRACE("restoreIreduce");
-      rc = restoreIreduce(rec);
-      break;
-    case GENERATE_ENUM(Ibcast):
-      JTRACE("restoreIbcast");
-      rc = restoreIbcast(rec);
-      break;
-    default:
-      JWARNING(false)(rec.getType()).Text("Unknown call");
-      break;
-  }
-  return rc;
-}
-
-static int
-restoreCommSplit(MpiRecord& rec)
-{
-  int retval;
-  MPI_Comm comm = rec.args(0);
-  int color = rec.args(1);
-  int key = rec.args(2);
-  MPI_Comm newcomm = MPI_COMM_NULL;
-  retval = FNC_CALL(Comm_split, rec)(comm, color, key, &newcomm);
-  if (retval == MPI_SUCCESS) {
-    MPI_Comm virtComm = rec.args(3);
-    UPDATE_COMM_MAP(virtComm, newcomm);
-  }
-  return retval;
-}
-
-static int
-restoreCommSplitType(MpiRecord& rec)
-{
-  int retval;
-  MPI_Comm comm = rec.args(0);
-  int split_type = rec.args(1);
-  int key = rec.args(2);
-  MPI_Info inf = rec.args(3);
-  MPI_Comm newcomm = MPI_COMM_NULL;
-  retval = FNC_CALL(Comm_split_type, rec)(comm, split_type, key, inf, &newcomm);
-  if (retval == MPI_SUCCESS) {
-    MPI_Comm virtComm = rec.args(4);
-    UPDATE_COMM_MAP(virtComm, newcomm);
-  }
-  return retval;
-}
-
-static int
-restoreCommDup(MpiRecord& rec)
-{
-  int retval;
-  MPI_Comm comm = rec.args(0);
-  MPI_Comm newcomm = MPI_COMM_NULL;
-  retval = FNC_CALL(Comm_dup, rec)(comm, &newcomm);
-  if (retval == MPI_SUCCESS) {
-    MPI_Comm virtComm = rec.args(1);
-    UPDATE_COMM_MAP(virtComm, newcomm);
-  }
-  return retval;
-}
-
-static int
-restoreCommCreate(MpiRecord& rec)
-{
-  int retval;
-  MPI_Comm comm = rec.args(0);
-  MPI_Group group = rec.args(1);
-  MPI_Comm newcomm = MPI_COMM_NULL;
-  retval = FNC_CALL(Comm_create, rec)(comm, group, &newcomm);
-  if (retval == MPI_SUCCESS) {
-    MPI_Comm oldcomm = rec.args(2);
-    UPDATE_COMM_MAP(oldcomm, newcomm);
-  }
-  return retval;
-}
-
-static int
-restoreCommCreateGroup(MpiRecord& rec)
-{
-  int retval;
-  MPI_Comm comm = rec.args(0);
-  MPI_Group group = rec.args(1);
-  int tag = rec.args(2);
-  MPI_Comm newcomm = MPI_COMM_NULL;
-  retval = FNC_CALL(Comm_create_group, rec)(comm, group, tag, &newcomm);
-  if (retval == MPI_SUCCESS) {
-    MPI_Comm oldcomm = rec.args(3);
-    UPDATE_COMM_MAP(oldcomm, newcomm);
-  }
-  return retval;
-}
-
-static int
-restoreCommErrHandler(MpiRecord& rec)
-{
-  int retval;
-  MPI_Comm comm = rec.args(0);
-  MPI_Errhandler errhandler = rec.args(1);
-  retval = FNC_CALL(Comm_set_errhandler, rec)(comm, errhandler);
-  JWARNING(retval == MPI_SUCCESS)(comm).Text("Error restoring MPI errhandler");
-  return retval;
-}
-
-static int
-restoreCommFree(MpiRecord& rec)
-{
-  int retval;
-  MPI_Comm comm = rec.args(0);
-  retval = FNC_CALL(Comm_free, rec)(&comm);
-  JWARNING(retval == MPI_SUCCESS)(comm).Text("Error freeing MPI comm");
-  if (retval == MPI_SUCCESS) {
-    // See mpi_comm_wrappers.cpp:Comm_free
-    // NOTE: We cannot remove the old comm from the map, since
-    // we'll need to replay this call to reconstruct any other comms that
-    // might have been created using this comm.
-    //
-    // MPI_Comm oldcomm = REMOVE_OLD_COMM(comm);
-  }
-  return retval;
-}
-
-static int
-restoreAttrPut(MpiRecord& rec)
-{
-  int retval;
-  MPI_Comm comm = rec.args(0);
-  int key = rec.args(1);
-  void *val = rec.args(2);
-  retval = FNC_CALL(Attr_put, rec)(comm, key, val);
-  JWARNING(retval == MPI_SUCCESS)(comm)
-          .Text("Error restoring MPI attribute-put");
-  return retval;
-}
-
-static int
-restoreAttrDelete(MpiRecord& rec)
-{
-  int retval;
-  MPI_Comm comm = rec.args(0);
-  int key = rec.args(1);
-  retval = FNC_CALL(Attr_delete, rec)(comm, key);
-  JWARNING(retval == MPI_SUCCESS)(comm).Text("Error deleting MPI attribute");
-  return retval;
-}
-
-static int
-restoreCommCreateKeyval(MpiRecord& rec)
-{
-  int retval;
-  void *cfn_tmp = rec.args(0);
-  void *dfn_tmp = rec.args(1);
-  MPI_Comm_copy_attr_function *cfn = (MPI_Comm_copy_attr_function*) cfn_tmp;
-  MPI_Comm_delete_attr_function *dfn = (MPI_Comm_delete_attr_function*) dfn_tmp;
-  int newkey = 0;
-  void *extra_state = rec.args(3);
-  retval = FNC_CALL(Comm_create_keyval, rec)(cfn, dfn, &newkey, extra_state);
-  if (retval == MPI_SUCCESS) {
-    int oldkey = rec.args(2);
-    UPDATE_COMM_KEYVAL_MAP(oldkey, newkey);
-  }
-  return retval;
-}
-
-static int
-restoreCommFreeKeyval(MpiRecord& rec)
-{
-  int retval;
-  int key = rec.args(0);
-  retval = FNC_CALL(Comm_free_keyval, rec)(&key);
-  JWARNING(retval == MPI_SUCCESS)(key).Text("Error deleting MPI Comm Keyval");
-  // See mpi_comm_wrappers.cpp:Comm_free_keyval
-  // We don't remove item from virtual-id tables
-  return retval;
-}
-
-static int
-restoreCommGroup(MpiRecord& rec)
-{
-  int retval;
-  MPI_Comm comm = rec.args(0);
-  MPI_Group newgroup = MPI_GROUP_NULL;
-  retval = FNC_CALL(Comm_group, rec)(comm, &newgroup);
-  JWARNING(retval == MPI_SUCCESS)(comm).Text("Error restoring MPI comm group");
-  if (retval == MPI_SUCCESS) {
-    MPI_Group oldgroup = rec.args(1);
-    UPDATE_GROUP_MAP(oldgroup, newgroup);
-  }
-  return retval;
-}
-
-static int
-restoreGroupFree(MpiRecord& rec)
-{
-  int retval;
-  MPI_Group group = rec.args(0);
-  retval = FNC_CALL(Group_free, rec)(&group);
-  JWARNING(retval == MPI_SUCCESS)(group).Text("Error restoring MPI group free");
-  if (retval == MPI_SUCCESS) {
-    // See mpi_group_wrappers.cpp:Group_free
-    // NOTE: We cannot remove the old group, since we'll need
-    // to replay this call to reconstruct any comms that might
-    // have been created using this group.
-    //
-    // REMOVE_OLD_GROUP(group);
-  }
-  return retval;
-}
-
-
-static int
-restoreGroupIncl(MpiRecord& rec)
-{
-  int retval;
-  MPI_Group group = rec.args(0);
-  int n = rec.args(1);
-  int *ranks = rec.args(2);
-  MPI_Group newgroup = MPI_GROUP_NULL;
-  retval = FNC_CALL(Group_incl, rec)(group, n, ranks, &newgroup);
-  JWARNING(retval == MPI_SUCCESS)(group).Text("Error restoring MPI group incl");
-  if (retval == MPI_SUCCESS) {
-    MPI_Group oldgroup = rec.args(3);
-    UPDATE_GROUP_MAP(oldgroup, newgroup);
-  }
-  return retval;
-}
-
 static int
 restoreTypeContiguous(MpiRecord& rec)
 {
@@ -524,7 +159,7 @@ restoreTypeContiguous(MpiRecord& rec)
   retval = FNC_CALL(Type_contiguous, rec)(count, oldtype, &newtype);
   if (retval == MPI_SUCCESS) {
     MPI_Datatype virtType = rec.args(2);
-    UPDATE_TYPE_MAP(virtType, newtype);
+    update_virt_id({.datatype = virtType}, {.datatype = newtype});
   }
   return retval;
 }
@@ -554,7 +189,7 @@ restoreTypeHVector(MpiRecord& rec)
           .Text("Could not restore MPI hvector datatype");
   if (retval == MPI_SUCCESS) {
     MPI_Datatype virtType = rec.args(4);
-    UPDATE_TYPE_MAP(virtType, newtype);
+    update_virt_id({.datatype = virtType}, {.datatype = newtype});
   }
   return retval;
 }
@@ -573,7 +208,7 @@ restoreTypeHIndexed(MpiRecord& rec)
           .Text("Could not restore MPI hvector datatype");
   if (retval == MPI_SUCCESS) {
     MPI_Datatype virtType = rec.args(4);
-    UPDATE_TYPE_MAP(virtType, newtype);
+    update_virt_id({.datatype = virtType}, {.datatype = newtype});
   }
   return retval;
 }
@@ -589,7 +224,7 @@ restoreTypeDup(MpiRecord& rec)
           .Text("Could not restore MPI hvector datatype");
   if (retval == MPI_SUCCESS) {
     MPI_Datatype virtType = rec.args(1);
-    UPDATE_TYPE_MAP(virtType, newtype);
+    update_virt_id({.datatype = virtType}, {.datatype = newtype});
   }
   return retval;
 }
@@ -607,7 +242,7 @@ restoreTypeCreateResized(MpiRecord& rec)
           .Text("Could not restore MPI hvector datatype");
   if (retval == MPI_SUCCESS) {
     MPI_Datatype virtType = rec.args(3);
-    UPDATE_TYPE_MAP(virtType, newtype);
+    update_virt_id({.datatype = virtType}, {.datatype = newtype});
   }
   return retval;
 }
@@ -640,7 +275,7 @@ restoreTypeIndexed(MpiRecord& rec)
           .Text("Could not restore MPI indexed datatype");
   if (retval == MPI_SUCCESS) {
     MPI_Datatype virtType = rec.args(4);
-    UPDATE_TYPE_MAP(virtType, newtype);
+    update_virt_id({.datatype = virtType}, {.datatype = newtype});
   }
   return retval;
 }
@@ -678,7 +313,7 @@ restoreTypeCreateStruct(MpiRecord& rec)
           .Text("Could not restore MPI struct datatype");
   if (retval == MPI_SUCCESS) {
     MPI_Datatype virtType = rec.args(4);
-    UPDATE_TYPE_MAP(virtType, newtype);
+    update_virt_id({.datatype = virtType}, {.datatype = newtype});
   }
   return retval;
 }
@@ -929,8 +564,8 @@ restoreCartCreate(MpiRecord &rec)
   // Update mapping
   MPI_Comm virtComm = rec.args(5);
   // FIXME: This only works for MPICH but maybe not for other MPI libraries.
-  UPDATE_COMM_MAP(MPI_COMM_WORLD, comm_old);
-  UPDATE_COMM_MAP(virtComm, comm_cart);
+  update_virt_id({.comm = MPI_COMM_WORLD}, {.comm = comm_old});
+  update_virt_id({.comm = virtComm}, {.comm = comm_cart});
   return MPI_SUCCESS;
 }
 
@@ -950,7 +585,7 @@ restoreCartCreate(MpiRecord& rec)
                                       periods, reorder, &newcomm);
   if (retval == MPI_SUCCESS) {
     MPI_Comm virtComm = rec.args(5);
-    UPDATE_COMM_MAP(virtComm, newcomm);
+    update_virt_id({.comm = virtComm}, {.comm = newcomm});
   }
   return retval;
 }
@@ -1008,127 +643,7 @@ restoreCartSub(MpiRecord& rec)
   retval = FNC_CALL(Cart_sub, rec)(comm, remain_dims, &newcomm);
   if (retval == MPI_SUCCESS) {
     MPI_Comm virtComm = rec.args(3);
-    UPDATE_COMM_MAP(virtComm, newcomm);
+    update_virt_id({.comm = virtComm}, {.comm = newcomm});
   }
-  return retval;
-}
-
-static int
-restoreOpCreate(MpiRecord& rec)
-{
-  int retval = -1;
-  MPI_User_function *user_fn = rec.args(0);
-  int commute = rec.args(1);
-  MPI_Op newop = MPI_OP_NULL;
-  retval = FNC_CALL(Op_create, rec)(user_fn, commute, &newop);
-  if (retval == MPI_SUCCESS) {
-    MPI_Op oldop = rec.args(2);
-    UPDATE_OP_MAP(oldop, newop);
-  }
-  return retval;
-}
-
-static int
-restoreOpFree(MpiRecord& rec)
-{
-  int retval = -1;
-  MPI_Op op = rec.args(0);
-  MPI_Op realOp = VIRTUAL_TO_REAL_OP(op);
-  retval = FNC_CALL(Op_free, rec)(&realOp);
-  if (retval == MPI_SUCCESS) {
-    // See mpi_op_wrappers.cpp:Op_free
-    // NOTE: We cannot remove the old op from the map, since
-    // we'll need to replay this call to reconstruct any other op that
-    // might have been created using this op.
-    //
-    // realOp = REMOVE_OLD_OP(op);
-  }
-  return retval;
-}
-
-static int restoreIbcast(MpiRecord& rec) {
-  int retval = -1;
-  void *buf = rec.args(0);
-  int count = rec.args(1);
-  MPI_Datatype datatype = rec.args(2);
-  int root = rec.args(3);
-  MPI_Comm comm = rec.args(4);
-  if (rec.getComplete()) {
-    if ((buf = rec.getBuf()) == NULL) {
-      int size;
-      MPI_Type_size(datatype, &size);
-      buf = malloc(count * size);
-      rec.setBuf(buf);
-    }
-  }
-  MPI_Request newRealRequest = MPI_REQUEST_NULL;
-  retval = FNC_CALL(Ibcast, rec)(buf, count, datatype, root, comm,
-                                 &newRealRequest);
-  if (retval == MPI_SUCCESS) {
-    MPI_Request virtRequest = rec.args(5);
-    UPDATE_REQUEST_MAP(virtRequest, newRealRequest);
-#ifdef USE_REQUEST_LOG
-    logRequestInfo(virtRequest, IBCAST_REQUEST);
-#endif
-  }
-  return retval;
-}
-
-static int restoreIreduce(MpiRecord& rec) {
-  int retval = -1;
-  void *sendbuf = rec.args(0);
-  void *recvbuf = rec.args(1);
-  int count = rec.args(2);
-  MPI_Datatype datatype = rec.args(3);
-  MPI_Op op = rec.args(4);
-  int root = rec.args(5);
-  MPI_Comm comm = rec.args(6);
-  if (rec.getComplete() == true) {
-    int rank;
-    MPI_Comm_rank(comm, &rank);
-    if (rank == root) { // receiver
-      sendbuf = MPI_IN_PLACE;
-      // Use a temporary buffer to consume the received message
-      if ((recvbuf = rec.getBuf()) == NULL) {
-        int size;
-        MPI_Type_size(datatype, &size);
-        recvbuf = malloc(count * size);
-        rec.setBuf(recvbuf);
-      }
-    } else { // sender
-      // Sender's buffer contains the data of the recorded message's sendbuf
-      sendbuf = rec.getBuf();
-    }
-  }
-  MPI_Request newRealRequest = MPI_REQUEST_NULL;
-  retval = FNC_CALL(Ireduce, rec)(sendbuf, recvbuf, count,
-                                  datatype, op, root, comm, &newRealRequest);
-  if (retval == MPI_SUCCESS) {
-    MPI_Request virtRequest = rec.args(7);
-    UPDATE_REQUEST_MAP(virtRequest, newRealRequest);
-#ifdef USE_REQUEST_LOG
-    logRequestInfo(virtRequest, IREDUCE_REQUEST);
-#endif
-  }
-  return retval;
-}
-
-static int restoreIbarrier(MpiRecord& rec) {
-  int retval = -1;
-  MPI_Comm comm = rec.args(0);
-  MPI_Request newRealRequest = MPI_REQUEST_NULL;
-  retval = FNC_CALL(Ibarrier, rec)(comm, &newRealRequest);
-  MPI_Request virtRequest;
-  if (retval == MPI_SUCCESS) {
-    virtRequest = rec.args(1);
-    UPDATE_REQUEST_MAP(virtRequest, newRealRequest);
-#ifdef USE_REQUEST_LOG
-    logRequestInfo(virtRequest, IBARRIER_REQUEST);
-#endif
-  }
-  // Verify the request is valid
-  int flag;
-  retval = MPI_Request_get_status(virtRequest, &flag, MPI_STATUS_IGNORE);
-  JASSERT(retval == MPI_SUCCESS);
   return retval;
 }

@@ -57,8 +57,7 @@ USER_DEFINED_WRAPPER(int, Bcast,
                      (void *) buffer, (int) count, (MPI_Datatype) datatype,
                      (int) root, (MPI_Comm) comm)
 {
-  bool passthrough = false; // See PR#394
-  commit_begin(comm, passthrough);
+  commit_begin(comm);
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
@@ -67,7 +66,7 @@ USER_DEFINED_WRAPPER(int, Bcast,
   retval = NEXT_FUNC(Bcast)(buffer, count, real_datatype, root, real_comm);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
-  commit_finish(comm, passthrough);
+  commit_finish(comm);
   return retval;
 }
 
@@ -76,7 +75,7 @@ USER_DEFINED_WRAPPER(int, Ibcast,
                      (int) root, (MPI_Comm) comm, (MPI_Request *) request)
 {
   int retval;
-  commit_begin(comm, false);
+  commit_begin(comm);
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
   MPI_Datatype real_datatype = get_real_id({.datatype = datatype}).datatype;
@@ -91,15 +90,14 @@ USER_DEFINED_WRAPPER(int, Ibcast,
     logRequestInfo(*request, IBCAST_REQUEST);
 #endif
   }
-  commit_finish(comm, false);
+  commit_finish(comm);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
 
 USER_DEFINED_WRAPPER(int, Barrier, (MPI_Comm) comm)
 {
-  bool passthrough = false;
-  commit_begin(comm, passthrough);
+  commit_begin(comm);
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
@@ -107,7 +105,7 @@ USER_DEFINED_WRAPPER(int, Barrier, (MPI_Comm) comm)
   retval = NEXT_FUNC(Barrier)(real_comm);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
-  commit_finish(comm, passthrough);
+  commit_finish(comm);
   return retval;
 }
 
@@ -217,8 +215,7 @@ USER_DEFINED_WRAPPER(int, Allreduce,
   char *s = getenv("MANA_USE_ALLREDUCE_REPRODUCIBLE");
   int use_allreduce_reproducible = (s != NULL) ? atoi(s) : 0;
 
-  bool passthrough = false;
-  commit_begin(comm, passthrough);
+  commit_begin(comm);
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   get_fortran_constants();
@@ -239,7 +236,7 @@ USER_DEFINED_WRAPPER(int, Allreduce,
     RETURN_TO_UPPER_HALF();
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
-  commit_finish(comm, passthrough);
+  commit_finish(comm);
   return retval;
 }
 
@@ -248,8 +245,7 @@ USER_DEFINED_WRAPPER(int, Reduce,
                      (MPI_Datatype) datatype, (MPI_Op) op,
                      (int) root, (MPI_Comm) comm)
 {
-  bool passthrough = false; // See PR#394
-  commit_begin(comm, passthrough);
+  commit_begin(comm);
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
@@ -264,7 +260,7 @@ USER_DEFINED_WRAPPER(int, Reduce,
                              real_datatype, real_op, root, real_comm);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
-  commit_finish(comm, passthrough);
+  commit_finish(comm);
   return retval;
 }
 
@@ -302,8 +298,7 @@ USER_DEFINED_WRAPPER(int, Reduce_scatter,
                      (const int) recvcounts[], (MPI_Datatype) datatype,
                      (MPI_Op) op, (MPI_Comm) comm)
 {
-  bool passthrough = false; // See PR#394
-  commit_begin(comm, passthrough);
+  commit_begin(comm);
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
@@ -318,7 +313,7 @@ USER_DEFINED_WRAPPER(int, Reduce_scatter,
                                      real_datatype, real_op, real_comm);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
-  commit_finish(comm, passthrough);
+  commit_finish(comm);
   return retval;
 }
 #endif // #ifndef MPI_COLLECTIVE_P2P
@@ -431,13 +426,12 @@ USER_DEFINED_WRAPPER(int, Alltoall,
                      (MPI_Datatype) sendtype, (void *) recvbuf, (int) recvcount,
                      (MPI_Datatype) recvtype, (MPI_Comm) comm)
 {
-  bool passthrough = false;
-  commit_begin(comm, passthrough);
+  commit_begin(comm);
   int retval;
   // sendbuf can propagate MPI_IN_PLACE and FORTRAN_MPI_IN_PLACE
   retval = MPI_Alltoall_internal(sendbuf, sendcount, sendtype,
                                  recvbuf, recvcount, recvtype, comm);
-  commit_finish(comm, passthrough);
+  commit_finish(comm);
   return retval;
 }
 
@@ -448,8 +442,7 @@ USER_DEFINED_WRAPPER(int, Alltoallv,
                      (const int *) rdispls, (MPI_Datatype) recvtype,
                      (MPI_Comm) comm)
 {
-  bool passthrough = false;
-  commit_begin(comm, passthrough);
+  commit_begin(comm);
   int retval;
   // FIXME: Ideally, check FORTRAN_MPI_IN_PLACE only in the Fortran wrapper.
   if (sendbuf == FORTRAN_MPI_IN_PLACE) {
@@ -465,7 +458,7 @@ USER_DEFINED_WRAPPER(int, Alltoallv,
                                 real_comm);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
-  commit_finish(comm, passthrough);
+  commit_finish(comm);
   return retval;
 }
 
@@ -473,8 +466,7 @@ USER_DEFINED_WRAPPER(int, Gather, (const void *) sendbuf, (int) sendcount,
                      (MPI_Datatype) sendtype, (void *) recvbuf, (int) recvcount,
                      (MPI_Datatype) recvtype, (int) root, (MPI_Comm) comm)
 {
-  bool passthrough = false; // See PR#394
-  commit_begin(comm, passthrough);
+  commit_begin(comm);
   int retval;
   // FIXME: Ideally, check FORTRAN_MPI_IN_PLACE only in the Fortran wrapper.
   if (sendbuf == FORTRAN_MPI_IN_PLACE) {
@@ -494,7 +486,7 @@ USER_DEFINED_WRAPPER(int, Gather, (const void *) sendbuf, (int) sendcount,
                              root, real_comm);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
-  commit_finish(comm, passthrough);
+  commit_finish(comm);
   return retval;
 }
 
@@ -503,8 +495,7 @@ USER_DEFINED_WRAPPER(int, Gatherv, (const void *) sendbuf, (int) sendcount,
                      (const int*) recvcounts, (const int*) displs,
                      (MPI_Datatype) recvtype, (int) root, (MPI_Comm) comm)
 {
-  bool passthrough = false; // See PR#394
-  commit_begin(comm, passthrough);
+  commit_begin(comm);
   int retval;
   // FIXME: Ideally, check FORTRAN_MPI_IN_PLACE only in the Fortran wrapper.
   if (sendbuf == FORTRAN_MPI_IN_PLACE) {
@@ -520,7 +511,7 @@ USER_DEFINED_WRAPPER(int, Gatherv, (const void *) sendbuf, (int) sendcount,
                               root, real_comm);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
-  commit_finish(comm, passthrough);
+  commit_finish(comm);
   return retval;
 }
 
@@ -528,8 +519,7 @@ USER_DEFINED_WRAPPER(int, Scatter, (const void *) sendbuf, (int) sendcount,
                      (MPI_Datatype) sendtype, (void *) recvbuf, (int) recvcount,
                      (MPI_Datatype) recvtype, (int) root, (MPI_Comm) comm)
 {
-  bool passthrough = false; // See PR#394
-  commit_begin(comm, passthrough);
+  commit_begin(comm);
   int retval;
   // FIXME: Ideally, check FORTRAN_MPI_IN_PLACE only in the Fortran wrapper.
   if (recvbuf == FORTRAN_MPI_IN_PLACE) {
@@ -545,7 +535,7 @@ USER_DEFINED_WRAPPER(int, Scatter, (const void *) sendbuf, (int) sendcount,
                               root, real_comm);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
-  commit_finish(comm, passthrough);
+  commit_finish(comm);
   return retval;
 }
 
@@ -554,8 +544,7 @@ USER_DEFINED_WRAPPER(int, Scatterv, (const void *) sendbuf,
                      (MPI_Datatype) sendtype, (void *) recvbuf, (int) recvcount,
                      (MPI_Datatype) recvtype, (int) root, (MPI_Comm) comm)
 {
-  bool passthrough = false; // See PR#394
-  commit_begin(comm, passthrough);
+  commit_begin(comm);
   int retval;
   // FIXME: Ideally, check FORTRAN_MPI_IN_PLACE only in the Fortran wrapper.
   if (recvbuf == FORTRAN_MPI_IN_PLACE) {
@@ -571,7 +560,7 @@ USER_DEFINED_WRAPPER(int, Scatterv, (const void *) sendbuf,
                                root, real_comm);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
-  commit_finish(comm, passthrough);
+  commit_finish(comm);
   return retval;
 }
 
@@ -579,8 +568,7 @@ USER_DEFINED_WRAPPER(int, Allgather, (const void *) sendbuf, (int) sendcount,
                      (MPI_Datatype) sendtype, (void *) recvbuf, (int) recvcount,
                      (MPI_Datatype) recvtype, (MPI_Comm) comm)
 {
-  bool passthrough = false;
-  commit_begin(comm, passthrough);
+  commit_begin(comm);
   int retval;
   // FIXME: Ideally, check FORTRAN_MPI_IN_PLACE only in the Fortran wrapper.
   if (sendbuf == FORTRAN_MPI_IN_PLACE) {
@@ -596,7 +584,7 @@ USER_DEFINED_WRAPPER(int, Allgather, (const void *) sendbuf, (int) sendcount,
                                 real_comm);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
-  commit_finish(comm, passthrough);
+  commit_finish(comm);
   return retval;
 }
 
@@ -605,8 +593,7 @@ USER_DEFINED_WRAPPER(int, Allgatherv, (const void *) sendbuf, (int) sendcount,
                      (const int*) recvcounts, (const int *) displs,
                      (MPI_Datatype) recvtype, (MPI_Comm) comm)
 {
-  bool passthrough = false;
-  commit_begin(comm, passthrough);
+  commit_begin(comm);
   int retval;
   // FIXME: Ideally, check FORTRAN_MPI_IN_PLACE only in the Fortran wrapper.
   if (sendbuf == FORTRAN_MPI_IN_PLACE) {
@@ -622,7 +609,7 @@ USER_DEFINED_WRAPPER(int, Allgatherv, (const void *) sendbuf, (int) sendcount,
                                  real_comm);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
-  commit_finish(comm, passthrough);
+  commit_finish(comm);
   return retval;
 }
 
@@ -630,8 +617,7 @@ USER_DEFINED_WRAPPER(int, Scan, (const void *) sendbuf, (void *) recvbuf,
                      (int) count, (MPI_Datatype) datatype,
                      (MPI_Op) op, (MPI_Comm) comm)
 {
-  bool passthrough = false; // See PR#394
-  commit_begin(comm, passthrough);
+  commit_begin(comm);
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
@@ -646,7 +632,7 @@ USER_DEFINED_WRAPPER(int, Scan, (const void *) sendbuf, (void *) recvbuf,
                            real_datatype, real_op, real_comm);
   RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
-  commit_finish(comm, passthrough);
+  commit_finish(comm);
   return retval;
 }
 #endif // #ifndef MPI_COLLECTIVE_P2P
@@ -655,8 +641,7 @@ USER_DEFINED_WRAPPER(int, Scan, (const void *) sendbuf, (void *) recvbuf,
 USER_DEFINED_WRAPPER(int, Comm_split, (MPI_Comm) comm, (int) color, (int) key,
     (MPI_Comm *) newcomm)
 {
-  bool passthrough = false;
-  commit_begin(comm, passthrough);
+  commit_begin(comm);
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
@@ -667,14 +652,13 @@ USER_DEFINED_WRAPPER(int, Comm_split, (MPI_Comm) comm, (int) color, (int) key,
     *newcomm = new_virt_comm(*newcomm);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
-  commit_finish(comm, passthrough);
+  commit_finish(comm);
   return retval;
 }
 
 USER_DEFINED_WRAPPER(int, Comm_dup, (MPI_Comm) comm, (MPI_Comm *) newcomm)
 {
-  bool passthrough = false;
-  commit_begin(comm, passthrough);
+  commit_begin(comm);
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
@@ -685,7 +669,7 @@ USER_DEFINED_WRAPPER(int, Comm_dup, (MPI_Comm) comm, (MPI_Comm *) newcomm)
     *newcomm = new_virt_comm(*newcomm);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
-  commit_finish(comm, passthrough);
+  commit_finish(comm);
   return retval;
 }
 

@@ -5,13 +5,15 @@
 #include <assert.h>
 #include <stdlib.h>
 
-#define COMM_KIND 1
-#define GROUP_KIND 2
-#define DATATYPE_KIND 3
-#define OP_KIND 4
-#define REQUEST_KIND 5
-#define FILE_KIND 6
-#define VIRT_ID_KIND_SHIFT 28
+#define MANA_COMM_KIND 1
+#define MANA_GROUP_KIND 2
+#define MANA_DATATYPE_KIND 3
+#define MANA_OP_KIND 4
+#define MANA_REQUEST_KIND 5
+#define MANA_FILE_KIND 6
+#define MANA_VIRT_ID_KIND_SHIFT 28
+
+extern MPI_Group g_world_group;
 
 typedef union {
   int _handle;
@@ -38,7 +40,8 @@ typedef struct {
 typedef struct {
   MPI_Group group; // virtual id of the group
   mana_group_desc *group_desc;
-  mana_ggid_desc ggid_desc;
+  mana_ggid_desc *ggid_desc;
+  int ggid;
 } mana_comm_desc;
 
 typedef struct {
@@ -52,19 +55,16 @@ typedef struct {
 } mana_op_desc;
 
 typedef struct {
-  int num_intergers;
-  int *integers;
-  int num_addresses;
-  MPI_Aint *addresses;
-  int num_large_counts;
-  int *large_counts;
-  int num_datatypes;
-  MPI_Datatype *datatypes;
-  int combiner;
+  // It's hard to decode and reconstruct "double derived datatypes",
+  // which means datatypes that are created using derived datatypes.
+  // So we decided to use the old record-and-replay approach to
+  // reconstruct datatypes at restart. Therefore, there's no data
+  // needs to be saved in the descriptor. We keep this structure
+  // definition for future use.
 } mana_datatype_desc;
 
 typedef struct {
-  // FIXME: use the g_param for restoring files for now.
+  // Use the g_param for restoring files for now.
   // Migarate codes to here later.
 } mana_file_desc;
 
@@ -76,11 +76,12 @@ typedef struct {
 extern std::unordered_map<int, virt_id_entry*> virt_ids;
 extern std::unordered_map<int, mana_ggid_desc*> ggid_table;
 typedef std::unordered_map<int, virt_id_entry*>::iterator virt_id_iterator;
+typedef std::pair<int, mana_ggid_desc*> ggid_table_pair;
 
 inline mana_handle add_virt_id(mana_handle real_id, void *desc, int kind) {
   static int next_id = 0;
   mana_handle new_virt_id;
-  new_virt_id._handle = kind << VIRT_ID_KIND_SHIFT;
+  new_virt_id._handle = kind << MANA_VIRT_ID_KIND_SHIFT;
   new_virt_id._handle = new_virt_id._handle | next_id;
   next_id++;
 
@@ -111,10 +112,10 @@ inline void* get_virt_id_desc(mana_handle virt_id) {
 }
 
 inline void free_desc(void *desc, int kind) {
-  if (kind == COMM_KIND) {
+  if (kind == MANA_COMM_KIND) {
     mana_comm_desc *comm_desc = (mana_comm_desc*)desc;
-    free_desc(comm_desc->group_desc, GROUP_KIND);
-  } else if (kind == GROUP_KIND) {
+    free_desc(comm_desc->group_desc, MANA_GROUP_KIND);
+  } else if (kind == MANA_GROUP_KIND) {
     mana_group_desc *group_desc = (mana_group_desc*)desc;
     free(group_desc->global_ranks);
   }
@@ -128,13 +129,12 @@ inline void free_virt_id(mana_handle virt_id) {
     fprintf(stderr, "Invalid MPI handle value: 0x%x\n", virt_id._handle);
     abort();
   }
-  int kind = virt_id._handle >> VIRT_ID_KIND_SHIFT;
+  int kind = virt_id._handle >> MANA_VIRT_ID_KIND_SHIFT;
   free_desc(it->second->desc, kind); // free descriptor
   free(it->second); // free virt_id_entry
 }
 
-inline void update_virt_id(mana_handle virt_id,
-                           mana_handle real_id, void *desc) {
+inline void update_virt_id(mana_handle virt_id, mana_handle real_id) {
   virt_id_iterator it = virt_ids.find(virt_id._handle);
   // Should we abort or return an error code?
   if (it == virt_ids.end()) {
@@ -142,10 +142,7 @@ inline void update_virt_id(mana_handle virt_id,
     abort();
   }
   virt_id_entry *entry = it->second;
-  int kind = virt_id._handle >> VIRT_ID_KIND_SHIFT;
-  free_desc(entry->desc, kind); 
   entry->real_id = real_id;
-  entry->desc = desc;
 }
 
 MPI_Comm new_virt_comm(MPI_Comm real_comm);
