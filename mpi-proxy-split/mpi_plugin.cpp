@@ -1,4 +1,8 @@
 /****************************************************************************
+      if (area.addr == (void*)0x7ffff7fa3000) {
+        volatile int dummy = 1;
+        while (dummy);
+      }
  *   Copyright (C) 2019-2021 by Gene Cooperman, Rohan Garg, Yao Xu          *
  *   gene@ccs.neu.edu, rohgarg@ccs.neu.edu, xu.yao1@northeastern.edu        *
  *                                                                          *
@@ -324,7 +328,6 @@ dmtcp_skip_memory_region_ckpting(ProcMapsArea *area)
 
   // If it's the upper-half stack, don't skip
   if (area->addr < lh_info.uh_stack && area->endAddr > lh_info.uh_stack) {
-    printf("area->addr: %p, area->endAddr %p, lh_info.uh_stack: %p\n", area->addr, area->endAddr, lh_info.uh_stack);
     return 0;
   }
 
@@ -333,9 +336,6 @@ dmtcp_skip_memory_region_ckpting(ProcMapsArea *area)
   int numUhRegions;
   if (uh_mmaps.size() == 0) {
     uh_mmaps = get_mmapped_list_fnc(&numUhRegions);
-    for (auto &region : uh_mmaps) {
-      printf("uh mmap region addr %p end addr %p\n", region.addr, region.addr + region.len);
-    }
   }
   
   for (MmapInfo_t &region : uh_mmaps) {
@@ -950,8 +950,6 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       reset_wrappers();
       initialize_wrappers();
       lh_info.uh_stack = uh_stack;
-      fprintf(stderr, "fsaddr after restart: %lx\n", lh_info.fsaddr);
-      fflush(stderr);
       // Reset upper half heap
       set_end_of_heap_fnc = (set_end_of_heap_t) lh_info.set_end_of_heap;
       set_uh_brk_fnc = (set_uh_brk_t) lh_info.set_uh_brk;
