@@ -61,15 +61,9 @@ USER_DEFINED_WRAPPER(int, Init, (int *) argc, (char ***) argv) {
   g_mana_header.init_flag = MPI_INIT_NO_THREAD;
 
   recordPreMpiInitMaps();
-
-  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
-  // Create a duplicate of MPI_COMM_WORLD for internal use.
-  NEXT_FUNC(Comm_dup)(lh_info->MANA_COMM_WORLD, &g_world_comm);
-  RETURN_TO_UPPER_HALF();
-
   recordPostMpiInitMaps();
 
-  g_world_comm = new_virt_comm(g_world_comm);
+  init_predefined_virt_ids();
   initialize_drain_send_recv();
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -84,16 +78,9 @@ USER_DEFINED_WRAPPER(int, Init_thread, (int *) argc, (char ***) argv,
   g_mana_header.init_flag = required;
 
   recordPreMpiInitMaps();
-
-  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
-  retval = NEXT_FUNC(Init_thread)(argc, argv, required, provided);
-  // Create a duplicate of MPI_COMM_WORLD for internal use.
-  NEXT_FUNC(Comm_dup)(lh_info->MANA_COMM_WORLD, &g_world_comm);
-  RETURN_TO_UPPER_HALF();
-
   recordPostMpiInitMaps();
 
-  g_world_comm = new_virt_comm(g_world_comm);
+  init_predefined_virt_ids();
   initialize_drain_send_recv();
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;

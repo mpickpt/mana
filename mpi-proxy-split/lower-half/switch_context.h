@@ -37,47 +37,8 @@
 
 extern bool FsGsBaseEnabled;
 bool CheckAndEnableFsGsBase();
-
-/* The support to set and get FS base register in user-space has been merged in
- * Linux kernel v5.3 (see https://elixir.bootlin.com/linux/v5.3/C/ident/rdfsbase
- *  or https://www.phoronix.com/scan.php?page=news_item&px=Linux-5.3-FSGSBASE).
- *
- * MANA leverages this faster user-space switch on kernel version >= 5.3.
- */
-static inline unsigned long getFS(void)
-{
-  unsigned long fsbase;
-
-  if (FsGsBaseEnabled) {
-    // This user-space variant is equivalent, but faster.
-    // Optionally, this->upperHalfFs could be cached if MPI_THREAD_MULTIPLE
-    //   was not specified, but this should already be fast.
-    // #if:  Linux kernel 5.9 or higher guarantees that FSGSBASE is supported.
-    // For now, include "defined(HAS_FSGSBASE)" to see if FSGSBASE was backported.
-
-    // The prefix 'rex.W' is required or 'rdfsbase' will assume 32 bits.
-    asm volatile("rex.W\n rdfsbase %0" : "=r" (fsbase) :: "memory");
-  } else {
-    syscall(SYS_arch_prctl, ARCH_GET_FS, &fsbase);
-  }
-  return fsbase;
-}
-
-static inline void setFS(unsigned long fsbase)
-{
-  if (FsGsBaseEnabled) {
-    // This user-space variant is equivalent, but faster.
-    // Optionally, this->upperHalfFs could be cached if MPI_THREAD_MULTIPLE
-    //   was not specified, but this should already be fast.
-    // #if:  Linux kernel 5.9 or higher guarantees that FSGSBASE is supported.
-    // For now, include "defined(HAS_FSGSBASE)" to see if FSGSBASE was backported.
-
-    // The prefix 'rex.W' is required or 'rdfsbase' will assume 32 bits.
-    asm volatile("rex.W\n wrfsbase %0" :: "r" (fsbase) : "memory");
-  } else {
-    syscall(SYS_arch_prctl, ARCH_SET_FS, fsbase);
-  }
-}
+void setFS(unsigned long fsbase);
+unsigned long getFS(void);
 
 // Helper class to save and restore context (in particular, the FS register),
 // when switching between the upper half and the lower half. In the current

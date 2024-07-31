@@ -27,7 +27,7 @@ MPI_Comm g_world_comm;
 extern int p2p_deterministic_skip_save_request;
 volatile bool ckpt_pending;
 int converged;
-volatile phase_t current_phase;
+volatile phase_t current_phase = IS_READY;
 unsigned int comm_gid;
 int num_converged;
 pthread_mutex_t seq_num_lock;
@@ -122,7 +122,7 @@ void commit_begin(MPI_Comm comm) {
       RETURN_TO_UPPER_HALF();
       int updated_comm = (int) new_target[0];
       unsigned long updated_target = new_target[1];
-      std::unordered_map<int, mana_ggid_desc*>::iterator it =
+      std::map<int, mana_ggid_desc*>::iterator it =
         ggid_table.find(updated_comm);
       if (it != ggid_table.end() && it->second->target_num < updated_target) {
         it->second->target_num = updated_target;
@@ -166,7 +166,7 @@ void commit_finish(MPI_Comm comm) {
       RETURN_TO_UPPER_HALF();
       int updated_comm = (int) new_target[0];
       unsigned long updated_target = new_target[1];
-      std::unordered_map<int, mana_ggid_desc*>::iterator it =
+      std::map<int, mana_ggid_desc*>::iterator it =
         ggid_table.find(updated_comm);
       if (it != ggid_table.end() && it->second->target_num < updated_target) {
         it->second->target_num = updated_target;

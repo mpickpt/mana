@@ -104,7 +104,7 @@ USER_DEFINED_WRAPPER(int, Group_incl, (MPI_Group) group, (int) n,
   retval = NEXT_FUNC(Group_incl)(real_group, n, ranks, newgroup);
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS && MPI_LOGGING()) {
-    *newgroup = new_virt_group(*newgroup);
+    *newgroup = OUTPUT_GROUP(*newgroup);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;

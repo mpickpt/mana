@@ -928,21 +928,11 @@ namespace dmtcp_mpi
   }; // class MpiRecordReplay
 
 
-  // Restores the MPI communicators and returns MPI_SUCCESS on success
-  extern int restoreComms(MpiRecord& );
-
-  // Restores the MPI groups and returns MPI_SUCCESS on success
-  extern int restoreGroups(MpiRecord& );
-
   // Restores the MPI types and returns MPI_SUCCESS on success
   extern int restoreTypes(MpiRecord& );
 
   // Restores the MPI cartesian communicators and returns MPI_SUCCESS on success
   extern int restoreCarts(MpiRecord& );
-
-  // Restores the MPI ops and returns MPI_SUCCESS on success
-  extern int restoreOps(MpiRecord& );
-
 }; // namespace dmtcp_mpi
 
 // Restores the MPI state by recreating the communicator, groups, types, etc.

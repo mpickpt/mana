@@ -133,9 +133,6 @@ char *deepCopyStack(int argc, char **argv,
   // will preload the upper half wrapper library.
   char **newEnvPtr = (char**)dest_envp;
   for (; *newEnvPtr; newEnvPtr++) {
-    if (strstr(*newEnvPtr, "LD_PRELOAD")) {
-      fprintf(stderr, "LD_PRELOAD found\n");
-    }
     if (strstr(*newEnvPtr, "UH_PRELOAD")) {
       (*newEnvPtr)[0] = 'L';
       (*newEnvPtr)[1] = 'D';

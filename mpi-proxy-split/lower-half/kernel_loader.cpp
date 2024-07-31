@@ -410,6 +410,7 @@ int main(int argc, char *argv[], char *envp[]) {
   char *dest_stack = deepCopyStack(argc, argv, cmd_argc+1, cmd_argv2,
                                    interp_base_address + 0x400000,
                                    &auxv_ptr);
+  lh_info->uh_stack = dest_stack;
   write_lh_info_to_file();
 
   // FIXME:
@@ -435,7 +436,6 @@ int main(int argc, char *argv[], char *envp[]) {
                                  MAP_PRIVATE | MAP_ANONYMOUS |
                                  MAP_NORESERVE | MAP_FIXED_NOREPLACE ,
                                  -1, 0);
-  printf("emulated upper-half heal addr: %p\n", heap_addr);
   if (heap_addr == MAP_FAILED) {
     DLOG(ERROR, "Failed to mmap region. Error: %s\n",
          strerror(errno));
@@ -464,37 +464,10 @@ int main(int argc, char *argv[], char *envp[]) {
     }
     mmap_offset = get_symbol_offset(buf, "mmap"); // elf interpreter debug path
   }
-#if 0
-  assert(mmap_offset);
-  off_t sbrk_offset = get_symbol_offset(elf_interpreter, "sbrk");
-  if (! sbrk_offset) {
-    char buf[256] = "/usr/lib/debug";
-    buf[sizeof(buf)-1] = '\0';
-    ssize_t rc = 0;
-    rc = readlink(elf_interpreter, buf+strlen(buf), sizeof(buf)-strlen(buf)-1);
-    if (rc != -1 && access(buf, F_OK) == 0) {
-      // Debian family (Ubuntu, etc.) use this scheme to store debug symbols.
-      //   http://sourceware.org/gdb/onlinedocs/gdb/Separate-Debug-Files.html
-      fprintf(stderr, "Debug symbols for interpreter in: %s\n", buf);
-    }
-    sbrk_offset = get_symbol_offset(buf, "sbrk"); // elf interpreter debug path
-  }
-  assert(sbrk_offset);
-  fprintf(stderr,
-          "Address of 'mmap' in memory of ld.so (run-time loader):  %p\n",
-          interp_base_address + mmap_offset);
-#endif
 
   // Patch ld.so mmap() and sbrk() functions to jump to mmap() and sbrk()
   // in libc.a of this kernel-loader program.
   patch_trampoline(interp_base_address + mmap_offset, (void*)&mmap_wrapper);
-#if 0
-  patch_trampoline(interp_base_address + sbrk_offset, (void*)&sbrk_wrapper);
-  lh_info.sbrk = (void*)&sbrk_wrapper;
-#endif
-  // Setup lower-hlaf info struct for the upper-half to read from
-  printf("LD_PRELOAD: %s\n", getenv("LD_PRELOAD"));
-  printf("UH_PRELOAD: %s\n", getenv("UH_PRELOAD"));
 
   // Then jump to _start, ld_so_entry, in ld.so (or call it
   //   as fnc that never returns).

@@ -649,7 +649,11 @@ USER_DEFINED_WRAPPER(int, Comm_split, (MPI_Comm) comm, (int) color, (int) key,
   retval = NEXT_FUNC(Comm_split)(real_comm, color, key, newcomm);
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS && MPI_LOGGING()) {
-    *newcomm = new_virt_comm(*newcomm);
+    if (*newcomm == lh_info->MANA_COMM_NULL) {
+      *newcomm == MPI_COMM_NULL;
+    } else {
+      *newcomm = new_virt_comm(*newcomm);
+    }
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   commit_finish(comm);
@@ -666,7 +670,11 @@ USER_DEFINED_WRAPPER(int, Comm_dup, (MPI_Comm) comm, (MPI_Comm *) newcomm)
   retval = NEXT_FUNC(Comm_dup)(real_comm, newcomm);
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS && MPI_LOGGING()) {
-    *newcomm = new_virt_comm(*newcomm);
+    if (*newcomm == lh_info->MANA_COMM_NULL) {
+      *newcomm == MPI_COMM_NULL;
+    } else {
+      *newcomm = new_virt_comm(*newcomm);
+    }
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   commit_finish(comm);

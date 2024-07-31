@@ -318,14 +318,16 @@ dmtcp_skip_memory_region_ckpting(ProcMapsArea *area)
     return 1;
   }
 
+  // If it's the upper-half stack, don't skip
+  if (area->addr < lh_info->uh_stack && area->endAddr > lh_info->uh_stack) {
+    return 0;
+  }
+
   get_mmapped_list_fnc = (get_mmapped_list_fptr_t) lh_info->mmap_list_fptr;
   
   int numUhRegions;
   if (uh_mmaps.size() == 0) {
     uh_mmaps = get_mmapped_list_fnc(&numUhRegions);
-    for (auto &region : uh_mmaps) {
-      printf("uh mmap region addr %p end addr %p\n", region.addr, region.addr + region.len);
-    }
   }
   
   for (MmapInfo_t &region : uh_mmaps) {
@@ -928,6 +930,10 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       g_upper_half_fsbase->insert(std::make_pair(dmtcp_get_real_tid(), getFS()));
 
       dmtcp_local_barrier("MPI:updateEnviron");
+      seq_num_reset();
+      dmtcp_local_barrier("MPI:seq_num_reset");
+      init_predefined_virt_ids();
+      reconstruct_descriptors();
       dmtcp_local_barrier("MPI:Reset-Drain-Send-Recv-Counters");
       resetDrainCounters(); // p2p_drain_send_recv.cpp
       char str[1];
@@ -938,15 +944,13 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 #ifdef SINGLE_CART_REORDER
       dmtcp_global_barrier("MPI:setCartesianCommunicator");
       // record-replay.cpp
-      setCartesianCommunicator(lh_info.getCartesianCommunicatorFptr);
+      setCartesianCommunicator(lh_info->getCartesianCommunicatorFptr);
 #endif
       dmtcp_global_barrier("MPI:restoreMpiLogState");
       restoreMpiLogState(); // record-replay.cpp
       dmtcp_global_barrier("MPI:record-replay.cpp-void");
       replayMpiP2pOnRestart(); // p2p_log_replay.cpp
       dmtcp_local_barrier("MPI:p2p_log_replay.cpp-void");
-      seq_num_reset();
-      dmtcp_local_barrier("MPI:seq_num_reset");
       const char *file = get_mpi_file_filename();
       restore_mpi_files(file);
       dmtcp_local_barrier("MPI:Restore-MPI-Files");

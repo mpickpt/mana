@@ -91,23 +91,25 @@ static const int MPI_HOST_RANK = MPI_PROC_NULL;
 static const int MPI_IO_SOURCE = MPI_ANY_SOURCE;
 static const int MPI_WTIME_IS_GLOBAL_VAL = 0;
 
-USER_DEFINED_WRAPPER(int, Comm_size, (MPI_Comm) comm, (int *) world_size)
+USER_DEFINED_WRAPPER(int, Comm_size, (MPI_Comm) comm, (int *) size)
 {
   mana_comm_desc *comm_desc = (mana_comm_desc*)get_virt_id_desc({.comm = comm});
-  return comm_desc->group_desc->size;
+  *size = comm_desc->group_desc->size;
+  return MPI_SUCCESS;
 }
 
-USER_DEFINED_WRAPPER(int, Comm_rank, (MPI_Comm) comm, (int *) world_rank)
+USER_DEFINED_WRAPPER(int, Comm_rank, (MPI_Comm) comm, (int *) rank)
 {
   mana_comm_desc *comm_desc = (mana_comm_desc*)get_virt_id_desc({.comm = comm});
-  return comm_desc->group_desc->rank;
+  *rank = comm_desc->group_desc->rank;
+  return MPI_SUCCESS;
 }
 
 USER_DEFINED_WRAPPER(int, Comm_create, (MPI_Comm) comm, (MPI_Group) group,
                      (MPI_Comm *) newcomm)
 {
   int retval;
-  commit_begin(comm, false);
+  commit_begin(comm);
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
   MPI_Group real_group = get_real_id({.group = group}).group;
@@ -115,12 +117,10 @@ USER_DEFINED_WRAPPER(int, Comm_create, (MPI_Comm) comm, (MPI_Group) group,
   retval = NEXT_FUNC(Comm_create)(real_comm, real_group, newcomm);
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS) {
-    MPI_Comm virt_comm = new_virt_comm(*newcomm);
-    *newcomm = virt_comm;
-    // TODO: Fix the ggid design
+    *newcomm = OUTPUT_COMM(*newcomm);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
-  commit_finish(comm, false);
+  commit_finish(comm);
   return retval;
 }
 
@@ -293,9 +293,6 @@ USER_DEFINED_WRAPPER(int, Comm_set_errhandler,
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Comm_set_errhandler)(real_comm, errhandler);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
-    LOG_CALL(restoreComms, Comm_set_errhandler, comm, errhandler);
-  }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -323,7 +320,7 @@ USER_DEFINED_WRAPPER(int, Comm_split_type, (MPI_Comm) comm, (int) split_type,
   retval = NEXT_FUNC(Comm_split_type)(real_comm, split_type, key, inf, newcomm);
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS) {
-    *newcomm = new_virt_comm(*newcomm);
+    *newcomm = OUTPUT_COMM(*newcomm);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -437,12 +434,12 @@ MPI_Comm_create_group_internal(MPI_Comm comm, MPI_Group group, int tag,
 USER_DEFINED_WRAPPER(int, Comm_create_group, (MPI_Comm) comm,
                      (MPI_Group) group, (int) tag, (MPI_Comm *) newcomm)
 {
-  commit_begin(comm, false);
+  commit_begin(comm);
   int retval = MPI_Comm_create_group_internal(comm, group, tag, newcomm);
   if (retval == MPI_SUCCESS && MPI_LOGGING()) {
-    *newcomm = new_virt_comm(*newcomm);
+    *newcomm = OUTPUT_COMM(*newcomm);
   }
-  commit_finish(comm, false);
+  commit_finish(comm);
   return retval;
 }
 
