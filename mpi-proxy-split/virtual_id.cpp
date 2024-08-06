@@ -7,6 +7,8 @@
 MPI_Group g_world_group;
 std::map<int, virt_id_entry*> virt_ids;
 std::map<int, mana_ggid_desc*> ggid_table;
+std::map<int64_t, int64_t> upper_to_lower_constants;
+std::map<int64_t, int64_t> lower_to_upper_constants;
 
 // Hash function on integers. Consult https://stackoverflow.com/questions/664014/.
 // Returns a hash.
@@ -20,6 +22,25 @@ int generate_ggid(int *ranks, int size) {
     ggid ^= hash(ranks[i] + 1);
   }
   return ggid;
+}
+
+int is_predefined_id(mana_handle id) {
+  if (id.comm == MPI_COMM_WORLD ||
+      id.comm == MPI_COMM_SELF ||
+      id.comm == MPI_COMM_NULL ||
+      id.comm == g_world_comm ||
+      id.group == MPI_GROUP_NULL ||
+      id.group == g_world_group ||
+      id.datatype == MPI_DATATYPE_NULL ||
+      id.request == MPI_REQUEST_NULL ||
+      id.op == MPI_OP_NULL ||
+      id.file == MPI_FILE_NULL) {
+    return 1;
+  } else {
+    std::map<int64_t, int64_t>::iterator it;
+    it = upper_to_lower_constants.find(id._handle64);
+    return it != upper_to_lower_constants.end();
+  }
 }
 
 MPI_Comm new_virt_comm(MPI_Comm real_comm) {
@@ -76,10 +97,12 @@ MPI_Group new_virt_group(MPI_Group real_group) {
 
   mana_handle virt_id;
   virt_id = add_virt_id({.group = real_group}, desc, MANA_GROUP_KIND);
+  printf("new group %x size %d rank %d\n", virt_id, desc->size, desc->rank);
+  fflush(stdout);
   return virt_id.group;
 }
 
-MPI_Request new_virt_req(MPI_Request real_request) {
+MPI_Request new_virt_request(MPI_Request real_request) {
   mana_request_desc *desc = (mana_request_desc*)malloc(sizeof(mana_request_desc));
   // See comment in request_desc definition.
   mana_handle virt_id;
@@ -117,12 +140,6 @@ void reconstruct_comm_desc(virt_id_entry *entry) {
   MPI_Group group;
   mana_comm_desc *comm_desc = (mana_comm_desc*)entry->desc;
   mana_group_desc *group_desc = comm_desc->group_desc;
-  printf("comm %x rank %d size %d:", comm_desc->ggid, group_desc->rank, group_desc->size);
-  for (int i = 0; i < group_desc->size; i++) {
-    printf(" %d,", group_desc->global_ranks[i]);
-  }
-  printf("\n");
-  fflush(stdout);
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   NEXT_FUNC(Group_incl)(g_world_group, group_desc->size, group_desc->global_ranks, &group);
   NEXT_FUNC(Comm_create_group)(lh_info->MANA_COMM_WORLD, group, 0, &(entry->real_id.comm));
@@ -154,8 +171,6 @@ void reconstruct_descriptors() {
     virt_id_entry *entry = it->second;
     switch (kind) {
       case MANA_COMM_KIND:
-        printf("Process %d is reconstructing comm(virtual) %x\n", g_world_rank, it->first);
-        fflush(stdout);
         reconstruct_comm_desc(entry);
         break;
       case MANA_GROUP_KIND:
@@ -183,6 +198,217 @@ void reconstruct_descriptors() {
 }
 
 void init_predefined_virt_ids() {
+  // Fill in the upper-to-lower mapping
+  upper_to_lower_constants[(int64_t)MPI_GROUP_NULL] = (int64_t)lh_info->MANA_GROUP_NULL;
+  upper_to_lower_constants[(int64_t)MPI_COMM_NULL] = (int64_t)lh_info->MANA_COMM_NULL;
+  upper_to_lower_constants[(int64_t)MPI_REQUEST_NULL] = (int64_t)lh_info->MANA_REQUEST_NULL;
+  upper_to_lower_constants[(int64_t)MPI_MESSAGE_NULL] = (int64_t)lh_info->MANA_MESSAGE_NULL;
+  upper_to_lower_constants[(int64_t)MPI_OP_NULL] = (int64_t)lh_info->MANA_OP_NULL;
+  upper_to_lower_constants[(int64_t)MPI_ERRHANDLER_NULL] = (int64_t)lh_info->MANA_ERRHANDLER_NULL;
+  upper_to_lower_constants[(int64_t)MPI_INFO_NULL] = (int64_t)lh_info->MANA_INFO_NULL;
+  upper_to_lower_constants[(int64_t)MPI_WIN_NULL] = (int64_t)lh_info->MANA_WIN_NULL;
+  upper_to_lower_constants[(int64_t)MPI_FILE_NULL] = (int64_t)lh_info->MANA_FILE_NULL;
+  upper_to_lower_constants[(int64_t)MPI_INFO_ENV] = (int64_t)lh_info->MANA_INFO_ENV;
+  upper_to_lower_constants[(int64_t)MPI_GROUP_EMPTY] = (int64_t)lh_info->MANA_GROUP_EMPTY;
+  upper_to_lower_constants[(int64_t)MPI_MESSAGE_NO_PROC] = (int64_t)lh_info->MANA_MESSAGE_NO_PROC;
+  upper_to_lower_constants[(int64_t)MPI_MAX] = (int64_t)lh_info->MANA_MAX;
+  upper_to_lower_constants[(int64_t)MPI_MIN] = (int64_t)lh_info->MANA_MIN;
+  upper_to_lower_constants[(int64_t)MPI_SUM] = (int64_t)lh_info->MANA_SUM;
+  upper_to_lower_constants[(int64_t)MPI_PROD] = (int64_t)lh_info->MANA_PROD;
+  upper_to_lower_constants[(int64_t)MPI_LAND] = (int64_t)lh_info->MANA_LAND;
+  upper_to_lower_constants[(int64_t)MPI_BAND] = (int64_t)lh_info->MANA_BAND;
+  upper_to_lower_constants[(int64_t)MPI_LOR] = (int64_t)lh_info->MANA_LOR;
+  upper_to_lower_constants[(int64_t)MPI_BOR] = (int64_t)lh_info->MANA_BOR;
+  upper_to_lower_constants[(int64_t)MPI_LXOR] = (int64_t)lh_info->MANA_LXOR;
+  upper_to_lower_constants[(int64_t)MPI_BXOR] = (int64_t)lh_info->MANA_BXOR;
+  upper_to_lower_constants[(int64_t)MPI_MAXLOC] = (int64_t)lh_info->MANA_MAXLOC;
+  upper_to_lower_constants[(int64_t)MPI_MINLOC] = (int64_t)lh_info->MANA_MINLOC;
+  upper_to_lower_constants[(int64_t)MPI_REPLACE] = (int64_t)lh_info->MANA_REPLACE;
+  upper_to_lower_constants[(int64_t)MPI_NO_OP] = (int64_t)lh_info->MANA_NO_OP;
+  upper_to_lower_constants[(int64_t)MPI_DATATYPE_NULL] = (int64_t)lh_info->MANA_DATATYPE_NULL;
+  upper_to_lower_constants[(int64_t)MPI_BYTE] = (int64_t)lh_info->MANA_BYTE;
+  upper_to_lower_constants[(int64_t)MPI_PACKED] = (int64_t)lh_info->MANA_PACKED;
+  upper_to_lower_constants[(int64_t)MPI_CHAR] = (int64_t)lh_info->MANA_CHAR;
+  upper_to_lower_constants[(int64_t)MPI_SHORT] = (int64_t)lh_info->MANA_SHORT;
+  upper_to_lower_constants[(int64_t)MPI_INT] = (int64_t)lh_info->MANA_INT;
+  upper_to_lower_constants[(int64_t)MPI_LONG] = (int64_t)lh_info->MANA_LONG;
+  upper_to_lower_constants[(int64_t)MPI_FLOAT] = (int64_t)lh_info->MANA_FLOAT;
+  upper_to_lower_constants[(int64_t)MPI_DOUBLE] = (int64_t)lh_info->MANA_DOUBLE;
+  upper_to_lower_constants[(int64_t)MPI_LONG_DOUBLE] = (int64_t)lh_info->MANA_LONG_DOUBLE;
+  upper_to_lower_constants[(int64_t)MPI_UNSIGNED_CHAR] = (int64_t)lh_info->MANA_UNSIGNED_CHAR;
+  upper_to_lower_constants[(int64_t)MPI_SIGNED_CHAR] = (int64_t)lh_info->MANA_SIGNED_CHAR;
+  upper_to_lower_constants[(int64_t)MPI_UNSIGNED_SHORT] = (int64_t)lh_info->MANA_UNSIGNED_SHORT;
+  upper_to_lower_constants[(int64_t)MPI_UNSIGNED_LONG] = (int64_t)lh_info->MANA_UNSIGNED_LONG;
+  upper_to_lower_constants[(int64_t)MPI_UNSIGNED] = (int64_t)lh_info->MANA_UNSIGNED;
+  upper_to_lower_constants[(int64_t)MPI_FLOAT_INT] = (int64_t)lh_info->MANA_FLOAT_INT;
+  upper_to_lower_constants[(int64_t)MPI_DOUBLE_INT] = (int64_t)lh_info->MANA_DOUBLE_INT;
+  upper_to_lower_constants[(int64_t)MPI_LONG_DOUBLE_INT] = (int64_t)lh_info->MANA_LONG_DOUBLE_INT;
+  upper_to_lower_constants[(int64_t)MPI_LONG_INT] = (int64_t)lh_info->MANA_LONG_INT;
+  upper_to_lower_constants[(int64_t)MPI_SHORT_INT] = (int64_t)lh_info->MANA_SHORT_INT;
+  upper_to_lower_constants[(int64_t)MPI_2INT] = (int64_t)lh_info->MANA_2INT;
+  upper_to_lower_constants[(int64_t)MPI_WCHAR] = (int64_t)lh_info->MANA_WCHAR;
+  upper_to_lower_constants[(int64_t)MPI_LONG_LONG_INT] = (int64_t)lh_info->MANA_LONG_LONG_INT;
+  upper_to_lower_constants[(int64_t)MPI_LONG_LONG] = (int64_t)lh_info->MANA_LONG_LONG;
+  upper_to_lower_constants[(int64_t)MPI_UNSIGNED_LONG_LONG] = (int64_t)lh_info->MANA_UNSIGNED_LONG_LONG;
+#if 0
+  upper_to_lower_constants[(int64_t)MPI_2COMPLEX] = (int64_t)lh_info->MANA_2COMPLEX;
+  upper_to_lower_constants[(int64_t)MPI_CXX_COMPLEX] = (int64_t)lh_info->MANA_CXX_COMPLEX;
+  upper_to_lower_constants[(int64_t)MPI_2DOUBLE_COMPLEX] = (int64_t)lh_info->MANA_2DOUBLE_COMPLEX;
+#endif
+  upper_to_lower_constants[(int64_t)MPI_CHARACTER] = (int64_t)lh_info->MANA_CHARACTER;
+  upper_to_lower_constants[(int64_t)MPI_LOGICAL] = (int64_t)lh_info->MANA_LOGICAL;
+#if 0
+  upper_to_lower_constants[(int64_t)MPI_LOGICAL1] = (int64_t)lh_info->MANA_LOGICAL1;
+  upper_to_lower_constants[(int64_t)MPI_LOGICAL2] = (int64_t)lh_info->MANA_LOGICAL2;
+  upper_to_lower_constants[(int64_t)MPI_LOGICAL4] = (int64_t)lh_info->MANA_LOGICAL4;
+  upper_to_lower_constants[(int64_t)MPI_LOGICAL8] = (int64_t)lh_info->MANA_LOGICAL8;
+#endif
+  upper_to_lower_constants[(int64_t)MPI_INTEGER] = (int64_t)lh_info->MANA_INTEGER;
+  upper_to_lower_constants[(int64_t)MPI_INTEGER1] = (int64_t)lh_info->MANA_INTEGER1;
+  upper_to_lower_constants[(int64_t)MPI_INTEGER2] = (int64_t)lh_info->MANA_INTEGER2;
+  upper_to_lower_constants[(int64_t)MPI_INTEGER4] = (int64_t)lh_info->MANA_INTEGER4;
+  upper_to_lower_constants[(int64_t)MPI_INTEGER8] = (int64_t)lh_info->MANA_INTEGER8;
+  upper_to_lower_constants[(int64_t)MPI_REAL] = (int64_t)lh_info->MANA_REAL;
+  upper_to_lower_constants[(int64_t)MPI_REAL4] = (int64_t)lh_info->MANA_REAL4;
+  upper_to_lower_constants[(int64_t)MPI_REAL8] = (int64_t)lh_info->MANA_REAL8;
+  upper_to_lower_constants[(int64_t)MPI_REAL16] = (int64_t)lh_info->MANA_REAL16;
+  upper_to_lower_constants[(int64_t)MPI_DOUBLE_PRECISION] = (int64_t)lh_info->MANA_DOUBLE_PRECISION;
+  upper_to_lower_constants[(int64_t)MPI_COMPLEX] = (int64_t)lh_info->MANA_COMPLEX;
+  upper_to_lower_constants[(int64_t)MPI_COMPLEX8] = (int64_t)lh_info->MANA_COMPLEX8;
+  upper_to_lower_constants[(int64_t)MPI_COMPLEX16] = (int64_t)lh_info->MANA_COMPLEX16;
+  upper_to_lower_constants[(int64_t)MPI_COMPLEX32] = (int64_t)lh_info->MANA_COMPLEX32;
+  upper_to_lower_constants[(int64_t)MPI_DOUBLE_COMPLEX] = (int64_t)lh_info->MANA_DOUBLE_COMPLEX;
+  upper_to_lower_constants[(int64_t)MPI_2REAL] = (int64_t)lh_info->MANA_2REAL;
+  upper_to_lower_constants[(int64_t)MPI_2DOUBLE_PRECISION] = (int64_t)lh_info->MANA_2DOUBLE_PRECISION;
+  upper_to_lower_constants[(int64_t)MPI_2INTEGER] = (int64_t)lh_info->MANA_2INTEGER;
+  upper_to_lower_constants[(int64_t)MPI_INT8_T] = (int64_t)lh_info->MANA_INT8_T;
+  upper_to_lower_constants[(int64_t)MPI_UINT8_T] = (int64_t)lh_info->MANA_UINT8_T;
+  upper_to_lower_constants[(int64_t)MPI_INT16_T] = (int64_t)lh_info->MANA_INT16_T;
+  upper_to_lower_constants[(int64_t)MPI_UINT16_T] = (int64_t)lh_info->MANA_UINT16_T;
+  upper_to_lower_constants[(int64_t)MPI_INT32_T] = (int64_t)lh_info->MANA_INT32_T;
+  upper_to_lower_constants[(int64_t)MPI_UINT32_T] = (int64_t)lh_info->MANA_UINT32_T;
+  upper_to_lower_constants[(int64_t)MPI_INT64_T] = (int64_t)lh_info->MANA_INT64_T;
+  upper_to_lower_constants[(int64_t)MPI_UINT64_T] = (int64_t)lh_info->MANA_UINT64_T;
+  upper_to_lower_constants[(int64_t)MPI_AINT] = (int64_t)lh_info->MANA_AINT;
+  upper_to_lower_constants[(int64_t)MPI_OFFSET] = (int64_t)lh_info->MANA_OFFSET;
+  upper_to_lower_constants[(int64_t)MPI_C_BOOL] = (int64_t)lh_info->MANA_C_BOOL;
+  upper_to_lower_constants[(int64_t)MPI_C_COMPLEX] = (int64_t)lh_info->MANA_C_COMPLEX;
+  upper_to_lower_constants[(int64_t)MPI_C_FLOAT_COMPLEX] = (int64_t)lh_info->MANA_C_FLOAT_COMPLEX;
+  upper_to_lower_constants[(int64_t)MPI_C_DOUBLE_COMPLEX] = (int64_t)lh_info->MANA_C_DOUBLE_COMPLEX;
+  upper_to_lower_constants[(int64_t)MPI_C_LONG_DOUBLE_COMPLEX] = (int64_t)lh_info->MANA_C_LONG_DOUBLE_COMPLEX;
+  upper_to_lower_constants[(int64_t)MPI_CXX_BOOL] = (int64_t)lh_info->MANA_CXX_BOOL;
+  upper_to_lower_constants[(int64_t)MPI_CXX_FLOAT_COMPLEX] = (int64_t)lh_info->MANA_CXX_FLOAT_COMPLEX;
+  upper_to_lower_constants[(int64_t)MPI_CXX_DOUBLE_COMPLEX] = (int64_t)lh_info->MANA_CXX_DOUBLE_COMPLEX;
+  upper_to_lower_constants[(int64_t)MPI_CXX_LONG_DOUBLE_COMPLEX] = (int64_t)lh_info->MANA_CXX_LONG_DOUBLE_COMPLEX;
+  upper_to_lower_constants[(int64_t)MPI_COUNT] = (int64_t)lh_info->MANA_COUNT;
+  upper_to_lower_constants[(int64_t)MPI_ERRORS_ARE_FATAL] = (int64_t)lh_info->MANA_ERRORS_ARE_FATAL;
+  upper_to_lower_constants[(int64_t)MPI_ERRORS_RETURN] = (int64_t)lh_info->MANA_ERRORS_RETURN;
+  upper_to_lower_constants[(int64_t)MPI_GROUP_NULL] = (int64_t)lh_info->MANA_GROUP_NULL;
+  // Fill in the lower-to-upper mapping
+  lower_to_upper_constants[(int64_t)lh_info->MANA_COMM_NULL] = (int64_t)MPI_COMM_NULL;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_REQUEST_NULL] = (int64_t)MPI_REQUEST_NULL;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_MESSAGE_NULL] = (int64_t)MPI_MESSAGE_NULL;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_OP_NULL] = (int64_t)MPI_OP_NULL;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_ERRHANDLER_NULL] = (int64_t)MPI_ERRHANDLER_NULL;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_INFO_NULL] = (int64_t)MPI_INFO_NULL;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_WIN_NULL] = (int64_t)MPI_WIN_NULL;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_FILE_NULL] = (int64_t)MPI_FILE_NULL;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_INFO_ENV] = (int64_t)MPI_INFO_ENV;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_GROUP_EMPTY] = (int64_t)MPI_GROUP_EMPTY;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_MESSAGE_NO_PROC] = (int64_t)MPI_MESSAGE_NO_PROC;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_MAX] = (int64_t)MPI_MAX;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_MIN] = (int64_t)MPI_MIN;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_SUM] = (int64_t)MPI_SUM;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_PROD] = (int64_t)MPI_PROD;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_LAND] = (int64_t)MPI_LAND;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_BAND] = (int64_t)MPI_BAND;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_LOR] = (int64_t)MPI_LOR;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_BOR] = (int64_t)MPI_BOR;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_LXOR] = (int64_t)MPI_LXOR;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_BXOR] = (int64_t)MPI_BXOR;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_MAXLOC] = (int64_t)MPI_MAXLOC;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_MINLOC] = (int64_t)MPI_MINLOC;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_REPLACE] = (int64_t)MPI_REPLACE;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_NO_OP] = (int64_t)MPI_NO_OP;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_DATATYPE_NULL] = (int64_t)MPI_DATATYPE_NULL;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_BYTE] = (int64_t)MPI_BYTE;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_PACKED] = (int64_t)MPI_PACKED;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_CHAR] = (int64_t)MPI_CHAR;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_SHORT] = (int64_t)MPI_SHORT;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_INT] = (int64_t)MPI_INT;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_LONG] = (int64_t)MPI_LONG;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_FLOAT] = (int64_t)MPI_FLOAT;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_DOUBLE] = (int64_t)MPI_DOUBLE;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_LONG_DOUBLE] = (int64_t)MPI_LONG_DOUBLE;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_UNSIGNED_CHAR] = (int64_t)MPI_UNSIGNED_CHAR;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_SIGNED_CHAR] = (int64_t)MPI_SIGNED_CHAR;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_UNSIGNED_SHORT] = (int64_t)MPI_UNSIGNED_SHORT;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_UNSIGNED_LONG] = (int64_t)MPI_UNSIGNED_LONG;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_UNSIGNED] = (int64_t)MPI_UNSIGNED;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_FLOAT_INT] = (int64_t)MPI_FLOAT_INT;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_DOUBLE_INT] = (int64_t)MPI_DOUBLE_INT;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_LONG_DOUBLE_INT] = (int64_t)MPI_LONG_DOUBLE_INT;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_LONG_INT] = (int64_t)MPI_LONG_INT;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_SHORT_INT] = (int64_t)MPI_SHORT_INT;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_2INT] = (int64_t)MPI_2INT;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_WCHAR] = (int64_t)MPI_WCHAR;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_LONG_LONG_INT] = (int64_t)MPI_LONG_LONG_INT;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_LONG_LONG] = (int64_t)MPI_LONG_LONG;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_UNSIGNED_LONG_LONG] = (int64_t)MPI_UNSIGNED_LONG_LONG;
+#if 0
+  lower_to_upper_constants[(int64_t)lh_info->MANA_2COMPLEX] = (int64_t)MPI_2COMPLEX;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_CXX_COMPLEX] = (int64_t)MPI_CXX_COMPLEX;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_2DOUBLE_COMPLEX] = (int64_t)MPI_2DOUBLE_COMPLEX;
+#endif
+  lower_to_upper_constants[(int64_t)lh_info->MANA_CHARACTER] = (int64_t)MPI_CHARACTER;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_LOGICAL] = (int64_t)MPI_LOGICAL;
+#if 0
+  lower_to_upper_constants[(int64_t)lh_info->MANA_LOGICAL1] = (int64_t)MPI_LOGICAL1;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_LOGICAL2] = (int64_t)MPI_LOGICAL2;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_LOGICAL4] = (int64_t)MPI_LOGICAL4;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_LOGICAL8] = (int64_t)MPI_LOGICAL8;
+#endif
+  lower_to_upper_constants[(int64_t)lh_info->MANA_INTEGER] = (int64_t)MPI_INTEGER;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_INTEGER1] = (int64_t)MPI_INTEGER1;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_INTEGER2] = (int64_t)MPI_INTEGER2;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_INTEGER4] = (int64_t)MPI_INTEGER4;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_INTEGER8] = (int64_t)MPI_INTEGER8;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_REAL] = (int64_t)MPI_REAL;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_REAL4] = (int64_t)MPI_REAL4;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_REAL8] = (int64_t)MPI_REAL8;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_REAL16] = (int64_t)MPI_REAL16;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_DOUBLE_PRECISION] = (int64_t)MPI_DOUBLE_PRECISION;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_COMPLEX] = (int64_t)MPI_COMPLEX;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_COMPLEX8] = (int64_t)MPI_COMPLEX8;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_COMPLEX16] = (int64_t)MPI_COMPLEX16;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_COMPLEX32] = (int64_t)MPI_COMPLEX32;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_DOUBLE_COMPLEX] = (int64_t)MPI_DOUBLE_COMPLEX;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_2REAL] = (int64_t)MPI_2REAL;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_2DOUBLE_PRECISION] = (int64_t)MPI_2DOUBLE_PRECISION;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_2INTEGER] = (int64_t)MPI_2INTEGER;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_INT8_T] = (int64_t)MPI_INT8_T;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_UINT8_T] = (int64_t)MPI_UINT8_T;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_INT16_T] = (int64_t)MPI_INT16_T;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_UINT16_T] = (int64_t)MPI_UINT16_T;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_INT32_T] = (int64_t)MPI_INT32_T;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_UINT32_T] = (int64_t)MPI_UINT32_T;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_INT64_T] = (int64_t)MPI_INT64_T;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_UINT64_T] = (int64_t)MPI_UINT64_T;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_AINT] = (int64_t)MPI_AINT;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_OFFSET] = (int64_t)MPI_OFFSET;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_C_BOOL] = (int64_t)MPI_C_BOOL;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_C_COMPLEX] = (int64_t)MPI_C_COMPLEX;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_C_FLOAT_COMPLEX] = (int64_t)MPI_C_FLOAT_COMPLEX;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_C_DOUBLE_COMPLEX] = (int64_t)MPI_C_DOUBLE_COMPLEX;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_C_LONG_DOUBLE_COMPLEX] = (int64_t)MPI_C_LONG_DOUBLE_COMPLEX;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_CXX_BOOL] = (int64_t)MPI_CXX_BOOL;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_CXX_FLOAT_COMPLEX] = (int64_t)MPI_CXX_FLOAT_COMPLEX;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_CXX_DOUBLE_COMPLEX] = (int64_t)MPI_CXX_DOUBLE_COMPLEX;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_CXX_LONG_DOUBLE_COMPLEX] = (int64_t)MPI_CXX_LONG_DOUBLE_COMPLEX;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_COUNT] = (int64_t)MPI_COUNT;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_ERRORS_ARE_FATAL] = (int64_t)MPI_ERRORS_ARE_FATAL;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_ERRORS_RETURN] = (int64_t)MPI_ERRORS_RETURN;
+
   // Initialize g_world_comm and g_world_group.
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   NEXT_FUNC(Comm_dup)(lh_info->MANA_COMM_WORLD, &g_world_comm);
@@ -228,7 +454,7 @@ void init_predefined_virt_ids() {
   RETURN_TO_UPPER_HALF();
   self_group = new_virt_group(self_group);
 
-  // MPI_COMM_WORLD
+  // MPI_COMM_SELF
   mana_comm_desc *comm_self_desc = (mana_comm_desc*)malloc(sizeof(mana_comm_desc));
   comm_self_desc->group = self_group;
   comm_self_desc->group_desc = (mana_group_desc*)malloc(sizeof(mana_group_desc));
@@ -247,61 +473,6 @@ void init_predefined_virt_ids() {
   comm_self_entry->real_id = {.comm = lh_info->MANA_COMM_SELF};
   comm_self_entry->desc = comm_self_desc;
   virt_ids[MPI_COMM_SELF] = comm_self_entry;
-
-#if 0
-  // MPI_GROUP_NULL
-  virt_id_entry *group_null_entry = (virt_id_entry*)malloc(sizeof(entry));
-  group_null_entry->real_id = {.group = lh_info->MPI_GROUP_NULL};
-  group_null_entry->desc = NULL;
-  virt_ids[MPI_GROUP_NULL] = group_null_entry;
-
-  // MPI_COMM_NULL
-  virt_id_entry *comm_null_entry = (virt_id_entry*)malloc(sizeof(entry));
-  comm_null_entry->real_id = {.comm = lh_info->MPI_COMM_NULL};
-  comm_null_entry->desc = NULL;
-  virt_ids[MPI_COMM_NULL] = comm_null_entry;
-
-  // MPI_DATATYPE_NULL
-  virt_id_entry *datatype_null_entry = (virt_id_entry*)malloc(sizeof(entry));
-  datatype_null_entry->real_id = {.datatype = lh_info->MPI_DATATYPE_NULL};
-  datatype_null_entry->desc = NULL;
-  virt_ids[MPI_DATATYPE_NULL] = datatype_null_entry;
-
-  // MPI_REQUEST_NULL
-  virt_id_entry *request_null_entry = (virt_id_entry*)malloc(sizeof(entry));
-  request_null_entry->real_id = {.request = lh_info->MPI_REQUEST_NULL};
-  request_null_entry->desc = NULL;
-  virt_ids[MPI_REQUEST_NULL] = request_null_entry;
-
-  // MPI_OP_NULL
-  virt_id_entry *op_null_entry = (virt_id_entry*)malloc(sizeof(entry));
-  op_null_entry->real_id = {.op = lh_info->MPI_OP_NULL};
-  op_null_entry->desc = NULL;
-  virt_ids[MPI_OP_NULL] = op_null_entry;
-
-  // MPI_FIle_NULL
-  virt_id_entry *file_null_entry = (virt_id_entry*)malloc(sizeof(entry));
-  file_null_entry->real_id = {.file = lh_info->MPI_FILE_NULL};
-  file_null_entry->desc = NULL;
-  virt_ids[MPI_FILE_NULL] = file_null_entry;
-#endif
-}
-
-int is_predefined_id(mana_handle id) {
-  if (id.comm == MPI_COMM_WORLD ||
-      id.comm == MPI_COMM_SELF ||
-      id.comm == MPI_COMM_NULL ||
-      id.comm == g_world_comm ||
-      id.group == MPI_GROUP_NULL ||
-      id.group == g_world_group ||
-      id.datatype == MPI_DATATYPE_NULL ||
-      id.request == MPI_REQUEST_NULL ||
-      id.op == MPI_OP_NULL ||
-      id.file == MPI_FILE_NULL) {
-    return 1;
-  } else {
-    return 0;
-  }
 }
 
 mana_handle add_virt_id(mana_handle real_id, void *desc, int kind) {
@@ -339,68 +510,32 @@ virt_id_entry* get_virt_id_entry(mana_handle virt_id) {
   return it->second;
 }
 
-// Functions convert from virtual id to real id and functions test and
-// convert lower half MPI constants to upper half constants
-MPI_Comm REAL_COMM(MPI_Comm comm) {
-  // Test if comm is predefined communicator
-  if (comm == MPI_COMM_NULL) {
-    return lh_info->MANA_COMM_NULL;
-  } else if (comm == MPI_COMM_WORLD) {
-    return lh_info->MANA_COMM_WORLD;
-  } else if (comm == MPI_COMM_SELF) {
-    return lh_info->MANA_COMM_SELF;
-  } else { // Not predefiend
-    return get_real_id({.comm == comm}).comm;
-  }
-}
-
-MPI_Comm OUTPUT_COMM(MPI_Comm comm) {
-  // Test if comm is predefined communicator
-  if (comm == lh_info->MANA_COMM_NULL) {
-    return MPI_COMM_NULL;
-  } else if (comm == lh_info->MANA_COMM_WORLD) {
-    return MPI_COMM_WORLD;
-  } else if (comm == lh_info->MANA_COMM_SELF) {
-    return MPI_COMM_SELF;
-  } else { // Not predefiend
-    return new_virt_comm(comm);
-  }
-}
-
-MPI_Group REAL_GROUP(MPI_Group group) {
-  // Test if group is predefined
-  if (group == MPI_GROUP_NULL) {
-    return lh_info->MANA_GROUP_NULL;
-  } else if (group == MPI_GROUP_EMPTY) {
-    return lh_info->MANA_GROUP_EMPTY;
-  } else { // Not predefined
-    return get_real_id({.group = group}).group;
-  }
-}
-
-MPI_Group OUTPUT_GROUP(MPI_Group group) {
-  // Test if group is predefined
-  if (group == lh_info->MANA_GROUP_NULL) {
-    return MPI_GROUP_NULL;
-  } else if (group == lh_info->MANA_GROUP_EMPTY) {
-    return MPI_GROUP_EMPTY;
-  } else { // Not predefined
-    return new_virt_group(group);
-  }
-}
-
 mana_handle get_real_id(mana_handle virt_id) {
-  return get_virt_id_entry(virt_id)->real_id;
+  std::map<int64_t, int64_t>::iterator it;
+  it = upper_to_lower_constants.find(virt_id._handle64);
+  if (it != upper_to_lower_constants.end()) {
+    return {._handle64 = upper_to_lower_constants[virt_id._handle64]};
+  } else {
+    return get_virt_id_entry(virt_id)->real_id;
+  }
 }
 
 void* get_virt_id_desc(mana_handle virt_id) {
-  return get_virt_id_entry(virt_id)->desc;
+  std::map<int64_t, int64_t>::iterator it;
+  it = upper_to_lower_constants.find(virt_id._handle64);
+  if (it != upper_to_lower_constants.end()) {
+    return NULL; // Predefined MPI constants
+  } else {
+    return get_virt_id_entry(virt_id)->desc;
+  }
 }
 
 void free_desc(void *desc, int kind) {
   if (kind == MANA_COMM_KIND) {
     mana_comm_desc *comm_desc = (mana_comm_desc*)desc;
-    free_desc(comm_desc->group_desc, MANA_GROUP_KIND);
+    if (comm_desc->group_desc->ref_count <= 0) {
+      free_desc(comm_desc->group_desc, MANA_GROUP_KIND);
+    }
   } else if (kind == MANA_GROUP_KIND) {
     mana_group_desc *group_desc = (mana_group_desc*)desc;
     free(group_desc->global_ranks);
@@ -418,6 +553,7 @@ void free_virt_id(mana_handle virt_id) {
   int kind = virt_id._handle >> MANA_VIRT_ID_KIND_SHIFT;
   free_desc(it->second->desc, kind); // free descriptor
   free(it->second); // free virt_id_entry
+  virt_ids.erase(it);
 }
 
 void update_virt_id(mana_handle virt_id, mana_handle real_id) {

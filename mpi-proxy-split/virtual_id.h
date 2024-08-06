@@ -20,6 +20,7 @@ extern MPI_Comm g_world_comm;
 
 typedef union {
   int _handle;
+  int64_t _handle64;
   MPI_Comm comm;
   MPI_Group group;
   MPI_Request request;
