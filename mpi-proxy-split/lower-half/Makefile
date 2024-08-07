@@ -28,7 +28,7 @@ DMTCP_DEPS = ${DMTCP_ROOT}/src/libdmtcprestart.a \
 
 override CFLAGS += -fPIC -I${DMTCP_INCLUDE} -I${MANA_INCLUDE} -g3 -O0 \
                    -I${DMTCP_ROOT}/src 
-override CXXFLAGS += -std=c++11 -fPIC -I${DMTCP_INCLUDE} -I${JALIB_INCLUDE} -I${MANA_INCLUDE} -I${DMTCP_ROOT}/src/mtcp \
+override CXXFLAGS += -fPIC -I${DMTCP_INCLUDE} -I${JALIB_INCLUDE} -I${MANA_INCLUDE} -I${DMTCP_ROOT}/src/mtcp \
                      -I${DMTCP_ROOT}/src
 
 TEXTSEG_ADDR_FLAG=-Wl,-Ttext-segment=0x10000000
@@ -42,7 +42,7 @@ default: kernel-loader
 	${MPICXX} ${CFLAGS} -c -o $@ $<
 
 kernel-loader: get_symbol_offset.o copy_stack.o patch_trampoline.o lh_func_ptr.o mem_wrapper.o switch_context.o kernel_loader.o ${DMTCP_DEPS}
-	${MPICXX} -g3 ${TEXTSEG_ADDR_FLAG} ${CFLAGS} -o $@ $^
+	${MPICXX} -g3 ${TEXTSEG_ADDR_FLAG} ${CXXFLAGS} -o $@ $^ -lpthread -ldl
 
 install: kernel-loader
 	cp -f $^ ${MANA_ROOT}/bin/

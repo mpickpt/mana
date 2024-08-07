@@ -72,7 +72,7 @@ static void patchAuxv(Elf64_auxv_t *av, unsigned long phnum,
 off_t get_symbol_offset(char *pathame, char *symbol);
 // See: http://articles.manugarg.com/aboutelfauxiliaryvectors.html
 //   (but unfortunately, that's for a 32-bit system)
-char *deepCopyStack(int argc, char **argv,
+char *deepCopyStack(int argc, char **argv, char *argc_ptr, char *argv_ptr,
                     unsigned long dest_argc, char **dest_argv, char *dest_stack,
                     Elf64_auxv_t **);
 void *lh_dlsym(enum MPI_Fncs fnc);
@@ -98,7 +98,11 @@ void set_addr_no_randomize(char *argv[]) {
 }
 
 int main(int argc, char *argv[], char *envp[]) {
+  printf("before execvpe\n");
+  fflush(stdout);
   set_addr_no_randomize(argv);
+  printf("after execvpe\n");
+  fflush(stdout);
   int i;
   int restore_mode = 0;
   int cmd_argc = 0;
@@ -285,7 +289,7 @@ int main(int argc, char *argv[], char *envp[]) {
       }
       if ((area.properties & DMTCP_ZERO_PAGE_CHILD_HEADER) == 0) {
         void *mmapedat = mmap(area.addr, area.size, PROT_NONE,
-                              MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED_NOREPLACE,
+                              MAP_PRIVATE | MAP_ANONYMOUS,
                               0, 0);
         if (mmapedat == MAP_FAILED) {
           fprintf(stderr, "restore failed area.addr: %p, area.endAddr%p\n", area.addr, area.endAddr);
@@ -407,7 +411,8 @@ int main(int argc, char *argv[], char *envp[]) {
   // FIXME:
   //   Should add check that interp_base_address + 0x400000 not already mapped
   //   Or else, could use newer MAP_FIXED_NOREPLACE in mmap of deepCopyStack
-  char *dest_stack = deepCopyStack(argc, argv, cmd_argc+1, cmd_argv2,
+  char *dest_stack = deepCopyStack(argc, argv, (char*)&argc, (char*)&argv[0],
+                                   cmd_argc+1, cmd_argv2,
                                    interp_base_address + 0x400000,
                                    &auxv_ptr);
   lh_info->uh_stack = dest_stack;
@@ -434,7 +439,7 @@ int main(int argc, char *argv[], char *envp[]) {
   // to the list of upper half regions to be checkpointed.
   void *heap_addr = mmap_wrapper(lh_brk, heapSize, PROT_NONE,
                                  MAP_PRIVATE | MAP_ANONYMOUS |
-                                 MAP_NORESERVE | MAP_FIXED_NOREPLACE ,
+                                 MAP_NORESERVE,
                                  -1, 0);
   if (heap_addr == MAP_FAILED) {
     DLOG(ERROR, "Failed to mmap region. Error: %s\n",
@@ -841,7 +846,7 @@ static int restoreMemoryArea(int fd, DmtcpCkptHeader *ckptHdr)
       */
       mmappedat =
         mmap_wrapper(area.addr, area.size, area.prot | PROT_WRITE,
-                            area.flags | MAP_FIXED_NOREPLACE, imagefd, area.offset);
+                            area.flags, imagefd, area.offset);
 
       if (mmappedat != area.addr) {
         fprintf(stderr, "restore failed area.addr: %p, area.endAddr%p\n", area.addr, area.endAddr);
