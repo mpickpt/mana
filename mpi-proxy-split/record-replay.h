@@ -174,6 +174,46 @@ namespace dmtcp_mpi
       }
     }
 
+    operator MPI_Request() const
+    {
+      return (MPI_Request)_data;
+    }
+
+    operator MPI_Comm() const
+    {
+      return (MPI_Comm)_data;
+    }
+
+    operator MPI_Group() const
+    {
+      return (MPI_Group)_data;
+    }
+
+    operator MPI_Datatype() const
+    {
+      return (MPI_Datatype)_data;
+    }
+
+    operator MPI_Request*() const
+    {
+      return (MPI_Request*)_data;
+    }
+
+    operator MPI_Comm*() const
+    {
+      return (MPI_Comm*)_data;
+    }
+
+    operator MPI_Group*() const
+    {
+      return (MPI_Group*)_data;
+    }
+
+    operator MPI_Datatype*() const
+    {
+      return (MPI_Datatype*)_data;
+    }
+
     // This is used to handle MPI_Aint*, because in MPICH
     // MPI_Aint is 8 bytes (long int).
     operator long*() const
@@ -185,12 +225,6 @@ namespace dmtcp_mpi
     operator void*() const
     {
       return *(void**)_data;
-    }
-
-    // Returns a void pointer to saved argument
-    operator void const*() const
-    {
-      return *(void const**)_data;
     }
 
     operator MPI_User_function*() const
@@ -474,7 +508,6 @@ namespace dmtcp_mpi
 	    case GENERATE_ENUM(Type_free):
 	    {
               MPI_Datatype type = rec->args(0);
-	      datatype_free(type);
 	      delete rec;
 	      return NULL;
             }
@@ -501,25 +534,6 @@ namespace dmtcp_mpi
         lock_t lock(_mutex);
         _replayOn = true;
         for (MpiRecord* rec : _records) {
-          MPI_Request req = MPI_REQUEST_NULL;
-          switch (rec->getType()) {
-          case GENERATE_ENUM(Ibarrier):
-            req = rec->args(1);
-            break;
-          case GENERATE_ENUM(Ireduce):
-                  req = rec->args(7);
-                  break;
-          case GENERATE_ENUM(Ibcast):
-            req = rec->args(5);
-            break;
-          default:
-            break;
-	  }
-	  if (req != MPI_REQUEST_NULL) {
-	    auto iter = _recordsMap.find(req);
-            if (iter->second == 1)
-              rec->setComplete(true);
-	  }
           rc = rec->play();
           if (rc != MPI_SUCCESS) {
             break;
@@ -537,182 +551,6 @@ namespace dmtcp_mpi
         }
         _replayOn = false;
         _records.clear();
-      }
-
-      void cleanComms(dmtcp::set<MPI_Comm> &staleComms)
-      {
-        bool setChanged = false;
-        std::function<bool(const MpiRecord*)> isStaleComm =
-          [&](const MpiRecord *rec) {
-            switch (rec->getType()) {
-              case GENERATE_ENUM(Comm_split):
-              {
-                MPI_Comm c = rec->args(0);
-                MPI_Comm newcomm = rec->args(3);
-                if (staleComms.count(c) > 0) {
-                  staleComms.erase(c);
-                  staleComms.insert(newcomm);
-                  setChanged = true;
-                  return true;
-                }
-                return false;
-              }
-              case GENERATE_ENUM(Comm_split_type):
-              {
-                MPI_Comm c = rec->args(0);
-                MPI_Comm newcomm = rec->args(4);
-                if (staleComms.count(c) > 0) {
-                  staleComms.erase(c);
-                  staleComms.insert(newcomm);
-                  setChanged = true;
-                  return true;
-                }
-                return false;
-              }
-              case GENERATE_ENUM(Comm_create):
-              {
-                MPI_Comm c = rec->args(0);
-                MPI_Comm newcomm = rec->args(2);
-                if (staleComms.count(c) > 0) {
-                  staleComms.erase(c);
-                  staleComms.insert(newcomm);
-                  setChanged = true;
-                  return true;
-                }
-                return false;
-              }
-              case GENERATE_ENUM(Comm_dup):
-              {
-                MPI_Comm c = rec->args(0);
-                MPI_Comm newcomm = rec->args(1);
-                if (staleComms.count(c) > 0) {
-                  staleComms.erase(c);
-                  staleComms.insert(newcomm);
-                  setChanged = true;
-                  return true;
-                }
-                return false;
-              }
-              case GENERATE_ENUM(Comm_set_errhandler):
-              case GENERATE_ENUM(Attr_put):
-              case GENERATE_ENUM(Attr_delete):
-              {
-                MPI_Comm c = rec->args(0);
-                if (staleComms.count(c) > 0) {
-                  staleComms.erase(c);
-                  return true;
-                }
-                return false;
-              }
-              default:
-                return false;
-            } };
-        do {
-          mpi_record_vector_iterator_t it =
-            remove_if(_records.begin(), _records.end(), isStaleComm);
-          _records.erase(it, _records.end());
-        } while (setChanged);
-      }
-
-      void clearGroupLogs(MPI_Group group)
-      {
-        lock_t lock(_mutex);
-        dmtcp::set<MPI_Comm> staleComms;
-        std::function<bool(const MpiRecord*)> isValidGroup =
-          [group, &staleComms](const MpiRecord *rec) {
-            switch (rec->getType()) {
-              case GENERATE_ENUM(Group_incl):
-              {
-                MPI_Group g = rec->args(0);
-                return group == g;
-              }
-              case GENERATE_ENUM(Comm_group):
-              {
-                // MPI_Comm comm = rec->args(0);
-                MPI_Group g = rec->args(1);
-                return group == g;
-              }
-              case GENERATE_ENUM(Comm_create):
-              {
-                // MPI_Comm comm = rec->args(0);
-                MPI_Group g = rec->args(1);
-                MPI_Comm oldcomm = rec->args(2);
-                if (group == g) {
-                  staleComms.insert(oldcomm); // save this
-                  return true;
-                }
-                return false;
-              }
-              default:
-                return false;
-            } };
-        mpi_record_vector_iterator_t it =
-          remove_if(_records.begin(), _records.end(), isValidGroup);
-        _records.erase(it, _records.end());
-        cleanComms(staleComms);
-      }
-
-      void clearCommLogs(MPI_Comm comm)
-      {
-        lock_t lock(_mutex);
-        dmtcp::set<MPI_Comm> staleComms;
-        std::function<bool(const MpiRecord*)> isValidComm =
-          [comm, &staleComms](const MpiRecord *rec) {
-            switch (rec->getType()) {
-              case GENERATE_ENUM(Comm_split):
-              {
-                MPI_Comm c = rec->args(0);
-                MPI_Comm newcomm = rec->args(3);
-                if (c == comm) {
-                  staleComms.insert(newcomm);
-                  return true;
-                }
-                return false;
-              }
-              case GENERATE_ENUM(Comm_split_type):
-              {
-                MPI_Comm c = rec->args(0);
-                MPI_Comm newcomm = rec->args(4);
-                if (c == comm) {
-                  staleComms.insert(newcomm);
-                  return true;
-                }
-                return false;
-              }
-              case GENERATE_ENUM(Comm_create):
-              {
-                MPI_Comm c = rec->args(0);
-                MPI_Comm newcomm = rec->args(2);
-                if (c == comm) {
-                  staleComms.insert(newcomm);
-                  return true;
-                }
-                return false;
-              }
-              case GENERATE_ENUM(Comm_dup):
-              {
-                MPI_Comm c = rec->args(0);
-                MPI_Comm newcomm = rec->args(1);
-                if (c == comm) {
-                  staleComms.insert(newcomm);
-                  return true;
-                }
-                return false;
-              }
-              case GENERATE_ENUM(Comm_set_errhandler):
-              case GENERATE_ENUM(Attr_put):
-              case GENERATE_ENUM(Attr_delete):
-              {
-                MPI_Comm c = rec->args(0);
-                return staleComms.count(c) > 0;
-              }
-              default:
-                return false;
-            } };
-        mpi_record_vector_iterator_t it =
-          remove_if(_records.begin(), _records.end(), isValidComm);
-        _records.erase(it, _records.end());
-        cleanComms(staleComms);
       }
 
       void removeRequestLog(MPI_Request request)
@@ -773,147 +611,6 @@ namespace dmtcp_mpi
           return -1;
 	} else {
           return --_datatypeMap[datatype];
-	}
-      }
-
-      void datatype_find_stale_types(MPI_Datatype type,
-	     dmtcp::set<MPI_Datatype> &staleTypes)
-      {
-	std::function<bool(const MpiRecord*)> isStaleType =
-	  [this, type, &staleTypes](const MpiRecord *rec) {
-            switch (rec->getType()) {
-              case GENERATE_ENUM(Type_hvector):
-	      {
-		MPI_Datatype newtype = rec->args(4);
-		if (newtype == type) {
-		  // The oldtype could be stale if its ref count drops to zero
-		  if (this->datatype_decRef(type) == 0) {
-		    MPI_Datatype oldtype = rec->args(3);
-		    // Skip pre-defined MPI constants like MPI_INT, etc.
-		    if (_datatypeMap.find(oldtype) != _datatypeMap.end()) {
-		      datatype_find_stale_types(oldtype, staleTypes);
-		    }
-                  }
-		  return true;
-		}
-		return false;
-	      }
-              case GENERATE_ENUM(Type_create_struct):
-              {
-                MPI_Datatype newtype = rec->args(4);
-		if (newtype == type) {
-                  if (this->datatype_decRef(type) == 0) {
-		    int count = rec->args(0);
-                    MPI_Datatype *oldtypes = rec->args(3);
-		    for (int i = 0; i < count; i++) {
-		      if (_datatypeMap.find(oldtypes[i]) != _datatypeMap.end()) {
-                        datatype_find_stale_types(oldtypes[i], staleTypes);
-		      }
-                    }
-		    return true;
-		  }
-                }
-		return false;
-              }
-	      case GENERATE_ENUM(Type_indexed):
-	      {
-		MPI_Datatype newtype = rec->args(4);
-		if (newtype == type) {
-		  // The oldtype could be stale if its ref count drops to zero
-		  if (this->datatype_decRef(type) == 0) {
-		    MPI_Datatype oldtype = rec->args(3);
-		    // Skip pre-defined MPI constants like MPI_INT, etc.
-		    if (_datatypeMap.find(oldtype) != _datatypeMap.end()) {
-		      datatype_find_stale_types(oldtype, staleTypes);
-		    }
-                  }
-		  return true;
-		}
-		return false;
-	      }
-	      case GENERATE_ENUM(Type_commit):
-	      {
-	        // Skip commit because the stale type is collected by
-		// the creator of the type
-		return false;
-              }
-	      default:
-	        return false;
-	    }
-	};
-
-        for (auto it = _records.rbegin(); it != _records.rend(); it++) {
-	  if (isStaleType(*it)) {
-            staleTypes.insert(type);
-	    break;
-	  }
-	}
-      }
-
-      void datatype_free(MPI_Datatype datatype)
-      {
-	dmtcp::set<MPI_Datatype> staleTypes;
-	bool creator = false;
-        lock_t lock(_mutex);
-	datatype_find_stale_types(datatype, staleTypes);
-	std::function<bool(const MpiRecord*)> isEqualType =
-	  [&staleTypes, &creator](const MpiRecord *rec) {
-            switch (rec->getType()) {
-              case GENERATE_ENUM(Type_hvector):
-	      {
-	        MPI_Datatype newtype = rec->args(4);
-		if (staleTypes.count(newtype) > 0) {
-		  creator = true;
-		  return true;
-		}
-		return false;
-	      }
-              case GENERATE_ENUM(Type_create_struct):
-              {
-                MPI_Datatype newtype = rec->args(4);
-		if (staleTypes.count(newtype) > 0) {
-		  creator = true;
-		  return true;
-		}
-		return false;
-              }
-              case GENERATE_ENUM(Type_indexed):
-	      {
-		MPI_Datatype newtype = rec->args(4);
-		if (staleTypes.count(newtype) > 0) {
-		  creator = true;
-		  return true;
-		}
-		return false;
-              }
-	      case GENERATE_ENUM(Type_commit):
-	      {
-                MPI_Datatype newtype = rec->args(0);
-		return staleTypes.count(newtype) > 0;
-              }
-              case GENERATE_ENUM(Type_free):
-	      {
-		MPI_Datatype type = rec->args(0);
-		return staleTypes.count(type) > 0;
-              }
-              default:
-		return false;
-	    }
-	};
-	// Traverse the log in the reverse order as the latest MPI record
-	// is added at the end.
-	auto it = _records.end();
-	while (it != _records.begin()) {
-          it--;
-	  MpiRecord *rec = *it;
-	  if (isEqualType(rec)) {
-            it = _records.erase(it);
-	    delete rec;
-	    if (creator) break;
-          }
-	}
-	for (MPI_Datatype type : staleTypes) {
-          _datatypeMap.erase(type);
 	}
       }
 

@@ -3,10 +3,10 @@
 #include "virtual_id.h"
 #include "switch_context.h"
 #include "mpi_nextfunc.h"
+#include "seq_num.h"
 
 MPI_Group g_world_group;
 std::map<int, virt_id_entry*> virt_ids;
-std::map<int, mana_ggid_desc*> ggid_table;
 std::map<int64_t, int64_t> upper_to_lower_constants;
 std::map<int64_t, int64_t> lower_to_upper_constants;
 
@@ -16,8 +16,8 @@ int hash(int i) {
   return i * 2654435761 % ((unsigned long)1 << 32);
 }
 
-int generate_ggid(int *ranks, int size) {
-  int ggid = 0;
+unsigned int generate_ggid(int *ranks, int size) {
+  unsigned int ggid = 0;
   for (int i = 0; i < size; i++) {
     ggid ^= hash(ranks[i] + 1);
   }
@@ -25,22 +25,9 @@ int generate_ggid(int *ranks, int size) {
 }
 
 int is_predefined_id(mana_handle id) {
-  if (id.comm == MPI_COMM_WORLD ||
-      id.comm == MPI_COMM_SELF ||
-      id.comm == MPI_COMM_NULL ||
-      id.comm == g_world_comm ||
-      id.group == MPI_GROUP_NULL ||
-      id.group == g_world_group ||
-      id.datatype == MPI_DATATYPE_NULL ||
-      id.request == MPI_REQUEST_NULL ||
-      id.op == MPI_OP_NULL ||
-      id.file == MPI_FILE_NULL) {
-    return 1;
-  } else {
-    std::map<int64_t, int64_t>::iterator it;
-    it = upper_to_lower_constants.find(id._handle64);
-    return it != upper_to_lower_constants.end();
-  }
+  std::map<int64_t, int64_t>::iterator it;
+  it = upper_to_lower_constants.find(id._handle64);
+  return it != upper_to_lower_constants.end();
 }
 
 MPI_Comm new_virt_comm(MPI_Comm real_comm) {
@@ -58,20 +45,13 @@ MPI_Comm new_virt_comm(MPI_Comm real_comm) {
   desc->group = new_virt_group(local_group);
   desc->group_desc = (mana_group_desc*)get_virt_id_desc({.group = desc->group});
 
-  desc->ggid = generate_ggid(desc->group_desc->global_ranks,
-                           desc->group_desc->size);
-  std::map<int, mana_ggid_desc*>::iterator it = ggid_table.find(desc->ggid);
-  if (it == ggid_table.end()) {
-    desc->ggid_desc = (mana_ggid_desc*)malloc(sizeof(mana_ggid_desc));
-    desc->ggid_desc->seq_num = 0;
-    desc->ggid_desc->target_num = 0;
-    ggid_table[desc->ggid] = desc->ggid_desc;
-  } else {
-    desc->ggid_desc = it->second;
-  }
-
+  unsigned int ggid = generate_ggid(desc->group_desc->global_ranks,
+                                    desc->group_desc->size);
+  seq_num[ggid] = 0;
+  target[ggid] = 0;
   mana_handle virt_id;
   virt_id = add_virt_id({.comm = real_comm}, desc, MANA_COMM_KIND);
+  ggid_table[virt_id.comm] = ggid;
   return virt_id.comm;
 }
 
@@ -79,7 +59,6 @@ MPI_Group new_virt_group(MPI_Group real_group) {
   int *local_ranks;
   mana_group_desc *desc = (mana_group_desc*)malloc(sizeof(mana_group_desc));
 
-  desc->ref_count = 1;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   NEXT_FUNC(Group_size)(real_group, &desc->size);
   NEXT_FUNC(Group_rank)(real_group, &desc->rank);
@@ -97,8 +76,6 @@ MPI_Group new_virt_group(MPI_Group real_group) {
 
   mana_handle virt_id;
   virt_id = add_virt_id({.group = real_group}, desc, MANA_GROUP_KIND);
-  printf("new group %x size %d rank %d\n", virt_id, desc->size, desc->rank);
-  fflush(stdout);
   return virt_id.group;
 }
 
@@ -201,6 +178,8 @@ void init_predefined_virt_ids() {
   // Fill in the upper-to-lower mapping
   upper_to_lower_constants[(int64_t)MPI_GROUP_NULL] = (int64_t)lh_info->MANA_GROUP_NULL;
   upper_to_lower_constants[(int64_t)MPI_COMM_NULL] = (int64_t)lh_info->MANA_COMM_NULL;
+  upper_to_lower_constants[(int64_t)MPI_COMM_WORLD] = (int64_t)lh_info->MANA_COMM_WORLD;
+  upper_to_lower_constants[(int64_t)MPI_COMM_SELF] = (int64_t)lh_info->MANA_COMM_SELF;
   upper_to_lower_constants[(int64_t)MPI_REQUEST_NULL] = (int64_t)lh_info->MANA_REQUEST_NULL;
   upper_to_lower_constants[(int64_t)MPI_MESSAGE_NULL] = (int64_t)lh_info->MANA_MESSAGE_NULL;
   upper_to_lower_constants[(int64_t)MPI_OP_NULL] = (int64_t)lh_info->MANA_OP_NULL;
@@ -306,6 +285,8 @@ void init_predefined_virt_ids() {
   upper_to_lower_constants[(int64_t)MPI_GROUP_NULL] = (int64_t)lh_info->MANA_GROUP_NULL;
   // Fill in the lower-to-upper mapping
   lower_to_upper_constants[(int64_t)lh_info->MANA_COMM_NULL] = (int64_t)MPI_COMM_NULL;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_COMM_WORLD] = (int64_t)MPI_COMM_WORLD;
+  lower_to_upper_constants[(int64_t)lh_info->MANA_COMM_SELF] = (int64_t)MPI_COMM_SELF;
   lower_to_upper_constants[(int64_t)lh_info->MANA_REQUEST_NULL] = (int64_t)MPI_REQUEST_NULL;
   lower_to_upper_constants[(int64_t)lh_info->MANA_MESSAGE_NULL] = (int64_t)MPI_MESSAGE_NULL;
   lower_to_upper_constants[(int64_t)lh_info->MANA_OP_NULL] = (int64_t)MPI_OP_NULL;
@@ -416,63 +397,10 @@ void init_predefined_virt_ids() {
   RETURN_TO_UPPER_HALF();
   g_world_comm = new_virt_comm(g_world_comm);
 
-  // MPI_COMM_WORLD
-  mana_comm_desc *comm_world_desc = (mana_comm_desc*)malloc(sizeof(mana_comm_desc));
-  comm_world_desc->group = g_world_group;
-  comm_world_desc->group_desc = (mana_group_desc*)malloc(sizeof(mana_group_desc));
-  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
-  NEXT_FUNC(Group_size)(g_world_group, &comm_world_desc->group_desc->size);
-  NEXT_FUNC(Group_rank)(g_world_group, &comm_world_desc->group_desc->rank);
-  RETURN_TO_UPPER_HALF();
-  comm_world_desc->group_desc->global_ranks = (int*)malloc(sizeof(int) * comm_world_desc->group_desc->size);
-  for (int i = 0; i < comm_world_desc->group_desc->size; i++) {
-    comm_world_desc->group_desc->global_ranks[i] = i;
-  }
-
-  comm_world_desc->ggid = generate_ggid(comm_world_desc->group_desc->global_ranks,
-                                        comm_world_desc->group_desc->size);
-  comm_world_desc->ggid_desc = (mana_ggid_desc*)malloc(sizeof(mana_ggid_desc));
-  comm_world_desc->ggid_desc->seq_num = 0;
-  comm_world_desc->ggid_desc->target_num = 0;
-  ggid_table[comm_world_desc->ggid] = comm_world_desc->ggid_desc;
-
-  virt_id_entry *comm_world_entry = (virt_id_entry*)malloc(sizeof(virt_id_entry));
-  comm_world_entry->real_id = {.comm = lh_info->MANA_COMM_WORLD};
-  comm_world_entry->desc = comm_world_desc;
-  virt_ids[MPI_COMM_WORLD] = comm_world_entry;
-
-  // Group of MPI_COMM_WORLD
-  virt_id_entry *group_world_entry = (virt_id_entry*)malloc(sizeof(virt_id_entry));
-  group_world_entry->real_id = {.group = g_world_group};
-  group_world_entry->desc = comm_world_desc->group_desc;
-  virt_ids[g_world_group] = group_world_entry;
-
-  // Group of MPI_COMM_SELF
-  MPI_Group self_group;
-  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
-  NEXT_FUNC(Comm_group)(lh_info->MANA_COMM_SELF, &self_group);
-  RETURN_TO_UPPER_HALF();
-  self_group = new_virt_group(self_group);
-
-  // MPI_COMM_SELF
-  mana_comm_desc *comm_self_desc = (mana_comm_desc*)malloc(sizeof(mana_comm_desc));
-  comm_self_desc->group = self_group;
-  comm_self_desc->group_desc = (mana_group_desc*)malloc(sizeof(mana_group_desc));
-  comm_self_desc->group_desc->size = 1;
-  comm_self_desc->group_desc->rank = 0;
-  comm_self_desc->group_desc->global_ranks = (int*)malloc(sizeof(int));
-  comm_self_desc->group_desc->global_ranks[0] = 0;
-
-  comm_self_desc->ggid = generate_ggid(comm_self_desc->group_desc->global_ranks,
-                                       comm_self_desc->group_desc->size);
-  comm_self_desc->ggid_desc = (mana_ggid_desc*)malloc(sizeof(mana_ggid_desc));
-  comm_self_desc->ggid_desc->seq_num = 0;
-  comm_self_desc->ggid_desc->target_num = 0;
-
-  virt_id_entry *comm_self_entry = (virt_id_entry*)malloc(sizeof(virt_id_entry));
-  comm_self_entry->real_id = {.comm = lh_info->MANA_COMM_SELF};
-  comm_self_entry->desc = comm_self_desc;
-  virt_ids[MPI_COMM_SELF] = comm_self_entry;
+  unsigned int ggid = ggid_table[g_world_comm];
+  ggid_table[MPI_COMM_WORLD] = ggid;
+  seq_num[ggid] = 0;
+  target[ggid] = 0;
 }
 
 mana_handle add_virt_id(mana_handle real_id, void *desc, int kind) {
@@ -533,9 +461,7 @@ void* get_virt_id_desc(mana_handle virt_id) {
 void free_desc(void *desc, int kind) {
   if (kind == MANA_COMM_KIND) {
     mana_comm_desc *comm_desc = (mana_comm_desc*)desc;
-    if (comm_desc->group_desc->ref_count <= 0) {
-      free_desc(comm_desc->group_desc, MANA_GROUP_KIND);
-    }
+    free_desc(comm_desc->group_desc, MANA_GROUP_KIND);
   } else if (kind == MANA_GROUP_KIND) {
     mana_group_desc *group_desc = (mana_group_desc*)desc;
     free(group_desc->global_ranks);

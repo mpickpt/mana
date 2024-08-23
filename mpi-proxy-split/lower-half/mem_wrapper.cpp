@@ -109,7 +109,15 @@ int checkLibrary(int fd, const char* name,
 
 void* mmap_wrapper(void *addr, size_t length, int prot,
                   int flags, int fd, off_t offset) {
-  // If the address is already reserved as the upper-half heap,
+#if 0
+  if (addr == (void*)0x10091000) {
+    printf("mmap wrapper addr %p size %lx\n", addr, length);
+    fflush(stdout);
+    volatile int dummy = 1;
+    while (dummy);
+  }
+#endif
+  // If the address is already reserved as the upper-half heap
   // unmap the region.
   if (addr > __startOfReservedHeap && addr < __endOfReservedHeap) {
     munmap_wrapper(addr, (char*)__endOfReservedHeap - (char*)addr);

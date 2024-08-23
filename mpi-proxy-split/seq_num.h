@@ -3,7 +3,7 @@
 
 #include <mpi.h>
 #include <pthread.h>
-#include <functional>
+#include <unordered_map>
 
 typedef enum _phase_t {
   IN_CS,
@@ -24,5 +24,10 @@ void print_seq_nums();
 void seq_num_init();
 void seq_num_reset();
 void seq_num_destroy();
+
+extern std::unordered_map<unsigned int, unsigned long> seq_num;
+extern std::unordered_map<unsigned int, unsigned long> target;
+extern std::unordered_map<MPI_Comm, unsigned int> ggid_table;
+typedef std::pair<unsigned int, unsigned long> comm_seq_pair_t;
 
 #endif // ifndef SEQ_NUM_H

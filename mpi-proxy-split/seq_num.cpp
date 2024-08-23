@@ -31,6 +31,9 @@ volatile phase_t current_phase = IS_READY;
 unsigned int comm_gid;
 int num_converged;
 pthread_mutex_t seq_num_lock;
+std::unordered_map<unsigned int, unsigned long> seq_num;
+std::unordered_map<unsigned int, unsigned long> target;
+std::unordered_map<MPI_Comm, unsigned int> ggid_table;
 
 void seq_num_init() {
   ckpt_pending = false;
@@ -48,11 +51,10 @@ void seq_num_reset() {
 void print_seq_nums() {
   unsigned int comm_id;
   unsigned long seq, target;
-  for (ggid_table_pair pair : ggid_table) {
+  for (comm_seq_pair_t pair : seq_num) {
     comm_id = pair.first;
-    seq = pair.second->seq_num;
-    target = pair.second->target_num;
-    printf("%d, %u, %lu, %lu\n", g_world_rank, comm_id, seq, target);
+    seq = pair.second;
+    printf("%d, %u, %lu\n", g_world_rank, comm_id, seq);
   }
   fflush(stdout);
 }
@@ -60,10 +62,9 @@ void print_seq_nums() {
 int check_seq_nums() {
   unsigned int comm_id;
   int target_reached = 1;
-  for (ggid_table_pair pair : ggid_table) {
+  for (comm_seq_pair_t pair : seq_num) {
     comm_id = pair.first;
-    mana_ggid_desc *ggid = pair.second;
-    if (ggid->target_num > ggid->seq_num) {
+    if (target[comm_id] > seq_num[comm_id]) {
       target_reached = 0;
       break;
     }
@@ -72,8 +73,7 @@ int check_seq_nums() {
 }
 
 void seq_num_broadcast(MPI_Comm comm, unsigned long new_target) {
-  mana_comm_desc *comm_desc = (mana_comm_desc*)get_virt_id_desc({.comm = comm});
-  unsigned int comm_gid = comm_desc->ggid;
+  unsigned int comm_gid = ggid_table[comm];
   unsigned long msg[2] = {comm_gid, new_target};
   int comm_size;
   int comm_rank;
@@ -120,12 +120,12 @@ void commit_begin(MPI_Comm comm) {
           status.MPI_SOURCE, status.MPI_TAG, real_world_comm,
           MPI_STATUS_IGNORE);
       RETURN_TO_UPPER_HALF();
-      int updated_comm = (int) new_target[0];
+      unsigned int updated_comm = (unsigned int) new_target[0];
       unsigned long updated_target = new_target[1];
-      std::map<int, mana_ggid_desc*>::iterator it =
-        ggid_table.find(updated_comm);
-      if (it != ggid_table.end() && it->second->target_num < updated_target) {
-        it->second->target_num = updated_target;
+      std::unordered_map<unsigned int, unsigned long>::iterator it =
+        target.find(updated_comm);
+      if (it != target.end() && it->second < updated_target) {
+        target[updated_comm] = updated_target;
 #ifdef DEBUG_SEQ_NUM
         printf("rank %d received new target comm %u seq %lu target %lu\n",
             g_world_rank, updated_comm, it->second->seq_num, updated_target);
@@ -136,14 +136,12 @@ void commit_begin(MPI_Comm comm) {
   }
   pthread_mutex_lock(&seq_num_lock);
   current_phase = IN_CS;
-  mana_comm_desc *comm_desc = (mana_comm_desc*)get_virt_id_desc({.comm = comm});
-  mana_ggid_desc *ggid_desc = comm_desc->ggid_desc;
-  unsigned int comm_gid = comm_desc->ggid;
-  ggid_desc->seq_num++;
+  unsigned int comm_gid = ggid_table[comm];
+  seq_num[comm_gid]++;
   pthread_mutex_unlock(&seq_num_lock);
-  if (ckpt_pending && ggid_desc->seq_num > ggid_desc->target_num) {
-    ggid_desc->target_num = ggid_desc->seq_num;
-    seq_num_broadcast(comm, ggid_desc->seq_num);
+  if (ckpt_pending && seq_num[comm_gid] > target[comm_gid]) {
+    target[comm_gid] = seq_num[comm_gid];
+    seq_num_broadcast(comm, seq_num[comm_gid]);
   }
 }
 
@@ -164,12 +162,12 @@ void commit_finish(MPI_Comm comm) {
           status.MPI_SOURCE, status.MPI_TAG, real_world_comm,
           MPI_STATUS_IGNORE);
       RETURN_TO_UPPER_HALF();
-      int updated_comm = (int) new_target[0];
+      unsigned int updated_comm = (unsigned int) new_target[0];
       unsigned long updated_target = new_target[1];
-      std::map<int, mana_ggid_desc*>::iterator it =
-        ggid_table.find(updated_comm);
-      if (it != ggid_table.end() && it->second->target_num < updated_target) {
-        it->second->target_num = updated_target;
+      std::unordered_map<unsigned int, unsigned long>::iterator it =
+        target.find(updated_comm);
+      if (it != target.end() && it->second < updated_target) {
+        target[updated_comm] = updated_target;
 #ifdef DEBUG_SEQ_NUM
         printf("rank %d received new target comm %u seq %lu target %lu\n",
             g_world_rank, updated_comm, it->second->seq_num, updated_target);
@@ -183,9 +181,9 @@ void commit_finish(MPI_Comm comm) {
 void
 upload_seq_num(const char *db)
 {
-  for (ggid_table_pair pair : ggid_table) {
+  for (comm_seq_pair_t pair : seq_num) {
     dmtcp::string comm_id_str(jalib::XToString(pair.first));
-    unsigned int seq = pair.second->seq_num;
+    unsigned int seq = pair.second;
     JASSERT(dmtcp::kvdb::request64(KVDBRequest::MAX, db, comm_id_str, seq) ==
             KVDBResponse::SUCCESS);
   }
@@ -196,12 +194,12 @@ download_targets(const char *db)
 {
   int64_t max_seq = 0;
   unsigned int comm_id;
-  for (ggid_table_pair pair : ggid_table) {
+  for (comm_seq_pair_t pair : seq_num) {
     comm_id = pair.first;
     dmtcp::string comm_id_str(jalib::XToString(pair.first));
     JASSERT(dmtcp::kvdb::get64(db, comm_id_str, &max_seq) ==
             KVDBResponse::SUCCESS);
-    pair.second->target_num = max_seq;
+    target[comm_id] = max_seq;
   }
 }
 

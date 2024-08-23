@@ -169,11 +169,18 @@ USER_DEFINED_WRAPPER(int, Type_create_struct, (int) count,
 // APIs. We use MPICH_NUMVERSION (3.4a2) to differentiate the cray-mpich on Cori
 // and Perlmuttter. This ad-hoc workaround should be removed once the cray-mpich
 // on Perlmutter is fixed to use the right API.
+#ifdef MPICH_NUMVERSION
 #if MPICH_NUMVERSION < MPICH_CALC_VERSION(3,4,0,0,2) && defined(CRAY_MPICH_VERSION)
 USER_DEFINED_WRAPPER(int, Type_struct, (int) count,
                      (const int*) array_of_blocklengths,
                      (const MPI_Aint*) array_of_displacements,
                      (const MPI_Datatype*) array_of_types, (MPI_Datatype*) newtype)
+#else
+USER_DEFINED_WRAPPER(int, Type_struct, (int) count,
+                     (int*) array_of_blocklengths,
+                     (MPI_Aint*) array_of_displacements,
+                     (MPI_Datatype*) array_of_types, (MPI_Datatype*) newtype)
+#endif
 #else
 USER_DEFINED_WRAPPER(int, Type_struct, (int) count,
                      (int*) array_of_blocklengths,
@@ -186,11 +193,18 @@ USER_DEFINED_WRAPPER(int, Type_struct, (int) count,
                                 );
 }
 
+#ifdef MPICH_NUMVERSION
 #if MPICH_NUMVERSION < MPICH_CALC_VERSION(3,4,0,0,2) && defined(CRAY_MPICH_VERSION)
 USER_DEFINED_WRAPPER(int, Type_hindexed, (int) count,
                      (const int*) array_of_blocklengths,
                      (const MPI_Aint*) array_of_displacements,
                      (MPI_Datatype) oldtype, (MPI_Datatype*) newtype)
+#else
+USER_DEFINED_WRAPPER(int, Type_hindexed, (int) count,
+                     (int*) array_of_blocklengths,
+                     (MPI_Aint*) array_of_displacements,
+                     (MPI_Datatype) oldtype, (MPI_Datatype*) newtype)
+#endif
 #else
 USER_DEFINED_WRAPPER(int, Type_hindexed, (int) count,
                      (int*) array_of_blocklengths,
@@ -222,9 +236,21 @@ USER_DEFINED_WRAPPER(int, Type_create_hindexed, (int) count,
                      (const MPI_Aint*) array_of_displacements,
                      (MPI_Datatype) oldtype, (MPI_Datatype*) newtype)
 {
+#ifdef MPICH_NUMVERSION
 #if MPICH_NUMVERSION < MPICH_CALC_VERSION(3,4,0,0,2) && defined(CRAY_MPICH_VERSION)
   return MPI_Type_hindexed(count, array_of_blocklengths, array_of_displacements,
                            oldtype, newtype);
+#else
+  int* non_const_bl_arr = (int*) malloc(count * sizeof(int));
+  MPI_Aint* non_const_disp_arr = (MPI_Aint*) malloc(count * sizeof(MPI_Aint));
+  memcpy(non_const_bl_arr, array_of_blocklengths, count * sizeof(int));
+  memcpy(non_const_disp_arr, array_of_displacements, count * sizeof(MPI_Aint));
+  int ret = MPI_Type_hindexed(count, non_const_bl_arr, non_const_disp_arr,
+                              oldtype, newtype);
+  free(non_const_bl_arr);
+  free(non_const_disp_arr);
+  return ret;
+#endif
 #else
   int* non_const_bl_arr = (int*) malloc(count * sizeof(int));
   MPI_Aint* non_const_disp_arr = (MPI_Aint*) malloc(count * sizeof(MPI_Aint));
@@ -247,9 +273,18 @@ USER_DEFINED_WRAPPER(int, Type_create_hindexed_block, (int) count,
   for (int i = 0; i < count; i++) {
     array_of_blocklengths[i] = blocklength;
   }
+#ifdef MPICH_NUMVERSION
 #if MPICH_NUMVERSION < MPICH_CALC_VERSION(3,4,0,0,2) && defined(CRAY_MPICH_VERSION)
   return MPI_Type_hindexed(count, array_of_blocklengths, array_of_displacements,
                            oldtype, newtype);
+#else
+  MPI_Aint* non_const_disp_arr = (MPI_Aint*) malloc(count * sizeof(MPI_Aint));
+  memcpy(non_const_disp_arr, array_of_displacements, count * sizeof(MPI_Aint));
+  int ret =  MPI_Type_hindexed(count, array_of_blocklengths, non_const_disp_arr,
+                           oldtype, newtype);
+  free(non_const_disp_arr);
+  return ret;
+#endif
 #else
   MPI_Aint* non_const_disp_arr = (MPI_Aint*) malloc(count * sizeof(MPI_Aint));
   memcpy(non_const_disp_arr, array_of_displacements, count * sizeof(MPI_Aint));
@@ -388,6 +423,7 @@ PMPI_IMPL(int, MPI_Type_create_struct, int count, const int array_of_blocklength
           const MPI_Aint array_of_displacements[], const MPI_Datatype array_of_types[],
           MPI_Datatype *newtype)
 
+#ifdef MPICH_NUMVERSION
 #if MPICH_NUMVERSION < MPICH_CALC_VERSION(3,4,0,0,2) && defined(CRAY_MPICH_VERSION)
 PMPI_IMPL(int, MPI_Type_struct, int count, const int array_of_blocklengths[],
           const MPI_Aint array_of_displacements[], const MPI_Datatype array_of_types[],
@@ -395,6 +431,14 @@ PMPI_IMPL(int, MPI_Type_struct, int count, const int array_of_blocklengths[],
 PMPI_IMPL(int, MPI_Type_hindexed, int count, const int array_of_blocklengths[],
           const MPI_Aint array_of_displacements[], MPI_Datatype oldtype,
           MPI_Datatype *newtype);
+#else
+PMPI_IMPL(int, MPI_Type_struct, int count, int array_of_blocklengths[],
+          MPI_Aint array_of_displacements[], MPI_Datatype array_of_types[],
+          MPI_Datatype *newtype)
+PMPI_IMPL(int, MPI_Type_hindexed, int count, int array_of_blocklengths[],
+          MPI_Aint array_of_displacements[], MPI_Datatype oldtype,
+          MPI_Datatype *newtype);
+#endif
 #else
 PMPI_IMPL(int, MPI_Type_struct, int count, int array_of_blocklengths[],
           MPI_Aint array_of_displacements[], MPI_Datatype array_of_types[],

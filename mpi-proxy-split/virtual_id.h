@@ -30,22 +30,14 @@ typedef union {
 } mana_handle;
 
 typedef struct {
-  unsigned long seq_num;
-  unsigned long target_num;
-} mana_ggid_desc;
-
-typedef struct {
   int size;
   int rank;
   int *global_ranks;
-  int ref_count;
 } mana_group_desc;
 
 typedef struct {
   MPI_Group group; // virtual id of the group
   mana_group_desc *group_desc;
-  mana_ggid_desc *ggid_desc;
-  int ggid;
 } mana_comm_desc;
 
 typedef struct {
@@ -78,9 +70,7 @@ typedef struct {
 } virt_id_entry;
 
 extern std::map<int, virt_id_entry*> virt_ids;
-extern std::map<int, mana_ggid_desc*> ggid_table;
 typedef std::map<int, virt_id_entry*>::iterator virt_id_iterator;
-typedef std::pair<int, mana_ggid_desc*> ggid_table_pair;
 
 extern int g_world_rank;
 

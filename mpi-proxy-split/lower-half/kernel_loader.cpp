@@ -80,6 +80,7 @@ static int restoreMemoryArea(int fd, DmtcpCkptHeader *ckptHdr);
 static void restore_vdso_vvar(DmtcpCkptHeader *dmtcp_hdri, char *envrion[]);
 
 void *ld_so_entry;
+LowerHalfInfo_t lh_info_obj;
 LowerHalfInfo_t *lh_info;
 
 #define MTCP_RESTART_BINARY "mtcp_restart"
@@ -113,19 +114,40 @@ int main(int argc, char *argv[], char *envp[]) {
   Elf64_Ehdr ld_so_elf_hdr;
   Elf64_Addr cmd_entry;
   char elf_interpreter[MAX_ELF_INTERP_SZ];
+  lh_info = &lh_info_obj;
 
   CheckAndEnableFsGsBase();
+  unsigned long fsaddr = 0;
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
+  // Fill in lh_info contents
+  memset(lh_info, 0, sizeof(LowerHalfInfo_t));
+  lh_info->fsaddr = (void*)fsaddr;
+ 
+  // Create new heap region to be used by RTLD
+  void *lh_brk = sbrk(0);
+  printf("lh_brk addr %p\n", lh_brk);
+  fflush(stdout);
+  const uint64_t heapSize = 0x1000;
+  void *heap_addr = mmap_wrapper(lh_brk, heapSize, PROT_NONE,
+                         MAP_PRIVATE | MAP_ANONYMOUS |
+                         MAP_NORESERVE | MAP_FIXED_NOREPLACE ,
+                         -1, 0);
+  printf("heap addr %p\n", heap_addr);
+  fflush(stdout);
+  if (heap_addr == MAP_FAILED) {
+    DLOG(ERROR, "Failed to mmap region. Error: %s\n",
+         strerror(errno));
+    exit(1);
+  }
+  // Add a guard page before the start of heap; this protects
+  // the heap from getting merged with a "previous" region.
+  mprotect(heap_addr, heapSize, PROT_NONE);
+
   // Initialize MPI in advance
   int rank;
   MPI_Init(&argc, &argv);
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-  // Fill in lh_info contents
-  lh_info = (LowerHalfInfo_t*) malloc(sizeof(LowerHalfInfo_t));
-  memset(lh_info, 0, sizeof(LowerHalfInfo_t));
-  unsigned long fsaddr = 0;
-  syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
-  lh_info->fsaddr = (void*)fsaddr;
   lh_info->mmap = (void*)&mmap_wrapper;
   lh_info->munmap = (void*)&munmap_wrapper;
   lh_info->lh_dlsym = (void*)&lh_dlsym;
@@ -279,6 +301,7 @@ int main(int argc, char *argv[], char *envp[]) {
     off_t ckpt_file_pos = 0;
     ckpt_file_pos = lseek(t->fd(), 0, SEEK_CUR);
     // Reserve space for memory areas saved in the ckpt image file.
+    munmap_wrapper(heap_addr, heapSize);
     while(1) {
       off_t cur_pos = ckpt_file_pos;
       int rc = read(t->fd(), &area, sizeof area);
@@ -430,30 +453,6 @@ int main(int argc, char *argv[], char *envp[]) {
             (unsigned long)(interp_base_address + ld_so_elf_hdr.e_phoff),
             (unsigned long)interp_base_address + ld_so_elf_hdr.e_entry);
   // info->phnum, (uintptr_t)info->phdr, (uintptr_t)info->entryPoint);
-
-  // Create new heap region to be used by RTLD
-  
-  void *lh_brk = sbrk(0);
-  const uint64_t heapSize = 0x1000000;
-  // We go through the mmap wrapper function to ensure that this gets added
-  // to the list of upper half regions to be checkpointed.
-  void *heap_addr = mmap_wrapper(lh_brk, heapSize, PROT_NONE,
-                                 MAP_PRIVATE | MAP_ANONYMOUS |
-                                 MAP_NORESERVE,
-                                 -1, 0);
-  if (heap_addr == MAP_FAILED) {
-    DLOG(ERROR, "Failed to mmap region. Error: %s\n",
-         strerror(errno));
-    exit(1);
-  }
-  __startOfReservedHeap = heap_addr;
-  __endOfReservedHeap = heap_addr + heapSize;
-  // Add a guard page before the start of heap; this protects
-  // the heap from getting merged with a "previous" region.
-  mprotect(heap_addr, PAGE_SIZE, PROT_NONE);
-  set_uh_brk((void*)((void *)heap_addr + PAGE_SIZE));
-  set_end_of_heap((void*)((void *)heap_addr + heapSize));
-  DLOG(NOISE, "uh_brk: %p\n", heap_addr + PAGE_SIZE);
 
   // Insert trampolines for mmap, munmap, sbrk
   off_t mmap_offset = get_symbol_offset(elf_interpreter, "mmap");

@@ -94,34 +94,24 @@ static const int MPI_WTIME_IS_GLOBAL_VAL = 0;
 USER_DEFINED_WRAPPER(int, Comm_size, (MPI_Comm) comm, (int *) size)
 {
   int retval = MPI_SUCCESS;
-  mana_comm_desc *comm_desc = (mana_comm_desc*)get_virt_id_desc({.comm = comm});
-  if (comm_desc != NULL) { // Predefined communicator
-    *size = comm_desc->group_desc->size;
-  } else {
-    DMTCP_PLUGIN_DISABLE_CKPT();
-    MPI_Group real_comm = get_real_id({.comm = comm}).comm;
-    JUMP_TO_LOWER_HALF(lh_info->fsaddr);
-    retval = NEXT_FUNC(Comm_size)(real_comm, size);
-    RETURN_TO_UPPER_HALF();
-    DMTCP_PLUGIN_ENABLE_CKPT();
-  }
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
+  retval = NEXT_FUNC(Comm_size)(real_comm, size);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
 
 USER_DEFINED_WRAPPER(int, Comm_rank, (MPI_Comm) comm, (int *) rank)
 {
   int retval = MPI_SUCCESS;
-  mana_comm_desc *comm_desc = (mana_comm_desc*)get_virt_id_desc({.comm = comm});
-  if (comm_desc != NULL) { // Predefined communicator
-    *rank = comm_desc->group_desc->rank;
-  } else {
-    DMTCP_PLUGIN_DISABLE_CKPT();
-    MPI_Group real_comm = get_real_id({.comm = comm}).comm;
-    JUMP_TO_LOWER_HALF(lh_info->fsaddr);
-    retval = NEXT_FUNC(Comm_rank)(real_comm, rank);
-    RETURN_TO_UPPER_HALF();
-    DMTCP_PLUGIN_ENABLE_CKPT();
-  }
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
+  retval = NEXT_FUNC(Comm_rank)(real_comm, rank);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
 
@@ -138,7 +128,7 @@ USER_DEFINED_WRAPPER(int, Comm_create, (MPI_Comm) comm, (MPI_Group) group,
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS) {
     if (*newcomm == lh_info->MANA_COMM_NULL) {
-      *newcomm == MPI_COMM_NULL;
+      *newcomm = MPI_COMM_NULL;
     } else {
       *newcomm = new_virt_comm(*newcomm);
     }
@@ -345,7 +335,7 @@ USER_DEFINED_WRAPPER(int, Comm_split_type, (MPI_Comm) comm, (int) split_type,
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS) {
     if (*newcomm == lh_info->MANA_COMM_NULL) {
-      *newcomm == MPI_COMM_NULL;
+      *newcomm = MPI_COMM_NULL;
     } else {
       *newcomm = new_virt_comm(*newcomm);
     }
@@ -466,7 +456,7 @@ USER_DEFINED_WRAPPER(int, Comm_create_group, (MPI_Comm) comm,
   int retval = MPI_Comm_create_group_internal(comm, group, tag, newcomm);
   if (retval == MPI_SUCCESS && MPI_LOGGING()) {
     if (*newcomm == lh_info->MANA_COMM_NULL) {
-      *newcomm == MPI_COMM_NULL;
+      *newcomm = MPI_COMM_NULL;
     } else {
       *newcomm = new_virt_comm(*newcomm);
     }
