@@ -151,6 +151,48 @@ namespace dmtcp_mpi
     // is invoking the 'int cast operator', resulting in:
     //   int arg = *(int*)(((FncArg)rec.args(n))._data);
 
+#if 0
+    operator MPI_Request() const
+    {
+      return *(MPI_Request*)_data;
+    }
+
+    operator MPI_Comm() const
+    {
+      return *(MPI_Comm*)_data;
+    }
+
+    operator MPI_Group() const
+    {
+      return *(MPI_Group*)_data;
+    }
+
+    operator MPI_Datatype() const
+    {
+      return *(MPI_Datatype*)_data;
+    }
+
+    operator MPI_Request*() const
+    {
+      return (MPI_Request*)_data;
+    }
+
+    operator MPI_Comm*() const
+    {
+      return (MPI_Comm*)_data;
+    }
+
+    operator MPI_Group*() const
+    {
+      return (MPI_Group*)_data;
+    }
+
+    operator MPI_Datatype*() const
+    {
+      return (MPI_Datatype*)_data;
+    }
+#endif
+
     // Returns an int corresponding to the saved argument
     operator int() const
     {
@@ -172,46 +214,6 @@ namespace dmtcp_mpi
         JASSERT(false).Text("Unsupported arg type");
         return NULL;
       }
-    }
-
-    operator MPI_Request() const
-    {
-      return (MPI_Request)_data;
-    }
-
-    operator MPI_Comm() const
-    {
-      return (MPI_Comm)_data;
-    }
-
-    operator MPI_Group() const
-    {
-      return (MPI_Group)_data;
-    }
-
-    operator MPI_Datatype() const
-    {
-      return (MPI_Datatype)_data;
-    }
-
-    operator MPI_Request*() const
-    {
-      return (MPI_Request*)_data;
-    }
-
-    operator MPI_Comm*() const
-    {
-      return (MPI_Comm*)_data;
-    }
-
-    operator MPI_Group*() const
-    {
-      return (MPI_Group*)_data;
-    }
-
-    operator MPI_Datatype*() const
-    {
-      return (MPI_Datatype*)_data;
     }
 
     // This is used to handle MPI_Aint*, because in MPICH
@@ -422,81 +424,28 @@ namespace dmtcp_mpi
         MpiRecord *rec = new MpiRecord(cb, type, (void*)fPtr);
         if (rec) {
           rec->addArgs(args...);
-	  // All collective calls are translated in MANA to the async calls Ibarrier/Ireduce/Ibcast.
-	  // If MANA uses other async calls, we need other cases.
 	  switch (type) {
-            case GENERATE_ENUM(Ibarrier):
-            {
-              MPI_Request req = rec->args(1);
-	      if (req != MPI_REQUEST_NULL)
-	        _recordsMap[req] = 0;
-	      break;
-	    }
-	    case GENERATE_ENUM(Ireduce):
-	    {
-              MPI_Request req = rec->args(7);
-	      MPI_Comm comm = rec->args(6);
-	      int rank;
-	      MPI_Comm_rank(comm, &rank);
-	      int root = rec->args(5);
-	      // Save the sender's buffer value
-	      // We don't need to save the receiver's buffer value
-	      if (rank != root) {
-	        void *sendbuf = rec->args(0);
-	        int count = rec->args(2);
-	        MPI_Datatype datatype = rec->args(3);
-	        int size;
-	        MPI_Type_size(datatype, &size);
-	        void *newbuf = malloc(count * size);
-	        memcpy(newbuf, sendbuf, count * size);
-	        rec->setBuf(newbuf);
-	      }
-	      if (req != MPI_REQUEST_NULL)
-	        _recordsMap[req] = 0;
-	      break;
-	    }
-	    case GENERATE_ENUM(Ibcast):
-	    {
-	      MPI_Request req = rec->args(5);
-	      MPI_Comm comm = rec->args(4);
-	      int rank;
-	      MPI_Comm_rank(comm, &rank);
-	      int root = rec->args(3);
-	      if (rank == root) {
-		void *buf = rec->args(0);
-		int count = rec->args(1);
-		MPI_Datatype type = rec->args(2);
-		int size;
-		MPI_Type_size(type, &size);
-		void *newbuf = malloc(count * size);
-		memcpy(newbuf, buf, count * size);
-		rec->setBuf(newbuf);
-              }
-	      if (req != MPI_REQUEST_NULL)
-	        _recordsMap[req] = 0;
-	      break;
-	    }
 	    case GENERATE_ENUM(Type_hvector):
 	    {
-              MPI_Datatype newtype = rec->args(4);
-	      MPI_Datatype oldtype = rec->args(3);
+              MPI_Datatype newtype = (MPI_Datatype)(int)rec->args(4);
+	      MPI_Datatype oldtype = (MPI_Datatype)(int)rec->args(3);
 	      datatype_create(newtype);
 	      datatype_incRef(1, &oldtype);
 	      break;
             }
 	    case GENERATE_ENUM(Type_create_struct):
 	    {
-              MPI_Datatype newtype = rec->args(4);
+              MPI_Datatype newtype = (MPI_Datatype)(int)rec->args(4);
               int count = rec->args(0);
-              MPI_Datatype *oldtypes = rec->args(3);
+              MPI_Datatype *oldtypes = (MPI_Datatype*)(intptr_t)rec->args(3);
               datatype_create(newtype);
               datatype_incRef(count, oldtypes);
               break;
 	    }
 	    case GENERATE_ENUM(Type_indexed):
 	    {
-              MPI_Datatype newtype = rec->args(4);
-	      MPI_Datatype oldtype = rec->args(3);
+              MPI_Datatype newtype = (MPI_Datatype)(int)rec->args(4);
+	      MPI_Datatype oldtype = (MPI_Datatype)(int)rec->args(3);
 	      datatype_create(newtype);
 	      datatype_incRef(1, &oldtype);
 	      break;
@@ -507,7 +456,7 @@ namespace dmtcp_mpi
 	      break;
 	    case GENERATE_ENUM(Type_free):
 	    {
-              MPI_Datatype type = rec->args(0);
+              MPI_Datatype type = (MPI_Datatype)(int)rec->args(0);
 	      delete rec;
 	      return NULL;
             }

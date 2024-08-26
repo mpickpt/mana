@@ -25,12 +25,20 @@ declarations = declarations_file.read().split(';')[:-1]  # Each decl ends in ';'
 declarations_file.close()
 
 def print_mpi_type_struct():
+  print("#ifdef MPICH_NUMVERSION")
   print("#if MPICH_NUMVERSION < MPICH_CALC_VERSION(3,4,0,0,2) && defined(CRAY_MPICH_VERSION)")
   print("""EXTERNC int mpi_type_struct_ (int* count,
             const int* array_of_blocklengths,
             const MPI_Aint* array_of_displacements,
             MPI_Datatype* array_of_types,
             MPI_Datatype* newtype, int *ierr) {""")
+  print("#else")
+  print("""EXTERNC int mpi_type_struct_ (int* count,
+            int* array_of_blocklengths,
+            MPI_Aint* array_of_displacements,
+            MPI_Datatype* array_of_types,
+            MPI_Datatype* newtype, int *ierr) {""")
+  print("#endif")
   print("#else")
   print("""EXTERNC int mpi_type_struct_ (int* count,
             int* array_of_blocklengths,
@@ -48,11 +56,17 @@ def print_mpi_type_hindexed():
   # APIs. We use MPICH_NUMVERSION (3.4a2) to differentiate the cray-mpich on Cori
   # and Perlmuttter. This ad-hoc workaround should be removed once the cray-mpich
   # on Perlmutter is fixed to use the right API.
+  print("#ifdef MPICH_NUMVERSION")
   print("#if MPICH_NUMVERSION < MPICH_CALC_VERSION(3,4,0,0,2) && defined(CRAY_MPICH_VERSION)")
   print("""EXTERNC int mpi_type_hindexed_ (int* count,
             const int* array_of_blocklengths,
             const MPI_Aint* array_of_displacements,
             MPI_Datatype* oldtype,  MPI_Datatype* newtype, int *ierr) {""")
+  print("#else")
+  print("""EXTERNC int mpi_type_hindexed_ (int* count,
+            int* array_of_blocklengths,  MPI_Aint* array_of_displacements,
+            MPI_Datatype* oldtype,  MPI_Datatype* newtype, int *ierr) {""")
+  print("#endif")
   print("#else")
   print("""EXTERNC int mpi_type_hindexed_ (int* count,
             int* array_of_blocklengths,  MPI_Aint* array_of_displacements,
@@ -64,11 +78,17 @@ def print_mpi_type_hindexed():
   print("}")
 
 def print_mpi_type_create_hindexed():
+  print("#ifdef MPICH_NUMVERSION")
   print("#if MPICH_NUMVERSION < MPICH_CALC_VERSION(3,4,0,0,2) && defined(CRAY_MPICH_VERSION)")
   print("""EXTERNC int mpi_type_create_hindexed_ (int* count,
             const int* array_of_blocklengths,
             const MPI_Aint* array_of_displacements,  MPI_Datatype* oldtype,
             MPI_Datatype* newtype, int *ierr) {""")
+  print("#else")
+  print("""EXTERNC int mpi_type_create_hindexed_ (int* count,
+            int* array_of_blocklengths,  MPI_Aint* array_of_displacements,
+            MPI_Datatype* oldtype,  MPI_Datatype* newtype, int *ierr) {""")
+  print("#endif")
   print("#else")
   print("""EXTERNC int mpi_type_create_hindexed_ (int* count,
             int* array_of_blocklengths,  MPI_Aint* array_of_displacements,

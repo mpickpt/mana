@@ -154,11 +154,11 @@ restoreTypeContiguous(MpiRecord& rec)
 {
   int retval;
   int count = rec.args(0);
-  MPI_Datatype oldtype = rec.args(1);
+  MPI_Datatype oldtype = (MPI_Datatype)(int)rec.args(1);
   MPI_Datatype newtype;
   retval = FNC_CALL(Type_contiguous, rec)(count, oldtype, &newtype);
   if (retval == MPI_SUCCESS) {
-    MPI_Datatype virtType = rec.args(2);
+    MPI_Datatype virtType = (MPI_Datatype)(int)rec.args(2);
     update_virt_id({.datatype = virtType}, {.datatype = newtype});
   }
   return retval;
@@ -168,7 +168,7 @@ static int
 restoreTypeCommit(MpiRecord& rec)
 {
   int retval;
-  MPI_Datatype type = rec.args(0);
+  MPI_Datatype type = (MPI_Datatype)(int)rec.args(0);
   retval = FNC_CALL(Type_commit, rec)(&type);
   JWARNING(retval == MPI_SUCCESS)(type).Text("Could not commit MPI datatype");
   return retval;
@@ -181,14 +181,14 @@ restoreTypeHVector(MpiRecord& rec)
   int count = rec.args(0);
   int blocklength = rec.args(1);
   MPI_Aint stride = rec.args(2);
-  MPI_Datatype oldtype = rec.args(3);
+  MPI_Datatype oldtype = (MPI_Datatype)(int)rec.args(3);
   MPI_Datatype newtype = MPI_DATATYPE_NULL;
   retval = FNC_CALL(Type_hvector, rec)(count, blocklength,
                                       stride, oldtype, &newtype);
   JWARNING(retval == MPI_SUCCESS)(oldtype)
           .Text("Could not restore MPI hvector datatype");
   if (retval == MPI_SUCCESS) {
-    MPI_Datatype virtType = rec.args(4);
+    MPI_Datatype virtType = (MPI_Datatype)(int)rec.args(4);
     update_virt_id({.datatype = virtType}, {.datatype = newtype});
   }
   return retval;
@@ -201,13 +201,13 @@ restoreTypeHIndexed(MpiRecord& rec)
   int count = rec.args(0);
   int *bs = rec.args(1);
   MPI_Aint *ds = rec.args(2);
-  MPI_Datatype oldtype = rec.args(3);
+  MPI_Datatype oldtype = (MPI_Datatype)(int)rec.args(3);
   MPI_Datatype newtype = MPI_DATATYPE_NULL;
   retval = FNC_CALL(Type_hindexed, rec)(count, bs, ds, oldtype, &newtype);
   JWARNING(retval == MPI_SUCCESS)(oldtype)
           .Text("Could not restore MPI hvector datatype");
   if (retval == MPI_SUCCESS) {
-    MPI_Datatype virtType = rec.args(4);
+    MPI_Datatype virtType = (MPI_Datatype)(int)rec.args(4);
     update_virt_id({.datatype = virtType}, {.datatype = newtype});
   }
   return retval;
@@ -217,13 +217,13 @@ static int
 restoreTypeDup(MpiRecord& rec)
 {
   int retval;
-  MPI_Datatype oldtype = rec.args(0);
+  MPI_Datatype oldtype = (MPI_Datatype)(int)rec.args(0);
   MPI_Datatype newtype = MPI_DATATYPE_NULL;
   retval = FNC_CALL(Type_dup, rec)(oldtype, &newtype);
   JWARNING(retval == MPI_SUCCESS)(oldtype)
           .Text("Could not restore MPI hvector datatype");
   if (retval == MPI_SUCCESS) {
-    MPI_Datatype virtType = rec.args(1);
+    MPI_Datatype virtType = (MPI_Datatype)(int)rec.args(1);
     update_virt_id({.datatype = virtType}, {.datatype = newtype});
   }
   return retval;
@@ -233,7 +233,7 @@ static int
 restoreTypeCreateResized(MpiRecord& rec)
 {
   int retval;
-  MPI_Datatype oldtype = rec.args(0);
+  MPI_Datatype oldtype = (MPI_Datatype)(int)rec.args(0);
   MPI_Aint lb = rec.args(1);
   MPI_Aint ext = rec.args(2);
   MPI_Datatype newtype = MPI_DATATYPE_NULL;
@@ -241,7 +241,7 @@ restoreTypeCreateResized(MpiRecord& rec)
   JWARNING(retval == MPI_SUCCESS)(oldtype)
           .Text("Could not restore MPI hvector datatype");
   if (retval == MPI_SUCCESS) {
-    MPI_Datatype virtType = rec.args(3);
+    MPI_Datatype virtType = (MPI_Datatype)(int)rec.args(3);
     update_virt_id({.datatype = virtType}, {.datatype = newtype});
   }
   return retval;
@@ -267,14 +267,14 @@ restoreTypeIndexed(MpiRecord& rec)
   int count = rec.args(0);
   int *blocklengths = rec.args(1);
   int *displs = rec.args(2);
-  MPI_Datatype oldtype = rec.args(3);
+  MPI_Datatype oldtype = (MPI_Datatype)(int)rec.args(3);
   MPI_Datatype newtype = MPI_DATATYPE_NULL;
   retval = FNC_CALL(Type_indexed, rec)(count, blocklengths,
                                        displs, oldtype, &newtype);
   JWARNING(retval == MPI_SUCCESS)(oldtype)
           .Text("Could not restore MPI indexed datatype");
   if (retval == MPI_SUCCESS) {
-    MPI_Datatype virtType = rec.args(4);
+    MPI_Datatype virtType = (MPI_Datatype)(int)rec.args(4);
     update_virt_id({.datatype = virtType}, {.datatype = newtype});
   }
   return retval;
@@ -284,7 +284,7 @@ static int
 restoreTypeFree(MpiRecord& rec)
 {
   int retval;
-  MPI_Datatype type = rec.args(0);
+  MPI_Datatype type = (MPI_Datatype)(int)rec.args(0);
   retval = FNC_CALL(Type_free, rec)(&type);
   JWARNING(retval == MPI_SUCCESS)(type).Text("Could not free MPI datatype");
   if (retval == MPI_SUCCESS) {
@@ -305,14 +305,14 @@ restoreTypeCreateStruct(MpiRecord& rec)
   int count = rec.args(0);
   int *blocklengths = rec.args(1);
   MPI_Aint *displs = rec.args(2);
-  MPI_Datatype *types = rec.args(3);
+  MPI_Datatype *types = (MPI_Datatype*)(intptr_t)rec.args(3);
   MPI_Datatype newtype = MPI_DATATYPE_NULL;
   retval = FNC_CALL(Type_create_struct, rec)(count, blocklengths,
                                        displs, types, &newtype);
   JWARNING(retval == MPI_SUCCESS)(types)
           .Text("Could not restore MPI struct datatype");
   if (retval == MPI_SUCCESS) {
-    MPI_Datatype virtType = rec.args(4);
+    MPI_Datatype virtType = (MPI_Datatype)(int)rec.args(4);
     update_virt_id({.datatype = virtType}, {.datatype = newtype});
   }
   return retval;
@@ -575,7 +575,7 @@ static int
 restoreCartCreate(MpiRecord& rec)
 {
   int retval;
-  MPI_Comm comm = rec.args(0);
+  MPI_Comm comm = (MPI_Comm)(int)rec.args(0);
   int ndims = rec.args(1);
   int *dims = rec.args(2);
   int *periods = rec.args(3);
@@ -584,7 +584,7 @@ restoreCartCreate(MpiRecord& rec)
   retval = FNC_CALL(Cart_create, rec)(comm, ndims, dims,
                                       periods, reorder, &newcomm);
   if (retval == MPI_SUCCESS) {
-    MPI_Comm virtComm = rec.args(5);
+    MPI_Comm virtComm = (MPI_Comm)(int)rec.args(5);
     update_virt_id({.comm = virtComm}, {.comm = newcomm});
   }
   return retval;
@@ -596,7 +596,7 @@ static int
 restoreCartMap(MpiRecord& rec)
 {
   int retval;
-  MPI_Comm comm = rec.args(0);
+  MPI_Comm comm = (MPI_Comm)(int)rec.args(0);
   int ndims = rec.args(1);
   int *dims = rec.args(2);
   int *periods = rec.args(3);
@@ -614,7 +614,7 @@ static int
 restoreCartShift(MpiRecord& rec)
 {
   int retval;
-  MPI_Comm comm = rec.args(0);
+  MPI_Comm comm = (MPI_Comm)(int)rec.args(0);
   int direction = rec.args(1);
   int disp = rec.args(2);
   int rank_source = -1;
@@ -635,14 +635,14 @@ static int
 restoreCartSub(MpiRecord& rec)
 {
   int retval;
-  MPI_Comm comm = rec.args(0);
+  MPI_Comm comm = (MPI_Comm)(int)rec.args(0);
   // int ndims = rec.args(1);
   int *remain_dims = rec.args(2);
   MPI_Comm newcomm = MPI_COMM_NULL;
   // LOG_CALL(restoreCarts, Cart_sub, comm, ndims, rs, virtComm);
   retval = FNC_CALL(Cart_sub, rec)(comm, remain_dims, &newcomm);
   if (retval == MPI_SUCCESS) {
-    MPI_Comm virtComm = rec.args(3);
+    MPI_Comm virtComm = (MPI_Comm)(int)rec.args(3);
     update_virt_id({.comm = virtComm}, {.comm = newcomm});
   }
   return retval;
