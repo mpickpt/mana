@@ -36,8 +36,9 @@ typedef struct {
 } mana_group_desc;
 
 typedef struct {
-  MPI_Group group; // virtual id of the group
-  mana_group_desc *group_desc;
+  int size;
+  int rank;
+  int *global_ranks;
 } mana_comm_desc;
 
 typedef struct {

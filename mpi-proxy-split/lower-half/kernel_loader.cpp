@@ -99,11 +99,7 @@ void set_addr_no_randomize(char *argv[]) {
 }
 
 int main(int argc, char *argv[], char *envp[]) {
-  printf("before execvpe\n");
-  fflush(stdout);
   set_addr_no_randomize(argv);
-  printf("after execvpe\n");
-  fflush(stdout);
   int i;
   int restore_mode = 0;
   int cmd_argc = 0;
@@ -125,15 +121,11 @@ int main(int argc, char *argv[], char *envp[]) {
  
   // Create new heap region to be used by RTLD
   void *lh_brk = sbrk(0);
-  printf("lh_brk addr %p\n", lh_brk);
-  fflush(stdout);
   const uint64_t heapSize = 0x1000;
   void *heap_addr = mmap_wrapper(lh_brk, heapSize, PROT_NONE,
                          MAP_PRIVATE | MAP_ANONYMOUS |
                          MAP_NORESERVE | MAP_FIXED_NOREPLACE ,
                          -1, 0);
-  printf("heap addr %p\n", heap_addr);
-  fflush(stdout);
   if (heap_addr == MAP_FAILED) {
     DLOG(ERROR, "Failed to mmap region. Error: %s\n",
          strerror(errno));

@@ -40,13 +40,23 @@ MPI_Comm new_virt_comm(MPI_Comm real_comm) {
 
   // Cache the group of the communicator
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
+  NEXT_FUNC(Comm_size)(real_comm, &desc->size);
+  NEXT_FUNC(Comm_rank)(real_comm, &desc->rank);
   NEXT_FUNC(Comm_group)(real_comm, &local_group);
   RETURN_TO_UPPER_HALF();
-  desc->group = new_virt_group(local_group);
-  desc->group_desc = (mana_group_desc*)get_virt_id_desc({.group = desc->group});
 
-  unsigned int ggid = generate_ggid(desc->group_desc->global_ranks,
-                                    desc->group_desc->size);
+  local_ranks = (int*)malloc(sizeof(int) * desc->size);
+  desc->global_ranks = (int*)malloc(sizeof(int) * desc->size);
+  for (int i = 0; i < desc->size; i++) {
+    local_ranks[i] = i;
+  }
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
+  NEXT_FUNC(Group_translate_ranks)(local_group, desc->size, local_ranks,
+                                   g_world_group, desc->global_ranks);
+  RETURN_TO_UPPER_HALF();
+
+  unsigned int ggid = generate_ggid(desc->global_ranks,
+                                    desc->size);
   seq_num[ggid] = 0;
   target[ggid] = 0;
   mana_handle virt_id;
@@ -63,8 +73,8 @@ MPI_Group new_virt_group(MPI_Group real_group) {
   NEXT_FUNC(Group_size)(real_group, &desc->size);
   NEXT_FUNC(Group_rank)(real_group, &desc->rank);
   RETURN_TO_UPPER_HALF();
-  local_ranks = (int*)malloc(sizeof(int) * desc->size);
 
+  local_ranks = (int*)malloc(sizeof(int) * desc->size);
   desc->global_ranks = (int*)malloc(sizeof(int) * desc->size);
   for (int i = 0; i < desc->size; i++) {
     local_ranks[i] = i;
@@ -115,11 +125,11 @@ MPI_File new_virt_file(MPI_File real_file) {
 
 void reconstruct_comm_desc(virt_id_entry *entry) {
   MPI_Group group;
-  mana_comm_desc *comm_desc = (mana_comm_desc*)entry->desc;
-  mana_group_desc *group_desc = comm_desc->group_desc;
+  mana_comm_desc *desc = (mana_comm_desc*)entry->desc;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
-  NEXT_FUNC(Group_incl)(g_world_group, group_desc->size, group_desc->global_ranks, &group);
+  NEXT_FUNC(Group_incl)(g_world_group, desc->size, desc->global_ranks, &group);
   NEXT_FUNC(Comm_create_group)(lh_info->MANA_COMM_WORLD, group, 0, &(entry->real_id.comm));
+  NEXT_FUNC(Group_free)(&group);
   RETURN_TO_UPPER_HALF();
 }
 
@@ -461,7 +471,7 @@ void* get_virt_id_desc(mana_handle virt_id) {
 void free_desc(void *desc, int kind) {
   if (kind == MANA_COMM_KIND) {
     mana_comm_desc *comm_desc = (mana_comm_desc*)desc;
-    free_desc(comm_desc->group_desc, MANA_GROUP_KIND);
+    free(comm_desc->global_ranks);
   } else if (kind == MANA_GROUP_KIND) {
     mana_group_desc *group_desc = (mana_group_desc*)desc;
     free(group_desc->global_ranks);
