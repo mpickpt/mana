@@ -226,6 +226,15 @@ dbg_argc_addr = dest_curr_stack;
   // ld.so will do this again.
   __environ = environ = (char **)env_ptr_addr;
 
+  char **newEnvPtr = (char**)__environ;
+  for (; *newEnvPtr; newEnvPtr++) {
+    if (strstr(*newEnvPtr, "UH_PRELOAD")) {
+      (*newEnvPtr)[0] = 'L';
+      (*newEnvPtr)[1] = 'D';
+      break;
+    }
+  }
+
 #ifdef DEBUG
 debugStack(argc_ptr, argv_ptr);
 #endif
