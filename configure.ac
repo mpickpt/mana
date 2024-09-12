@@ -38,7 +38,6 @@ AX_CHECK_COMPILE_FLAG([-fallow-argument-mismatch],
                       [])
 AC_LANG_POP([Fortran])
 
-ac_configure_args="$ac_configure_args --with-mana-helper-dir=../restart_plugin"
 ac_configure_args="$ac_configure_args --disable-dlsym-wrapper"
 AC_CONFIG_SUBDIRS([dmtcp])
 
