@@ -41,8 +41,11 @@ default: kernel-loader
 .c.o:
 	${MPICXX} ${CFLAGS} -c -o $@ $<
 
+# Normally, gcc (or clang) will automatically link with libatomic.so.
+# However, for come MPICXX it's hard to know if they cover it.
+# So this is good as a safety measure.
 kernel-loader: get_symbol_offset.o copy_stack.o patch_trampoline.o lh_func_ptr.o mem_wrapper.o switch_context.o kernel_loader.o mmap-fixed-noreplace.o ${DMTCP_DEPS}
-	${MPICXX} -g3 ${TEXTSEG_ADDR_FLAG} ${CXXFLAGS} -o $@ $^ -lpthread -ldl
+	${MPICXX} -g3 ${TEXTSEG_ADDR_FLAG} ${CXXFLAGS} -o $@ $^ -lpthread -ldl -latomic
 
 install: kernel-loader
 	cp -f $^ ${MANA_ROOT}/bin/
