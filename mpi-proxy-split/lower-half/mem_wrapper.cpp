@@ -109,14 +109,6 @@ int checkLibrary(int fd, const char* name,
 
 void* mmap_wrapper(void *addr, size_t length, int prot,
                   int flags, int fd, off_t offset) {
-#if 0
-  if (addr == (void*)0x10091000) {
-    printf("mmap wrapper addr %p size %lx\n", addr, length);
-    fflush(stdout);
-    volatile int dummy = 1;
-    while (dummy);
-  }
-#endif
   // If the address is already reserved as the upper-half heap
   // unmap the region.
   if (addr > __startOfReservedHeap && addr < __endOfReservedHeap) {
@@ -237,23 +229,6 @@ static void patchLibc(int fd, void *base, char *glibc)
     munmap_offset = get_symbol_offset(buf, "munmap"); // elf interpreter debug path
   }
   assert(munmap_offset);
-#if 0
-  off_t sbrk_offset = get_symbol_offset(glibc, "sbrk");
-  if (! sbrk_offset) {
-    char buf[256] = "/usr/lib/debug";
-    buf[sizeof(buf)-1] = '\0';
-    ssize_t rc = 0;
-    rc = readlink(glibc, buf+strlen(buf), sizeof(buf)-strlen(buf)-1);
-    if (rc != -1 && access(buf, F_OK) == 0) {
-      // Debian family (Ubuntu, etc.) use this scheme to store debug symbols.
-      //   http://sourceware.org/gdb/onlinedocs/gdb/Separate-Debug-Files.html
-      fprintf(stderr, "Debug symbols for interpreter in: %s\n", buf);
-    }
-    sbrk_offset = get_symbol_offset(buf, "sbrk"); // elf interpreter debug path
-  }
-  assert(sbrk_offset);
-  patch_trampoline((void*)base + sbrk_offset, (void*)&sbrk_wrapper);
-#endif
   patch_trampoline((void*)base + mmap_offset, (void*)&mmap_wrapper);
   patch_trampoline((void*)base + munmap_offset, (void*)&munmap_wrapper);
   // Restore file offset to not upset the caller
@@ -330,57 +305,4 @@ void updateMmaps(void *addr, size_t length) {
   }
 }
 
-void* sbrk_wrapper(intptr_t increment) {
-  void *addr = NULL;
-  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
-  addr = __sbrk_wrapper(increment);
-  RETURN_TO_UPPER_HALF();
-  return addr;
-}
-
-/* Extend the process's data space by INCREMENT.
-   If INCREMENT is negative, shrink data space by - INCREMENT.
-   Return start of new space allocated, or -1 for errors.  */
-static void* __sbrk_wrapper(intptr_t increment) {
-  void *oldbrk;
-
-  DLOG(INFO, "LH: sbrk called with 0x%lx\n", increment);
-
-  if (__curbrk == NULL) {
-    if (brk (0) < 0) {
-      return (void *) -1;
-    } else {
-      __endOfHeap = __curbrk;
-    }
-  }
-
-  if (increment == 0) {
-    DLOG(INFO, "LH: sbrk returning %p\n", __curbrk);
-    return __curbrk;
-  }
-
-  oldbrk = __curbrk;
-  if (increment > 0
-      ? ((uintptr_t) oldbrk + (uintptr_t) increment < (uintptr_t) oldbrk)
-      : ((uintptr_t) oldbrk < (uintptr_t) -increment))
-    {
-      errno = ENOMEM;
-      return (void *) -1;
-    }
-
-  if ((char *)oldbrk + increment > (char *)__endOfHeap) {
-    void *ret = __mmap_wrapper(__endOfHeap,
-                    ROUND_UP((char *)oldbrk + (char *)increment - (char *)__endOfHeap, PAGE_SIZE),
-                    PROT_READ | PROT_WRITE,
-                    MAP_PRIVATE | MAP_FIXED_NOREPLACE | MAP_ANONYMOUS,
-                    -1, 0);
-    assert (ret != MAP_FAILED);
-  }
-
-  __endOfHeap = (void*)ROUND_UP((char *)oldbrk + increment, PAGE_SIZE);
-  __curbrk = (void *)oldbrk + increment;
-
-  DLOG(INFO, "LH: sbrk returning %p\n", oldbrk);
-
-  return oldbrk;
-}
+// We don't need a wrapper for sbrk() because DMTCP has created a page above here to make sbrk(0) fail in libc/application.
