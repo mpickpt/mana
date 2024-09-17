@@ -25,11 +25,6 @@
 #include "jconvert.h"
 #include "jfilesystem.h"
 #include "util.h"
-#if 0
-#include "mtcp_sys.h"
-#include "mtcp_restart.h"
-#include "mtcp_util.h"
-#endif
 
 // Uses ELF Format.  For background, read both of:
 //  * http://www.skyfree.org/linux/references/ELF_Format.pdf
@@ -59,6 +54,8 @@
 
 #define MAX_ELF_INTERP_SZ 256
 
+void *mmap_fixed_noreplace(void *addr, size_t length, int prot, int flags,
+                           int fd, off_t offset);
 int write_lh_info_to_file();
 void get_elf_interpreter(int fd, Elf64_Addr *cmd_entry,
                          char get_elf_interpreter[], void *ld_so_addr);
@@ -119,22 +116,6 @@ int main(int argc, char *argv[], char *envp[]) {
   memset(lh_info, 0, sizeof(LowerHalfInfo_t));
   lh_info->fsaddr = (void*)fsaddr;
  
-  // Create new heap region to be used by RTLD
-  void *lh_brk = sbrk(0);
-  const uint64_t heapSize = 0x1000;
-  void *heap_addr = mmap_wrapper(lh_brk, heapSize, PROT_NONE,
-                         MAP_PRIVATE | MAP_ANONYMOUS |
-                         MAP_NORESERVE | MAP_FIXED_NOREPLACE ,
-                         -1, 0);
-  if (heap_addr == MAP_FAILED) {
-    DLOG(ERROR, "Failed to mmap region. Error: %s\n",
-         strerror(errno));
-    exit(1);
-  }
-  // Add a guard page before the start of heap; this protects
-  // the heap from getting merged with a "previous" region.
-  mprotect(heap_addr, heapSize, PROT_NONE);
-
   // Initialize MPI in advance
   int rank;
   MPI_Init(&argc, &argv);
@@ -293,7 +274,6 @@ int main(int argc, char *argv[], char *envp[]) {
     off_t ckpt_file_pos = 0;
     ckpt_file_pos = lseek(t->fd(), 0, SEEK_CUR);
     // Reserve space for memory areas saved in the ckpt image file.
-    munmap_wrapper(heap_addr, heapSize);
     while(1) {
       off_t cur_pos = ckpt_file_pos;
       int rc = read(t->fd(), &area, sizeof area);
@@ -303,9 +283,9 @@ int main(int argc, char *argv[], char *envp[]) {
         break;
       }
       if ((area.properties & DMTCP_ZERO_PAGE_CHILD_HEADER) == 0) {
-        void *mmapedat = mmap(area.addr, area.size, PROT_NONE,
-                              MAP_PRIVATE | MAP_ANONYMOUS,
-                              0, 0);
+        void *mmapedat = mmap_fixed_noreplace(area.addr, area.size, PROT_NONE,
+                                              MAP_PRIVATE | MAP_ANONYMOUS,
+                                              0, 0);
         if (mmapedat == MAP_FAILED) {
           fprintf(stderr, "restore failed area.addr: %p, area.endAddr%p\n", area.addr, area.endAddr);
           volatile int dummy = 1;

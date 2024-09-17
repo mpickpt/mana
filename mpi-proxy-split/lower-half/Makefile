@@ -41,7 +41,7 @@ default: kernel-loader
 .c.o:
 	${MPICXX} ${CFLAGS} -c -o $@ $<
 
-kernel-loader: get_symbol_offset.o copy_stack.o patch_trampoline.o lh_func_ptr.o mem_wrapper.o switch_context.o kernel_loader.o ${DMTCP_DEPS}
+kernel-loader: get_symbol_offset.o copy_stack.o patch_trampoline.o lh_func_ptr.o mem_wrapper.o switch_context.o kernel_loader.o mmap-fixed-noreplace.o ${DMTCP_DEPS}
 	${MPICXX} -g3 ${TEXTSEG_ADDR_FLAG} ${CXXFLAGS} -o $@ $^ -lpthread -ldl
 
 install: kernel-loader
