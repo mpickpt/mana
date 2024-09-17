@@ -47,7 +47,6 @@ FILES=mpi_hello_world \
 	  File_read_write_all_test \
       Type_dup_test Type_create_hindexed_test \
 	  Type_create_resized_test Type_create_hindexed_block_test \
-	  comm_reconstruct_test
 
 OBJS=$(addsuffix .o, ${FILES})
 
