@@ -79,12 +79,16 @@ char *deepCopyStack(int argc, char **argv, char *argc_ptr, char *argv_ptr,
 
   char *top_of_stack = (char *)&argv[-1];
   assert( (auxv_size + env_ptr_size) % 8 == 0);
+  // The fnc _start() may copy 'argc', but this is its original address.
+  char *argc_ptr_original = argv_ptr - sizeof(char *);
+  // This shows that for current stack (not the copied one), _start copied argc.
+  assert(*(long int *)argc_ptr_original == *(long int *)argc_ptr);
   int dest_stack_size = sizeof(NULL) /* end marker */ +
                         env_strings_size + argv_strings_size +
                         32 /* max.  padding is 32 for x86_64 */ +
                         auxv_size + env_ptr_size + argv_ptr_size +
                         (auxv_size + env_ptr_size) % 16 /* 16-byte aligned */ +
-                        (argc_ptr - argv_ptr);
+                        (argv_ptr - argc_ptr_original);
 
   char *dest_top_of_stack =
     (char *)ROUND_UP((unsigned long)dest_stack + dest_stack_size);
