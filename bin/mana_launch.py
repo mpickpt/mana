@@ -15,6 +15,7 @@ dmtcp_options = ["-i", "--interval", "-h", "--coord-host",
                  "--ckpt-signal", "--with-plugin",
                  "--tmpdir", "--coord-logfile"]
 verbose = False
+gdb = False
 mana_root_path = os.path.dirname(os.path.realpath(__file__)) + "/../"
 
 # if no arguments provided, print the help message
@@ -42,6 +43,9 @@ if not target_app[0]:
   sys.exit(1)
 
 # Special arguments
+if "--gdb" in dmtcp_flags:
+  gdb = True
+  dmtcp_flags.remove("--gdb")
 if "--help" in dmtcp_flags:
   print(help_msg)
   sys.exit(1)
@@ -108,11 +112,15 @@ if coordinator_found != 0:
 # Build the command line to be executed
 if not verbose:
   dmtcp_flags.insert(0, "-q -q")
-cmd_line = mana_root_path + "bin/dmtcp_launch --mpi" + host_flag + port_flag + \
-           "--no-gzip --join-coordinator --disable-dl-plugin" + \
-           " --with-plugin " + mana_root_path + "lib/dmtcp/libmana.so " + \
-           " ".join(dmtcp_flags) + " " + mana_root_path + "bin/kernel-loader " + \
-           " " .join(target_app)
+if gdb:
+  cmd_line = shutil.which("gdb") + " --args "
+else:
+  cmd_line = ""
+cmd_line += mana_root_path + "bin/dmtcp_launch --mpi" + host_flag + port_flag + \
+            "--no-gzip --join-coordinator --disable-dl-plugin" + \
+            " --with-plugin " + mana_root_path + "lib/dmtcp/libmana.so " + \
+            " ".join(dmtcp_flags) + " " + mana_root_path + "bin/kernel-loader " + \
+            " " .join(target_app)
 if verbose:
   print(cmd_line)
 
