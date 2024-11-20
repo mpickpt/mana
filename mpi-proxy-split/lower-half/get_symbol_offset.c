@@ -34,7 +34,7 @@ off_t get_symbol_offset(char *pathname, char *symbol) {
 
   rc = read(fd, e_ident, sizeof(e_ident));
   assert(rc == sizeof(e_ident));
-  assert(strncmp((const char*)e_ident, ELFMAG, sizeof(ELFMAG)-1) == 0);
+  assert(strncmp((char *)e_ident, ELFMAG, sizeof(ELFMAG)-1) == 0);
   // FIXME:  Add support for 32-bit ELF later
   assert(e_ident[EI_CLASS] == ELFCLASS64);
 
@@ -49,7 +49,7 @@ off_t get_symbol_offset(char *pathname, char *symbol) {
   Elf64_Shdr sect_hdr;
   Elf64_Shdr symtab;
   Elf64_Sym symtab_entry;
-  char strtab[140000];
+  char strtab[200000];
   int i;
   // First, read the data from the shstrtab section
   // This section contains the strings corresponding to the section names
@@ -108,7 +108,10 @@ off_t get_symbol_offset(char *pathname, char *symbol) {
       foundDebugLib = 1;
     }
   }
-  if (! symtab_found) return 0; // No symbol table found.
+  if (! symtab_found) {
+    close(fd);
+    return 0; // No symbol table found.
+  }
 
   // Move to beginning of symbol table
   lseek(fd, symtab.sh_offset, SEEK_SET);
@@ -117,11 +120,14 @@ off_t get_symbol_offset(char *pathname, char *symbol) {
     assert(rc == sizeof(symtab_entry));
     if (strcmp(strtab + symtab_entry.st_name, symbol) == 0) {
       // found address as offset from base address
+      close(fd);
       return symtab_entry.st_value;
     }
   }
 
   close(fd);
+  fprintf(stderr, "*** FAILED TO FIND symbol: %s\n", symbol);
+  exit(1);
 }
 
 
@@ -136,7 +142,7 @@ readElfSection(int fd, int sidx, const Elf64_Ehdr *ehdr,
   assert(rc == sizeof *shdr);
   rc = lseek(fd, shdr->sh_offset, SEEK_SET);
   if (rc > 0) {
-    *data = (char*)malloc(shdr->sh_size);
+    *data = (char *)malloc(shdr->sh_size);
     rc = lseek(fd, shdr->sh_offset, SEEK_SET);
     rc = read(fd, *data, shdr->sh_size);
     assert(rc == shdr->sh_size);
