@@ -74,7 +74,7 @@ char *deepCopyStack(int argc, char **argv, char *argc_ptr, char *argv_ptr,
 
   for (i = 0; auxv[i].a_type != AT_NULL; i++) {};
   assert(auxv[i].a_type == AT_NULL);
-  int auxv_size = (char *)&auxv[21] - (char *)&auxv[0];
+  int auxv_size = (char *)&auxv[i+1] - (char *)&auxv[0];
   char *auxv_addr = (char *)&auxv[0];
 
   char *top_of_stack = (char *)&argv[-1];
@@ -82,7 +82,6 @@ char *deepCopyStack(int argc, char **argv, char *argc_ptr, char *argv_ptr,
   // The fnc _start() may copy 'argc', but this is its original address.
   char *argc_ptr_original = argv_ptr - sizeof(char *);
   // This shows that for current stack (not the copied one), _start copied argc.
-  assert(*(long int *)argc_ptr_original == *(long int *)argc_ptr);
   int dest_stack_size = sizeof(NULL) /* end marker */ +
                         env_strings_size + argv_strings_size +
                         32 /* max.  padding is 32 for x86_64 */ +
@@ -220,7 +219,7 @@ dbg_env_ptr_addr = dest_curr_stack;
 dbg_argv_ptr_addr = dest_curr_stack;
 
  /*****************************
-  * argc (Some compilers may copy 'argc', but this is its original address.)
+  * argc (The fnc _start() may copy 'argc', but this is its original address.)
   *****************************/
   dest_curr_stack -= sizeof(char *);
   *(long int *)dest_curr_stack = dest_argc;
@@ -230,6 +229,7 @@ dbg_argc_addr = dest_curr_stack;
   // ld.so will do this again.
   __environ = environ = (char **)env_ptr_addr;
 
+// FIXME: We will migrate this to Kapil's new architecture
   char **newEnvPtr = (char**)__environ;
   for (; *newEnvPtr; newEnvPtr++) {
     if (strstr(*newEnvPtr, "UH_PRELOAD")) {
@@ -243,6 +243,13 @@ dbg_argc_addr = dest_curr_stack;
 debugStack(argc_ptr, argv_ptr);
 #endif
   *auxv_ptr = dest_auxv_ptr;
+#ifdef STANDALONE
+printf("\nDEBUGGING:\ndest_mem_addr (top of stack): %p;\n"
+       "dest_mem_addr - dest_stack_size: %p; (dest_stack_size: %p)\n"
+       "dest_curr_stack: %p\n",
+       dest_mem_addr, dest_mem_addr - dest_stack_size, dest_stack_size,
+       dest_curr_stack);
+#endif
   return dest_curr_stack;
 }
 

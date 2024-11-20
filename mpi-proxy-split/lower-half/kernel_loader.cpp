@@ -59,7 +59,7 @@ void *mmap_fixed_noreplace(void *addr, size_t length, int prot, int flags,
 int write_lh_info_to_file();
 void get_elf_interpreter(int fd, Elf64_Addr *cmd_entry,
                          char get_elf_interpreter[], void *ld_so_addr);
-void *load_elf_interpreter(int fd, char elf_interpreter[],
+char *load_elf_interpreter(int fd, char elf_interpreter[],
                            void *ld_so_addr, Elf64_Ehdr *ld_so_elf_hdr_ptr);
 char *map_elf_interpreter_load_segment(int fd, Elf64_Phdr phdr,
                                       void *ld_so_addr);
@@ -71,7 +71,7 @@ off_t get_symbol_offset(char *pathame, char *symbol);
 //   (but unfortunately, that's for a 32-bit system)
 char *deepCopyStack(int argc, char **argv, char *argc_ptr, char *argv_ptr,
                     unsigned long dest_argc, char **dest_argv, char *dest_stack,
-                    Elf64_auxv_t **);
+                    Elf64_auxv_t **auxv_ptr);
 void *lh_dlsym(enum MPI_Fncs fnc);
 static int restoreMemoryArea(int fd, DmtcpCkptHeader *ckptHdr);
 static void restore_vdso_vvar(DmtcpCkptHeader *dmtcp_hdri, char *envrion[]);
@@ -403,7 +403,7 @@ int main(int argc, char *argv[], char *envp[]) {
   // Open the elf interpreter (ldso)
   ld_so_fd = open(elf_interpreter, O_RDONLY);
   char *interp_base_address =
-    (char *)load_elf_interpreter(ld_so_fd, elf_interpreter, ld_so_addr, &ld_so_elf_hdr);
+    load_elf_interpreter(ld_so_fd, elf_interpreter, ld_so_addr, &ld_so_elf_hdr);
   ld_so_entry = interp_base_address  + ld_so_elf_hdr.e_entry;
   // FIXME: The ELF Format manual says that we could pass the ld_so_fd to ld.so,
   //   and it would use that to load it.
@@ -423,7 +423,7 @@ int main(int argc, char *argv[], char *envp[]) {
   // FIXME:
   //   Should add check that interp_base_address + 0x400000 not already mapped
   //   Or else, could use newer MAP_FIXED_NOREPLACE in mmap of deepCopyStack
-  char *dest_stack = deepCopyStack(argc, argv, (char*)&argc, (char*)argv,
+  char *dest_stack = deepCopyStack(argc, argv, (char *)&argc, (char *)&argv[0],
                                    cmd_argc+1, cmd_argv2,
                                    interp_base_address + 0x400000,
                                    &auxv_ptr);
@@ -469,9 +469,29 @@ int main(int argc, char *argv[], char *envp[]) {
   //   > asm volatile (CLEAN_FOR_64_BIT(mov %0, %%esp; )
   //   >               : : "g" (newStack) : "memory");
   //   > asm volatile ("jmp *%0" : : "g" (ld_so_entry) : "memory");
+#if defined(__i386__) || defined(__x86_64__)
   asm volatile (CLEAN_FOR_64_BIT(mov %0, %%esp; )
                 : : "g" (dest_stack) : "memory");
   asm volatile ("jmp *%0" : : "g" (ld_so_entry) : "memory");
+#elif defined(__arm__)
+# warning "__arm__ not yet implemented."
+#elif defined(__aarch64__)
+  asm volatile ("mov sp, %0" : : "r" (dest_stack) );
+  asm volatile ("mov x8, %0" : : "g" (ld_so_entry) : "memory");
+  asm volatile ("br x8");
+#elif defined(__riscv)
+  asm volatile ("addi sp, %0, 0" : : "r" (dest_stack) : );
+  // We would ant to do "%%hi(%0)"/"%%lo(%0)".  But %hi/%lo is a reloaction
+  //   directove for the linker, and asm() doens't understand this.
+  // %%pcrel_hi/lo would be nice (to generate pic code), but when
+  //   trying that, we get:
+  // kernel-loader.c: dangerous relocation: %pcrel_lo missing matching %pcrel_hi
+  asm volatile ("lui t0, %%hi(ld_so_entry)" : : "g" (ld_so_entry) : "memory");
+  asm volatile ("ld  t0, %%lo(ld_so_entry)(t0)" : : "g" (ld_so_entry) : "memory");
+  asm volatile ("jalr  zero, t0");
+#else
+# error "current architecture not supported"
+#endif /* if defined(__i386__) || defined(__x86_64__) */
 }
 
 int write_lh_info_to_file() {
@@ -528,7 +548,7 @@ void get_elf_interpreter(int fd, Elf64_Addr *cmd_entry,
   assert(rc == phdr.p_filesz);
 }
 
-void *load_elf_interpreter(int fd, char elf_interpreter[],
+char *load_elf_interpreter(int fd, char elf_interpreter[],
                            void *ld_so_addr, Elf64_Ehdr *ld_so_elf_hdr_ptr) {
   unsigned char e_ident[EI_NIDENT];
   int rc;
