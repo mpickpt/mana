@@ -19,6 +19,7 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include "unistd.h"
 #include "config.h"
 #include "dmtcp.h"
 #include "util.h"
@@ -42,15 +43,26 @@ USER_DEFINED_WRAPPER(int, Send,
                      (int) dest, (int) tag, (MPI_Comm) comm)
 {
   int retval;
-  MPI_Request req;
-  MPI_Status st;
-  retval = MPI_Isend(buf, count, datatype, dest, tag, comm, &req);
-  if (retval != MPI_SUCCESS) {
-    return retval;
+  while (mana_state == CKPT_P2P) {
+    usleep(100);
   }
-  p2p_deterministic_skip_save_request = 1;
-  retval = MPI_Wait(&req, &st);
-  p2p_deterministic_skip_save_request = 0;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  local_sent_messages++;
+  MPI_Comm realComm = get_real_id({.comm = comm}).comm;
+  MPI_Datatype realType = get_real_id({.datatype = datatype}).datatype;
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
+  retval = NEXT_FUNC(Send)(buf, count, realType, dest, tag, realComm);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+#ifdef DEBUG_P2P
+  if (retval == MPI_SUCCESS) {
+    // Updating global counter of send bytes
+    int size;
+    MPI_Type_size(datatype, &size);
+    int worldRank = localRankToGlobalRank(dest, comm);
+    g_sendBytesByRank[worldRank] += count * size;
+  }
+#endif
   return retval;
 }
 
@@ -61,19 +73,19 @@ USER_DEFINED_WRAPPER(int, Isend,
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
+  local_sent_messages++;
   MPI_Comm realComm = get_real_id({.comm = comm}).comm;
   MPI_Datatype realType = get_real_id({.datatype = datatype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Isend)(buf, count, realType, dest, tag, realComm, request);
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS) {
+#ifdef DEBUG_P2P
     // Updating global counter of send bytes
     int size;
     MPI_Type_size(datatype, &size);
     int worldRank = localRankToGlobalRank(dest, comm);
     g_sendBytesByRank[worldRank] += count * size;
-    // For debugging
-#if 0
     printf("rank %d sends %d bytes to rank %d\n", g_world_rank, count * size, worldRank);
     fflush(stdout);
 #endif
@@ -93,14 +105,18 @@ USER_DEFINED_WRAPPER(int, Rsend, (const void*) ibuf, (int) count,
                      (MPI_Datatype) datatype, (int) dest,
                      (int) tag, (MPI_Comm) comm)
 {
-  // FIXME: Implement this wrapper with MPI_Irsend
   int retval;
+  while (mana_state == CKPT_P2P) {
+    usleep(100);
+  }
   DMTCP_PLUGIN_DISABLE_CKPT();
+  local_sent_messages++;
   MPI_Comm realComm = get_real_id({.comm = comm}).comm;
   MPI_Datatype realType = get_real_id({.datatype = datatype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Rsend)(ibuf, count, realType, dest, tag, realComm);
   RETURN_TO_UPPER_HALF();
+#ifdef DEBUG_P2P
   if (retval == MPI_SUCCESS) {
     // Updating global counter of send bytes
     int size;
@@ -108,12 +124,8 @@ USER_DEFINED_WRAPPER(int, Rsend, (const void*) ibuf, (int) count,
     int worldRank = localRankToGlobalRank(dest, comm);
     g_sendBytesByRank[worldRank] += count * size;
     g_rsendBytesByRank[worldRank] += count * size;
-    // For debugging
-#if 0
-    printf("rank %d rsends %d bytes to rank %d\n", g_world_rank, count * size, worldRank);
-    fflush(stdout);
-#endif
   }
+#endif
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -124,15 +136,32 @@ USER_DEFINED_WRAPPER(int, Recv,
                      (MPI_Comm) comm, (MPI_Status *) status)
 {
   int retval;
+  int flag;
   MPI_Request req;
-  retval = MPI_Irecv(buf, count, datatype, source, tag, comm, &req);
-  if (retval != MPI_SUCCESS) {
+  while (mana_state == CKPT_P2P) {
+    usleep(100);
+  }
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  local_recv_messages++;
+  if (mana_state == RUNNING &&
+      isBufferedPacket(source, tag, comm, &flag, status)) {
+    int type_size;
+    retval = MPI_Type_size(datatype, &type_size);
+    int msg_size = type_size * count;
+    consumeBufferedPacket(buf, count, datatype, source, tag, comm,
+                          status, msg_size);
+    retval = MPI_SUCCESS;
+    DMTCP_PLUGIN_ENABLE_CKPT();
     return retval;
   }
-  p2p_deterministic_skip_save_request = 0;
-  retval = MPI_Wait(&req, status);
-#if 0
+  MPI_Comm realComm = get_real_id({.comm = comm}).comm;
+  MPI_Datatype realType = get_real_id({.datatype = datatype}).datatype;
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
+  retval = NEXT_FUNC(Recv)(buf, count, realType, source, tag, realComm, status);
+  RETURN_TO_UPPER_HALF();
   DMTCP_PLUGIN_ENABLE_CKPT();
+#ifdef DEBUG_P2P
+  // FIXME: Move the recv counter code from MPI_Test wrapper to here.
 #endif
   return retval;
 }
@@ -144,18 +173,16 @@ USER_DEFINED_WRAPPER(int, Irecv,
 {
   int retval;
   int flag = 0;
-  int size = 0;
   MPI_Status status;
 
-  retval = MPI_Type_size(datatype, &size);
-  size = size * count;
-
   DMTCP_PLUGIN_DISABLE_CKPT();
-
   if (mana_state == RUNNING &&
       isBufferedPacket(source, tag, comm, &flag, &status)) {
+    int type_size;
+    retval = MPI_Type_size(datatype, &type_size);
+    int msg_size = type_size * count;
     consumeBufferedPacket(buf, count, datatype, source, tag, comm,
-                          &status, size);
+                          &status, msg_size);
 
     // Use (MPI_REQUEST_NULL+1) as a fake non-null real request to create
     // a new non-null virtual request and map the virtual request to the
