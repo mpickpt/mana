@@ -27,10 +27,14 @@
 #include "dmtcpalloc.h"
 #include "p2p_log_replay.h"
 
+#ifdef DEBUG_P2P
 extern int *g_sendBytesByRank; // Number of bytes sent to other ranks
 extern int *g_rsendBytesByRank; // Number of bytes sent to other ranks by MPI_Rsend
 extern int *g_bytesSentToUsByRank; // Number of bytes other ranks sent to us
 extern int *g_recvBytesByRank; // Number of bytes received from other ranks
+#endif
+extern int64_t global_sent_messages, global_recv_messages;
+extern int64_t local_sent_messages, local_recv_messages;
 extern std::unordered_set<MPI_Comm> active_comms;
 extern dmtcp::vector<mpi_message_t*> g_message_queue;
 
