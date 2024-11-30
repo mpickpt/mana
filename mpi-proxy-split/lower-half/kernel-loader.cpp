@@ -15,9 +15,9 @@
 #include <errno.h>
 #include <elf.h>
 
-#include "mem_wrapper.h"
-#include "patch_trampoline.h"
-#include "lower_half_api.h"
+#include "mem-wrapper.h"
+#include "patch-trampoline.h"
+#include "lower-half-api.h"
 #include "logging.h"
 #include "dmtcp.h"
 #include "dmtcprestartinternal.h"

@@ -46,8 +46,8 @@
 #include <assert.h>
 
 
-#include "switch_context.h"
-#include "lower_half_api.h"
+#include "switch-context.h"
+#include "lower-half-api.h"
 
 bool FsGsBaseEnabled = false;
 

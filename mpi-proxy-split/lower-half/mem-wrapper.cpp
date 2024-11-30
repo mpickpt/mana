@@ -33,11 +33,11 @@
 #include <vector>
 #include <algorithm>
 
-#include "lower_half_api.h"
-#include "patch_trampoline.h"
+#include "lower-half-api.h"
+#include "patch-trampoline.h"
 #include "logging.h"
-#include "mem_wrapper.h"
-#include "switch_context.h"
+#include "mem-wrapper.h"
+#include "switch-context.h"
 
 using namespace std;
 
