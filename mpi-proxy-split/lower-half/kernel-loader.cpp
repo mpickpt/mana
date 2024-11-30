@@ -15,6 +15,7 @@
 #include <errno.h>
 #include <elf.h>
 
+#include "mtcp_header.h"
 #include "mem-wrapper.h"
 #include "patch-trampoline.h"
 #include "lower-half-api.h"
@@ -22,6 +23,8 @@
 #include "dmtcp.h"
 #include "dmtcprestartinternal.h"
 #include "procmapsarea.h"
+#include "jalib.h"
+#include "jassert.h"
 #include "jconvert.h"
 #include "jfilesystem.h"
 #include "util.h"
@@ -73,8 +76,9 @@ char *deepCopyStack(int argc, char **argv, char *argc_ptr, char *argv_ptr,
                     unsigned long dest_argc, char **dest_argv, char *dest_stack,
                     Elf64_auxv_t **auxv_ptr);
 void *lh_dlsym(enum MPI_Fncs fnc);
-static int restoreMemoryArea(int fd, DmtcpCkptHeader *ckptHdr);
-static void restore_vdso_vvar(DmtcpCkptHeader *dmtcp_hdri, char *envrion[]);
+static int restoreMemoryArea(int fd, MtcpHeader *ckptHdr);
+static void restore_vdso_vvar(MtcpHeader *dmtcp_hdri, char *envrion[]);
+typedef void (*PostRestartFnPtr_t)(double, int);
 
 void *ld_so_entry;
 LowerHalfInfo_t lh_info_obj;
@@ -281,10 +285,10 @@ int main(int argc, char *argv[], char *envp[]) {
     }
     JASSERT(t->pid() != 0);
 
-    DmtcpCkptHeader ckpt_hdr;
+    MtcpHeader ckpt_hdr;
     int rc = read(t->fd(), &ckpt_hdr, sizeof(ckpt_hdr));
     ASSERT_EQ(rc, sizeof(ckpt_hdr));
-    ASSERT_EQ(string(ckpt_hdr.ckptSignature), string(DMTCP_CKPT_SIGNATURE));
+    ASSERT_EQ(string(ckpt_hdr.signature), string(MTCP_SIGNATURE));
 
     ProcMapsArea area;
     off_t ckpt_file_pos = 0;
@@ -361,7 +365,7 @@ int main(int argc, char *argv[], char *envp[]) {
 
     // IMB; /* flush instruction cache, since mtcp_restart.c code is now gone. */
 
-    PostRestartFnPtr_t postRestart = (PostRestartFnPtr_t) ckpt_hdr.postRestartAddr;
+    PostRestartFnPtr_t postRestart = (PostRestartFnPtr_t) ckpt_hdr.post_restart;
     postRestart(0, 0);
     // The following line should not be reached.
     assert(0);
@@ -744,7 +748,7 @@ int MPI_MANA_Internal(char *dummy) {
   return 0;
 }
 
-static int restoreMemoryArea(int fd, DmtcpCkptHeader *ckptHdr)
+static int restoreMemoryArea(int fd, MtcpHeader *ckptHdr)
 {
   int imagefd;
   void *mmappedat;
@@ -772,9 +776,9 @@ static int restoreMemoryArea(int fd, DmtcpCkptHeader *ckptHdr)
    * in processinfo.cpp.
    */
   if ((area.name[0] && area.name[0] != '/' && strstr(area.name, "stack"))
-      || (area.endAddr == (VA) ckptHdr->endOfStack)) {
+      || (area.endAddr == (VA) ckptHdr->end_of_stack)) {
     area.flags = area.flags | MAP_GROWSDOWN;
-    JTRACE("Detected stack area")(ckptHdr->endOfStack) (area.endAddr);
+    JTRACE("Detected stack area")(ckptHdr->end_of_stack) (area.endAddr);
   }
 
   // We could have replaced MAP_SHARED with MAP_PRIVATE in writeckpt.cpp
