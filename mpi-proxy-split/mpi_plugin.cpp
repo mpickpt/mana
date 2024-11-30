@@ -42,7 +42,7 @@
 #include "mpi_files.h"
 #include "mana_header.h"
 #include "mpi_plugin.h"
-#include "lower_half_api.h"
+#include "lower-half-api.h"
 #include "p2p_log_replay.h"
 #include "p2p_drain_send_recv.h"
 #include "record-replay.h"
