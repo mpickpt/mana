@@ -30,7 +30,7 @@
 #include <sys/types.h>
 #include <string.h>
 
-#include "lower_half_api.h"
+#include "lower-half-api.h"
 #include "dmtcp.h"
 #include "mpi_plugin.h"
 

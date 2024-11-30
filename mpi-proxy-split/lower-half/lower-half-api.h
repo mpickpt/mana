@@ -27,7 +27,7 @@
 #include <stddef.h>
 #include <vector>
 
-#include "switch_context.h"
+#include "switch-context.h"
 
 extern "C" int MPI_MANA_Internal(char *dummy);
 

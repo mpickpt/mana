@@ -26,7 +26,7 @@
 #include <cstdint>
 #include <cstddef>
 
-#include "lower_half_api.h"
+#include "lower-half-api.h"
 #include "dmtcp_dlsym.h"
 
 #define   _real_fork      NEXT_FNC_DEFAULT(fork)
