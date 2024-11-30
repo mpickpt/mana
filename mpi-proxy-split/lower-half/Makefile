@@ -24,7 +24,6 @@ DMTCP_DEPS = ${DMTCP_ROOT}/src/libdmtcprestart.a \
 	     ${DMTCP_ROOT}/src/libdmtcpinternal.a \
 	     ${DMTCP_ROOT}/src/libjalib.a \
 	     ${DMTCP_ROOT}/src/libnohijack.a
-	     # ${DMTCP_ROOT}/src/mtcp/libmtcprestart.a
 
 override CFLAGS += -fPIC -I${DMTCP_INCLUDE} -I${MANA_INCLUDE} -g3 -O0 \
                    -I${DMTCP_ROOT}/src 
