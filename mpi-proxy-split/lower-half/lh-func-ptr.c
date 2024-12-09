@@ -1,6 +1,6 @@
 #include <mpi.h>
 #include <stddef.h>
-#include "lower_half_api.h"
+#include "lower-half-api.h"
 
 static void* MPI_Fnc_Ptrs[] = {
   NULL,

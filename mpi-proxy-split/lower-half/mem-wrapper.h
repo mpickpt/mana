@@ -22,7 +22,7 @@
 #ifndef MMAP_WRAPPER_H
 #define MMAP_WRAPPER_H
 #include <vector>
-#include "lower_half_api.h"
+#include "lower-half-api.h"
 void* mmap_wrapper(void *, size_t , int , int , int , off_t );
 int munmap_wrapper(void *, size_t);
 void set_end_of_heap(void *);

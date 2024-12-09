@@ -33,7 +33,7 @@
 #include "jassert.h"
 #include "jconvert.h"
 
-#include "lower_half_api.h"
+#include "lower-half-api.h"
 
 #undef GENERATE_ENUM
 #define GENERATE_ENUM(ENUM)    MPI_Fnc_##ENUM
