@@ -24,7 +24,6 @@ DMTCP_DEPS = ${DMTCP_ROOT}/src/libdmtcprestart.a \
 	     ${DMTCP_ROOT}/src/libdmtcpinternal.a \
 	     ${DMTCP_ROOT}/src/libjalib.a \
 	     ${DMTCP_ROOT}/src/libnohijack.a
-	     # ${DMTCP_ROOT}/src/mtcp/libmtcprestart.a
 
 override CFLAGS += -fPIC -I${DMTCP_INCLUDE} -I${MANA_INCLUDE} -g3 -O0 \
                    -I${DMTCP_ROOT}/src 
@@ -44,7 +43,7 @@ default: kernel-loader
 # Normally, gcc (or clang) will automatically link with libatomic.so.
 # However, for come MPICXX it's hard to know if they cover it.
 # So this is good as a safety measure.
-kernel-loader: get_symbol_offset.o copy_stack.o patch_trampoline.o lh_func_ptr.o mem_wrapper.o switch_context.o kernel_loader.o mmap-fixed-noreplace.o ${DMTCP_DEPS}
+kernel-loader: get-symbol-offset.o copy-stack.o patch-trampoline.o lh-func-ptr.o mem-wrapper.o switch-context.o kernel-loader.o mmap-fixed-noreplace.o ${DMTCP_DEPS}
 	${MPICXX} -g3 ${TEXTSEG_ADDR_FLAG} ${CXXFLAGS} -o $@ $^ -lpthread -ldl -latomic
 
 install: kernel-loader

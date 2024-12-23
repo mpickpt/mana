@@ -23,7 +23,7 @@
 #define _MPI_NEXTFUNC_H
 
 #include "mpi_plugin.h"
-#include "lower_half_api.h"
+#include "lower-half-api.h"
 
 #define EAT(x)
 #define REM(x) x

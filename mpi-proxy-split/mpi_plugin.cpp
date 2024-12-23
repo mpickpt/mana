@@ -42,7 +42,7 @@
 #include "mpi_files.h"
 #include "mana_header.h"
 #include "mpi_plugin.h"
-#include "lower_half_api.h"
+#include "lower-half-api.h"
 #include "p2p_log_replay.h"
 #include "p2p_drain_send_recv.h"
 #include "record-replay.h"
@@ -109,7 +109,8 @@ static bool isLhDevice(const ProcMapsArea *area);
 
 void *old_brk;
 void *old_end_of_brk;
-void *uh_stack;
+void *uh_stack_start;
+void *uh_stack_end;
 
 // Check if haystack region contains needle region.
 static inline int
@@ -319,17 +320,17 @@ dmtcp_skip_memory_region_ckpting(ProcMapsArea *area)
   }
 
   // If it's the upper-half stack, don't skip
-  if (area->addr < lh_info->uh_stack && area->endAddr > lh_info->uh_stack) {
+  if (area->addr >= lh_info->uh_stack_start && area->endAddr <= lh_info->uh_stack_end) {
     return 0;
   }
 
   get_mmapped_list_fnc = (get_mmapped_list_fptr_t) lh_info->mmap_list_fptr;
-  
+
   int numUhRegions;
   if (uh_mmaps.size() == 0) {
     uh_mmaps = get_mmapped_list_fnc(&numUhRegions);
   }
-  
+
   for (MmapInfo_t &region : uh_mmaps) {
     if (regionContains(region.addr, region.addr + region.len,
                        area->addr, area->endAddr)) {
@@ -345,6 +346,12 @@ dmtcp_skip_memory_region_ckpting(ProcMapsArea *area)
     if (area->addr < region.addr && region.addr < area->endAddr &&
         area->endAddr < region.addr + region.len) {
       area->addr = (char*) region.addr;
+      area->size = area->endAddr - area->addr;
+      return 0;
+    }
+    if (region.addr < area->addr && area->addr < region.addr + region.len &&
+        region.addr + region.len < area->endAddr) {
+      area->endAddr = (char*) (region.addr + region.len);
       area->size = area->endAddr - area->addr;
       return 0;
     }
@@ -881,6 +888,9 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       // preSuspendBarrier() will send coord response and get worker state.
       // FIXME:  See commant at: dmtcpplugin.cpp:'case DMTCP_EVENT_PRESUSPEND'
       drain_mpi_collective();
+      dmtcp_global_barrier("MPI:Drain-Send-Recv");
+      mana_state = CKPT_P2P;
+      drainSendRecv(); // p2p_drain_send_recv.cpp
       openCkptFileFds();
       printEventToStderr("EVENT_PRESUSPEND (done)");
       break;
@@ -894,11 +904,6 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       getLocalRankInfo(); // p2p_log_replay.cpp
       dmtcp_global_barrier("MPI:update-ckpt-dir-by-rank");
       updateCkptDirByRank(); // mpi_plugin.cpp
-      dmtcp_global_barrier("MPI:Register-local-sends-and-receives");
-      mana_state = CKPT_P2P;
-      registerLocalSendsAndRecvs(); // p2p_drain_send_recv.cpp
-      dmtcp_global_barrier("MPI:Drain-Send-Recv");
-      drainSendRecv(); // p2p_drain_send_recv.cpp
       // computeUnionOfCkptImageAddresses();
       dmtcp_global_barrier("MPI:save-mana-header-and-mpi-files");
       const char *file = get_mana_header_file_name();
@@ -913,7 +918,8 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       printEventToStderr("EVENT_PRECHECKPOINT (done)");
       // Save a copy of the break address before checkpoint
       old_brk = sbrk(0);
-      uh_stack = lh_info->uh_stack;
+      uh_stack_start = lh_info->uh_stack_start;
+      uh_stack_end = lh_info->uh_stack_end;
       break;
     }
 
@@ -932,7 +938,8 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     case DMTCP_EVENT_RESTART: {
       reset_wrappers();
       initialize_wrappers();
-      lh_info->uh_stack = uh_stack;
+      lh_info->uh_stack_start = uh_stack_start;
+      lh_info->uh_stack_end = uh_stack_end;
       printEventToStderr("EVENT_RESTART");
       processingOpenCkpFileFds = false;
       logCkptFileFds();

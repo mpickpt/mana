@@ -11,17 +11,21 @@
 #include <sys/personality.h>
 #include <fcntl.h>
 #include <sys/mman.h>
+#include <sys/resource.h>
 #include <assert.h>
 #include <errno.h>
 #include <elf.h>
 
-#include "mem_wrapper.h"
-#include "patch_trampoline.h"
-#include "lower_half_api.h"
+#include "mtcp_header.h"
+#include "mem-wrapper.h"
+#include "patch-trampoline.h"
+#include "lower-half-api.h"
 #include "logging.h"
 #include "dmtcp.h"
 #include "dmtcprestartinternal.h"
 #include "procmapsarea.h"
+#include "jalib.h"
+#include "jassert.h"
 #include "jconvert.h"
 #include "jfilesystem.h"
 #include "util.h"
@@ -53,6 +57,7 @@
 #endif
 
 #define MAX_ELF_INTERP_SZ 256
+#define LOADER_SIZE_LIMIT 0x40000
 
 void *mmap_fixed_noreplace(void *addr, size_t length, int prot, int flags,
                            int fd, off_t offset);
@@ -71,10 +76,11 @@ off_t get_symbol_offset(char *pathame, char *symbol);
 //   (but unfortunately, that's for a 32-bit system)
 char *deepCopyStack(int argc, char **argv, char *argc_ptr, char *argv_ptr,
                     unsigned long dest_argc, char **dest_argv, char *dest_stack,
-                    Elf64_auxv_t **auxv_ptr);
+                    Elf64_auxv_t **auxv_ptr, void **stack_bottom);
 void *lh_dlsym(enum MPI_Fncs fnc);
-static int restoreMemoryArea(int fd, DmtcpCkptHeader *ckptHdr);
-static void restore_vdso_vvar(DmtcpCkptHeader *dmtcp_hdri, char *envrion[]);
+static int restoreMemoryArea(int fd, MtcpHeader *ckptHdr);
+static void restore_vdso_vvar(MtcpHeader *dmtcp_hdri, char *envrion[]);
+typedef void (*PostRestartFnPtr_t)(double, int);
 
 void *ld_so_entry;
 LowerHalfInfo_t lh_info_obj;
@@ -281,10 +287,10 @@ int main(int argc, char *argv[], char *envp[]) {
     }
     JASSERT(t->pid() != 0);
 
-    DmtcpCkptHeader ckpt_hdr;
+    MtcpHeader ckpt_hdr;
     int rc = read(t->fd(), &ckpt_hdr, sizeof(ckpt_hdr));
     ASSERT_EQ(rc, sizeof(ckpt_hdr));
-    ASSERT_EQ(string(ckpt_hdr.ckptSignature), string(DMTCP_CKPT_SIGNATURE));
+    ASSERT_EQ(string(ckpt_hdr.signature), string(MTCP_SIGNATURE));
 
     ProcMapsArea area;
     off_t ckpt_file_pos = 0;
@@ -361,7 +367,7 @@ int main(int argc, char *argv[], char *envp[]) {
 
     // IMB; /* flush instruction cache, since mtcp_restart.c code is now gone. */
 
-    PostRestartFnPtr_t postRestart = (PostRestartFnPtr_t) ckpt_hdr.postRestartAddr;
+    PostRestartFnPtr_t postRestart = (PostRestartFnPtr_t) ckpt_hdr.post_restart;
     postRestart(0, 0);
     // The following line should not be reached.
     assert(0);
@@ -420,14 +426,21 @@ int main(int argc, char *argv[], char *envp[]) {
 
   // Deep copy the stack and get the auxv pointer
   Elf64_auxv_t *auxv_ptr;
+  void *stack_bottom;
+  // Get stack's size limit. We need to leave enough space between the loader
+  // and the initial top of the stack. This also helps us to decide which segments
+  // are upper half stack at checkpoint time.
+  struct rlimit rlim;
+  getrlimit(RLIMIT_STACK, &rlim);
   // FIXME:
   //   Should add check that interp_base_address + 0x400000 not already mapped
   //   Or else, could use newer MAP_FIXED_NOREPLACE in mmap of deepCopyStack
   char *dest_stack = deepCopyStack(argc, argv, (char *)&argc, (char *)&argv[0],
                                    cmd_argc+1, cmd_argv2,
-                                   interp_base_address + 0x400000,
-                                   &auxv_ptr);
-  lh_info->uh_stack = dest_stack;
+                                   interp_base_address + rlim.rlim_cur + LOADER_SIZE_LIMIT,
+                                   &auxv_ptr, &stack_bottom);
+  lh_info->uh_stack_start = (char*) ROUND_DOWN(interp_base_address + LOADER_SIZE_LIMIT, PAGE_SIZE);
+  lh_info->uh_stack_end = (char*) ROUND_UP(stack_bottom, PAGE_SIZE);
   write_lh_info_to_file();
 
   // FIXME:
@@ -443,7 +456,7 @@ int main(int argc, char *argv[], char *envp[]) {
             (unsigned long)interp_base_address + ld_so_elf_hdr.e_entry);
   // info->phnum, (uintptr_t)info->phdr, (uintptr_t)info->entryPoint);
 
-  // Insert trampolines for mmap, munmap, sbrk
+  // Insert trampolines for mmap and munmap
   off_t mmap_offset = get_symbol_offset(elf_interpreter, "mmap");
   if (! mmap_offset) {
     char buf[256] = "/usr/lib/debug";
@@ -457,10 +470,23 @@ int main(int argc, char *argv[], char *envp[]) {
     }
     mmap_offset = get_symbol_offset(buf, "mmap"); // elf interpreter debug path
   }
-
-  // Patch ld.so mmap() and sbrk() functions to jump to mmap() and sbrk()
-  // in libc.a of this kernel-loader program.
-  patch_trampoline(interp_base_address + mmap_offset, (void*)&mmap_wrapper);
+  assert(mmap_offset);
+  off_t munmap_offset = get_symbol_offset(elf_interpreter, "munmap");
+  if (! munmap_offset) {
+    char buf[256] = "/usr/lib/debug";
+    buf[sizeof(buf)-1] = '\0';
+    ssize_t rc = 0;
+    rc = readlink(elf_interpreter, buf+strlen(buf), sizeof(buf)-strlen(buf)-1);
+    if (rc != -1 && access(buf, F_OK) == 0) {
+      // Debian family (Ubuntu, etc.) use this scheme to store debug symbols.
+      //   http://sourceware.org/gdb/onlinedocs/gdb/Separate-Debug-Files.html
+      fprintf(stderr, "Debug symbols for interpreter in: %s\n", buf);
+    }
+    munmap_offset = get_symbol_offset(buf, "munmap"); // elf interpreter debug path
+  }
+  assert(munmap_offset);
+  patch_trampoline((void*)interp_base_address + mmap_offset, (void*)&mmap_wrapper);
+  patch_trampoline((void*)interp_base_address + munmap_offset, (void*)&munmap_wrapper);
 
   // Then jump to _start, ld_so_entry, in ld.so (or call it
   //   as fnc that never returns).
@@ -744,7 +770,7 @@ int MPI_MANA_Internal(char *dummy) {
   return 0;
 }
 
-static int restoreMemoryArea(int fd, DmtcpCkptHeader *ckptHdr)
+static int restoreMemoryArea(int fd, MtcpHeader *ckptHdr)
 {
   int imagefd;
   void *mmappedat;
@@ -756,7 +782,7 @@ static int restoreMemoryArea(int fd, DmtcpCkptHeader *ckptHdr)
   if (area.addr == NULL) {
     return -1;
   }
-
+ 
   if (area.name[0] && strstr(area.name, "[heap]")
       && (VA) brk(NULL) != area.addr + area.size) {
     // JWARNING(false);
@@ -772,9 +798,9 @@ static int restoreMemoryArea(int fd, DmtcpCkptHeader *ckptHdr)
    * in processinfo.cpp.
    */
   if ((area.name[0] && area.name[0] != '/' && strstr(area.name, "stack"))
-      || (area.endAddr == (VA) ckptHdr->endOfStack)) {
+      || (area.endAddr == (VA) ckptHdr->end_of_stack)) {
     area.flags = area.flags | MAP_GROWSDOWN;
-    JTRACE("Detected stack area")(ckptHdr->endOfStack) (area.endAddr);
+    JTRACE("Detected stack area")(ckptHdr->end_of_stack) (area.endAddr);
   }
 
   // We could have replaced MAP_SHARED with MAP_PRIVATE in writeckpt.cpp
