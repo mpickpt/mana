@@ -349,6 +349,12 @@ dmtcp_skip_memory_region_ckpting(ProcMapsArea *area)
       area->size = area->endAddr - area->addr;
       return 0;
     }
+    if (region.addr < area->addr && area->addr < region.addr + region.len &&
+        region.addr + region.len < area->endAddr) {
+      area->endAddr = (char*) (region.addr + region.len);
+      area->size = area->endAddr - area->addr;
+      return 0;
+    }
   }
   return 1;
 }
