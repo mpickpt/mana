@@ -45,7 +45,7 @@ static const char *colors[] = {KNRM, KRED, KGRN, KYEL};
 
 #ifndef DEBUG_LEVEL
 // Let's announce errors out loud
-# define DEBUG_LEVEL 2
+# define DEBUG_LEVEL 0
 #endif // ifndef DEBUG_LEVEL
 
 #define CLOG(LOG_LEVEL, fmt, ...)                                              \

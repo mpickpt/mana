@@ -109,7 +109,8 @@ static bool isLhDevice(const ProcMapsArea *area);
 
 void *old_brk;
 void *old_end_of_brk;
-void *uh_stack;
+void *uh_stack_start;
+void *uh_stack_end;
 
 // Check if haystack region contains needle region.
 static inline int
@@ -319,17 +320,17 @@ dmtcp_skip_memory_region_ckpting(ProcMapsArea *area)
   }
 
   // If it's the upper-half stack, don't skip
-  if (area->addr < lh_info->uh_stack && area->endAddr > lh_info->uh_stack) {
+  if (area->addr >= lh_info->uh_stack_start && area->endAddr <= lh_info->uh_stack_end) {
     return 0;
   }
 
   get_mmapped_list_fnc = (get_mmapped_list_fptr_t) lh_info->mmap_list_fptr;
-  
+
   int numUhRegions;
   if (uh_mmaps.size() == 0) {
     uh_mmaps = get_mmapped_list_fnc(&numUhRegions);
   }
-  
+
   for (MmapInfo_t &region : uh_mmaps) {
     if (regionContains(region.addr, region.addr + region.len,
                        area->addr, area->endAddr)) {
@@ -913,7 +914,8 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       printEventToStderr("EVENT_PRECHECKPOINT (done)");
       // Save a copy of the break address before checkpoint
       old_brk = sbrk(0);
-      uh_stack = lh_info->uh_stack;
+      uh_stack_start = lh_info->uh_stack_start;
+      uh_stack_end = lh_info->uh_stack_end;
       break;
     }
 
@@ -932,7 +934,8 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     case DMTCP_EVENT_RESTART: {
       reset_wrappers();
       initialize_wrappers();
-      lh_info->uh_stack = uh_stack;
+      lh_info->uh_stack_start = uh_stack_start;
+      lh_info->uh_stack_end = uh_stack_end;
       printEventToStderr("EVENT_RESTART");
       processingOpenCkpFileFds = false;
       logCkptFileFds();
