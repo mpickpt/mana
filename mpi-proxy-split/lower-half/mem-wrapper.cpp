@@ -107,14 +107,18 @@ int checkLibrary(int fd, const char* name,
   return 0;
 }
 
+
+void block_if_contains(void *target, void *addr, size_t length) {
+  if (addr <= (char*) target && (char*) addr + length >= (char*) target) {
+    printf("%p detected at mmap. Paused.\n", target);
+    fflush(stdout);
+    volatile int dummy = 1;
+    while (dummy);
+  }
+}
+
 void* mmap_wrapper(void *addr, size_t length, int prot,
                   int flags, int fd, off_t offset) {
-  // If the address is already reserved as the upper-half heap
-  // unmap the region.
-  if (addr > __startOfReservedHeap && addr < __endOfReservedHeap) {
-    munmap_wrapper(addr, (char*)__endOfReservedHeap - (char*)addr);
-    __endOfReservedHeap = addr;
-  }
   void *ret = MAP_FAILED;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   ret = __mmap_wrapper(addr, length, prot, flags, fd, offset);
@@ -132,15 +136,9 @@ static void* __mmap_wrapper(void *addr, size_t length, int prot,
   }
   length = ROUND_UP(length, PAGE_SIZE);
   ret = _real_mmap(addr, length, prot, flags, fd, offset);
-#if 1
-  if (ret == (void*)0x7fffacff8000) {
-    volatile int dummy = 1;
-    while (dummy);
-  }
-#endif
   if (ret != MAP_FAILED) {
     addRegionTommaps(ret, length);
-    // DLOG(NOISE, "LH: mmap (%lu): %p @ 0x%zx\n", mmaps.size(), ret, length);
+    DLOG(NOISE, "LH: mmap (%lu): addr %p (%p) @ 0x%zx\n", mmaps.size(), ret, addr, length);
     if (fd > 0) {
       char glibcFullPath[PATH_MAX] = {0};
       int found = checkLibrary(fd, "libc.so", glibcFullPath, PATH_MAX) ||
@@ -188,8 +186,8 @@ static int __munmap_wrapper(void *addr, size_t length) {
   length = ROUND_UP(length, PAGE_SIZE);
   ret = _real_munmap(addr, length);
   if (ret != -1) {
+    DLOG(NOISE, "LH: munmap (%lu): %p @ 0x%zx\n", mmaps.size(), addr, length);
     updateMmaps(addr, length);
-    DLOG(4, "LH: munmap (%lu): %p @ 0x%zx\n", mmaps.size(), addr, length);
   }
   return ret;
 }

@@ -11,6 +11,7 @@
 #include <sys/personality.h>
 #include <fcntl.h>
 #include <sys/mman.h>
+#include <sys/resource.h>
 #include <assert.h>
 #include <errno.h>
 #include <elf.h>
@@ -56,6 +57,7 @@
 #endif
 
 #define MAX_ELF_INTERP_SZ 256
+#define LOADER_SIZE_LIMIT 0x40000
 
 void *mmap_fixed_noreplace(void *addr, size_t length, int prot, int flags,
                            int fd, off_t offset);
@@ -74,7 +76,7 @@ off_t get_symbol_offset(char *pathame, char *symbol);
 //   (but unfortunately, that's for a 32-bit system)
 char *deepCopyStack(int argc, char **argv, char *argc_ptr, char *argv_ptr,
                     unsigned long dest_argc, char **dest_argv, char *dest_stack,
-                    Elf64_auxv_t **auxv_ptr);
+                    Elf64_auxv_t **auxv_ptr, void **stack_bottom);
 void *lh_dlsym(enum MPI_Fncs fnc);
 static int restoreMemoryArea(int fd, MtcpHeader *ckptHdr);
 static void restore_vdso_vvar(MtcpHeader *dmtcp_hdri, char *envrion[]);
@@ -424,14 +426,21 @@ int main(int argc, char *argv[], char *envp[]) {
 
   // Deep copy the stack and get the auxv pointer
   Elf64_auxv_t *auxv_ptr;
+  void *stack_bottom;
+  // Get stack's size limit. We need to leave enough space between the loader
+  // and the initial top of the stack. This also helps us to decide which segments
+  // are upper half stack at checkpoint time.
+  struct rlimit rlim;
+  getrlimit(RLIMIT_STACK, &rlim);
   // FIXME:
   //   Should add check that interp_base_address + 0x400000 not already mapped
   //   Or else, could use newer MAP_FIXED_NOREPLACE in mmap of deepCopyStack
   char *dest_stack = deepCopyStack(argc, argv, (char *)&argc, (char *)&argv[0],
                                    cmd_argc+1, cmd_argv2,
-                                   interp_base_address + 0x400000,
-                                   &auxv_ptr);
-  lh_info->uh_stack = dest_stack;
+                                   interp_base_address + rlim.rlim_cur + LOADER_SIZE_LIMIT,
+                                   &auxv_ptr, &stack_bottom);
+  lh_info->uh_stack_start = (char*) ROUND_DOWN(interp_base_address + LOADER_SIZE_LIMIT, PAGE_SIZE);
+  lh_info->uh_stack_end = (char*) ROUND_UP(stack_bottom, PAGE_SIZE);
   write_lh_info_to_file();
 
   // FIXME:
@@ -447,7 +456,7 @@ int main(int argc, char *argv[], char *envp[]) {
             (unsigned long)interp_base_address + ld_so_elf_hdr.e_entry);
   // info->phnum, (uintptr_t)info->phdr, (uintptr_t)info->entryPoint);
 
-  // Insert trampolines for mmap, munmap, sbrk
+  // Insert trampolines for mmap and munmap
   off_t mmap_offset = get_symbol_offset(elf_interpreter, "mmap");
   if (! mmap_offset) {
     char buf[256] = "/usr/lib/debug";
@@ -461,10 +470,23 @@ int main(int argc, char *argv[], char *envp[]) {
     }
     mmap_offset = get_symbol_offset(buf, "mmap"); // elf interpreter debug path
   }
-
-  // Patch ld.so mmap() and sbrk() functions to jump to mmap() and sbrk()
-  // in libc.a of this kernel-loader program.
-  patch_trampoline(interp_base_address + mmap_offset, (void*)&mmap_wrapper);
+  assert(mmap_offset);
+  off_t munmap_offset = get_symbol_offset(elf_interpreter, "munmap");
+  if (! munmap_offset) {
+    char buf[256] = "/usr/lib/debug";
+    buf[sizeof(buf)-1] = '\0';
+    ssize_t rc = 0;
+    rc = readlink(elf_interpreter, buf+strlen(buf), sizeof(buf)-strlen(buf)-1);
+    if (rc != -1 && access(buf, F_OK) == 0) {
+      // Debian family (Ubuntu, etc.) use this scheme to store debug symbols.
+      //   http://sourceware.org/gdb/onlinedocs/gdb/Separate-Debug-Files.html
+      fprintf(stderr, "Debug symbols for interpreter in: %s\n", buf);
+    }
+    munmap_offset = get_symbol_offset(buf, "munmap"); // elf interpreter debug path
+  }
+  assert(munmap_offset);
+  patch_trampoline((void*)interp_base_address + mmap_offset, (void*)&mmap_wrapper);
+  patch_trampoline((void*)interp_base_address + munmap_offset, (void*)&munmap_wrapper);
 
   // Then jump to _start, ld_so_entry, in ld.so (or call it
   //   as fnc that never returns).
@@ -760,7 +782,7 @@ static int restoreMemoryArea(int fd, MtcpHeader *ckptHdr)
   if (area.addr == NULL) {
     return -1;
   }
-
+ 
   if (area.name[0] && strstr(area.name, "[heap]")
       && (VA) brk(NULL) != area.addr + area.size) {
     // JWARNING(false);

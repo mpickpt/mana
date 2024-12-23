@@ -41,7 +41,7 @@ void debugStack(char *argc_ptr, char *argv_ptr) {
 // The spec is here:  https://refspecs.linuxbase.org/elf/x86_64-abi-0.99.pdf
 char *deepCopyStack(int argc, char **argv, char *argc_ptr, char *argv_ptr,
                    unsigned long dest_argc, char **dest_argv, char *dest_stack,
-                   Elf64_auxv_t **auxv_ptr) {
+                   Elf64_auxv_t **auxv_ptr, void **stack_bottom) {
   if (((unsigned long)dest_stack & (16-1)) != 0) {
     fprintf(stderr,
       "deepCopyStack() passed dest_stack that's not 16-byte aligned.\n"
@@ -100,9 +100,10 @@ char *deepCopyStack(int argc, char **argv, char *argc_ptr, char *argv_ptr,
   int dest_mem_len = dest_stack_size;
   void *rc2 = mmap(dest_mem_addr - sysconf(_SC_PAGESIZE),
                    dest_mem_len + sysconf(_SC_PAGESIZE),
-                   PROT_READ|PROT_WRITE,
+                   PROT_READ|PROT_WRITE|PROT_EXEC,
                    MAP_PRIVATE|MAP_ANONYMOUS|MAP_FIXED|MAP_GROWSDOWN,
                    -1, 0);
+  *stack_bottom = rc2 + dest_mem_len + sysconf(_SC_PAGESIZE);
   if (rc2 == MAP_FAILED) { perror("mmap"); exit(1); }
 
 /*************************************************************
