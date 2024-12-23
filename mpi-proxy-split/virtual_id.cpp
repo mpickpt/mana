@@ -1,7 +1,7 @@
 #include <mpi.h>
 
 #include "virtual_id.h"
-#include "switch_context.h"
+#include "switch-context.h"
 #include "mpi_nextfunc.h"
 #include "seq_num.h"
 
