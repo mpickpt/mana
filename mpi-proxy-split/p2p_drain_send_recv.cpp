@@ -24,11 +24,16 @@
 #include <map>
 #include <algorithm>
 #include <vector>
+#include "kvdb.h"
 #include "jassert.h"
 #include "p2p_drain_send_recv.h"
 #include "p2p_log_replay.h"
 #include "mpi_nextfunc.h"
 #include "virtual_id.h"
+
+using namespace dmtcp;
+using dmtcp::kvdb::KVDBRequest;
+using dmtcp::kvdb::KVDBResponse;
 
 extern int MPI_Alltoall_internal(const void *sendbuf, int sendcount,
                                  MPI_Datatype sendtype, void *recvbuf,
@@ -44,10 +49,14 @@ extern int MPI_Comm_create_group_internal(MPI_Comm comm, MPI_Group group,
 extern int MPI_Comm_free_internal(MPI_Comm *comm);
 extern int MPI_Comm_group_internal(MPI_Comm comm, MPI_Group *group);
 extern int MPI_Group_free_internal(MPI_Group *group);
+#ifdef DEBUG_P2P
 int *g_sendBytesByRank; // Number of bytes sent to other ranks
 int *g_rsendBytesByRank; // Number of bytes sent to other ranks by MPI_rsend
 int *g_bytesSentToUsByRank; // Number of bytes other ranks sent to us
 int *g_recvBytesByRank; // Number of bytes received from other ranks
+#endif
+int64_t global_sent_messages = 0, global_recv_messages = 0;
+int64_t local_sent_messages = 0, local_recv_messages = 0;
 std::unordered_set<MPI_Comm> active_comms;
 dmtcp::vector<mpi_message_t*> g_message_queue;
 
@@ -55,6 +64,7 @@ void
 initialize_drain_send_recv()
 {
   getLocalRankInfo();
+#ifdef DEBUG_P2P
   g_sendBytesByRank = (int*)JALLOC_HELPER_MALLOC(g_world_size * sizeof(int));
   g_rsendBytesByRank = (int*)JALLOC_HELPER_MALLOC(g_world_size * sizeof(int));
   g_bytesSentToUsByRank =
@@ -64,6 +74,7 @@ initialize_drain_send_recv()
   memset(g_rsendBytesByRank, 0, g_world_size * sizeof(int));
   memset(g_bytesSentToUsByRank, 0, g_world_size * sizeof(int));
   memset(g_recvBytesByRank, 0, g_world_size * sizeof(int));
+#endif
   active_comms.insert(MPI_COMM_WORLD);
   active_comms.insert(MPI_COMM_SELF);
 }
@@ -71,16 +82,17 @@ initialize_drain_send_recv()
 void
 registerLocalSendsAndRecvs()
 {
-  // broadcast sendBytes and recvBytes
-  MPI_Comm temp_comm;
-  MPI_Comm real_comm = get_real_id({.comm = g_world_comm}).comm;
-  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
-  NEXT_FUNC(Comm_dup)(real_comm, &temp_comm);
-  NEXT_FUNC(Alltoall)(g_sendBytesByRank, 1, MPI_INT,
-                      g_bytesSentToUsByRank, 1, MPI_INT, temp_comm);
-  NEXT_FUNC(Comm_free)(&temp_comm);
-  RETURN_TO_UPPER_HALF();
-  g_bytesSentToUsByRank[g_world_rank] = 0;
+  char *db = "/plugin/MANA";
+  char *sent_counter_key = "sent_counter";
+  char *recv_counter_key = "recv_counter";
+  kvdb::set64(db, sent_counter_key, 0);
+  kvdb::set64(db, recv_counter_key, 0);
+  dmtcp_global_barrier("MPI:Reset-p2p-send-recv");
+  kvdb::request64(KVDBRequest::INCRBY, db, sent_counter_key, local_sent_messages);
+  kvdb::request64(KVDBRequest::INCRBY, db, recv_counter_key, local_recv_messages);
+  dmtcp_global_barrier("MPI:Register-p2p-send-recv");
+  kvdb::get64(db, sent_counter_key, &global_sent_messages);
+  kvdb::get64(db, recv_counter_key, &global_recv_messages);
 }
 
 // status was received by MPI_Iprobe
@@ -135,8 +147,10 @@ completePendingP2pRequests()
         MPI_Type_size(call->datatype, &size);
         int worldRank = localRankToGlobalRank(status.MPI_SOURCE,
                                               call->comm);
+#ifdef DEBUG_P2P
         g_recvBytesByRank[worldRank] += call->count * size;
-        bytesReceived += call->count * size;
+#endif
+        local_recv_messages++;
       }
       update_virt_id({.request = request}, {.request = MPI_REQUEST_NULL});
       it = g_nonblocking_calls.erase(it);
@@ -215,34 +229,10 @@ drainRemainingP2pMsgs()
   return bytesReceived;
 }
 
-bool
-allDrained()
-{
-  int i;
-  // Return false if number of bytes that should be sent to this rank
-  // and number of bytes that has been received do not match.
-  for (i = 0; i < g_world_size; i++) {
-    if (g_bytesSentToUsByRank[i] > g_recvBytesByRank[i]) {
-      return false;
-    }
-  }
-  // Returns false if MPI_Isend request is found.
-  dmtcp::map<MPI_Request, mpi_nonblocking_call_t*>::iterator it;
-  for (it = g_nonblocking_calls.begin(); it != g_nonblocking_calls.end();) {
-    MPI_Request request = it->first;
-    mpi_nonblocking_call_t *call = it->second;
-    if (call->type == ISEND_REQUEST) {
-      return false;
-    } else {
-      it++;
-    }
-  }
-  return true;
-}
-
 void
 drainSendRecv()
 {
+#if 0
   int numReceived = -1;
   while (numReceived != 0) {
     while (!allDrained()) {
@@ -256,6 +246,16 @@ drainSendRecv()
     numReceived = completePendingP2pRequests();
     // If any messages are completed aftera  5 seconds sleep,
     // go back to the loop.
+  }
+#endif
+  registerLocalSendsAndRecvs();
+  while (global_sent_messages > global_recv_messages) {
+    // If pending MPI_Irecv or MPI_Isend, use MPI_Test to try to complete it.
+    completePendingP2pRequests();
+    // If MPI_Irecv not posted but msg was sent, use MPI_Iprobe to drain msg.
+    drainRemainingP2pMsgs();
+    // Update global recv coutner.
+    registerLocalSendsAndRecvs();
   }
 }
 
@@ -317,10 +317,12 @@ consumeBufferedPacket(void *buf, int count, MPI_Datatype datatype,
 void
 resetDrainCounters()
 {
+#ifdef DEBUG_P2P
   memset(g_sendBytesByRank, 0, g_world_size * sizeof(int));
   memset(g_rsendBytesByRank, 0, g_world_size * sizeof(int));
   memset(g_bytesSentToUsByRank, 0, g_world_size * sizeof(int));
   memset(g_recvBytesByRank, 0, g_world_size * sizeof(int));
+#endif
 }
 
 int
