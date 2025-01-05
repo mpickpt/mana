@@ -690,7 +690,7 @@ restore_mpi_files(const char *filename)
     JASSERT(retval == 0).Text("Restoration of MPI_File_open failed");
 
     // Update virtual mapping with newly created file
-    update_virt_id({.file = itr->first}, {.file = fh});
+    update_virt_id((mana_handle){.file = itr->first}, (mana_handle){.file = fh});
 
     // Restore file characteristics that are universal to the entire file
     // These are characteristics that do not have to be replayed in order,
