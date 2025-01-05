@@ -119,7 +119,7 @@ MPI_Datatype new_virt_datatype(MPI_Datatype real_datatype) {
 
 MPI_File new_virt_file(MPI_File real_file) {
   mana_handle virt_id;
-  virt_id = add_virt_id({.file = real_file}, NULL, MANA_FILE_KIND);
+  virt_id = add_virt_id((mana_handle){.file = real_file}, NULL, MANA_FILE_KIND);
   return virt_id.file;
 }
 
