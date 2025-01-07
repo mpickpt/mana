@@ -42,6 +42,7 @@ FILES=mpi_hello_world \
       Irecv_test Alloc_mem sendrecv_replace_test \
       Type_hvector_test Type_vector_test \
       ${FILES_FORTRAN} \
+      send_recv \
       send_recv_loop large_async_p2p \
       File_read_write_test File_characteristics_test File_size_test \
       File_read_write_all_test \
