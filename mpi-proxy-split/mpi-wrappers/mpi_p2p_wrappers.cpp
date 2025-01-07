@@ -136,12 +136,10 @@ USER_DEFINED_WRAPPER(int, Recv,
                      (MPI_Comm) comm, (MPI_Status *) status)
 {
   int retval;
-  int flag;
-  MPI_Request req;
-  while (mana_state == CKPT_P2P) {
-    usleep(100);
-  }
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  int flag = 0;
+  // while (mana_state == CKPT_P2P) {
+  //   usleep(100);
+  // }
   local_recv_messages++;
   if (mana_state == RUNNING &&
       isBufferedPacket(source, tag, comm, &flag, status)) {
@@ -154,6 +152,10 @@ USER_DEFINED_WRAPPER(int, Recv,
     DMTCP_PLUGIN_ENABLE_CKPT();
     return retval;
   }
+  while (!flag) {
+    MPI_Iprobe(source, tag, comm, &flag, status);
+  }
+  DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Comm realComm = get_real_id({.comm = comm}).comm;
   MPI_Datatype realType = get_real_id({.datatype = datatype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
