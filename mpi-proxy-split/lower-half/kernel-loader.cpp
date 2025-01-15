@@ -102,6 +102,8 @@ void set_addr_no_randomize(char *argv[]) {
 }
 
 int main(int argc, char *argv[], char *envp[]) {
+  
+
   set_addr_no_randomize(argv);
   int i;
   int restore_mode = 0;
@@ -408,6 +410,7 @@ int main(int argc, char *argv[], char *envp[]) {
 
   // Open the elf interpreter (ldso)
   ld_so_fd = open(elf_interpreter, O_RDONLY);
+  
   char *interp_base_address =
     load_elf_interpreter(ld_so_fd, elf_interpreter, ld_so_addr, &ld_so_elf_hdr);
   ld_so_entry = interp_base_address  + ld_so_elf_hdr.e_entry;
@@ -443,6 +446,7 @@ int main(int argc, char *argv[], char *envp[]) {
   // FIXME:
   //   Should add check that interp_base_address + 0x400000 not already mapped
   //   Or else, could use newer MAP_FIXED_NOREPLACE in mmap of deepCopyStack
+  
   char *dest_stack = deepCopyStack(argc, argv, (char *)&argc, (char *)&argv[0],
                                    cmd_argc+1, cmd_argv2,
                                    interp_base_address + rlim.rlim_cur + LOADER_SIZE_LIMIT,
