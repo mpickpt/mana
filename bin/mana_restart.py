@@ -11,7 +11,7 @@ help_msg = '''
 
 # dmtcp options that requires a value
 verbose = False
-gdb = True
+gdb = False
 mana_root_path = os.path.dirname(os.path.realpath(__file__)) + "/../"
 
 dmtcp_flags = sys.argv[1:]
@@ -97,7 +97,7 @@ if gdb:
   cmd_line = shutil.which("gdb") + " --args "
 else:
   cmd_line = ""
-cmd_line = mana_root_path + "bin/kernel-loader -j --restore " + " ".join(dmtcp_flags)
+cmd_line += mana_root_path + "bin/kernel-loader -j --restore " + " ".join(dmtcp_flags)
 if verbose:
   print(cmd_line)
 
