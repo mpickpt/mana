@@ -30,7 +30,7 @@ if "--timing" in dmtcp_flags:
   os.environ["MANA_TIMING"] = "1"
   dmtcp_flags.remove("--timing")
 if "--restartdir" in dmtcp_flags:
-  ckptdir_path = dmtcp_flags[dmtcp_flags.index("--restart") + 1]
+  ckptdir_path = dmtcp_flags[dmtcp_flags.index("--restartdir") + 1]
   if not os.path.exists(ckptdir_path):
     print("mana_restart: --restartdir " + ckptdir_path + ": Restart directory doesn't exist")
     sys.exit(1)
