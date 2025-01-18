@@ -25,12 +25,5 @@
 #include "lower-half-api.h"
 void* mmap_wrapper(void *, size_t , int , int , int , off_t );
 int munmap_wrapper(void *, size_t);
-void set_end_of_heap(void *);
 std::vector<MmapInfo_t> &get_mmapped_list(int *num);
-void set_end_of_heap(void *addr);
-void set_uh_brk(void *addr);
-void* sbrk_wrapper(intptr_t increment);
-void * get_end_of_heap();
-extern void *__startOfReservedHeap;
-extern void *__endOfReservedHeap;
 #endif // MMAP_WRAPPER_H
