@@ -314,6 +314,11 @@ dmtcp_skip_memory_region_ckpting(ProcMapsArea *area)
     return 1;
   }
 
+  if (strstr(area->name, "heap")) {
+    JTRACE("Ignoring heap region")(area->name)((void*)area->addr);
+    return 1;
+  }
+
   if (strstr(area->name, "/anon_hugepage")) {
     JTRACE("Ignoring /anon_hugepage region")(area->name)((void*)area->addr);
     return 1;

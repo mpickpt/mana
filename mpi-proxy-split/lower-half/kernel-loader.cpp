@@ -114,6 +114,7 @@ int main(int argc, char *argv[], char *envp[]) {
   Elf64_Addr cmd_entry;
   char elf_interpreter[MAX_ELF_INTERP_SZ];
   lh_info = &lh_info_obj;
+  write_lh_info_to_file();
 
   CheckAndEnableFsGsBase();
   unsigned long fsaddr = 0;
@@ -124,8 +125,8 @@ int main(int argc, char *argv[], char *envp[]) {
  
   // Create new heap region to be used by RTLD
   void *lh_brk = sbrk(0);
-  const uint64_t heapSize = 0x1000;
-  void *heap_addr = mmap_wrapper(lh_brk, heapSize, PROT_NONE,
+  const uint64_t heapSize = 0x1000000;
+  void *heap_addr = mmap(lh_brk, heapSize, PROT_NONE,
       MAP_PRIVATE | MAP_ANONYMOUS |
       MAP_NORESERVE ,
       -1, 0);
@@ -265,7 +266,6 @@ int main(int argc, char *argv[], char *envp[]) {
   }
   // Restart case
   if (restore_mode) {
-    write_lh_info_to_file();
     DmtcpRestart dmtcpRestart(argc, argv, BINARY_NAME, MTCP_RESTART_BINARY);
 
     RestoreTarget *t;
@@ -296,7 +296,6 @@ int main(int argc, char *argv[], char *envp[]) {
     off_t ckpt_file_pos = 0;
     ckpt_file_pos = lseek(t->fd(), 0, SEEK_CUR);
     // Reserve space for memory areas saved in the ckpt image file.
-    munmap_wrapper(heap_addr, heapSize);
     while(1) {
       off_t cur_pos = ckpt_file_pos;
       int rc = read(t->fd(), &area, sizeof area);
@@ -378,9 +377,6 @@ int main(int argc, char *argv[], char *envp[]) {
       fprintf(stderr, "USAGE:  %s [-a load_address] <command_line>\n", argv[0]);
       fprintf(stderr, "  (load_address is typically a multiple of 0x200000)\n");
       exit(1);
-    } else if (strcmp(argv[i], "-a") == 0) {
-      i++;
-      ld_so_addr = (void *)strtoll(argv[i], NULL, 0);
     } else {
       // Break at the first argument of the loader program (the program name)
       cmd_argc = argc - i;
@@ -449,7 +445,6 @@ int main(int argc, char *argv[], char *envp[]) {
                                    &auxv_ptr, &stack_bottom);
   lh_info->uh_stack_start = (char*) ROUND_DOWN(interp_base_address + LOADER_SIZE_LIMIT, PAGE_SIZE);
   lh_info->uh_stack_end = (char*) ROUND_UP(stack_bottom, PAGE_SIZE);
-  write_lh_info_to_file();
 
   // FIXME:
   // **************************************************************************
@@ -939,3 +934,4 @@ static int restoreMemoryArea(int fd, MtcpHeader *ckptHdr)
   }
   return 0;
 }
+
