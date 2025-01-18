@@ -47,6 +47,8 @@ using namespace std;
 #define _real_mmap mmap
 #define _real_munmap munmap
 
+#define UH_BASE_ADDR ((void *)0xC0000000) // 3GB
+
 static std::vector<MmapInfo_t> mmaps;
 
 static void* __mmap_wrapper(void* , size_t , int , int , int , off_t );
@@ -54,28 +56,19 @@ static void patchLibc(int , void* , char* );
 static void addRegionTommaps(void *, size_t);
 static int __munmap_wrapper(void *, size_t);
 static void updateMmaps(void *, size_t);
-static void *__curbrk;
-static void *__endOfHeap = 0;
-static void* __sbrk_wrapper(intptr_t );
-void *__startOfReservedHeap = 0;
-void *__endOfReservedHeap = 0;
+
+void *curr_uh_free_addr = UH_BASE_ADDR;
 
 off_t get_symbol_offset(char *pathame, char *symbol);
 
+void *get_next_addr(size_t len) {
+  void *addr = curr_uh_free_addr;
+  curr_uh_free_addr += ROUND_DOWN(len, PAGE_SIZE) + PAGE_SIZE;
+  return addr;
+}
+
 bool compare (MmapInfo_t &a, MmapInfo_t &b) {
   return (a.addr < b.addr);
-}
-
-void * get_end_of_heap() {
-  return __endOfHeap;
-}
-
-void set_end_of_heap(void *addr) {
-  __endOfHeap = (void*)ROUND_UP(addr, PAGE_SIZE);
-}
-
-void set_uh_brk(void *addr) {
-  __curbrk = addr;
 }
 
 // Returns a pointer to the array of mmap-ed regions
@@ -130,6 +123,21 @@ static void* __mmap_wrapper(void *addr, size_t length, int prot,
                            int flags, int fd, off_t offset) {
   static void *libc_base_addr = NULL;
   void *ret = MAP_FAILED;
+  if (flags & MAP_FIXED) {
+    if (addr > curr_uh_free_addr) {
+      get_next_addr(length);
+    }
+    DLOG(INFO, "User calls mmap with MAP_FIXED\n");
+  } else if (flags & MAP_FIXED_NOREPLACE) {
+    if (addr > curr_uh_free_addr) {
+      get_next_addr(length);
+    }
+    DLOG(INFO, "User calls mmap with MAP_FIXED_NOREPLACE\n");
+  } else {
+    addr = get_next_addr(length);
+  }
+  flags &= ~MAP_FIXED_NOREPLACE;
+  flags |= MAP_FIXED;
   if (offset & MMAP_OFF_MASK) {
     errno = EINVAL;
     return ret;
@@ -239,7 +247,6 @@ void addRegionTommaps(void * addr, size_t length) {
   newRegion.len = length;
   mmaps.push_back(newRegion);
 }
-
 
 void updateMmaps(void *addr, size_t length) {
   // traverse through the mmap'ed list and check whether to remove the whole
