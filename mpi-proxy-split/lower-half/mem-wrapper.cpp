@@ -128,15 +128,19 @@ static void* __mmap_wrapper(void *addr, size_t length, int prot,
       get_next_addr(length);
     }
     DLOG(INFO, "User calls mmap with MAP_FIXED\n");
+#ifdef MAP_FIXED_NOREPLACE
   } else if (flags & MAP_FIXED_NOREPLACE) {
     if (addr > curr_uh_free_addr) {
       get_next_addr(length);
     }
     DLOG(INFO, "User calls mmap with MAP_FIXED_NOREPLACE\n");
+#endif
   } else {
     addr = get_next_addr(length);
   }
+#ifdef MAP_FIXED_NOREPLACE
   flags &= ~MAP_FIXED_NOREPLACE;
+#endif
   flags |= MAP_FIXED;
   if (offset & MMAP_OFF_MASK) {
     errno = EINVAL;
