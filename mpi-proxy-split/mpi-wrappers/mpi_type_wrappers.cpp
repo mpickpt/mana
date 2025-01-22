@@ -406,6 +406,19 @@ USER_DEFINED_WRAPPER(int, Pack, (const void*) inbuf, (int) incount,
   return retval;
 }
 
+USER_DEFINED_WRAPPER(int, Type_get_name, (MPI_Datatype) datatype, 
+                      (char*) type_name, (int*) resultlen)
+{
+   int retval;
+   DMTCP_PLUGIN_DISABLE_CKPT();
+   MPI_Datatype real_datatype = get_real_id({.datatype = datatype}).datatype;
+   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
+   retval = NEXT_FUNC(Type_get_name)(real_datatype, type_name, resultlen);
+   RETURN_TO_UPPER_HALF(); 
+   DMTCP_PLUGIN_ENABLE_CKPT();
+   return retval;
+}
+
 DEFINE_FNC(int, Type_size_x, (MPI_Datatype) type, (MPI_Count *) size);
 
 PMPI_IMPL(int, MPI_Type_size, MPI_Datatype datatype, int *size)
