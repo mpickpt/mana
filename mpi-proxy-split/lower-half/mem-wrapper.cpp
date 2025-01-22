@@ -47,7 +47,7 @@ using namespace std;
 #define _real_mmap mmap
 #define _real_munmap munmap
 
-#define UH_BASE_ADDR ((void *)0xC0000000) // 3GB
+#define DEFAULT_UH_BASE_ADDR ((void *)0xC0000000) // 3GB
 
 static std::vector<MmapInfo_t> mmaps;
 
@@ -57,7 +57,7 @@ static void addRegionTommaps(void *, size_t);
 static int __munmap_wrapper(void *, size_t);
 static void updateMmaps(void *, size_t);
 
-void *curr_uh_free_addr = UH_BASE_ADDR;
+void *curr_uh_free_addr = NULL;
 
 off_t get_symbol_offset(char *pathame, char *symbol);
 
@@ -112,6 +112,14 @@ void block_if_contains(void *target, void *addr, size_t length) {
 
 void* mmap_wrapper(void *addr, size_t length, int prot,
                   int flags, int fd, off_t offset) {
+  if (curr_uh_free_addr == NULL) {
+    char *user_uh_bass_addr = getenv("MANA_UH_BASS_ADDR");
+    if (user_uh_bass_addr == NULL) {
+      curr_uh_free_addr = DEFAULT_UH_BASE_ADDR;
+    } else {
+      curr_uh_free_addr = (void*)strtoll(user_uh_bass_addr, NULL, 0);
+    }
+  }
   void *ret = MAP_FAILED;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   ret = __mmap_wrapper(addr, length, prot, flags, fd, offset);
