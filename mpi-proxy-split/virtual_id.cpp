@@ -4,6 +4,7 @@
 #include "switch-context.h"
 #include "mpi_nextfunc.h"
 #include "seq_num.h"
+#include <iostream>
 
 MPI_Group g_world_group;
 std::map<int, virt_id_entry*> virt_ids;
@@ -268,6 +269,7 @@ void init_predefined_virt_ids() {
   upper_to_lower_constants[(int64_t)MPI_COMPLEX32] = (int64_t)lh_info->MANA_COMPLEX32;
   upper_to_lower_constants[(int64_t)MPI_DOUBLE_COMPLEX] = (int64_t)lh_info->MANA_DOUBLE_COMPLEX;
   upper_to_lower_constants[(int64_t)MPI_2REAL] = (int64_t)lh_info->MANA_2REAL;
+  upper_to_lower_constants[(int64_t)MPI_2REAL] = (int64_t)lh_info->MANA_2REAL;
   upper_to_lower_constants[(int64_t)MPI_2DOUBLE_PRECISION] = (int64_t)lh_info->MANA_2DOUBLE_PRECISION;
   upper_to_lower_constants[(int64_t)MPI_2INTEGER] = (int64_t)lh_info->MANA_2INTEGER;
   upper_to_lower_constants[(int64_t)MPI_INT8_T] = (int64_t)lh_info->MANA_INT8_T;
@@ -432,12 +434,15 @@ mana_handle add_virt_id(mana_handle real_id, void *desc, int kind) {
 
 #define DEBUG_VIRTID
 virt_id_entry* get_virt_id_entry(mana_handle virt_id) {
+  // virt_id is a 64 bit union: _handle is a int32_t 
+  // FIXME: this assumes a little-endian CPU
   virt_id_iterator it = virt_ids.find(virt_id._handle);
   // Should we abort or return an error code?
   if (it == virt_ids.end()) {
     // If it's not in the virt_id, table, check if it's a predefined
     // handle (MPI constant).
     fprintf(stderr, "Invalid MPI handle value: 0x%x\n", virt_id._handle);
+
 #ifdef DEBUG_VIRTID
     volatile int dummy = 1;
     while (dummy);
@@ -450,9 +455,32 @@ virt_id_entry* get_virt_id_entry(mana_handle virt_id) {
 
 mana_handle get_real_id(mana_handle virt_id) {
   std::map<int64_t, int64_t>::iterator it;
-  it = upper_to_lower_constants.find(virt_id._handle64);
+  
+  /*
+   * MPICH represents struct-based MPI datatypes (e.g., MPI_LONG_INT, MPI_DOUBLE_INT) 
+   * using negative values in MPI_Datatype. When cast to int64_t, these negative 
+   * values will have their upper bits filled with 'f' due to sign extension.
+   * 
+   * However, during argument passing, the upper bits can be lost, resulting in 
+   * zero-filled upper bits. This causes the datatype to appear as a positive number 
+   * when referenced as a 64-bit type instead of retaining its original negative value.
+   *
+   * To handle this discrepancy, we check if the 32-bit handle (`virt_id._handle`) 
+   * is less than its 64-bit counterpart (`virt_id._handle64`). If so, we use the 
+   * int64_t casted handle for lookup in `upper_to_lower_constants`; otherwise, we 
+   * use `_handle64` directly. This ensures consistent mapping and prevents lookup 
+   * failures due to sign mismatches.
+   *
+   * FIXME: This will fail with big-endian CPUs.
+   */
+  if (virt_id._handle < virt_id._handle64) {
+    it = upper_to_lower_constants.find((int64_t)virt_id._handle);
+  } else {
+    it = upper_to_lower_constants.find(virt_id._handle64);
+  }
+  
   if (it != upper_to_lower_constants.end()) {
-    return {._handle64 = upper_to_lower_constants[virt_id._handle64]};
+    return {._handle64 = it->second};
   } else {
     return get_virt_id_entry(virt_id)->real_id;
   }
