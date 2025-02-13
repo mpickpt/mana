@@ -61,7 +61,6 @@
 
 void *mmap_fixed_noreplace(void *addr, size_t length, int prot, int flags,
                            int fd, off_t offset);
-int write_lh_info_to_file();
 void get_elf_interpreter(int fd, Elf64_Addr *cmd_entry,
                          char get_elf_interpreter[], void *ld_so_addr);
 char *load_elf_interpreter(int fd, char elf_interpreter[],
@@ -102,6 +101,34 @@ void set_addr_no_randomize(char *argv[]) {
   }
 }
 
+void write_lh_info_addr(LowerHalfInfo_t *addr, int restore_mode) {
+  // We share the lh_info by env variable for launch to avoid the
+  // infinite loop, and external file for restart to avoid accidental
+  // address change.
+  if (restore_mode) {
+    // File name format: lh_info_[hostname]_[pid]
+    char filename[100] = "./lh_info_";
+    gethostname(filename + strlen(filename), 100 - strlen(filename));
+    snprintf(filename + strlen(filename), 100 - strlen(filename), "_%d", getpid());
+    int fd = open(filename, O_WRONLY | O_CREAT, 0644);
+    if (fd < 0) {
+      DLOG(ERROR, "Could not create addr.bin file. Error: %s", strerror(errno));
+      return -1;
+    }
+    rc = write(fd, &lh_info, sizeof(lh_info));
+    if (rc < sizeof(lh_info)) {
+      DLOG(ERROR, "Wrote fewer bytes than expected to addr.bin. Error: %s",
+          strerror(errno));
+      rc = -1;
+    }
+    close(fd);
+  } else {
+    char lh_info_addr_str[20];
+    snprintf(lh_info_addr_str, 20, "%p", lh_info);
+    setenv("MANA_LH_INFO_ADDR", lh_info_addr_str, 1);
+  }
+}
+
 int main(int argc, char *argv[], char *envp[]) {
   set_addr_no_randomize(argv);
   int i;
@@ -115,7 +142,6 @@ int main(int argc, char *argv[], char *envp[]) {
   Elf64_Addr cmd_entry;
   char elf_interpreter[MAX_ELF_INTERP_SZ];
   lh_info = &lh_info_obj;
-  write_lh_info_to_file();
 
   CheckAndEnableFsGsBase();
   unsigned long fsaddr = 0;
@@ -265,6 +291,7 @@ int main(int argc, char *argv[], char *envp[]) {
       break;
     }
   }
+  write_lh_info_addr(lh_info, restore_mode);
   // Restart case
   if (restore_mode) {
     DmtcpRestart dmtcpRestart(argc, argv, BINARY_NAME, MTCP_RESTART_BINARY);
@@ -546,27 +573,6 @@ int main(int argc, char *argv[], char *envp[]) {
 #else
 # error "current architecture not supported"
 #endif /* if defined(__i386__) || defined(__x86_64__) */
-}
-
-int write_lh_info_to_file() {
-  size_t rc = 0;
-  char filename[100] = "./lh_info_";
-  gethostname(filename + strlen(filename), 100 - strlen(filename));
-  snprintf(filename + strlen(filename), 100 - strlen(filename), "_%d", getpid());
-  int fd = open(filename, O_WRONLY | O_CREAT, 0644);
-  if (fd < 0) {
-    DLOG(ERROR, "Could not create addr.bin file. Error: %s", strerror(errno));
-    return -1;
-  }
-
-  rc = write(fd, &lh_info, sizeof(lh_info));
-  if (rc < sizeof(lh_info)) {
-    DLOG(ERROR, "Wrote fewer bytes than expected to addr.bin. Error: %s",
-         strerror(errno));
-    rc = -1;
-  }
-  close(fd);
-  return rc;
 }
 
 void get_elf_interpreter(int fd, Elf64_Addr *cmd_entry,
