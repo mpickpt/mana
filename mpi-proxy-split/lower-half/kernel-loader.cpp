@@ -113,13 +113,13 @@ void write_lh_info_addr(LowerHalfInfo_t *addr, int restore_mode) {
     int fd = open(filename, O_WRONLY | O_CREAT, 0644);
     if (fd < 0) {
       DLOG(ERROR, "Could not create addr.bin file. Error: %s", strerror(errno));
-      return -1;
+      exit(1);
     }
-    rc = write(fd, &lh_info, sizeof(lh_info));
+    int rc = write(fd, &lh_info, sizeof(lh_info));
     if (rc < sizeof(lh_info)) {
       DLOG(ERROR, "Wrote fewer bytes than expected to addr.bin. Error: %s",
           strerror(errno));
-      rc = -1;
+      exit(1);
     }
     close(fd);
   } else {
@@ -149,7 +149,7 @@ int main(int argc, char *argv[], char *envp[]) {
   // Fill in lh_info contents
   memset(lh_info, 0, sizeof(LowerHalfInfo_t));
   lh_info->fsaddr = (void*)fsaddr;
- 
+
   // Create new heap region to be used by RTLD
   void *lh_brk = sbrk(0);
   const uint64_t heapSize = 0x1000000;
@@ -288,6 +288,12 @@ int main(int argc, char *argv[], char *envp[]) {
   for (i = 1; i < argc; i++) {
     if (strcmp(argv[i], "--restore") == 0) {
       restore_mode = 1;
+      // Remove the --restore flag because dmtcp does not recognize
+      // this flag.
+      argc--;
+      for (int j = i; j < argc; j++) {
+        argv[j] = argv[j + 1];
+      }
       break;
     }
   }
@@ -456,9 +462,9 @@ int main(int argc, char *argv[], char *envp[]) {
   // are upper half stack at checkpoint time.
   struct rlimit rlim;
   getrlimit(RLIMIT_STACK, &rlim);
-  
-  // Check for the edge case where soft limit for rlimit stack is 
-  // set to RLIM_INFINITY (which is -1) failing the 16-bit layout check.  
+
+  // Check for the edge case where soft limit for rlimit stack is
+  // set to RLIM_INFINITY (which is -1) failing the 16-bit layout check.
   if(rlim.rlim_cur == RLIM_INFINITY){
     // FIXME: putting in a placeholder value for now as 16MB
     // This size is chosen to provide good distance between 
@@ -816,7 +822,7 @@ static int restoreMemoryArea(int fd, MtcpHeader *ckptHdr)
   if (area.addr == NULL) {
     return -1;
   }
- 
+
   if (area.name[0] && strstr(area.name, "[heap]")
       && (VA) brk(NULL) != area.addr + area.size) {
     // JWARNING(false);
