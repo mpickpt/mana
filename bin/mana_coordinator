@@ -60,7 +60,7 @@ else
   MANA_RC=$HOME/.mana.rc
 fi
 
-$dir/dmtcp_coordinator $options --write-kv-data --exit-on-last -q --daemon --status-file $MANA_RC && coordinator_found=1
+$dir/dmtcp_coordinator $options --exit-on-last -q --daemon --status-file $MANA_RC && coordinator_found=1
 set +x
 if [ $coordinator_found -eq 0 ]; then
   exit 3
