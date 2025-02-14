@@ -99,8 +99,8 @@ static void readLhInfoAddr() {
   if (addr_str != NULL) {
     lh_info = (LowerHalfInfo_t*) strtol(addr_str, NULL, 16);
   } else {
-    // File name format: lh_info_[hostname]_[pid]
-    char filename[100] = "./lh_info_";
+    // File name format: mana_tmp_lh_info_[hostname]_[pid]
+    char filename[100] = "/tmp/mana_tmp_lh_info_";
     gethostname(filename + strlen(filename), 100 - strlen(filename));
     filename[strlen(filename)] = '_';
     // Convert real pid to char* without calling snprintf
@@ -124,7 +124,9 @@ static void readLhInfoAddr() {
       exit(-1);
     }
     close(fd);
-    remove(filename);
+    if (remove(filename) != 0) {
+      fprintf(stderr, "Cannot remove MANA tmp file %s\n", filename);
+    }
   }
   pdlsym = (proxyDlsym_t)lh_info->lh_dlsym;
 }
