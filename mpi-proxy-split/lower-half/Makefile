@@ -32,7 +32,7 @@ override CXXFLAGS += -fPIC -I${DMTCP_INCLUDE} -I${JALIB_INCLUDE} -I${MANA_INCLUD
 
 TEXTSEG_ADDR_FLAG=-Wl,-Ttext-segment=0x10000000
 
-default: kernel-loader
+default: lower-half
 
 .cpp.o:
 	${MPICXX} ${CXXFLAGS} -c -o $@ $<
@@ -43,10 +43,10 @@ default: kernel-loader
 # Normally, gcc (or clang) will automatically link with libatomic.so.
 # However, for come MPICXX it's hard to know if they cover it.
 # So this is good as a safety measure.
-kernel-loader: get-symbol-offset.o copy-stack.o patch-trampoline.o lh-func-ptr.o mem-wrapper.o switch-context.o kernel-loader.o mmap-fixed-noreplace.o ${DMTCP_DEPS}
+lower-half: get-symbol-offset.o copy-stack.o patch-trampoline.o lh-func-ptr.o mem-wrapper.o switch-context.o lower-half.o mmap-fixed-noreplace.o ${DMTCP_DEPS}
 	${MPICXX} -g3 ${TEXTSEG_ADDR_FLAG} ${CXXFLAGS} -o $@ $^ -lpthread -ldl -latomic
 
-install: kernel-loader
+install: lower-half
 	cp -f $^ ${MANA_ROOT}/bin/
 
 tidy:
@@ -55,7 +55,7 @@ tidy:
 	rm -rf dmtcp_coordinator_db-*.json
 
 clean: tidy
-	rm -f kernel-loader
+	rm -f lower-half
 	rm -f *.o
 
 distclean: clean
