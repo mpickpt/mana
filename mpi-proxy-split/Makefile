@@ -56,7 +56,7 @@ override CXXFLAGS += -fPIC -I${DMTCP_INCLUDE} -I${JALIB_INCLUDE} \
 # ${WRAPPERS_SRCDIR}/libmpiwrappers.a ia a prerequisite for libmana.so
 # Always do 'make default' or 'make install' -- not 'make libmana.so'
 default: ${MANA_COORD_OBJS}
-	make -C ${LH_SRCDIR} kernel-loader
+	make -C ${LH_SRCDIR} lower-half
 	make -C ${WRAPPERS_SRCDIR} libmpiwrappers.a
 	@make libmana.so
 	@make -C ${WRAPPERS_SRCDIR} libmpistub.so
@@ -100,7 +100,7 @@ ${MANA_ROOT}/lib/dmtcp/libmpistub.so:
 	make -C ${WRAPPERS_SRCDIR} install
 ${MANA_ROOT}/bin/mana_p2p_update_logs: ${WRAPPERS_SRCDIR}/mana_p2p_update_logs.c
 	make -C ${WRAPPERS_SRCDIR} install
-${MANA_ROOT}/bin/kernel-loader:
+${MANA_ROOT}/bin/lower-half:
 	make -C ${LH_SRCDIR} install
 
 # ${WRAPPERS_SRCDIR}/libmpiwrappers.a ia a prerequisite for libmana.so,
@@ -112,7 +112,7 @@ install: ${MANA_COORD_OBJS}
 	make ${MANA_ROOT}/lib/dmtcp/libmana.so
 	make ${MANA_ROOT}/lib/dmtcp/libmpistub.so
 	make ${MANA_ROOT}/bin/mana_p2p_update_logs
-	make ${MANA_ROOT}/bin/kernel-loader
+	make ${MANA_ROOT}/bin/lower-half
 
 tidy:
 	rm -f *~ .*.swp dmtcp_restart_script*.sh ckpt_*.dmtcp

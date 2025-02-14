@@ -515,7 +515,7 @@ int main(int argc, char *argv[], char *envp[]) {
 
   // FIXME:
   // **************************************************************************
-  // *******   elf_hdr.e_entry is pointing to kernel-loader instead of to ld.so
+  // *******   elf_hdr.e_entry is pointing to lower-half instead of to ld.so
   // *******   ld_so_entry and interp_base_address + ld_so_elf_hdr.e_entry
   // *******     should be the same.  Eventually, rationalize this.
   // **************************************************************************
@@ -581,7 +581,7 @@ int main(int argc, char *argv[], char *envp[]) {
   //   directove for the linker, and asm() doens't understand this.
   // %%pcrel_hi/lo would be nice (to generate pic code), but when
   //   trying that, we get:
-  // kernel-loader.c: dangerous relocation: %pcrel_lo missing matching %pcrel_hi
+  // lower-half.c: dangerous relocation: %pcrel_lo missing matching %pcrel_hi
   asm volatile ("lui t0, %%hi(ld_so_entry)" : : "g" (ld_so_entry) : "memory");
   asm volatile ("ld  t0, %%lo(ld_so_entry)(t0)" : : "g" (ld_so_entry) : "memory");
   asm volatile ("jalr  zero, t0");

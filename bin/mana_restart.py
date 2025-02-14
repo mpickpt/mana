@@ -97,7 +97,7 @@ if gdb:
   cmd_line = shutil.which("gdb") + " --args "
 else:
   cmd_line = ""
-cmd_line = mana_root_path + "bin/kernel-loader -j --restore " + host_flag + port_flag + " ".join(dmtcp_flags)
+cmd_line = mana_root_path + "bin/lower-half -j --restore " + host_flag + port_flag + " ".join(dmtcp_flags)
 if verbose:
   print(cmd_line)
 
