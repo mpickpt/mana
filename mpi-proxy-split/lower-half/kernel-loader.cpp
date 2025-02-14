@@ -106,11 +106,20 @@ void write_lh_info_addr(LowerHalfInfo_t *addr, int restore_mode) {
   // infinite loop, and external file for restart to avoid accidental
   // address change.
   if (restore_mode) {
-    // File name format: lh_info_[hostname]_[pid]
-    char filename[100] = "./lh_info_";
+    // File name format: mana_tmp_lh_info_[hostname]_[pid]
+    char filename[100] = "/tmp/mana_tmp_lh_info_";
     gethostname(filename + strlen(filename), 100 - strlen(filename));
     snprintf(filename + strlen(filename), 100 - strlen(filename), "_%d", getpid());
-    int fd = open(filename, O_WRONLY | O_CREAT, 0644);
+    struct stat statbuf;
+    if (stat(filename, &statbuf) == 0) {
+      unlink(filename);
+      int unlink_errno;
+      if (stat(filename, &statbuf) == 0) {
+        DLOG(ERROR, "Could not remove pre-existing file %s. Error: %s", filename, strerror(unlink_errno));
+        exit(1);
+      }
+    }
+    int fd = open(filename, O_WRONLY | O_CREAT, 0666);
     if (fd < 0) {
       DLOG(ERROR, "Could not create addr.bin file. Error: %s", strerror(errno));
       exit(1);
