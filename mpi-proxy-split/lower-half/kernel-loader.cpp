@@ -433,8 +433,10 @@ int main(int argc, char *argv[], char *envp[]) {
   // Check for the edge case where soft limit for rlimit stack is 
   // set to RLIM_INFINITY (which is -1) failing the 16-bit layout check.  
   if(rlim.rlim_cur == RLIM_INFINITY){
-    // FIXME: putting in a placeholder value for now as 32MB
-    rlim.rlim_cur = 0x2000000;
+    // FIXME: putting in a placeholder value for now as 16MB
+    // This size is chosen to provide good distance between 
+    //  library segments and red zone, as well as red zone and UH-stack.
+    rlim.rlim_cur = 0x1000000;
   }
 
   // FIXME:
