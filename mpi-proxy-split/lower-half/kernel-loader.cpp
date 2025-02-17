@@ -57,7 +57,7 @@
 #endif
 
 #define MAX_ELF_INTERP_SZ 256
-#define LOADER_SIZE_LIMIT 0x40000
+#define LOADER_SIZE_LIMIT 0x2000000
 
 void *mmap_fixed_noreplace(void *addr, size_t length, int prot, int flags,
                            int fd, off_t offset);
