@@ -439,13 +439,23 @@ int main(int argc, char *argv[], char *envp[]) {
     rlim.rlim_cur = 0x1000000;
   }
 
-  // FIXME:
-  //   Should add check that interp_base_address + 0x400000 not already mapped
-  //   Or else, could use newer MAP_FIXED_NOREPLACE in mmap of deepCopyStack
+  /*
+   * NOTE: In some systems, rlimit_cur for stack can be as small as 8KB.
+   *  Yet mapping a bigger stack(calculated below) for UH goes unnoticed by kernel,
+   *  becasue UH stack is not recognized by kernel as 'stack', thus 
+   *    no kernel errors are thrown.
+   *
+   * FIXME:Should add check that interp_base_address + 0x2000000 not already mapped
+   *  Or else, could use newer MAP_FIXED_NOREPLACE in mmap of deepCopyStack.
+   *  
+   * LOADER_SIZE_LIMIT is set to 0x2000000 to avoid conflict with 
+   *    ld.so address space in UH.
+   * Seen on MPICH-3.3.2 on Discovery (login/ssh node) CentOS-7 and Dekaksi Ubuntu-server.
+   */
   char *dest_stack = deepCopyStack(argc, argv, (char *)&argc, (char *)&argv[0],
-                                   cmd_argc+1, cmd_argv2,
-                                   interp_base_address + rlim.rlim_cur + LOADER_SIZE_LIMIT,
-                                   &auxv_ptr, &stack_bottom);
+                                  cmd_argc+1, cmd_argv2,
+                                  interp_base_address + rlim.rlim_cur + LOADER_SIZE_LIMIT,
+                                  &auxv_ptr, &stack_bottom);
   lh_info->uh_stack_start = (char*) ROUND_DOWN(interp_base_address + LOADER_SIZE_LIMIT, PAGE_SIZE);
   lh_info->uh_stack_end = (char*) ROUND_UP(stack_bottom, PAGE_SIZE);
   
