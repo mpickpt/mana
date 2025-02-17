@@ -70,6 +70,7 @@ char *map_elf_interpreter_load_segment(int fd, Elf64_Phdr phdr,
                                       void *ld_so_addr);
 static void patchAuxv(Elf64_auxv_t *av, unsigned long phnum,
                       unsigned long phdr, unsigned long entry);
+void *create_red_zone(void* stack_addr);
 
 off_t get_symbol_offset(char *pathame, char *symbol);
 // See: http://articles.manugarg.com/aboutelfauxiliaryvectors.html
@@ -445,6 +446,18 @@ int main(int argc, char *argv[], char *envp[]) {
                                    &auxv_ptr, &stack_bottom);
   lh_info->uh_stack_start = (char*) ROUND_DOWN(interp_base_address + LOADER_SIZE_LIMIT, PAGE_SIZE);
   lh_info->uh_stack_end = (char*) ROUND_UP(stack_bottom, PAGE_SIZE);
+  
+  /*
+   * Creating a red zone for UH stack for detecting
+   *  collision  with ld.so library segments.
+   * The red zone will be created (rlim.rlim_cur + PAGE_SIZE) size
+   *  above the lh_info->uh_stack_start position, so that recorded
+   *  lh_info->uh_stack_start still falls in the stack region.
+   */
+  if(create_red_zone((void*) lh_info->uh_stack_start - rlim.rlim_cur) == NULL) {
+    perror("red block");
+    exit(1);
+  }
 
   // FIXME:
   // **************************************************************************
@@ -933,5 +946,28 @@ static int restoreMemoryArea(int fd, MtcpHeader *ckptHdr)
     }
   }
   return 0;
+}
+
+/*
+ * Creating a red-zone for UH stack so that stack collisions 
+ * with ld.so library can be detected with certatinity.
+ * This function will mmap a new memory block with all
+ * blocking permissions, i.e., NO ->(READ|WRITE|EXECUTE).
+ */
+void *create_red_zone(void* stack_addr)
+{
+  void* red_zone = mmap_wrapper(
+      (void*)stack_addr - PAGE_SIZE,    //one page long red-zone
+      PAGE_SIZE,
+      PROT_NONE,
+      MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED | MAP_GROWSDOWN,
+      -1,
+      0);
+
+  if (red_zone == MAP_FAILED) {
+    perror("red zone");
+    return NULL; 
+  }
+  return red_zone;
 }
 
