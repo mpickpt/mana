@@ -104,16 +104,13 @@ USER_DEFINED_WRAPPER(double, Wtime, (void))
 
 USER_DEFINED_WRAPPER(int, Finalize, (void))
 {
-  // FIXME: With Cray MPI, for some reason, MPI_Finalize hangs when
-  // running on multiple nodes. The MPI Finalize call tries to pthread_cancel
-  // a polling thread in the lower half and then blocks on join. But,
-  // for some reason, the polling thread never comes out of an ioctl call
-  // and remains blocked.
-  //
-  // The workaround here is to simply return success to the caller without
-  // calling into the real Finalize function in the lower half. This way
-  // the application can proceed to exit without getting blocked forever.
-  return MPI_SUCCESS;
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
+  retval = NEXT_FUNC(Finalize)();
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return retval;
 }
 
 USER_DEFINED_WRAPPER(int, Get_count,
