@@ -43,11 +43,11 @@ FILES=mpi_hello_world \
       Type_hvector_test Type_vector_test \
       ${FILES_FORTRAN} \
       send_recv_loop large_async_p2p \
-	  	File_read_write_test File_characteristics_test File_size_test \
-	  	File_read_write_all_test \
+      File_read_write_test File_characteristics_test File_size_test \
+      File_read_write_all_test \
       Type_dup_test Type_create_hindexed_test \
-	  	Type_create_resized_test Type_create_hindexed_block_test \
-			unsync_Finalize MPI_Double_Int_test  \
+      Type_create_resized_test Type_create_hindexed_block_test \
+      unsync_Finalize MPI_Double_Int_test  \
 
 OBJS=$(addsuffix .o, ${FILES})
 
