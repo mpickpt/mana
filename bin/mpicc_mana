@@ -1,0 +1,98 @@
+#!/bin/bash
+
+# This is a custom mpicc wrapper to link against libmpistub.so
+#   This is mostly useful when the upper-half (user MPI application)
+#   is compiled with MPI libraries using constructors, which conflict with MANA's
+#   kernel loader approach used in lower-half.
+
+# set custom MPI paths 
+prefix=$(dirname "$(dirname "$(realpath "$0")")")
+libdir=$prefix/lib/dmtcp
+CC="gcc -std=gnu99"
+
+# linker flag to pass through compiler
+wl="-Wl,"
+
+# static library suffix
+libext="a"
+
+# shared library suffix
+shlibext="so"
+
+# naming covention for library names
+libname_spec="lib\$name"
+
+# Flag to hardcode $libdir into a binary during linking.
+# This must work even if $libdir does not exist.
+hardcode_libdir_flag_spec="\${wl}-rpath \${wl}\$libdir"
+
+# ensure command line arguments are provided 
+if [ $# -lt 1 ]; then
+  echo "Error: Command line argument is needed!"
+  "$0" -help
+  exit 1
+fi
+
+# processing command line argumnets
+linking=yes
+allargs=("$@")
+argno=0
+interlib_deps=yes
+static_mpi=no
+showinfo=""
+
+
+for arg in "$@" ; do
+  addarg=yes
+  case "$arg" in
+    -c|-S|-E|-M|-MM)
+      linking=no
+    ;;
+    -static)
+      interlib_deps=no
+      static_mpi=yes
+      addarg=no
+    ;;
+    -show)
+      addarg=no
+      Show=echo
+    ;;
+    -show-link-info)
+      addarg=no
+      Show=echo
+      show_info=link
+    ;;
+    -show-comile-info)
+      addarg=no
+      Show=echo
+      show_info=compile
+    ;;
+    -cc=*)
+      CC=`echo A$arg | sed -e 's/A-cc=//g'`
+      addarg=no
+    ;;
+    -v)
+      echo "Custom mpicc for MANA"
+      if [ "$#" -eq "1" ] ; then
+        linking=no
+      fi
+    ;;
+    -help)
+      echo "Usage: mpicc_mana [Options] <source files?"
+      exit 0;
+    ;;
+  esac
+done
+
+# prevent recursive execution
+if [ -n "$MANA_MPICC_RECURSION_CHECK" ] ; then
+  echo "This script ($0) is being called resursively."
+  exit 1
+fi
+
+MANA_MPICC_RECURSION_CHECK=1
+export MANA_MPICC_RECURSION_CHECK
+
+# Constructing Compilation and Linking Commands
+$Show $CC "${allargs[@]}" -L$libdir -lmpistub 
+
