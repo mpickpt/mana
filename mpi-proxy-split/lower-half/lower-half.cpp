@@ -70,6 +70,7 @@ char *map_elf_interpreter_load_segment(int fd, Elf64_Phdr phdr,
 static void patchAuxv(Elf64_auxv_t *av, unsigned long phnum,
                       unsigned long phdr, unsigned long entry);
 void *create_red_zone(void* stack_addr);
+void update_library_path(const char *argv0);
 
 off_t get_symbol_offset(char *pathame, char *symbol);
 // See: http://articles.manugarg.com/aboutelfauxiliaryvectors.html
@@ -291,6 +292,9 @@ int main(int argc, char *argv[], char *envp[]) {
   lh_info->MANA_COUNT = MPI_COUNT;
   lh_info->MANA_ERRORS_ARE_FATAL = MPI_ERRORS_ARE_FATAL;
   lh_info->MANA_ERRORS_RETURN = MPI_ERRORS_RETURN;
+
+  // Update LD_LIBRARY_PATH to contain
+  update_library_path(argv[0]);
 
   // Check arguments and setup arguments for the loader program (cmd)
   // if has "--restore", pass all arguments to mtcp_restart
@@ -1002,5 +1006,56 @@ void *create_red_zone(void* stack_addr)
     return NULL; 
   }
   return red_zone;
+}
+
+/*
+ * Update LD_LIBRARY_PATH env variable for 
+ *  the Upper-Half(user's MPI application). 
+ * The env variable will be prepended with location
+ *  of libmpistub.so library, that contains MPI-symbols 
+ *  required for user's MPI application.
+ * 
+ * NOTE: Useful when user's MPI application is compiled 
+ *        with `mpicc_mana` instead of `mpicc`
+ */
+void update_library_path(const char *argv0)
+{
+  const char *old_path = getenv("LD_LIBRARY_PATH");
+  const char *remove_part = "bin/../bin/lower-half";
+  const char *add_path = "lib/dmtcp";
+  size_t base_len = strlen(argv0) - strlen(remove_part);
+  size_t path_len = base_len + strlen(add_path) + 1;
+
+  char *lib_path = static_cast<char*>(malloc(path_len));
+  if (!lib_path) {
+    perror("Malloc for dmtcp library path failed");
+    exit(1);
+  }
+
+  // removing "bin/../bin/lower-half" from argv[0]
+  // and appending "lib/dmtcp"
+  strncpy(lib_path, argv0, base_len);
+  lib_path[base_len] = '\0';
+  strcat(lib_path, add_path);
+  
+  // Allocate memory for new LD_LIBRARY_PATH 
+  //  (new_path + ":" + old_path + null terminator)
+  size_t new_len = strlen(lib_path) + strlen(old_path) + 2; 
+  char *updated_path = static_cast<char*>(malloc(new_len));
+  if(!updated_path){
+    perror("Malloc for library path failed");
+    free(lib_path);
+    exit(1);
+  }
+
+  // constructing a new LD_LIBRARY_PATH string
+  snprintf(updated_path, new_len, "%s:%s", lib_path, old_path);
+
+  // setup new path
+  setenv("LD_LIBRARY_PATH", updated_path, 1);
+
+  // free memory
+  free(updated_path);
+  free(lib_path);
 }
 
