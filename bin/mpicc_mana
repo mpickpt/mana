@@ -52,6 +52,8 @@ for arg in "$@" ; do
       interlib_deps=no
       static_mpi=yes
       addarg=no
+      echo "Does not support Static Library"
+      exit 0
     ;;
     -show)
       addarg=no
@@ -78,8 +80,8 @@ for arg in "$@" ; do
       fi
     ;;
     -help)
-      echo "Usage: mpicc_mana [Options] <source files?"
-      exit 0;
+      echo "Usage: mpicc_mana [Options] <source files>"
+      exit 0
     ;;
   esac
 done
