@@ -61,19 +61,14 @@ int CheckAndEnableFsGsBase()
     // On systems without FSGSBASE support (Linux kernel < 5.9, this instruction
     // fails with SIGILL).
     asm volatile("rex.W\n rdfsbase %0" : "=r" (fsbase) :: "memory");
-    if (fsbase != (unsigned long)-1) {
-      exit(0);
-    }
-
-    // Also test wrfsbase in case it generates SIGILL as well.
     asm volatile("rex.W\n wrfsbase %0" :: "r" (fsbase) : "memory");
-    exit(1);
+    exit(0);
   }
 
   int status = 0;
   assert(waitpid(childPid, &status, 0) == childPid);
 
-  if (status == 0) {
+  if (WEXITSTATUS(status) == 0) {
     FsGsBaseEnabled = 1;
   } else {
     FsGsBaseEnabled = 0;

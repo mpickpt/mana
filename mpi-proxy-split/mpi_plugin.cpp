@@ -835,9 +835,6 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
         file_regex = new std::regex(getenv(MANA_FILE_REGEX_ENV));
       }
 
-      if (CheckAndEnableFsGsBase()) {
-        JTRACE("FSGSBASE enabled");
-      }
       heapAddr = sbrk(0);
       JASSERT(heapAddr != nullptr);
       // FIXME:  If we use PROT_NONE (preferred), then an older DMTCP
