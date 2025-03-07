@@ -45,6 +45,7 @@ typedef struct __MmapInfo
 typedef struct _LowerHalfInfo
 {
   void *fsaddr; // The base value of the FS register of the lower half
+  int fsgsbase_enabled;
 #ifdef SINGLE_CART_REORDER
   void *getCoordinatesFptr; // Pointer to getCoordinates() function in the lower half
   void *getCartesianCommunicatorFptr; // Pointer to getCartesianCommunicator() function in the lower half

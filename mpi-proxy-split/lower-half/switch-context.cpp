@@ -49,10 +49,10 @@
 #include "switch-context.h"
 #include "lower-half-api.h"
 
-bool FsGsBaseEnabled = false;
-
-bool CheckAndEnableFsGsBase()
+int CheckAndEnableFsGsBase()
 {
+  int FsGsBaseEnabled = 0;
+
   pid_t childPid = fork();
   assert(childPid != -1);
 
@@ -74,9 +74,9 @@ bool CheckAndEnableFsGsBase()
   assert(waitpid(childPid, &status, 0) == childPid);
 
   if (status == 0) {
-    FsGsBaseEnabled = true;
+    FsGsBaseEnabled = 1;
   } else {
-    FsGsBaseEnabled = false;
+    FsGsBaseEnabled = 0;
   }
   return FsGsBaseEnabled;
 }
@@ -91,7 +91,7 @@ unsigned long getFS(void)
 {
   unsigned long fsbase;
 
-  if (FsGsBaseEnabled) {
+  if (lh_info->fsgsbase_enabled) {
     // This user-space variant is equivalent, but faster.
     // Optionally, this->upperHalfFs could be cached if MPI_THREAD_MULTIPLE
     //   was not specified, but this should already be fast.
@@ -108,7 +108,7 @@ unsigned long getFS(void)
 
 void setFS(unsigned long fsbase)
 {
-  if (FsGsBaseEnabled) {
+  if (lh_info->fsgsbase_enabled) {
     // This user-space variant is equivalent, but faster.
     // Optionally, this->upperHalfFs could be cached if MPI_THREAD_MULTIPLE
     //   was not specified, but this should already be fast.
