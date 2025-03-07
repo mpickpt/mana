@@ -71,6 +71,7 @@ static void patchAuxv(Elf64_auxv_t *av, unsigned long phnum,
                       unsigned long phdr, unsigned long entry);
 void *create_red_zone(void* stack_addr);
 void update_library_path(const char *argv0);
+int prepend_to_library_path(const char *new_path);
 
 off_t get_symbol_offset(char *pathame, char *symbol);
 // See: http://articles.manugarg.com/aboutelfauxiliaryvectors.html
@@ -1009,53 +1010,87 @@ void *create_red_zone(void* stack_addr)
 }
 
 /*
+ * Helper function for prepending 
+ *  LD_LIBRARY_PATH with new library path 
+ *  provided using input argument.
+ */
+int prepend_to_library_path(const char *new_path) {
+  const char *old_path = getenv("LD_LIBRARY_PATH");
+  size_t new_len = strlen(new_path) + strlen(old_path) + 2;
+
+  char *updated_path = static_cast<char*>(malloc(new_len));
+  if (!updated_path) {
+    return -1;
+  }
+  if (old_path) {
+    snprintf(updated_path, new_len, "%s:%s", new_path, old_path);
+  } else {
+    snprintf(updated_path, new_len, "%s", new_path);
+  }
+
+  setenv("LD_LIBRARY_PATH", updated_path, 1);
+  free(updated_path);
+  return 0;
+}
+
+/*
  * Update LD_LIBRARY_PATH env variable for 
  *  the Upper-Half(user's MPI application). 
- * The env variable will be prepended with location
- *  of libmpistub.so library, that contains MPI-symbols 
- *  required for user's MPI application.
- * 
+ * The env variable will be prepended with:
+ *  a) location of libmpistub.so library, that contains 
+ *      MPI-symbols required for user's MPI application.
+ *  b) location of 'shadow-libraries', that cintain sym-link 
+ *      for dynamic libraries with constructors.
+ *
  * NOTE: Useful when user's MPI application is compiled 
- *        with `mpicc_mana` instead of `mpicc`
+ *        with `mpicc_mana` instead of `mpicc`.
+ *       And, when shadow-library is used by UH application.
  */
 void update_library_path(const char *argv0)
 {
-  const char *old_path = getenv("LD_LIBRARY_PATH");
   const char *remove_part = "bin/../bin/lower-half";
-  const char *add_path = "lib/dmtcp";
   size_t base_len = strlen(argv0) - strlen(remove_part);
-  size_t path_len = base_len + strlen(add_path) + 1;
 
-  char *lib_path = static_cast<char*>(malloc(path_len));
-  if (!lib_path) {
-    perror("Malloc for dmtcp library path failed");
+  // constructing lib1 path: "/path_to_mana/lib/dmtcp"
+  const char *lib1_suffix = "lib/dmtcp";
+  size_t lib1_len = base_len + strlen(lib1_suffix) + 1;
+  char *lib1 = static_cast<char*>(malloc(lib1_len));
+  if (!lib1) {
+    perror("Malloc for lib1 path failed");
     exit(1);
   }
+  strncpy(lib1, argv0, base_len);
+  lib1[base_len] = '\0';
+  strcat(lib1, lib1_suffix);
 
-  // removing "bin/../bin/lower-half" from argv[0]
-  // and appending "lib/dmtcp"
-  strncpy(lib_path, argv0, base_len);
-  lib_path[base_len] = '\0';
-  strcat(lib_path, add_path);
-  
-  // Allocate memory for new LD_LIBRARY_PATH 
-  //  (new_path + ":" + old_path + null terminator)
-  size_t new_len = strlen(lib_path) + strlen(old_path) + 2; 
-  char *updated_path = static_cast<char*>(malloc(new_len));
-  if(!updated_path){
-    perror("Malloc for library path failed");
-    free(lib_path);
+  // prepend lib1 to LD_LIBRARY_PATH
+  if (prepend_to_library_path(lib1) != 0) {
+    perror("Lib1 prepend to LD_LIBRARY_PATH failed");
     exit(1);
   }
+  free(lib1); 
 
-  // constructing a new LD_LIBRARY_PATH string
-  snprintf(updated_path, new_len, "%s:%s", lib_path, old_path);
+  // constructing lib2 path: "/path_to_mana/lib/tmp"
+  const char *lib2_suffix = "lib/tmp";
+  size_t lib2_len = base_len + strlen(lib2_suffix) + 1;
+  char *lib2 = static_cast<char*>(malloc(lib2_len));
+  if (!lib2) {
+    perror("Malloc for lib2 path failed");
+    exit(1);
+  }
+  strncpy(lib1, argv0, base_len);
+  lib2[base_len] = '\0';
+  strcat(lib2, lib2_suffix);
 
-  // setup new path
-  setenv("LD_LIBRARY_PATH", updated_path, 1);
-
-  // free memory
-  free(updated_path);
-  free(lib_path);
+  // checking if tmp directory for shadow-libs exist
+  struct stat info;
+  if (stat(lib2, &info) == 0) {
+    // prepend lib2 to LD_LIBRARY_PATH
+    if(prepend_to_library_path(lib2) != 0) {
+      perror("");
+      exit(1);
+    }
+  }
+  free(lib2);
 }
 
