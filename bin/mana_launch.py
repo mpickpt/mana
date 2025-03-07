@@ -2,10 +2,11 @@
 import sys
 import os
 import shutil
+import subprocess
 
 help_msg = '''
   USAGE: [srun] mana_launch [--verbose] [--timing] [DMTCP_OPTIONS ...]
-                                         [--ckptdir DIR] MPI_EXECUTABLE [...]
+                            [--use-shadowlibs] [--ckptdir DIR] MPI_EXECUTABLE [...]
           For DMTCP options, do: dmtcp_launch --help
 '''
 
@@ -16,7 +17,9 @@ dmtcp_options = ["-i", "--interval", "-h", "--coord-host",
                  "--tmpdir", "--coord-logfile"]
 verbose = False
 gdb = False
+shadow = False
 mana_root_path = os.path.dirname(os.path.realpath(__file__)) + "/../"
+tmp_lib_path = mana_root_path + "lib"
 
 # if no arguments provided, print the help message
 if not sys.argv:
@@ -43,6 +46,10 @@ if not target_app[0]:
   sys.exit(1)
 
 # Special arguments
+if "--use-shadowlibs" in dmtcp_flags:
+  shadow = True
+  dmtcp_flags.remove("--use-shadowlibs")
+
 if "--gdb" in dmtcp_flags:
   gdb = True
   dmtcp_flags.remove("--gdb")
@@ -69,6 +76,22 @@ if "--quiet" in dmtcp_flags or "-q" in dmtcp_flags:
     dmtcp_flags.remove("--quiet")
   else:
     dmtcp_flags.remove("-q")
+
+# Shadow library creation
+#   This check is important because in lower-half, we will check 
+#   for the presence of /path-to-mana/lib/tmp directory, before
+#   adding the path to LD_LIBRARY_PRELOAD. 
+check_path_exists = os.path.exists(tmp_lib_path + "/tmp")
+if check_path_exists and not shadow:
+  print(f"Remove all files from dir.. {tmp_lib_path}/tmp")
+  shutil.rmtree(tmp_lib_path + "/tmp")
+elif not check_path_exists and shadow:
+  print(f"Run the Python script create_shadow.py with the given argument")
+  subprocess.run(
+      [ mana_root_path + "/bin/mana_shadow_mpi_libs.py",
+        target_app[0],
+        mana_root_path + "lib"],
+      check=True);
 
 # # At higher ranks, restarting NIMROD causes a heap overflow (for a more detailed
 # # write up, refer to Section 4 of mpi-proxy-split/doc/nimrod-build-tutorial.txt).
