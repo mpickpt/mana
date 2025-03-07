@@ -154,7 +154,7 @@ int main(int argc, char *argv[], char *envp[]) {
   char elf_interpreter[MAX_ELF_INTERP_SZ];
   lh_info = &lh_info_obj;
 
-  CheckAndEnableFsGsBase();
+  lh_info->fsgsbase_enabled = CheckAndEnableFsGsBase();
   unsigned long fsaddr = 0;
   syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   // Fill in lh_info contents

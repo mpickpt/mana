@@ -90,7 +90,7 @@ static bool processingOpenCkpFileFds = false;
 
 std::unordered_map<pid_t, unsigned long> *g_upper_half_fsbase = NULL;
 DmtcpMutex g_upper_half_fsbase_lock;
-bool CheckAndEnableFsGsBase();
+int CheckAndEnableFsGsBase();
 
 EXTERNC pid_t dmtcp_get_real_tid() __attribute((weak));
 
