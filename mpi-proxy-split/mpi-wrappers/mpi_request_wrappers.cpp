@@ -94,6 +94,8 @@ USER_DEFINED_WRAPPER(int, Test, (MPI_Request*) request,
   if (*flag && *request != MPI_REQUEST_NULL
       && g_nonblocking_calls.find(*request) != g_nonblocking_calls.end()
       && g_nonblocking_calls[*request]->type == IRECV_REQUEST) {
+    local_recv_messages++;
+#ifdef DEBUG_P2P
     int count = 0;
     int size = 0;
     MPI_Get_count(statusPtr, MPI_BYTE, &count);
@@ -106,6 +108,7 @@ USER_DEFINED_WRAPPER(int, Test, (MPI_Request*) request,
 #if 0
     printf("rank %d received %d bytes from rank %d\n", g_world_rank, count * size, worldRank);
     fflush(stdout);
+#endif
 #endif
   }
   LOG_POST_Test(request, statusPtr);
@@ -281,14 +284,17 @@ USER_DEFINED_WRAPPER(int, Waitany, (int) count,
         if (*request != MPI_REQUEST_NULL
           && g_nonblocking_calls.find(*request) != g_nonblocking_calls.end()
           && g_nonblocking_calls[*request]->type == IRECV_REQUEST) {
-            int count = 0;
-            int size = 0;
-            MPI_Get_count(local_status, MPI_BYTE, &count);
-            MPI_Type_size(MPI_BYTE, &size);
-            JASSERT(size == 1)(size);
-            MPI_Comm comm = g_nonblocking_calls[*request]->comm;
-            int worldRank = localRankToGlobalRank(local_status->MPI_SOURCE, comm);
-            g_recvBytesByRank[worldRank] += count * size;
+          local_recv_messages++;
+#ifdef DEBUG_P2P
+          int count = 0;
+          int size = 0;
+          MPI_Get_count(local_status, MPI_BYTE, &count);
+          MPI_Type_size(MPI_BYTE, &size);
+          JASSERT(size == 1)(size);
+          MPI_Comm comm = g_nonblocking_calls[*request]->comm;
+          int worldRank = localRankToGlobalRank(local_status->MPI_SOURCE, comm);
+          g_recvBytesByRank[worldRank] += count * size;
+#endif
         } else if (*request == MPI_REQUEST_NULL) {
           if (!was_null[i]) {
             *local_index = i;
@@ -346,6 +352,8 @@ USER_DEFINED_WRAPPER(int, Wait, (MPI_Request*) request, (MPI_Status*) status)
     if (flag && *request != MPI_REQUEST_NULL
         && g_nonblocking_calls.find(*request) != g_nonblocking_calls.end()
         && g_nonblocking_calls[*request]->type == IRECV_REQUEST) {
+      local_recv_messages++;
+#ifdef DEBUG_P2P
       int count = 0;
       int size = 0;
       MPI_Get_count(statusPtr, MPI_BYTE, &count);
@@ -358,6 +366,7 @@ USER_DEFINED_WRAPPER(int, Wait, (MPI_Request*) request, (MPI_Status*) status)
 #if 0
       printf("rank %d received %d bytes from rank %d\n", g_world_rank, count * size, worldRank);
       fflush(stdout);
+#endif
 #endif
     }
     if (p2p_deterministic_skip_save_request == 0) {
