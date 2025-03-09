@@ -28,6 +28,7 @@
 #include "jassert.h"
 #include "jconvert.h"
 
+#define USES_MPI_Fnc_strings
 #include "record-replay.h"
 #include "virtual_id.h"
 #include "p2p_log_replay.h"
