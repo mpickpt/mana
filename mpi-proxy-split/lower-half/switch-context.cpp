@@ -49,10 +49,10 @@
 #include "switch-context.h"
 #include "lower-half-api.h"
 
-bool FsGsBaseEnabled = false;
-
-bool CheckAndEnableFsGsBase()
+int CheckAndEnableFsGsBase()
 {
+  int FsGsBaseEnabled = 0;
+
   pid_t childPid = fork();
   assert(childPid != -1);
 
@@ -61,22 +61,17 @@ bool CheckAndEnableFsGsBase()
     // On systems without FSGSBASE support (Linux kernel < 5.9, this instruction
     // fails with SIGILL).
     asm volatile("rex.W\n rdfsbase %0" : "=r" (fsbase) :: "memory");
-    if (fsbase != (unsigned long)-1) {
-      exit(0);
-    }
-
-    // Also test wrfsbase in case it generates SIGILL as well.
     asm volatile("rex.W\n wrfsbase %0" :: "r" (fsbase) : "memory");
-    exit(1);
+    exit(0);
   }
 
   int status = 0;
   assert(waitpid(childPid, &status, 0) == childPid);
 
-  if (status == 0) {
-    FsGsBaseEnabled = true;
+  if (WEXITSTATUS(status) == 0) {
+    FsGsBaseEnabled = 1;
   } else {
-    FsGsBaseEnabled = false;
+    FsGsBaseEnabled = 0;
   }
   return FsGsBaseEnabled;
 }
@@ -91,7 +86,7 @@ unsigned long getFS(void)
 {
   unsigned long fsbase;
 
-  if (FsGsBaseEnabled) {
+  if (lh_info->fsgsbase_enabled) {
     // This user-space variant is equivalent, but faster.
     // Optionally, this->upperHalfFs could be cached if MPI_THREAD_MULTIPLE
     //   was not specified, but this should already be fast.
@@ -108,7 +103,7 @@ unsigned long getFS(void)
 
 void setFS(unsigned long fsbase)
 {
-  if (FsGsBaseEnabled) {
+  if (lh_info->fsgsbase_enabled) {
     // This user-space variant is equivalent, but faster.
     // Optionally, this->upperHalfFs could be cached if MPI_THREAD_MULTIPLE
     //   was not specified, but this should already be fast.

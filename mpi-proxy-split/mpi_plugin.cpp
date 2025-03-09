@@ -90,7 +90,7 @@ static bool processingOpenCkpFileFds = false;
 
 std::unordered_map<pid_t, unsigned long> *g_upper_half_fsbase = NULL;
 DmtcpMutex g_upper_half_fsbase_lock;
-bool CheckAndEnableFsGsBase();
+int CheckAndEnableFsGsBase();
 
 EXTERNC pid_t dmtcp_get_real_tid() __attribute((weak));
 
@@ -835,9 +835,6 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
         file_regex = new std::regex(getenv(MANA_FILE_REGEX_ENV));
       }
 
-      if (CheckAndEnableFsGsBase()) {
-        JTRACE("FSGSBASE enabled");
-      }
       heapAddr = sbrk(0);
       JASSERT(heapAddr != nullptr);
       // FIXME:  If we use PROT_NONE (preferred), then an older DMTCP

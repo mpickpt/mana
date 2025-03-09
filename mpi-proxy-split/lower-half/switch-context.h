@@ -35,8 +35,8 @@
 
 #define ENV_VAR_FSGSBASE_ENABLED        "DMTCP_FSGSBASE_ENABLED"
 
-extern bool FsGsBaseEnabled;
-bool CheckAndEnableFsGsBase();
+extern int FsGsBaseEnabled;
+int CheckAndEnableFsGsBase();
 void setFS(unsigned long fsbase);
 unsigned long getFS(void);
 
