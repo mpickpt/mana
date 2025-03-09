@@ -19,10 +19,10 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include <time.h>
 #include <unistd.h>
 #include "config.h"
 #include "dmtcp.h"
-#include "util.h"
 #include "jassert.h"
 
 #include "mpi_plugin.h"
@@ -153,15 +153,25 @@ USER_DEFINED_WRAPPER(int, Recv,
     return retval;
   }
   while (!flag) {
-    MPI_Iprobe(source, tag, comm, &flag, status);
+    DMTCP_PLUGIN_DISABLE_CKPT();
+    MPI_Comm realComm = get_real_id({.comm = comm}).comm;
+    MPI_Datatype realType = get_real_id({.datatype = datatype}).datatype;
+    JUMP_TO_LOWER_HALF(lh_info->fsaddr);
+    for (int i = 0; i < 1000; i++) {
+      NEXT_FUNC(Iprobe)(source, tag, realComm, &flag, status);
+      if (flag) {
+        retval = NEXT_FUNC(Recv)(buf, count, realType, source, tag, realComm,
+                                 status);
+        break; // We're done now.  MPI_Recv is finished.
+      }
+    }
+    if (flag) { break; } // Break if we're done.
+    // If msg not available yet, slow down and don't hog the CPU core.
+    const struct timespec microsecond = {.tv_sec = 0, .tv_nsec = 1000000 };
+    nanosleep( &microsecond, NULL );
+    RETURN_TO_UPPER_HALF();
+    DMTCP_PLUGIN_ENABLE_CKPT();
   }
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm realComm = get_real_id({.comm = comm}).comm;
-  MPI_Datatype realType = get_real_id({.datatype = datatype}).datatype;
-  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
-  retval = NEXT_FUNC(Recv)(buf, count, realType, source, tag, realComm, status);
-  RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
 #ifdef DEBUG_P2P
   // FIXME: Move the recv counter code from MPI_Test wrapper to here.
 #endif
