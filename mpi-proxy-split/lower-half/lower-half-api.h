@@ -542,11 +542,13 @@ enum MPI_Fncs {
   FOREACH_FNC(GENERATE_ENUM)
   MPI_Fnc_Invalid,
 };
+#ifdef USES_MPI_Fnc_strings
 static const char *MPI_Fnc_strings[] = {
   "MPI_Fnc_NULL",
   FOREACH_FNC(GENERATE_FNC_STRING)
   "MPI_Fnc_Invalid"
 };
+#endif
 
 void* lh_dlsym(enum MPI_Fncs fnc);
 typedef void* (*proxyDlsym_t)(enum MPI_Fncs fnc);
