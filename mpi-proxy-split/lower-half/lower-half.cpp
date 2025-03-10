@@ -154,12 +154,12 @@ int main(int argc, char *argv[], char *envp[]) {
   char elf_interpreter[MAX_ELF_INTERP_SZ];
   lh_info = &lh_info_obj;
 
-  lh_info->fsgsbase_enabled = CheckAndEnableFsGsBase();
+  memset(lh_info, 0, sizeof(LowerHalfInfo_t));
   unsigned long fsaddr = 0;
   syscall(SYS_arch_prctl, ARCH_GET_FS, &fsaddr);
   // Fill in lh_info contents
-  memset(lh_info, 0, sizeof(LowerHalfInfo_t));
   lh_info->fsaddr = (void*)fsaddr;
+  lh_info->fsgsbase_enabled = CheckAndEnableFsGsBase();
 
   // Create new heap region to be used by RTLD
   void *lh_brk = sbrk(0);
