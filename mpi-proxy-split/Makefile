@@ -58,8 +58,8 @@ override CXXFLAGS += -fPIC -I${DMTCP_INCLUDE} -I${JALIB_INCLUDE} \
 default: ${MANA_COORD_OBJS}
 	make -C ${LH_SRCDIR} lower-half
 	make -C ${WRAPPERS_SRCDIR} libmpiwrappers.a
-	@make libmana.so
-	@make -C ${WRAPPERS_SRCDIR} libmpistub.so
+	make libmana.so
+	make -C ${WRAPPERS_SRCDIR} libmpistub.so
 
 # ${WRAPPERS_SRCDIR}/libmpiwrappers.a made in install/default before libmana.so
 libmana.so: ${LIBOBJS} ${WRAPPERS_SRCDIR}/libmpiwrappers.a
@@ -85,7 +85,7 @@ touch: ${FILE}
 	$@ $<
 
 tests:
-	@make -C test/ default
+	+ @make -C test/ default
 
 check: libmana.so ./autotest.py
 	@make -C test/ default
@@ -97,22 +97,22 @@ check-unit: libmana.so
 ${MANA_ROOT}/lib/dmtcp/libmana.so: libmana.so
 	cp -f $< $@
 ${MANA_ROOT}/lib/dmtcp/libmpistub.so:
-	make -C ${WRAPPERS_SRCDIR} install
+	+ make -C ${WRAPPERS_SRCDIR} install
 ${MANA_ROOT}/bin/mana_p2p_update_logs: ${WRAPPERS_SRCDIR}/mana_p2p_update_logs.c
-	make -C ${WRAPPERS_SRCDIR} install
+	+ make -C ${WRAPPERS_SRCDIR} install
 ${MANA_ROOT}/bin/lower-half:
-	make -C ${LH_SRCDIR} install
+	+ make -C ${LH_SRCDIR} install
 
 # ${WRAPPERS_SRCDIR}/libmpiwrappers.a ia a prerequisite for libmana.so,
 #   which is a prerequisite for ${MANA_ROOT}/lib/dmtcp/libmana.so
 # Always do 'make default' or 'make install' -- not 'make libmana.so'
 # MANA_COORD_OBJS needed for 'make mana' at top level.
 install: ${MANA_COORD_OBJS}
-	make -C ${WRAPPERS_SRCDIR} libmpiwrappers.a
-	make ${MANA_ROOT}/lib/dmtcp/libmana.so
-	make ${MANA_ROOT}/lib/dmtcp/libmpistub.so
-	make ${MANA_ROOT}/bin/mana_p2p_update_logs
-	make ${MANA_ROOT}/bin/lower-half
+	+ make -C ${WRAPPERS_SRCDIR} libmpiwrappers.a
+	+ make ${MANA_ROOT}/lib/dmtcp/libmana.so
+	+ make ${MANA_ROOT}/lib/dmtcp/libmpistub.so
+	+ make ${MANA_ROOT}/bin/mana_p2p_update_logs
+	+ make ${MANA_ROOT}/bin/lower-half
 
 tidy:
 	rm -f *~ .*.swp dmtcp_restart_script*.sh ckpt_*.dmtcp

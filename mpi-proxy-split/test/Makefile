@@ -56,7 +56,7 @@ TESTS=$(addsuffix .exe, ${FILES})
 LDFLAGS_DUMMY=-L$$PWD/../mpi-wrappers -lmpistub
 
 default: default_prereqs
-	$(MAKE) default_part2
+	+ $(MAKE) default_part2
 
 default_part2: ${TESTS} ${TESTS_DUMMY}
 
