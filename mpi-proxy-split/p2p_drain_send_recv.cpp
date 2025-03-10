@@ -82,9 +82,9 @@ initialize_drain_send_recv()
 void
 registerLocalSendsAndRecvs()
 {
-  char *db = "/plugin/MANA";
-  char *sent_counter_key = "sent_counter";
-  char *recv_counter_key = "recv_counter";
+  const char *db = "/plugin/MANA";
+  const char *sent_counter_key = "sent_counter";
+  const char *recv_counter_key = "recv_counter";
   kvdb::set64(db, sent_counter_key, 0);
   kvdb::set64(db, recv_counter_key, 0);
   dmtcp_global_barrier("MPI:Reset-p2p-send-recv");
