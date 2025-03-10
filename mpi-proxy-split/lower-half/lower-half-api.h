@@ -50,8 +50,6 @@ typedef struct _LowerHalfInfo
   void *getCoordinatesFptr; // Pointer to getCoordinates() function in the lower half
   void *getCartesianCommunicatorFptr; // Pointer to getCartesianCommunicator() function in the lower half
 #endif
-  void *getMmappedListFptr; // Pointer to getMmappedList() function in the lower half
-  void *resetMmappedListFptr; // Pointer to resetMmappedList() function in the lower half
   void *mmap;
   void *munmap;
   void *mmap_list_fptr;
