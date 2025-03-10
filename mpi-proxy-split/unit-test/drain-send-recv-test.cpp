@@ -127,7 +127,7 @@ TEST_F(DrainTests, testSendDrain)
   registerLocalSendsAndRecvs();
   drainSendRecv();
   for (int i = 0; i < TWO; i++) {
-    EXPECT_EQ(consumeBufferedPacket(&rbuf, 1, MPI_INT, 0,
+    EXPECT_EQ(consumeMatchingMsgBuffer(&rbuf, 1, MPI_INT, 0,
                                     0, _comm, &sts[i], size), MPI_SUCCESS);
     EXPECT_EQ(rbuf, sbuf);
   }
@@ -156,9 +156,9 @@ TEST_F(DrainTests, testSendDrainOnDiffComm)
   drainSendRecv();
   for (int i = 0; i < TWO; i++) {
     int rc;
-    EXPECT_TRUE(isBufferedPacket(0, 0, newcomm, &flag, &sts[i]));
-    EXPECT_EQ(consumeBufferedPacket(&rbuf, 1, MPI_INT, 0,
-                                    0, newcomm, &sts[i], size), MPI_SUCCESS);
+    EXPECT_TRUE(existsMatchingMsgBuffer(0, 0, newcomm, &flag, &sts[i]));
+    EXPECT_EQ(consumeMatchingMsgBuffer(&rbuf, 1, MPI_INT, 0,
+                                       0, newcomm, &sts[i], size), MPI_SUCCESS);
     EXPECT_EQ(rbuf, sbuf);
   }
 }
