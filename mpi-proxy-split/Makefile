@@ -123,8 +123,8 @@ clean: tidy
 	rm -f ${LIBOBJS} ${MANA_COORD_OBJS}
 	rm -f libmana.so
 	rm -f ${MANA_ROOT}/lib/dmtcp/libmana.so
-	@cd ${LOWER_HALF_SRCDIR} && make clean
-	@cd ${WRAPPERS_SRCDIR} && make clean
+	cd ${LOWER_HALF_SRCDIR} && make clean
+	cd ${WRAPPERS_SRCDIR} && make clean
 
 distclean: clean
 	#cd test && make clean

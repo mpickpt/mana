@@ -88,8 +88,7 @@ tidy:
 	rm -f dmtcp_coordinator_db-*.json
 
 clean: tidy
-	- cd ${DMTCP_ROOT} && $(MAKE) clean
-	- cd mpi-proxy-split && $(MAKE) clean
+	cd mpi-proxy-split && $(MAKE) clean
 
 mana_prereqs:
 	@ if test -n "$$HUGETLB_DEFAULT_PAGE_SIZE"; then \

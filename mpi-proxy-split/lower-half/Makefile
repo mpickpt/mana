@@ -56,6 +56,7 @@ tidy:
 
 clean: tidy
 	rm -f lower-half
+	rm -f ${MANA_ROOT}/bin/lower-half
 	rm -f *.o
 
 distclean: clean
