@@ -35,7 +35,7 @@ typedef char* VA;
 
 typedef struct __MmapInfo
 {
-  void *addr;
+  char *addr; // 'mmap()' will convert this type to 'void *' as needed.
   size_t len;
 } MmapInfo_t;
 
