@@ -259,12 +259,12 @@ drainSendRecv()
   }
 }
 
-// FIXME: isBufferedPacket and consumeBufferedPacket both search
+// FIXME: existsMaatchingMsgBuffer and consumeMatchingMsgBuffer both search
 // in the g_message_queue with the same condition. Maybe we can
 // combine them into one function.
 bool
-isBufferedPacket(int source, int tag, MPI_Comm comm, int *flag,
-                 MPI_Status *status)
+existsMatchingMsgBuffer(int source, int tag, MPI_Comm comm, int *flag,
+                        MPI_Status *status)
 {
   bool ret = false;
   dmtcp::vector<mpi_message_t*>::iterator req =
@@ -284,9 +284,9 @@ isBufferedPacket(int source, int tag, MPI_Comm comm, int *flag,
 }
 
 int
-consumeBufferedPacket(void *buf, int count, MPI_Datatype datatype,
-                      int source, int tag, MPI_Comm comm,
-                      MPI_Status *mpi_status, int size)
+consumeMatchingMsgBuffer(void *buf, int count, MPI_Datatype datatype,
+                         int source, int tag, MPI_Comm comm,
+                         MPI_Status *mpi_status, int size)
 {
   int cpysize;
   mpi_message_t *foundMsg = NULL;
@@ -299,7 +299,7 @@ consumeBufferedPacket(void *buf, int count, MPI_Datatype datatype,
                            (tag == MPI_ANY_TAG)) &&
                           ((msg->comm == comm)); });
   // This should never happen (since the caller should always check first using
-  // isBufferedPacket())!
+  // existsMatchingMsgBuffer())!
   JASSERT(req != std::end(g_message_queue))(count)(datatype)
          .Text("Unexpected error: no message in the queue matches the given"
                " attributes.");

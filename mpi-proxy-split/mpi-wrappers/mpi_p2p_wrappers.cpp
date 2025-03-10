@@ -142,12 +142,12 @@ USER_DEFINED_WRAPPER(int, Recv,
   // }
   local_recv_messages++;
   if (mana_state == RUNNING &&
-      isBufferedPacket(source, tag, comm, &flag, status)) {
+      existsMatchingMsgBuffer(source, tag, comm, &flag, status)) {
     int type_size;
     retval = MPI_Type_size(datatype, &type_size);
     int msg_size = type_size * count;
-    consumeBufferedPacket(buf, count, datatype, source, tag, comm,
-                          status, msg_size);
+    consumeMatchingMsgBuffer(buf, count, datatype, source, tag, comm,
+                             status, msg_size);
     retval = MPI_SUCCESS;
     DMTCP_PLUGIN_ENABLE_CKPT();
     return retval;
@@ -179,12 +179,12 @@ USER_DEFINED_WRAPPER(int, Irecv,
 
   DMTCP_PLUGIN_DISABLE_CKPT();
   if (mana_state == RUNNING &&
-      isBufferedPacket(source, tag, comm, &flag, &status)) {
+      existsMatchingMsgBuffer(source, tag, comm, &flag, &status)) {
     int type_size;
     retval = MPI_Type_size(datatype, &type_size);
     int msg_size = type_size * count;
-    consumeBufferedPacket(buf, count, datatype, source, tag, comm,
-                          &status, msg_size);
+    consumeMatchingMsgBuffer(buf, count, datatype, source, tag, comm,
+                             &status, msg_size);
 
     // Use (MPI_REQUEST_NULL+1) as a fake non-null real request to create
     // a new non-null virtual request and map the virtual request to the
