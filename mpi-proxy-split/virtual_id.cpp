@@ -25,7 +25,7 @@ unsigned int generate_ggid(int *ranks, int size) {
   return ggid;
 }
 
-int is_predefined_id(mana_handle id) {
+int is_predefined_id(mana_mpi_handle id) {
   std::map<int64_t, int64_t>::iterator it;
   it = upper_to_lower_constants.find(id._handle64);
   return it != upper_to_lower_constants.end();
@@ -60,8 +60,8 @@ MPI_Comm new_virt_comm(MPI_Comm real_comm) {
                                     desc->size);
   seq_num[ggid] = 0;
   target[ggid] = 0;
-  mana_handle virt_id;
-  virt_id = add_virt_id({.comm = real_comm}, desc, MANA_COMM_KIND);
+  mana_mpi_handle virt_id;
+  virt_id = add_virt_id((mana_mpi_handle){.comm = real_comm}, desc, MANA_COMM_KIND);
   ggid_table[virt_id.comm] = ggid;
   return virt_id.comm;
 }
@@ -85,16 +85,16 @@ MPI_Group new_virt_group(MPI_Group real_group) {
                                    g_world_group, desc->global_ranks);
   RETURN_TO_UPPER_HALF();
 
-  mana_handle virt_id;
-  virt_id = add_virt_id({.group = real_group}, desc, MANA_GROUP_KIND);
+  mana_mpi_handle virt_id;
+  virt_id = add_virt_id((mana_mpi_handle){.group = real_group}, desc, MANA_GROUP_KIND);
   return virt_id.group;
 }
 
 MPI_Request new_virt_request(MPI_Request real_request) {
   mana_request_desc *desc = (mana_request_desc*)malloc(sizeof(mana_request_desc));
   // See comment in request_desc definition.
-  mana_handle virt_id;
-  virt_id = add_virt_id({.request = real_request}, NULL, MANA_REQUEST_KIND);
+  mana_mpi_handle virt_id;
+  virt_id = add_virt_id((mana_mpi_handle){.request = real_request}, NULL, MANA_REQUEST_KIND);
   return virt_id.request;
 }
 
@@ -105,22 +105,22 @@ MPI_Op new_virt_op(MPI_Op real_op) {
   // and let the MPI_Op_create wrapper to fill-in these two fields
   // in the descriptor.
 
-  mana_handle virt_id;
-  virt_id = add_virt_id({.op = real_op}, desc, MANA_OP_KIND);
+  mana_mpi_handle virt_id;
+  virt_id = add_virt_id((mana_mpi_handle){.op = real_op}, desc, MANA_OP_KIND);
   return virt_id.op;
 }
 
 MPI_Datatype new_virt_datatype(MPI_Datatype real_datatype) {
   mana_datatype_desc *desc = (mana_datatype_desc*)
                              malloc(sizeof(mana_datatype_desc));
-  mana_handle virt_id;
-  virt_id = add_virt_id({.datatype = real_datatype}, desc, MANA_DATATYPE_KIND);
+  mana_mpi_handle virt_id;
+  virt_id = add_virt_id((mana_mpi_handle){.datatype = real_datatype}, desc, MANA_DATATYPE_KIND);
   return virt_id.datatype;
 }
 
 MPI_File new_virt_file(MPI_File real_file) {
-  mana_handle virt_id;
-  virt_id = add_virt_id((mana_handle){.file = real_file}, NULL, MANA_FILE_KIND);
+  mana_mpi_handle virt_id;
+  virt_id = add_virt_id((mana_mpi_handle){.file = real_file}, NULL, MANA_FILE_KIND);
   return virt_id.file;
 }
 
@@ -415,9 +415,9 @@ void init_predefined_virt_ids() {
   target[ggid] = 0;
 }
 
-mana_handle add_virt_id(mana_handle real_id, void *desc, int kind) {
+mana_mpi_handle add_virt_id(mana_mpi_handle real_id, void *desc, int kind) {
   static int next_id = 0;
-  mana_handle new_virt_id;
+  mana_mpi_handle new_virt_id;
   do {
     new_virt_id._handle = kind << MANA_VIRT_ID_KIND_SHIFT;
     new_virt_id._handle = new_virt_id._handle | next_id;
@@ -433,7 +433,7 @@ mana_handle add_virt_id(mana_handle real_id, void *desc, int kind) {
 }
 
 #define DEBUG_VIRTID
-virt_id_entry* get_virt_id_entry(mana_handle virt_id) {
+virt_id_entry* get_virt_id_entry(mana_mpi_handle virt_id) {
   // virt_id is a 64 bit union: _handle is a int32_t 
   // FIXME: this assumes a little-endian CPU
   virt_id_iterator it = virt_ids.find(virt_id._handle);
@@ -453,7 +453,7 @@ virt_id_entry* get_virt_id_entry(mana_handle virt_id) {
   return it->second;
 }
 
-mana_handle get_real_id(mana_handle virt_id) {
+mana_mpi_handle get_real_id(mana_mpi_handle virt_id) {
   std::map<int64_t, int64_t>::iterator it;
   
   /*
@@ -486,7 +486,7 @@ mana_handle get_real_id(mana_handle virt_id) {
   }
 }
 
-void* get_virt_id_desc(mana_handle virt_id) {
+void* get_virt_id_desc(mana_mpi_handle virt_id) {
   std::map<int64_t, int64_t>::iterator it;
   it = upper_to_lower_constants.find(virt_id._handle64);
   if (it != upper_to_lower_constants.end()) {
@@ -507,7 +507,7 @@ void free_desc(void *desc, int kind) {
   free(desc);
 }
 
-void free_virt_id(mana_handle virt_id) {
+void free_virt_id(mana_mpi_handle virt_id) {
   virt_id_iterator it = virt_ids.find(virt_id._handle);
   // Should we abort or return an error code?
   if (it == virt_ids.end()) {
@@ -520,7 +520,7 @@ void free_virt_id(mana_handle virt_id) {
   virt_ids.erase(it);
 }
 
-void update_virt_id(mana_handle virt_id, mana_handle real_id) {
+void update_virt_id(mana_mpi_handle virt_id, mana_mpi_handle real_id) {
   virt_id_iterator it = virt_ids.find(virt_id._handle);
   // Should we abort or return an error code?
   if (it == virt_ids.end()) {

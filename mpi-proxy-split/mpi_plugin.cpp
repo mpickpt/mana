@@ -687,7 +687,7 @@ restore_mpi_files(const char *filename)
     // Re-create file with initial parameters
     int retval;
     MPI_File fh;
-    MPI_Comm real_comm = get_real_id((mana_handle){.comm = itr->second._comm}).comm;
+    MPI_Comm real_comm = get_real_id((mana_mpi_handle){.comm = itr->second._comm}).comm;
     JUMP_TO_LOWER_HALF(lh_info->fsaddr);
     retval = NEXT_FUNC(File_open)(real_comm, itr->second._filepath,
                                   itr->second._mode, itr->second._info, &fh);
@@ -695,7 +695,7 @@ restore_mpi_files(const char *filename)
     JASSERT(retval == 0).Text("Restoration of MPI_File_open failed");
 
     // Update virtual mapping with newly created file
-    update_virt_id((mana_handle){.file = itr->first}, (mana_handle){.file = fh});
+    update_virt_id((mana_mpi_handle){.file = itr->first}, (mana_mpi_handle){.file = fh});
 
     // Restore file characteristics that are universal to the entire file
     // These are characteristics that do not have to be replayed in order,

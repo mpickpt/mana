@@ -99,7 +99,7 @@ logRequestInfo(MPI_Request request, mpi_req_t req_type)
     if (req_info->update_counter <= REAL_REQUEST_LOG_LEVEL) {
       req_info->update_counter++;
       req_info->real_request[req_info->update_counter] =
-        get_real_id((mana_handle){.request = request}).request;
+        get_real_id((mana_mpi_handle){.request = request}).request;
     } else {
       JWARNING(false).Text("Too many real request update");
     }
@@ -111,7 +111,7 @@ logRequestInfo(MPI_Request request, mpi_req_t req_type)
         sizeof(MPI_Request) * REAL_REQUEST_LOG_LEVEL);
     memset(&req_info->backtrace, 0, sizeof(void*) * STACK_TRACK_LEVEL);
     req_info->type = req_type;
-    req_info->real_request[0] = get_real_id((mana_handle){.request = request}).request;
+    req_info->real_request[0] = get_real_id((mana_mpi_handle){.request = request}).request;
     req_info->update_counter = 0;
     backtrace(&(req_info->backtrace[0]), STACK_TRACK_LEVEL);
     pthread_mutex_lock(&logMutex);
@@ -180,8 +180,8 @@ replayMpiP2pOnRestart()
     int retval = 0;
     request = it.first;
     call = it.second;
-    MPI_Comm realComm = get_real_id((mana_handle){.comm = call->comm}).comm;
-    MPI_Datatype realType = get_real_id((mana_handle){.datatype = call->datatype}).datatype;
+    MPI_Comm realComm = get_real_id((mana_mpi_handle){.comm = call->comm}).comm;
+    MPI_Datatype realType = get_real_id((mana_mpi_handle){.datatype = call->datatype}).datatype;
     MPI_Request realRequest;
     switch (call->type) {
       case IRECV_REQUEST:
@@ -196,7 +196,7 @@ replayMpiP2pOnRestart()
                          realType, call->remote_node,
                          call->tag, realComm, &realRequest);
         RETURN_TO_UPPER_HALF();
-        update_virt_id((mana_handle){.request = request}, (mana_handle){.request = realRequest});
+        update_virt_id((mana_mpi_handle){.request = request}, (mana_mpi_handle){.request = realRequest});
 #endif
         JASSERT(retval == MPI_SUCCESS).Text("Error while replaying recv");
         break;

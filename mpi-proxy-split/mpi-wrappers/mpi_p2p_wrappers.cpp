@@ -48,8 +48,8 @@ USER_DEFINED_WRAPPER(int, Send,
   }
   DMTCP_PLUGIN_DISABLE_CKPT();
   local_sent_messages++;
-  MPI_Comm realComm = get_real_id((mana_handle){.comm = comm}).comm;
-  MPI_Datatype realType = get_real_id((mana_handle){.datatype = datatype}).datatype;
+  MPI_Comm realComm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
+  MPI_Datatype realType = get_real_id((mana_mpi_handle){.datatype = datatype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Send)(buf, count, realType, dest, tag, realComm);
   RETURN_TO_UPPER_HALF();
@@ -74,8 +74,8 @@ USER_DEFINED_WRAPPER(int, Isend,
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   local_sent_messages++;
-  MPI_Comm realComm = get_real_id((mana_handle){.comm = comm}).comm;
-  MPI_Datatype realType = get_real_id((mana_handle){.datatype = datatype}).datatype;
+  MPI_Comm realComm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
+  MPI_Datatype realType = get_real_id((mana_mpi_handle){.datatype = datatype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Isend)(buf, count, realType, dest, tag, realComm, request);
   RETURN_TO_UPPER_HALF();
@@ -111,8 +111,8 @@ USER_DEFINED_WRAPPER(int, Rsend, (const void*) ibuf, (int) count,
   }
   DMTCP_PLUGIN_DISABLE_CKPT();
   local_sent_messages++;
-  MPI_Comm realComm = get_real_id((mana_handle){.comm = comm}).comm;
-  MPI_Datatype realType = get_real_id((mana_handle){.datatype = datatype}).datatype;
+  MPI_Comm realComm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
+  MPI_Datatype realType = get_real_id((mana_mpi_handle){.datatype = datatype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Rsend)(ibuf, count, realType, dest, tag, realComm);
   RETURN_TO_UPPER_HALF();
@@ -154,8 +154,8 @@ USER_DEFINED_WRAPPER(int, Recv,
   }
   while (!flag) {
     DMTCP_PLUGIN_DISABLE_CKPT();
-    MPI_Comm realComm = get_real_id((mana_handle){.comm = comm}).comm;
-    MPI_Datatype realType = get_real_id((mana_handle){.datatype = datatype}).datatype;
+    MPI_Comm realComm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
+    MPI_Datatype realType = get_real_id((mana_mpi_handle){.datatype = datatype}).datatype;
     JUMP_TO_LOWER_HALF(lh_info->fsaddr);
     for (int i = 0; i < 1000; i++) {
       NEXT_FUNC(Iprobe)(source, tag, realComm, &flag, status);
@@ -221,9 +221,9 @@ USER_DEFINED_WRAPPER(int, Irecv,
     //    We should add a comment that MPI_REQUEST_FAKE_NULL can occr,
     //    and that the details are in the comments for the MPI_Irecv wrapper.
     MPI_Request virtRequest = new_virt_request((MPI_Request)((intptr_t)MPI_REQUEST_NULL+1));
-    mana_handle real_request_null;
+    mana_mpi_handle real_request_null;
     real_request_null.request = MPI_REQUEST_NULL;
-    update_virt_id((mana_handle){.request = virtRequest}, real_request_null);
+    update_virt_id((mana_mpi_handle){.request = virtRequest}, real_request_null);
     *request = virtRequest;
     retval = MPI_SUCCESS;
     DMTCP_PLUGIN_ENABLE_CKPT();
@@ -232,8 +232,8 @@ USER_DEFINED_WRAPPER(int, Irecv,
   LOG_PRE_Irecv(&status);
   REPLAY_PRE_Irecv(count,datatype,source,tag,comm);
 
-  MPI_Comm realComm = get_real_id((mana_handle){.comm = comm}).comm;
-  MPI_Datatype realType = get_real_id((mana_handle){.datatype = datatype}).datatype;
+  MPI_Comm realComm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
+  MPI_Datatype realType = get_real_id((mana_mpi_handle){.datatype = datatype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Irecv)(buf, count, realType,
                             source, tag, realComm, request);
