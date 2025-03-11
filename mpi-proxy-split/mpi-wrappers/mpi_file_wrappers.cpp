@@ -45,7 +45,7 @@ USER_DEFINED_WRAPPER(int, File_open, (MPI_Comm) comm, (const char *) filename,
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm realComm = get_real_id({.comm = comm}).comm;
+  MPI_Comm realComm = get_real_id((mana_handle){.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(File_open)(realComm, filename, amode, info, fh);
   RETURN_TO_UPPER_HALF();
@@ -128,8 +128,8 @@ USER_DEFINED_WRAPPER(int, File_set_view, (MPI_File) fh, (MPI_Offset) disp,
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_File real_file = get_real_id((mana_handle){.file = fh}).file;
-  MPI_Datatype realEtype = get_real_id({.datatype = etype}).datatype;
-  MPI_Datatype realFtype = get_real_id({.datatype = filetype}).datatype;
+  MPI_Datatype realEtype = get_real_id((mana_handle){.datatype = etype}).datatype;
+  MPI_Datatype realFtype = get_real_id((mana_handle){.datatype = filetype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(File_set_view)(real_file, disp, realEtype, realFtype,
                                     datarep, info);
@@ -158,7 +158,7 @@ USER_DEFINED_WRAPPER(int, File_get_view, (MPI_File) fh, (MPI_Offset*) disp,
   int retval = MPI_SUCCESS;
   /*
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_File real_file = get_real_id({.file = fh}).file;
+  MPI_File real_file = get_real_id((mana_handle){.file = fh}).file;
   MPI_Datatype realEtype;
   MPI_Datatype realFtype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
@@ -178,7 +178,7 @@ USER_DEFINED_WRAPPER(int, File_read, (MPI_File) fh, (void*) buf, (int) count,
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_File real_file = get_real_id((mana_handle){.file = fh}).file;
-  MPI_Datatype real_datatype = get_real_id({.datatype = datatype}).datatype;
+  MPI_Datatype real_datatype = get_real_id((mana_handle){.datatype = datatype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(File_read)(real_file, buf, count, real_datatype, status);
   RETURN_TO_UPPER_HALF();
@@ -193,7 +193,7 @@ USER_DEFINED_WRAPPER(int, File_read_at, (MPI_File) fh, (MPI_Offset) offset,
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_File real_file = get_real_id((mana_handle){.file = fh}).file;
-  MPI_Datatype real_datatype = get_real_id({.datatype = datatype}).datatype;
+  MPI_Datatype real_datatype = get_real_id((mana_handle){.datatype = datatype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(File_read_at)(real_file, offset, buf, count, real_datatype,
                                    status);
@@ -214,7 +214,7 @@ USER_DEFINED_WRAPPER(int, File_read_at_all, (MPI_File) fh, (MPI_Offset) offset,
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_File real_file = get_real_id((mana_handle){.file = fh}).file;
-  MPI_Datatype real_datatype = get_real_id({.datatype = datatype}).datatype;
+  MPI_Datatype real_datatype = get_real_id((mana_handle){.datatype = datatype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(File_read_at_all)(real_file, offset, buf, count, real_datatype,
                                        status);
@@ -234,7 +234,7 @@ USER_DEFINED_WRAPPER(int, File_read_all, (MPI_File) fh, (void*) buf,
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_File real_file = get_real_id((mana_handle){.file = fh}).file;
-  MPI_Datatype real_datatype = get_real_id({.datatype = datatype}).datatype;
+  MPI_Datatype real_datatype = get_real_id((mana_handle){.datatype = datatype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(File_read_all)(real_file, buf, count, real_datatype, status);
   RETURN_TO_UPPER_HALF();
@@ -248,7 +248,7 @@ USER_DEFINED_WRAPPER(int, File_write, (MPI_File) fh, (const void*) buf,
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_File real_file = get_real_id((mana_handle){.file = fh}).file;
-  MPI_Datatype real_datatype = get_real_id({.datatype = datatype}).datatype;
+  MPI_Datatype real_datatype = get_real_id((mana_handle){.datatype = datatype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(File_write)(real_file, buf, count, real_datatype, status);
   RETURN_TO_UPPER_HALF();
@@ -263,7 +263,7 @@ USER_DEFINED_WRAPPER(int, File_write_at, (MPI_File) fh, (MPI_Offset) offset,
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_File real_file = get_real_id((mana_handle){.file = fh}).file;
-  MPI_Datatype real_datatype = get_real_id({.datatype = datatype}).datatype;
+  MPI_Datatype real_datatype = get_real_id((mana_handle){.datatype = datatype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(File_write_at)(real_file, offset, buf, count, real_datatype,
                                     status);
@@ -280,7 +280,7 @@ USER_DEFINED_WRAPPER(int, File_write_at_all, (MPI_File) fh, (MPI_Offset) offset,
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_File real_file = get_real_id((mana_handle){.file = fh}).file;
-  MPI_Datatype real_datatype = get_real_id({.datatype = datatype}).datatype;
+  MPI_Datatype real_datatype = get_real_id((mana_handle){.datatype = datatype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(File_write_at_all)(real_file, offset, buf, count,
                                         real_datatype, status);
@@ -296,7 +296,7 @@ USER_DEFINED_WRAPPER(int, File_write_all, (MPI_File) fh, (const void*) buf,
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_File real_file = get_real_id((mana_handle){.file = fh}).file;
-  MPI_Datatype real_datatype = get_real_id({.datatype = datatype}).datatype;
+  MPI_Datatype real_datatype = get_real_id((mana_handle){.datatype = datatype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(File_write_all)(real_file, buf, count, real_datatype, status);
   RETURN_TO_UPPER_HALF();

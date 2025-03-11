@@ -95,7 +95,7 @@ USER_DEFINED_WRAPPER(int, Comm_size, (MPI_Comm) comm, (int *) size)
 {
   int retval = MPI_SUCCESS;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
+  MPI_Comm real_comm = get_real_id((mana_handle){.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Comm_size)(real_comm, size);
   RETURN_TO_UPPER_HALF();
@@ -107,7 +107,7 @@ USER_DEFINED_WRAPPER(int, Comm_rank, (MPI_Comm) comm, (int *) rank)
 {
   int retval = MPI_SUCCESS;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
+  MPI_Comm real_comm = get_real_id((mana_handle){.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Comm_rank)(real_comm, rank);
   RETURN_TO_UPPER_HALF();
@@ -121,8 +121,8 @@ USER_DEFINED_WRAPPER(int, Comm_create, (MPI_Comm) comm, (MPI_Group) group,
   int retval;
   commit_begin(comm);
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
-  MPI_Group real_group = get_real_id({.group = group}).group;
+  MPI_Comm real_comm = get_real_id((mana_handle){.comm = comm}).comm;
+  MPI_Group real_group = get_real_id((mana_handle){.group = group}).group;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Comm_create)(real_comm, real_group, newcomm);
   RETURN_TO_UPPER_HALF();
@@ -142,7 +142,7 @@ USER_DEFINED_WRAPPER(int, Abort, (MPI_Comm) comm, (int) errorcode)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
+  MPI_Comm real_comm = get_real_id((mana_handle){.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Abort)(real_comm, errorcode);
   RETURN_TO_UPPER_HALF();
@@ -155,8 +155,8 @@ USER_DEFINED_WRAPPER(int, Comm_compare,
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm real_comm1 = get_real_id({.comm = comm1}).comm;
-  MPI_Comm real_comm2 = get_real_id({.comm = comm2}).comm;
+  MPI_Comm real_comm1 = get_real_id((mana_handle){.comm = comm1}).comm;
+  MPI_Comm real_comm2 = get_real_id((mana_handle){.comm = comm2}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Comm_compare)(real_comm1, real_comm2, result);
   RETURN_TO_UPPER_HALF();
@@ -170,7 +170,7 @@ int
 MPI_Comm_free_internal(MPI_Comm *comm)
 {
   int retval;
-  MPI_Comm real_comm = get_real_id({.comm = *comm}).comm;
+  MPI_Comm real_comm = get_real_id((mana_handle){.comm = *comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Comm_free)(&real_comm);
   RETURN_TO_UPPER_HALF();
@@ -200,7 +200,7 @@ USER_DEFINED_WRAPPER(int, Comm_free, (MPI_Comm *) comm)
   DMTCP_PLUGIN_DISABLE_CKPT();
   int retval = MPI_Comm_free_internal(comm);
   if (retval == MPI_SUCCESS) {
-    free_virt_id({.comm = *comm});
+    free_virt_id((mana_handle){.comm = *comm});
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -303,7 +303,7 @@ USER_DEFINED_WRAPPER(int, Comm_set_errhandler,
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
+  MPI_Comm real_comm = get_real_id((mana_handle){.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Comm_set_errhandler)(real_comm, errhandler);
   RETURN_TO_UPPER_HALF();
@@ -316,7 +316,7 @@ USER_DEFINED_WRAPPER(int, Topo_test,
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
+  MPI_Comm real_comm = get_real_id((mana_handle){.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Topo_test)(real_comm, status);
   RETURN_TO_UPPER_HALF();
@@ -329,7 +329,7 @@ USER_DEFINED_WRAPPER(int, Comm_split_type, (MPI_Comm) comm, (int) split_type,
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
+  MPI_Comm real_comm = get_real_id((mana_handle){.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Comm_split_type)(real_comm, split_type, key, inf, newcomm);
   RETURN_TO_UPPER_HALF();
@@ -351,7 +351,7 @@ USER_DEFINED_WRAPPER(int, Attr_get, (MPI_Comm) comm, (int) keyval,
     "Use of MPI_Attr_get is deprecated - use MPI_Comm_get_attr instead");
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
+  MPI_Comm real_comm = get_real_id((mana_handle){.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Attr_get)(real_comm, keyval, attribute_val, flag);
   RETURN_TO_UPPER_HALF();
@@ -366,7 +366,7 @@ USER_DEFINED_WRAPPER(int, Attr_delete, (MPI_Comm) comm, (int) keyval)
     "Use of MPI_Attr_delete is deprecated - use MPI_Comm_delete_attr instead");
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
+  MPI_Comm real_comm = get_real_id((mana_handle){.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Attr_delete)(real_comm, keyval);
   RETURN_TO_UPPER_HALF();
@@ -381,7 +381,7 @@ USER_DEFINED_WRAPPER(int, Attr_put, (MPI_Comm) comm,
     "Use of MPI_Attr_put is deprecated - use MPI_Comm_set_attr instead");
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
+  MPI_Comm real_comm = get_real_id((mana_handle){.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Attr_put)(real_comm, keyval, attribute_val);
   RETURN_TO_UPPER_HALF();
@@ -440,8 +440,8 @@ MPI_Comm_create_group_internal(MPI_Comm comm, MPI_Group group, int tag,
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
-  MPI_Group real_group = get_real_id({.group = group}).group;
+  MPI_Comm real_comm = get_real_id((mana_handle){.comm = comm}).comm;
+  MPI_Group real_group = get_real_id((mana_handle){.group = group}).group;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Comm_create_group)(real_comm, real_group, tag, newcomm);
   RETURN_TO_UPPER_HALF();

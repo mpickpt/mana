@@ -60,8 +60,8 @@ USER_DEFINED_WRAPPER(int, Bcast,
   commit_begin(comm);
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
-  MPI_Datatype real_datatype = get_real_id({.datatype = datatype}).datatype;
+  MPI_Comm real_comm = get_real_id((mana_handle){.comm = comm}).comm;
+  MPI_Datatype real_datatype = get_real_id((mana_handle){.datatype = datatype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Bcast)(buffer, count, real_datatype, root, real_comm);
   RETURN_TO_UPPER_HALF();
@@ -77,8 +77,8 @@ USER_DEFINED_WRAPPER(int, Ibcast,
   int retval;
   commit_begin(comm);
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
-  MPI_Datatype real_datatype = get_real_id({.datatype = datatype}).datatype;
+  MPI_Comm real_comm = get_real_id((mana_handle){.comm = comm}).comm;
+  MPI_Datatype real_datatype = get_real_id((mana_handle){.datatype = datatype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Ibcast)(buffer, count, real_datatype,
       root, real_comm, request);
@@ -100,7 +100,7 @@ USER_DEFINED_WRAPPER(int, Barrier, (MPI_Comm) comm)
   commit_begin(comm);
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
+  MPI_Comm real_comm = get_real_id((mana_handle){.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Barrier)(real_comm);
   RETURN_TO_UPPER_HALF();
@@ -114,7 +114,7 @@ USER_DEFINED_WRAPPER(int, Ibarrier, (MPI_Comm) comm, (MPI_Request *) request)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
+  MPI_Comm real_comm = get_real_id((mana_handle){.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Ibarrier)(real_comm, request);
   RETURN_TO_UPPER_HALF();
@@ -223,9 +223,9 @@ USER_DEFINED_WRAPPER(int, Allreduce,
     retval = MPI_Allreduce_reproducible(sendbuf, recvbuf, count, datatype, op,
                                         comm, 0);
   else {
-    MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
-    MPI_Datatype real_datatype = get_real_id({.datatype = datatype}).datatype;
-    MPI_Op real_op = get_real_id({.op = op}).op;
+    MPI_Comm real_comm = get_real_id((mana_handle){.comm = comm}).comm;
+    MPI_Datatype real_datatype = get_real_id((mana_handle){.datatype = datatype}).datatype;
+    MPI_Op real_op = get_real_id((mana_handle){.op = op}).op;
     // FIXME: Ideally, check FORTRAN_MPI_IN_PLACE only in the Fortran wrapper.
     if (sendbuf == FORTRAN_MPI_IN_PLACE) {
       sendbuf = MPI_IN_PLACE;
@@ -248,9 +248,9 @@ USER_DEFINED_WRAPPER(int, Reduce,
   commit_begin(comm);
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
-  MPI_Datatype real_datatype = get_real_id({.datatype = datatype}).datatype;
-  MPI_Op real_op = get_real_id({.op = op}).op;
+  MPI_Comm real_comm = get_real_id((mana_handle){.comm = comm}).comm;
+  MPI_Datatype real_datatype = get_real_id((mana_handle){.datatype = datatype}).datatype;
+  MPI_Op real_op = get_real_id((mana_handle){.op = op}).op;
   // FIXME: Ideally, check FORTRAN_MPI_IN_PLACE only in the Fortran wrapper.
   if (sendbuf == FORTRAN_MPI_IN_PLACE) {
     sendbuf = MPI_IN_PLACE;
@@ -271,9 +271,9 @@ USER_DEFINED_WRAPPER(int, Ireduce,
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
-  MPI_Datatype real_datatype = get_real_id({.datatype = datatype}).datatype;
-  MPI_Op real_op = get_real_id({.op = op}).op;
+  MPI_Comm real_comm = get_real_id((mana_handle){.comm = comm}).comm;
+  MPI_Datatype real_datatype = get_real_id((mana_handle){.datatype = datatype}).datatype;
+  MPI_Op real_op = get_real_id((mana_handle){.op = op}).op;
   // FIXME: Ideally, check FORTRAN_MPI_IN_PLACE only in the Fortran wrapper.
   if (sendbuf == FORTRAN_MPI_IN_PLACE) {
     sendbuf = MPI_IN_PLACE;
@@ -301,9 +301,9 @@ USER_DEFINED_WRAPPER(int, Reduce_scatter,
   commit_begin(comm);
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
-  MPI_Datatype real_datatype = get_real_id({.datatype = datatype}).datatype;
-  MPI_Op real_op = get_real_id({.op = op}).op;
+  MPI_Comm real_comm = get_real_id((mana_handle){.comm = comm}).comm;
+  MPI_Datatype real_datatype = get_real_id((mana_handle){.datatype = datatype}).datatype;
+  MPI_Op real_op = get_real_id((mana_handle){.op = op}).op;
   // FIXME: Ideally, check FORTRAN_MPI_IN_PLACE only in the Fortran wrapper.
   if (sendbuf == FORTRAN_MPI_IN_PLACE) {
     sendbuf = MPI_IN_PLACE;
@@ -333,9 +333,9 @@ MPI_Alltoall_internal(const void *sendbuf, int sendcount,
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
-  MPI_Datatype realSendType = get_real_id({.datatype = sendtype}).datatype;
-  MPI_Datatype realRecvType = get_real_id({.datatype = recvtype}).datatype;
+  MPI_Comm real_comm = get_real_id((mana_handle){.comm = comm}).comm;
+  MPI_Datatype realSendType = get_real_id((mana_handle){.datatype = sendtype}).datatype;
+  MPI_Datatype realRecvType = get_real_id((mana_handle){.datatype = recvtype}).datatype;
   // FIXME: Ideally, check FORTRAN_MPI_IN_PLACE only in the Fortran wrapper.
   if (sendbuf == FORTRAN_MPI_IN_PLACE) {
     sendbuf = MPI_IN_PLACE;
@@ -372,9 +372,9 @@ MPI_Alltoall_internal(const void *sendbuf, int sendcount,
   MPI_Type_get_extent(sendtype, &slb, &sendtype_extent);
   MPI_Type_get_extent(recvtype, &rlb, &recvtype_extent);
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
-  MPI_Datatype realSendType = get_real_id({.datatype = sendtype}).datatype;
-  MPI_Datatype realRecvType = get_real_id({.datatype = recvtype}).datatype;
+  MPI_Comm real_comm = get_real_id((mana_handle){.comm = comm}).comm;
+  MPI_Datatype realSendType = get_real_id((mana_handle){.datatype = sendtype}).datatype;
+  MPI_Datatype realRecvType = get_real_id((mana_handle){.datatype = recvtype}).datatype;
   // FIXME: Ideally, check FORTRAN_MPI_IN_PLACE only in the Fortran wrapper.
   if (sendbuf == FORTRAN_MPI_IN_PLACE) {
     sendbuf = MPI_IN_PLACE;
@@ -449,9 +449,9 @@ USER_DEFINED_WRAPPER(int, Alltoallv,
     sendbuf = MPI_IN_PLACE;
   }
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
-  MPI_Datatype realSendType = get_real_id({.datatype = sendtype}).datatype;
-  MPI_Datatype realRecvType = get_real_id({.datatype = recvtype}).datatype;
+  MPI_Comm real_comm = get_real_id((mana_handle){.comm = comm}).comm;
+  MPI_Datatype realSendType = get_real_id((mana_handle){.datatype = sendtype}).datatype;
+  MPI_Datatype realRecvType = get_real_id((mana_handle){.datatype = recvtype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Alltoallv)(sendbuf, sendcounts, sdispls, realSendType,
                                 recvbuf, recvcounts, rdispls, realRecvType,
@@ -473,9 +473,9 @@ USER_DEFINED_WRAPPER(int, Gather, (const void *) sendbuf, (int) sendcount,
     sendbuf = MPI_IN_PLACE;
   }
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
-  MPI_Datatype realSendType = get_real_id({.datatype = sendtype}).datatype;
-  MPI_Datatype realRecvType = get_real_id({.datatype = recvtype}).datatype;
+  MPI_Comm real_comm = get_real_id((mana_handle){.comm = comm}).comm;
+  MPI_Datatype realSendType = get_real_id((mana_handle){.datatype = sendtype}).datatype;
+  MPI_Datatype realRecvType = get_real_id((mana_handle){.datatype = recvtype}).datatype;
   // FIXME: Ideally, check FORTRAN_MPI_IN_PLACE only in the Fortran wrapper.
   if (sendbuf == FORTRAN_MPI_IN_PLACE) {
     sendbuf = MPI_IN_PLACE;
@@ -502,9 +502,9 @@ USER_DEFINED_WRAPPER(int, Gatherv, (const void *) sendbuf, (int) sendcount,
     sendbuf = MPI_IN_PLACE;
   }
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
-  MPI_Datatype realSendType = get_real_id({.datatype = sendtype}).datatype;
-  MPI_Datatype realRecvType = get_real_id({.datatype = recvtype}).datatype;
+  MPI_Comm real_comm = get_real_id((mana_handle){.comm = comm}).comm;
+  MPI_Datatype realSendType = get_real_id((mana_handle){.datatype = sendtype}).datatype;
+  MPI_Datatype realRecvType = get_real_id((mana_handle){.datatype = recvtype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Gatherv)(sendbuf, sendcount, realSendType,
                               recvbuf, recvcounts, displs, realRecvType,
@@ -526,9 +526,9 @@ USER_DEFINED_WRAPPER(int, Scatter, (const void *) sendbuf, (int) sendcount,
     recvbuf = MPI_IN_PLACE;
   }
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
-  MPI_Datatype realSendType = get_real_id({.datatype = sendtype}).datatype;
-  MPI_Datatype realRecvType = get_real_id({.datatype = recvtype}).datatype;
+  MPI_Comm real_comm = get_real_id((mana_handle){.comm = comm}).comm;
+  MPI_Datatype realSendType = get_real_id((mana_handle){.datatype = sendtype}).datatype;
+  MPI_Datatype realRecvType = get_real_id((mana_handle){.datatype = recvtype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Scatter)(sendbuf, sendcount, realSendType,
                               recvbuf, recvcount, realRecvType,
@@ -551,9 +551,9 @@ USER_DEFINED_WRAPPER(int, Scatterv, (const void *) sendbuf,
     recvbuf = MPI_IN_PLACE;
   }
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
-  MPI_Datatype realSendType = get_real_id({.datatype = sendtype}).datatype;
-  MPI_Datatype realRecvType = get_real_id({.datatype = recvtype}).datatype;
+  MPI_Comm real_comm = get_real_id((mana_handle){.comm = comm}).comm;
+  MPI_Datatype realSendType = get_real_id((mana_handle){.datatype = sendtype}).datatype;
+  MPI_Datatype realRecvType = get_real_id((mana_handle){.datatype = recvtype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Scatterv)(sendbuf, sendcounts, displs, realSendType,
                                recvbuf, recvcount, realRecvType,
@@ -575,9 +575,9 @@ USER_DEFINED_WRAPPER(int, Allgather, (const void *) sendbuf, (int) sendcount,
     sendbuf = MPI_IN_PLACE;
   }
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
-  MPI_Datatype realSendType = get_real_id({.datatype = sendtype}).datatype;
-  MPI_Datatype realRecvType = get_real_id({.datatype = recvtype}).datatype;
+  MPI_Comm real_comm = get_real_id((mana_handle){.comm = comm}).comm;
+  MPI_Datatype realSendType = get_real_id((mana_handle){.datatype = sendtype}).datatype;
+  MPI_Datatype realRecvType = get_real_id((mana_handle){.datatype = recvtype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Allgather)(sendbuf, sendcount, realSendType,
                                 recvbuf, recvcount, realRecvType,
@@ -600,9 +600,9 @@ USER_DEFINED_WRAPPER(int, Allgatherv, (const void *) sendbuf, (int) sendcount,
     sendbuf = MPI_IN_PLACE;
   }
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
-  MPI_Datatype realSendType = get_real_id({.datatype = sendtype}).datatype;
-  MPI_Datatype realRecvType = get_real_id({.datatype = recvtype}).datatype;
+  MPI_Comm real_comm = get_real_id((mana_handle){.comm = comm}).comm;
+  MPI_Datatype realSendType = get_real_id((mana_handle){.datatype = sendtype}).datatype;
+  MPI_Datatype realRecvType = get_real_id((mana_handle){.datatype = recvtype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Allgatherv)(sendbuf, sendcount, realSendType,
                                  recvbuf, recvcounts, displs, realRecvType,
@@ -620,13 +620,13 @@ USER_DEFINED_WRAPPER(int, Scan, (const void *) sendbuf, (void *) recvbuf,
   commit_begin(comm);
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
-  MPI_Datatype real_datatype = get_real_id({.datatype = datatype}).datatype;
+  MPI_Comm real_comm = get_real_id((mana_handle){.comm = comm}).comm;
+  MPI_Datatype real_datatype = get_real_id((mana_handle){.datatype = datatype}).datatype;
   // FIXME: Ideally, check FORTRAN_MPI_IN_PLACE only in the Fortran wrapper.
   if (sendbuf == FORTRAN_MPI_IN_PLACE) {
     sendbuf = MPI_IN_PLACE;
   }
-  MPI_Op real_op = get_real_id({.op = op}).op;
+  MPI_Op real_op = get_real_id((mana_handle){.op = op}).op;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Scan)(sendbuf, recvbuf, count,
                            real_datatype, real_op, real_comm);
@@ -644,7 +644,7 @@ USER_DEFINED_WRAPPER(int, Comm_split, (MPI_Comm) comm, (int) color, (int) key,
   commit_begin(comm);
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
+  MPI_Comm real_comm = get_real_id((mana_handle){.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Comm_split)(real_comm, color, key, newcomm);
   RETURN_TO_UPPER_HALF();
@@ -665,7 +665,7 @@ USER_DEFINED_WRAPPER(int, Comm_dup, (MPI_Comm) comm, (MPI_Comm *) newcomm)
   commit_begin(comm);
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm real_comm = get_real_id({.comm = comm}).comm;
+  MPI_Comm real_comm = get_real_id((mana_handle){.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Comm_dup)(real_comm, newcomm);
   RETURN_TO_UPPER_HALF();

@@ -687,7 +687,7 @@ restore_mpi_files(const char *filename)
     // Re-create file with initial parameters
     int retval;
     MPI_File fh;
-    MPI_Comm real_comm = get_real_id({.comm = itr->second._comm}).comm;
+    MPI_Comm real_comm = get_real_id((mana_handle){.comm = itr->second._comm}).comm;
     JUMP_TO_LOWER_HALF(lh_info->fsaddr);
     retval = NEXT_FUNC(File_open)(real_comm, itr->second._filepath,
                                   itr->second._mode, itr->second._info, &fh);

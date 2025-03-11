@@ -152,7 +152,7 @@ completePendingP2pRequests()
 #endif
         local_recv_messages++;
       }
-      update_virt_id({.request = request}, {.request = MPI_REQUEST_NULL});
+      update_virt_id((mana_handle){.request = request},(mana_handle){.request = MPI_REQUEST_NULL});
       it = g_nonblocking_calls.erase(it);
     } else {
       /*  We update the iterator even if the MPI_Test fails.
@@ -332,7 +332,7 @@ localRankToGlobalRank(int localRank, MPI_Comm localComm)
   // FIXME: For interface8, use the new architecture.
   // This only works for interface7
   MPI_Group worldGroup, localGroup;
-  MPI_Comm realComm = get_real_id({.comm = localComm}).comm;
+  MPI_Comm realComm = get_real_id((mana_handle){.comm = localComm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   NEXT_FUNC(Comm_group)(MPI_COMM_WORLD, &worldGroup);
   NEXT_FUNC(Comm_group)(realComm, &localGroup);
