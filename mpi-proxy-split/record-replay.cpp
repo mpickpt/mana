@@ -86,7 +86,7 @@ int dmtcp_mpi::restoreTypes(MpiRecord &rec) {
       JTRACE("restoreTypeCommit");
       rc = restoreTypeCommit(rec);
       break;
-    case GENERATE_ENUM(Type_hvector):
+    case GENERATE_ENUM(Type_create_hvector):
       JTRACE("restoreTypeHVector");
       rc = restoreTypeHVector(rec);
       break;
@@ -102,7 +102,7 @@ int dmtcp_mpi::restoreTypes(MpiRecord &rec) {
       JTRACE("restoreTypeCreateStruct");
       rc = restoreTypeCreateStruct(rec);
       break;
-    case GENERATE_ENUM(Type_hindexed):
+    case GENERATE_ENUM(Type_create_hindexed):
       JTRACE("restoreTypeHIndexed");
       rc = restoreTypeHIndexed(rec);
       break;
@@ -184,7 +184,7 @@ restoreTypeHVector(MpiRecord& rec)
   MPI_Aint stride = rec.args(2);
   MPI_Datatype oldtype = (MPI_Datatype)(int)rec.args(3);
   MPI_Datatype newtype = MPI_DATATYPE_NULL;
-  retval = FNC_CALL(Type_hvector, rec)(count, blocklength,
+  retval = FNC_CALL(Type_create_hvector, rec)(count, blocklength,
                                       stride, oldtype, &newtype);
   JWARNING(retval == MPI_SUCCESS)(oldtype)
           .Text("Could not restore MPI hvector datatype");
@@ -204,7 +204,7 @@ restoreTypeHIndexed(MpiRecord& rec)
   MPI_Aint *ds = rec.args(2);
   MPI_Datatype oldtype = (MPI_Datatype)(int)rec.args(3);
   MPI_Datatype newtype = MPI_DATATYPE_NULL;
-  retval = FNC_CALL(Type_hindexed, rec)(count, bs, ds, oldtype, &newtype);
+  retval = FNC_CALL(Type_create_hindexed, rec)(count, bs, ds, oldtype, &newtype);
   JWARNING(retval == MPI_SUCCESS)(oldtype)
           .Text("Could not restore MPI hvector datatype");
   if (retval == MPI_SUCCESS) {

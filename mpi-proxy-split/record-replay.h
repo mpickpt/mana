@@ -425,7 +425,7 @@ namespace dmtcp_mpi
         if (rec) {
           rec->addArgs(args...);
 	  switch (type) {
-	    case GENERATE_ENUM(Type_hvector):
+	    case GENERATE_ENUM(Type_create_hvector):
 	    {
               MPI_Datatype newtype = (MPI_Datatype)(int)rec->args(4);
 	      MPI_Datatype oldtype = (MPI_Datatype)(int)rec->args(3);
