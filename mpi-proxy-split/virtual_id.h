@@ -27,7 +27,7 @@ typedef union {
   MPI_Op op;
   MPI_Datatype datatype;
   MPI_File file;
-} mana_handle;
+} mana_mpi_handle;
 
 typedef struct {
   int size;
@@ -66,7 +66,7 @@ typedef struct {
 } mana_file_desc;
 
 typedef struct {
-  mana_handle real_id;
+  mana_mpi_handle real_id;
   void *desc;
 } virt_id_entry;
 
@@ -83,14 +83,14 @@ MPI_Datatype new_virt_datatype(MPI_Datatype real_datatype);
 MPI_Request new_virt_request(MPI_Request real_request);
 MPI_File new_virt_file(MPI_File real_request);
 
-int is_predefined_id(mana_handle id);
-mana_handle add_virt_id(mana_handle real_id, void *desc, int kind);
-virt_id_entry* get_virt_id_entry(mana_handle virt_id);
-mana_handle get_real_id(mana_handle virt_id);
-void* get_virt_id_desc(mana_handle virt_id);
+int is_predefined_id(mana_mpi_handle id);
+mana_mpi_handle add_virt_id(mana_mpi_handle real_id, void *desc, int kind);
+virt_id_entry* get_virt_id_entry(mana_mpi_handle virt_id);
+mana_mpi_handle get_real_id(mana_mpi_handle virt_id);
+void* get_virt_id_desc(mana_mpi_handle virt_id);
 void free_desc(void *desc, int kind);
-void free_virt_id(mana_handle virt_id);
-void update_virt_id(mana_handle virt_id, mana_handle real_id);
+void free_virt_id(mana_mpi_handle virt_id);
+void update_virt_id(mana_mpi_handle virt_id, mana_mpi_handle real_id);
 
 void reconstruct_descriptors();
 void init_predefined_virt_ids();

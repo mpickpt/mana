@@ -37,7 +37,7 @@ USER_DEFINED_WRAPPER(int, Comm_group, (MPI_Comm) comm, (MPI_Group *) group)
 {
   int retval = MPI_SUCCESS;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Comm real_comm = get_real_id((mana_handle){.comm = comm}).comm;
+  MPI_Comm real_comm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Comm_group)(real_comm, group);
   RETURN_TO_UPPER_HALF();
@@ -54,7 +54,7 @@ USER_DEFINED_WRAPPER(int, Group_size, (MPI_Group) group, (int *) size)
 {
   int retval = MPI_SUCCESS;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Group real_group = get_real_id((mana_handle){.group = group}).group;
+  MPI_Group real_group = get_real_id((mana_mpi_handle){.group = group}).group;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Group_size)(real_group, size);
   RETURN_TO_UPPER_HALF();
@@ -66,7 +66,7 @@ USER_DEFINED_WRAPPER(int, Group_free, (MPI_Group *) group)
 {
   int retval = MPI_SUCCESS;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  free_virt_id((mana_handle){.group = *group});
+  free_virt_id((mana_mpi_handle){.group = *group});
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -76,8 +76,8 @@ USER_DEFINED_WRAPPER(int, Group_compare, (MPI_Group) group1,
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Group real_group1 = get_real_id((mana_handle){.group = group1}).group;
-  MPI_Group real_group2 = get_real_id((mana_handle){.group = group2}).group;
+  MPI_Group real_group1 = get_real_id((mana_mpi_handle){.group = group1}).group;
+  MPI_Group real_group2 = get_real_id((mana_mpi_handle){.group = group2}).group;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Group_compare)(real_group1, real_group2, result);
   RETURN_TO_UPPER_HALF();
@@ -89,7 +89,7 @@ USER_DEFINED_WRAPPER(int, Group_rank, (MPI_Group) group, (int *) rank)
 {
   int retval = MPI_SUCCESS;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Group real_group = get_real_id((mana_handle){.group = group}).group;
+  MPI_Group real_group = get_real_id((mana_mpi_handle){.group = group}).group;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Group_rank)(real_group, rank);
   RETURN_TO_UPPER_HALF();
@@ -102,7 +102,7 @@ USER_DEFINED_WRAPPER(int, Group_incl, (MPI_Group) group, (int) n,
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Group real_group = get_real_id((mana_handle){.group = group}).group;
+  MPI_Group real_group = get_real_id((mana_mpi_handle){.group = group}).group;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Group_incl)(real_group, n, ranks, newgroup);
   RETURN_TO_UPPER_HALF();
@@ -123,8 +123,8 @@ USER_DEFINED_WRAPPER(int, Group_translate_ranks, (MPI_Group) group1,
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Group real_group1 = get_real_id((mana_handle){.group = group1}).group;
-  MPI_Group real_group2 = get_real_id((mana_handle){.group = group2}).group;
+  MPI_Group real_group1 = get_real_id((mana_mpi_handle){.group = group1}).group;
+  MPI_Group real_group2 = get_real_id((mana_mpi_handle){.group = group2}).group;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Group_translate_ranks)(real_group1, n, ranks1,
                                             real_group2, ranks2);
