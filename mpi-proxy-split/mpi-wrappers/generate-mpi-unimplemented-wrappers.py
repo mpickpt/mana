@@ -68,10 +68,10 @@ def emit_wrapper(decl, ret_type, fnc, args, arg_vars):
 for decl in declarations:
   # check for header file
   decl_oneline = re.sub('\n *', ' ', decl).strip()
-  if decl_oneline.startswith("#"):
+  if decl_oneline.startswith("#") or decl_oneline.startswith("//"):
     print(decl_oneline.rstrip(';'))
     continue
-
+  
   if decl.rstrip()[-1] != ')':
     abort_decl(decl, "missing final ')'")
   if '(' not in decl:

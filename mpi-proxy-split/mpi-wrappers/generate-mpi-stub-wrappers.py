@@ -75,6 +75,10 @@ for decl in declarations:
   if decl_oneline.startswith("#") or decl_oneline.startswith("//"):
     print(decl_oneline.rstrip(';'))
     continue
+  
+  stripped_decl = decl.rstrip()
+  if not stripped_decl:
+    continue    # skip empty declarations
 
   if decl.rstrip()[-1] != ')':
     if '(' not in decl and ',' not in decl:
