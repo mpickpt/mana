@@ -47,7 +47,7 @@ int MPI_Test_internal(MPI_Request *request, int *flag, MPI_Status *status,
   if (isRealRequest) {
     real_request = *request;
   } else {
-    real_request = get_real_id({.request = *request}).request;
+    real_request = get_real_id((mana_handle){.request = *request}).request;
   }
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   // MPI_Test can change the *request argument
@@ -77,10 +77,10 @@ USER_DEFINED_WRAPPER(int, Test, (MPI_Request*) request,
     statusPtr = &statusBuffer;
   }
   MPI_Request real_request;
-  real_request = get_real_id({.request = *request}).request;
+  real_request = get_real_id((mana_handle){.request = *request}).request;
   if (*request != MPI_REQUEST_NULL && real_request == MPI_REQUEST_NULL) {
     *flag = 1;
-    free_virt_id({.request = *request});
+    free_virt_id((mana_handle){.request = *request});
     *request = MPI_REQUEST_NULL;
     DMTCP_PLUGIN_ENABLE_CKPT();
     // FIXME: We should also fill in the status
@@ -114,7 +114,7 @@ USER_DEFINED_WRAPPER(int, Test, (MPI_Request*) request,
   LOG_POST_Test(request, statusPtr);
   if (retval == MPI_SUCCESS && *flag && MPI_LOGGING()) {
     clearPendingRequestFromLog(*request);
-    free_virt_id({.request = *request});
+    free_virt_id((mana_handle){.request = *request});
     LOG_REMOVE_REQUEST(*request); // remove from record-replay log
     *request = MPI_REQUEST_NULL;
   }
@@ -304,7 +304,7 @@ USER_DEFINED_WRAPPER(int, Waitany, (int) count,
 
         if (MPI_LOGGING()) {
           clearPendingRequestFromLog(local_array_of_requests[i]);
-          free_virt_id({.request = local_array_of_requests[i]});
+          free_virt_id((mana_handle){.request = local_array_of_requests[i]});
           local_array_of_requests[i] = MPI_REQUEST_NULL;
         }
 
@@ -374,7 +374,7 @@ USER_DEFINED_WRAPPER(int, Wait, (MPI_Request*) request, (MPI_Status*) status)
     }
     if (flag && MPI_LOGGING()) {
       clearPendingRequestFromLog(*request); // Remove from g_nonblocking_calls
-      free_virt_id({.request = *request}); // Remove from virtual id
+      free_virt_id((mana_handle){.request = *request}); // Remove from virtual id
       LOG_REMOVE_REQUEST(*request); // Remove from record-replay log
       *request = MPI_REQUEST_NULL;
     }
@@ -401,7 +401,7 @@ USER_DEFINED_WRAPPER(int, Iprobe, (int) source, (int) tag, (MPI_Comm) comm,
   DMTCP_PLUGIN_DISABLE_CKPT();
   // LOG_PRE_Iprobe(status);
 
-  MPI_Comm realComm = get_real_id({.comm = comm}).comm;
+  MPI_Comm realComm = get_real_id((mana_handle){.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Iprobe)(source, tag, realComm, flag, status);
   RETURN_TO_UPPER_HALF();
@@ -416,7 +416,7 @@ USER_DEFINED_WRAPPER(int, Request_get_status, (MPI_Request) request,
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Request real_request = get_real_id({.request = request}).request;
+  MPI_Request real_request = get_real_id((mana_handle){.request = request}).request;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Request_get_status)(real_request, flag, status);
   RETURN_TO_UPPER_HALF();

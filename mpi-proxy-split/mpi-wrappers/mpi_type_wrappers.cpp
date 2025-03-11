@@ -36,7 +36,7 @@ USER_DEFINED_WRAPPER(int, Type_size, (MPI_Datatype) datatype, (int *) size)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Datatype real_datatype = get_real_id({.datatype = datatype}).datatype;
+  MPI_Datatype real_datatype = get_real_id((mana_handle){.datatype = datatype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Type_size)(real_datatype, size);
   RETURN_TO_UPPER_HALF();
@@ -48,7 +48,7 @@ USER_DEFINED_WRAPPER(int, Type_free, (MPI_Datatype *) type)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Datatype real_datatype = get_real_id({.datatype = *type}).datatype;
+  MPI_Datatype real_datatype = get_real_id((mana_handle){.datatype = *type}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Type_free)(&real_datatype);
   RETURN_TO_UPPER_HALF();
@@ -63,7 +63,7 @@ USER_DEFINED_WRAPPER(int, Type_commit, (MPI_Datatype *) type)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Datatype real_datatype = get_real_id({.datatype = *type}).datatype;
+  MPI_Datatype real_datatype = get_real_id((mana_handle){.datatype = *type}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Type_commit)(&real_datatype);
   RETURN_TO_UPPER_HALF();
@@ -79,7 +79,7 @@ USER_DEFINED_WRAPPER(int, Type_contiguous, (int) count, (MPI_Datatype) oldtype,
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Datatype real_datatype = get_real_id({.datatype = oldtype}).datatype;
+  MPI_Datatype real_datatype = get_real_id((mana_handle){.datatype = oldtype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Type_contiguous)(count, real_datatype, newtype);
   RETURN_TO_UPPER_HALF();
@@ -97,7 +97,7 @@ USER_DEFINED_WRAPPER(int, Type_hvector, (int) count, (int) blocklength,
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Datatype real_datatype = get_real_id({.datatype = oldtype}).datatype;
+  MPI_Datatype real_datatype = get_real_id((mana_handle){.datatype = oldtype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Type_hvector)(count, blocklength,
                                   stride, real_datatype, newtype);
@@ -146,9 +146,9 @@ USER_DEFINED_WRAPPER(int, Type_create_struct, (int) count,
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Datatype real_datatypes[count];
   for (int i = 0; i < count; i++) {
-    real_datatypes[i] = get_real_id({.datatype = array_of_types[i]}).datatype;
+    real_datatypes[i] = get_real_id((mana_handle){.datatype = array_of_types[i]}).datatype;
   }
-  //MPI_Datatype real_datatype = get_real_id({.datatype = oldtype}).datatype;
+  //MPI_Datatype real_datatype = get_real_id((mana_handle){.datatype = oldtype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Type_create_struct)(count, array_of_blocklengths,
                                    array_of_displacements,
@@ -214,7 +214,7 @@ USER_DEFINED_WRAPPER(int, Type_hindexed, (int) count,
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Datatype real_datatype = get_real_id({.datatype = oldtype}).datatype;
+  MPI_Datatype real_datatype = get_real_id((mana_handle){.datatype = oldtype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Type_hindexed)(count, array_of_blocklengths,
                                    array_of_displacements,
@@ -312,7 +312,7 @@ USER_DEFINED_WRAPPER(int, Type_indexed, (int) count,
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Datatype real_datatype = get_real_id({.datatype = oldtype}).datatype;
+  MPI_Datatype real_datatype = get_real_id((mana_handle){.datatype = oldtype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Type_indexed)(count, array_of_blocklengths,
                                    array_of_displacements,
@@ -333,7 +333,7 @@ USER_DEFINED_WRAPPER(int, Type_dup, (MPI_Datatype) oldtype,
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Datatype real_datatype = get_real_id({.datatype = oldtype}).datatype;
+  MPI_Datatype real_datatype = get_real_id((mana_handle){.datatype = oldtype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Type_dup)(real_datatype, newtype);
   RETURN_TO_UPPER_HALF();
@@ -350,7 +350,7 @@ USER_DEFINED_WRAPPER(int, Type_create_resized, (MPI_Datatype) oldtype,
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Datatype real_datatype = get_real_id({.datatype = oldtype}).datatype;
+  MPI_Datatype real_datatype = get_real_id((mana_handle){.datatype = oldtype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Type_create_resized)(real_datatype, lb, extent, newtype);
   RETURN_TO_UPPER_HALF();
@@ -367,7 +367,7 @@ USER_DEFINED_WRAPPER(int, Type_get_extent, (MPI_Datatype) datatype,
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Datatype real_datatype = get_real_id({.datatype = datatype}).datatype;
+  MPI_Datatype real_datatype = get_real_id((mana_handle){.datatype = datatype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Type_get_extent)(real_datatype, lb, extent);
   RETURN_TO_UPPER_HALF();
@@ -381,8 +381,8 @@ USER_DEFINED_WRAPPER(int, Pack_size, (int) incount,
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Datatype real_datatype = get_real_id({.datatype = datatype}).datatype;
-  MPI_Comm realComm = get_real_id({.comm = comm}).comm;
+  MPI_Datatype real_datatype = get_real_id((mana_handle){.datatype = datatype}).datatype;
+  MPI_Comm realComm = get_real_id((mana_handle){.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Pack_size)(incount, real_datatype, realComm, size);
   RETURN_TO_UPPER_HALF();
@@ -396,8 +396,8 @@ USER_DEFINED_WRAPPER(int, Pack, (const void*) inbuf, (int) incount,
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Datatype real_datatype = get_real_id({.datatype = datatype}).datatype;
-  MPI_Comm realComm = get_real_id({.comm = comm}).comm;
+  MPI_Datatype real_datatype = get_real_id((mana_handle){.datatype = datatype}).datatype;
+  MPI_Comm realComm = get_real_id((mana_handle){.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Pack)(inbuf, incount, real_datatype, outbuf,
                            outsize, position, realComm);
@@ -411,7 +411,7 @@ USER_DEFINED_WRAPPER(int, Type_get_name, (MPI_Datatype) datatype,
 {
    int retval;
    DMTCP_PLUGIN_DISABLE_CKPT();
-   MPI_Datatype real_datatype = get_real_id({.datatype = datatype}).datatype;
+   MPI_Datatype real_datatype = get_real_id((mana_handle){.datatype = datatype}).datatype;
    JUMP_TO_LOWER_HALF(lh_info->fsaddr);
    retval = NEXT_FUNC(Type_get_name)(real_datatype, type_name, resultlen);
    RETURN_TO_UPPER_HALF(); 

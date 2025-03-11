@@ -44,7 +44,7 @@ USER_DEFINED_WRAPPER(int, Op_create,
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS) {
     *op = new_virt_op(*op);
-    mana_op_desc *op_desc = (mana_op_desc*)get_virt_id_desc({.op = *op});
+    mana_op_desc *op_desc = (mana_op_desc*)get_virt_id_desc((mana_handle){.op = *op});
     op_desc->user_fn = user_fn;
     op_desc->commute = commute;
   }
@@ -58,13 +58,13 @@ USER_DEFINED_WRAPPER(int, Op_free, (MPI_Op*) op)
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Op real_op = MPI_OP_NULL;
   if (op) {
-    real_op = get_real_id({.op = *op}).op;
+    real_op = get_real_id((mana_handle){.op = *op}).op;
   }
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Op_free)(&real_op);
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS) {
-    free_virt_id({.op = *op});
+    free_virt_id((mana_handle){.op = *op});
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
@@ -76,8 +76,8 @@ USER_DEFINED_WRAPPER(int, Reduce_local,
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Datatype real_datatype = get_real_id({.datatype = datatype}).datatype;
-  MPI_Op real_op = get_real_id({.op = op}).op;
+  MPI_Datatype real_datatype = get_real_id((mana_handle){.datatype = datatype}).datatype;
+  MPI_Op real_op = get_real_id((mana_handle){.op = op}).op;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Reduce_local)(inbuf, inoutbuf, count, real_datatype, real_op);
   RETURN_TO_UPPER_HALF();

@@ -81,8 +81,8 @@ void seq_num_broadcast(MPI_Comm comm, unsigned long new_target) {
   MPI_Comm_size(comm, &comm_size);
   MPI_Comm_rank(comm, &comm_rank);
   MPI_Group world_group, local_group;
-  MPI_Comm real_local_comm = get_real_id({.comm = comm}).comm;
-  MPI_Comm real_world_comm = get_real_id({.comm = g_world_comm}).comm;
+  MPI_Comm real_local_comm = get_real_id((mana_handle){.comm = comm}).comm;
+  MPI_Comm real_world_comm = get_real_id((mana_handle){.comm = g_world_comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   NEXT_FUNC(Comm_group)(real_world_comm, &world_group);
   NEXT_FUNC(Comm_group)(real_local_comm, &local_group);
@@ -114,7 +114,7 @@ void commit_begin(MPI_Comm comm) {
     MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, g_world_comm, &flag, &status);
     if (flag) {
       unsigned long new_target[2];
-      MPI_Comm real_world_comm = get_real_id({.comm = g_world_comm}).comm;
+      MPI_Comm real_world_comm = get_real_id((mana_handle){.comm = g_world_comm}).comm;
       JUMP_TO_LOWER_HALF(lh_info->fsaddr);
       NEXT_FUNC(Recv)(&new_target, 2, MPI_UNSIGNED_LONG,
           status.MPI_SOURCE, status.MPI_TAG, real_world_comm,
@@ -156,7 +156,7 @@ void commit_finish(MPI_Comm comm) {
     MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, g_world_comm, &flag, &status);
     if (flag) {
       unsigned long new_target[2];
-      MPI_Comm real_world_comm = get_real_id({.comm = g_world_comm}).comm;
+      MPI_Comm real_world_comm = get_real_id((mana_handle){.comm = g_world_comm}).comm;
       JUMP_TO_LOWER_HALF(lh_info->fsaddr);
       NEXT_FUNC(Recv)(&new_target, 2, MPI_UNSIGNED_LONG,
           status.MPI_SOURCE, status.MPI_TAG, real_world_comm,
