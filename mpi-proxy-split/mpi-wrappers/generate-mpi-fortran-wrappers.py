@@ -210,12 +210,12 @@ def emit_mpi_init_thread():
   print("}")
 
 for decl in declarations:
-  # check for header file
+  # check for header file and inline comments
   decl_oneline = re.sub('\n *', ' ', decl).strip()
-  if decl_oneline.startswith("#"):
+  if decl_oneline.startswith("#") or decl_oneline.startswith('//'):
     print(decl_oneline.rstrip(';'))
     continue
-
+  
   if decl.rstrip()[-1] != ')':
     abort_decl(decl, "missing final ')'")
   if '(' not in decl:
