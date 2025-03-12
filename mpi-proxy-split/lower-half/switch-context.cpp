@@ -68,7 +68,7 @@ int CheckAndEnableFsGsBase()
   int status = 0;
   assert(waitpid(childPid, &status, 0) == childPid);
 
-  if (WEXITSTATUS(status) == 0) {
+  if (WIFEXITED(status) == 1 && WEXITSTATUS(status) == 0) {
     FsGsBaseEnabled = 1;
   } else {
     FsGsBaseEnabled = 0;
