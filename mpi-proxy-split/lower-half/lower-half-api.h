@@ -192,7 +192,6 @@ extern LowerHalfInfo_t *lh_info;
   MACRO(Add_error_class) \
   MACRO(Add_error_code) \
   MACRO(Add_error_string) \
-  MACRO(Address) \
   MACRO(Allgather) \
   MACRO(Iallgather) \
   MACRO(Allgatherv) \
@@ -262,10 +261,7 @@ extern LowerHalfInfo_t *lh_info;
   MACRO(Comm_test_inter) \
   MACRO(Compare_and_swap) \
   MACRO(Dims_create) \
-  MACRO(Errhandler_create) \
   MACRO(Errhandler_free) \
-  MACRO(Errhandler_get) \
-  MACRO(Errhandler_set) \
   MACRO(Error_class) \
   MACRO(Error_string) \
   MACRO(Exscan) \
@@ -463,7 +459,6 @@ extern LowerHalfInfo_t *lh_info;
   MACRO(Type_create_resized) \
   MACRO(Type_delete_attr) \
   MACRO(Type_dup) \
-  MACRO(Type_extent) \
   MACRO(Type_free) \
   MACRO(Type_free_keyval) \
   MACRO(Type_get_attr) \
@@ -474,16 +469,11 @@ extern LowerHalfInfo_t *lh_info;
   MACRO(Type_get_name) \
   MACRO(Type_get_true_extent) \
   MACRO(Type_get_true_extent_x) \
-  MACRO(Type_hindexed) \
-  MACRO(Type_hvector) \
   MACRO(Type_indexed) \
-  MACRO(Type_lb) \
   MACRO(Type_match_size) \
   MACRO(Type_set_attr) \
   MACRO(Type_set_name) \
   MACRO(Type_size_x) \
-  MACRO(Type_struct) \
-  MACRO(Type_ub) \
   MACRO(Type_vector) \
   MACRO(Unpack) \
   MACRO(Unpublish_name) \

@@ -91,6 +91,8 @@ USER_DEFINED_WRAPPER(int, Type_contiguous, (int) count, (MPI_Datatype) oldtype,
   return retval;
 }
 
+// removed in MPI-3.0 (2012)
+#if 0
 USER_DEFINED_WRAPPER(int, Type_hvector, (int) count, (int) blocklength,
                     (MPI_Aint) stride, (MPI_Datatype) oldtype,
                     (MPI_Datatype*) newtype)
@@ -110,6 +112,7 @@ USER_DEFINED_WRAPPER(int, Type_hvector, (int) count, (int) blocklength,
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
+#endif
 
 USER_DEFINED_WRAPPER(int, Type_create_hvector, (int) count, (int) blocklength,
                     (MPI_Aint) stride, (MPI_Datatype) oldtype,
@@ -431,8 +434,12 @@ PMPI_IMPL(int, MPI_Type_contiguous, int count, MPI_Datatype oldtype,
 PMPI_IMPL(int, MPI_Type_free, MPI_Datatype *type)
 PMPI_IMPL(int, MPI_Type_vector, int count, int blocklength,
           int stride, MPI_Datatype oldtype, MPI_Datatype *newtype)
+// removed in MPI-3.0 (2012)
+#if 0
 PMPI_IMPL(int, MPI_Type_hvector, int count, int blocklength,
           MPI_Aint stride, MPI_Datatype oldtype, MPI_Datatype *newtype)
+#endif
+
 PMPI_IMPL(int, MPI_Type_create_hvector, int count, int blocklength,
           MPI_Aint stride, MPI_Datatype oldtype, MPI_Datatype *newtype)
 // removed in MPI-3.0 (2012)
