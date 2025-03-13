@@ -268,60 +268,60 @@ void addRegionTommaps(char * addr, size_t length) {
 void updateMmaps(char *addr, size_t length) {
   // traverse through the mmap'ed list and check whether to remove the whole
   // entry or update the address and length
-  char *unmaped_start_addr = addr;
-  char *unmaped_end_addr = addr + length;
+  char *unmapped_start_addr = addr;
+  char *unmapped_end_addr = addr + length;
   // sort the mmaps list by address
   std::sort(mmaps.begin(), mmaps.end(), compare);
   // iterate over the list
   for (auto it = mmaps.begin(); it != mmaps.end(); it++) {
     char *start_addr = it->addr;
     char *end_addr = start_addr + it->len;
-    // if unmaped start address is same as mmaped start address
-    if (start_addr == unmaped_start_addr) {
-      if (unmaped_end_addr == end_addr) {
+    // if unmapped start address is same as mmaped start address
+    if (start_addr == unmapped_start_addr) {
+      if (unmapped_end_addr == end_addr) {
         // remove full entry
         mmaps.erase(it);
         return;
-      } else if (end_addr > unmaped_end_addr) {
-          it->addr = unmaped_end_addr;
+      } else if (end_addr > unmapped_end_addr) {
+          it->addr = unmapped_end_addr;
           it->len = it->len - length;
           return;
         } else {
-        // if the unmaped region is going beyond the len
-        unmaped_start_addr = end_addr;
+        // if the unmapped region is going beyond the len
+        unmapped_start_addr = end_addr;
         length -= it->len;
         mmaps.erase(it);
         it--;
       }
-    } else if ((unmaped_start_addr < start_addr) && (unmaped_end_addr > start_addr)) {
-      if (unmaped_end_addr ==  end_addr) {
+    } else if ((unmapped_start_addr < start_addr) && (unmapped_end_addr > start_addr)) {
+      if (unmapped_end_addr ==  end_addr) {
         mmaps.erase(it);
         return;
-      } else if (end_addr > unmaped_end_addr) {
-          it->addr = unmaped_end_addr;
-          it->len = end_addr - unmaped_end_addr;
+      } else if (end_addr > unmapped_end_addr) {
+          it->addr = unmapped_end_addr;
+          it->len = end_addr - unmapped_end_addr;
           return;
         } else {
-        // if the unmaped region is going beyond the len
-        length -= length - (end_addr - unmaped_start_addr);
-        unmaped_start_addr = end_addr;
+        // if the unmapped region is going beyond the len
+        length -= length - (end_addr - unmapped_start_addr);
+        unmapped_start_addr = end_addr;
         mmaps.erase(it);
         it--;
       }
-    } else if ((unmaped_start_addr > start_addr) && (unmaped_start_addr <= end_addr)) {
-        it->len = unmaped_start_addr - start_addr;
-        if (unmaped_end_addr ==  end_addr) {
+    } else if ((unmapped_start_addr > start_addr) && (unmapped_start_addr <= end_addr)) {
+        it->len = unmapped_start_addr - start_addr;
+        if (unmapped_end_addr ==  end_addr) {
           return;
-        } else if (end_addr > unmaped_end_addr) {
+        } else if (end_addr > unmapped_end_addr) {
           MmapInfo_t new_entry;
-          new_entry.addr = unmaped_end_addr;
-          new_entry.len = end_addr - unmaped_end_addr;
+          new_entry.addr = unmapped_end_addr;
+          new_entry.len = end_addr - unmapped_end_addr;
           mmaps.push_back(new_entry);
           return;
         } else {
-          // if the unmaped region is going beyond the len
-          length = length - (end_addr - unmaped_start_addr);
-          unmaped_start_addr = end_addr;
+          // if the unmapped region is going beyond the len
+          length = length - (end_addr - unmapped_start_addr);
+          unmapped_start_addr = end_addr;
         }
     }
   }
