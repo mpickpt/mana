@@ -48,7 +48,7 @@ char *deepCopyStack(int argc, char **argv, char *argc_ptr, char *argv_ptr,
       " This violates x86_64 ABI; needed for Intel SSE support.\n");
     exit(1);
   }
-  assert((unsigned long)(argv[-1]) == argc);
+  assert((long int)(argv[-1]) == argc);
   // $sp should be pointing to &(argv[-1])
   char *start_stack = (char *)&(argv[-1]);
   int i;
@@ -254,6 +254,8 @@ printf("\nDEBUGGING:\ndest_mem_addr (top of stack): %p;\n"
   return dest_curr_stack;
 }
 
+// FIXME:  This was copied into lower-half.cpp, and is unused here.
+//         Why didn't we simply remove the 'static' declaration?
 // Given a pointer to auxvector, parses the aux vector and patches the AT_PHDR,
 // AT_ENTRY, and AT_PHNUM entries.
 static void

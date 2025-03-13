@@ -54,8 +54,8 @@ typedef struct _LowerHalfInfo
   void *munmap;
   void *mmap_list_fptr;
   void *lh_dlsym;
-  void *uh_stack_start;
-  void *uh_stack_end;
+  char *uh_stack_start;
+  char *uh_stack_end;
 
   // MPI Constants
   MPI_Group MANA_GROUP_NULL;
