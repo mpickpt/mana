@@ -47,19 +47,22 @@ using namespace std;
 #define _real_mmap mmap
 #define _real_munmap munmap
 
-#define DEFAULT_UH_BASE_ADDR ((void *)0xC0000000) // 3GB
+// FIXME:  This is a hard-wired constant address.  Do we have code
+//         elsewhere that checks if this address conflicts with another
+//         memory segment?
+#define DEFAULT_UH_BASE_ADDR reinterpret_cast<char*>(0xc0000000) // 3 GB
 
 static std::vector<MmapInfo_t> mmaps;
 
-static void* __mmap_wrapper(void* , size_t , int , int , int , off_t );
-static void patchLibc(int , void* , char* );
-static void addRegionTommaps(void *, size_t);
+static void* __mmap_wrapper(void * , size_t , int , int , int , off_t);
+static void patchLibc(int , char * , char *);
+static void addRegionTommaps(char *, size_t);
 static int __munmap_wrapper(void *, size_t);
-static void updateMmaps(void *, size_t);
+static void updateMmaps(char *, size_t);
 
-void *curr_uh_free_addr = NULL;
+char *curr_uh_free_addr = NULL;
 
-off_t get_symbol_offset(char *pathame, char *symbol);
+off_t get_symbol_offset(const char *pathame, const char *symbol);
 
 void *get_next_addr(size_t len) {
   void *addr = curr_uh_free_addr;
@@ -93,7 +96,7 @@ int checkLibrary(int fd, const char* name,
   }
   DLOG(NOISE, "checkLibrary: %s\n", fullPath);
   if (strstr(fullPath, name)) {
-    DLOG(NOISE, "checkLibrary found\n", fullPath);
+    DLOG(NOISE, "checkLibrary found: %s\n", fullPath);
     strncpy(glibcFullPath, fullPath, size);
     return 1;
   }
@@ -110,6 +113,8 @@ void block_if_contains(void *target, void *addr, size_t length) {
   }
 }
 
+// FIXME:  What is a "BASS ADDR"?  And what is it used for?
+//         If it's for debugging, add a comment about that.
 void* mmap_wrapper(void *addr, size_t length, int prot,
                   int flags, int fd, off_t offset) {
   if (curr_uh_free_addr == NULL) {
@@ -117,7 +122,7 @@ void* mmap_wrapper(void *addr, size_t length, int prot,
     if (user_uh_bass_addr == NULL) {
       curr_uh_free_addr = DEFAULT_UH_BASE_ADDR;
     } else {
-      curr_uh_free_addr = (void*)strtoll(user_uh_bass_addr, NULL, 0);
+      curr_uh_free_addr = reinterpret_cast<char*>(strtoll(user_uh_bass_addr, NULL, 0));
     }
   }
   void *ret = MAP_FAILED;
@@ -129,7 +134,7 @@ void* mmap_wrapper(void *addr, size_t length, int prot,
 
 static void* __mmap_wrapper(void *addr, size_t length, int prot,
                            int flags, int fd, off_t offset) {
-  static void *libc_base_addr = NULL;
+  static char *libc_base_addr = NULL;
   void *ret = MAP_FAILED;
   if (flags & MAP_FIXED) {
     if (addr > curr_uh_free_addr) {
@@ -157,7 +162,7 @@ static void* __mmap_wrapper(void *addr, size_t length, int prot,
   length = ROUND_UP(length, PAGE_SIZE);
   ret = _real_mmap(addr, length, prot, flags, fd, offset);
   if (ret != MAP_FAILED) {
-    addRegionTommaps(ret, length);
+    addRegionTommaps(static_cast<char*>(ret), length);
     DLOG(NOISE, "LH: mmap (%lu): addr %p (%p) @ 0x%zx\n", mmaps.size(), ret, addr, length);
     if (fd > 0) {
       char glibcFullPath[PATH_MAX] = {0};
@@ -165,7 +170,7 @@ static void* __mmap_wrapper(void *addr, size_t length, int prot,
                   checkLibrary(fd, "libc-", glibcFullPath, PATH_MAX);
       if (found) {
         if (libc_base_addr == NULL) {
-          libc_base_addr = ret;
+          libc_base_addr = static_cast<char*>(ret);
         }
         if (prot & PROT_EXEC) {
           int rc = mprotect(ret, length, prot | PROT_WRITE);
@@ -207,14 +212,14 @@ static int __munmap_wrapper(void *addr, size_t length) {
   ret = _real_munmap(addr, length);
   if (ret != -1) {
     DLOG(NOISE, "LH: munmap (%lu): %p @ 0x%zx\n", mmaps.size(), addr, length);
-    updateMmaps(addr, length);
+    updateMmaps(static_cast<char*>(addr), length);
   }
   return ret;
 }
 
-static void patchLibc(int fd, void *base, char *glibc)
+static void patchLibc(int fd, char *base, char *glibc)
 {
-  assert(base);
+  assert(base != NULL);
   assert(fd > 0);
   DLOG(NOISE, "Patching libc (%s) @ %p\n", glibc, base);
   // Save incoming offset
@@ -247,38 +252,38 @@ static void patchLibc(int fd, void *base, char *glibc)
     munmap_offset = get_symbol_offset(buf, "munmap"); // elf interpreter debug path
   }
   assert(munmap_offset);
-  patch_trampoline((void*)base + mmap_offset, (void*)&mmap_wrapper);
-  patch_trampoline((void*)base + munmap_offset, (void*)&munmap_wrapper);
+  patch_trampoline(base + mmap_offset, reinterpret_cast<void*>(&mmap_wrapper));
+  patch_trampoline(base + munmap_offset, reinterpret_cast<void*>(&munmap_wrapper));
   // Restore file offset to not upset the caller
   lseek(fd, save_offset, SEEK_SET);
 }
 
-void addRegionTommaps(void * addr, size_t length) {
+void addRegionTommaps(char * addr, size_t length) {
   MmapInfo_t newRegion;
   newRegion.addr = addr;
   newRegion.len = length;
   mmaps.push_back(newRegion);
 }
 
-void updateMmaps(void *addr, size_t length) {
+void updateMmaps(char *addr, size_t length) {
   // traverse through the mmap'ed list and check whether to remove the whole
   // entry or update the address and length
-  uint64_t unmaped_start_addr = (uint64_t)addr;
-  uint64_t unmaped_end_addr = (uint64_t)addr + length;
+  char *unmaped_start_addr = addr;
+  char *unmaped_end_addr = addr + length;
   // sort the mmaps list by address
   std::sort(mmaps.begin(), mmaps.end(), compare);
   // iterate over the list
   for (auto it = mmaps.begin(); it != mmaps.end(); it++) {
-    uint64_t start_addr = (uint64_t)it->addr;
-    uint64_t end_addr = (uint64_t)(start_addr + it->len);
+    char *start_addr = it->addr;
+    char *end_addr = start_addr + it->len;
     // if unmaped start address is same as mmaped start address
     if (start_addr == unmaped_start_addr) {
-      if (unmaped_end_addr ==  end_addr) {
+      if (unmaped_end_addr == end_addr) {
         // remove full entry
         mmaps.erase(it);
         return;
       } else if (end_addr > unmaped_end_addr) {
-          it->addr = (void *)unmaped_end_addr;
+          it->addr = unmaped_end_addr;
           it->len = it->len - length;
           return;
         } else {
@@ -293,7 +298,7 @@ void updateMmaps(void *addr, size_t length) {
         mmaps.erase(it);
         return;
       } else if (end_addr > unmaped_end_addr) {
-          it->addr = (void *)unmaped_end_addr;
+          it->addr = unmaped_end_addr;
           it->len = end_addr - unmaped_end_addr;
           return;
         } else {
@@ -309,7 +314,7 @@ void updateMmaps(void *addr, size_t length) {
           return;
         } else if (end_addr > unmaped_end_addr) {
           MmapInfo_t new_entry;
-          new_entry.addr = (void *)unmaped_end_addr;
+          new_entry.addr = unmaped_end_addr;
           new_entry.len = end_addr - unmaped_end_addr;
           mmaps.push_back(new_entry);
           return;

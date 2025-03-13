@@ -109,8 +109,8 @@ static bool isLhDevice(const ProcMapsArea *area);
 
 void *old_brk;
 void *old_end_of_brk;
-void *uh_stack_start;
-void *uh_stack_end;
+char *uh_stack_start;
+char *uh_stack_end;
 
 // Check if haystack region contains needle region.
 static inline int

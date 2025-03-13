@@ -52,7 +52,7 @@ static const char collective_p2p_string[] =
 ManaHeader g_mana_header = { .init_flag = MPI_INIT_NO_THREAD };
 
 USER_DEFINED_WRAPPER(int, Init, (int *) argc, (char ***) argv) {
-  int retval;
+  int retval = MPI_SUCCESS;
   if (isUsingCollectiveToP2p()) {
     fprintf(stderr, collective_p2p_string);
   }
@@ -70,7 +70,7 @@ USER_DEFINED_WRAPPER(int, Init, (int *) argc, (char ***) argv) {
 }
 USER_DEFINED_WRAPPER(int, Init_thread, (int *) argc, (char ***) argv,
                      (int) required, (int *) provided) {
-  int retval;
+  int retval = MPI_SUCCESS;
   if (isUsingCollectiveToP2p()) {
     fprintf(stderr, collective_p2p_string);
   }

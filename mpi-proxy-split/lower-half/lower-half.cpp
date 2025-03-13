@@ -1,20 +1,19 @@
-#include <asm/prctl.h>
-#include <sys/syscall.h>
-#include <unistd.h>
+#include <assert.h>
 #include <dlfcn.h>
+#include <elf.h>
+#include <errno.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <sys/personality.h>
-#include <fcntl.h>
+#include <asm/prctl.h>
+#include <sys/stat.h>
+#include <sys/syscall.h>
+#include <sys/types.h>
 #include <sys/mman.h>
 #include <sys/resource.h>
-#include <assert.h>
-#include <errno.h>
-#include <elf.h>
 
 #include "mtcp_header.h"
 #include "mem-wrapper.h"
@@ -24,6 +23,8 @@
 #include "dmtcp.h"
 #include "dmtcprestartinternal.h"
 #include "procmapsarea.h"
+// FIXME:  lower-half should be a standalone program, except where it uses
+//         mtcp_restart.  Why do we have all of these other DMTCP dependencies?
 #include "jalib.h"
 #include "jassert.h"
 #include "jconvert.h"
@@ -69,11 +70,11 @@ char *map_elf_interpreter_load_segment(int fd, Elf64_Phdr phdr,
                                       void *ld_so_addr);
 static void patchAuxv(Elf64_auxv_t *av, unsigned long phnum,
                       unsigned long phdr, unsigned long entry);
-void *create_red_zone(void* stack_addr);
+void *create_red_zone(char *stack_addr);
 void update_library_path(const char *argv0);
 int prepend_to_library_path(const char *new_path);
 
-off_t get_symbol_offset(char *pathame, char *symbol);
+off_t get_symbol_offset(const char *pathame, const char *symbol);
 // See: http://articles.manugarg.com/aboutelfauxiliaryvectors.html
 //   (but unfortunately, that's for a 32-bit system)
 char *deepCopyStack(int argc, char **argv, char *argc_ptr, char *argv_ptr,
@@ -81,7 +82,6 @@ char *deepCopyStack(int argc, char **argv, char *argc_ptr, char *argv_ptr,
                     Elf64_auxv_t **auxv_ptr, void **stack_bottom);
 void *lh_dlsym(enum MPI_Fncs fnc);
 static int restoreMemoryArea(int fd, MtcpHeader *ckptHdr);
-static void restore_vdso_vvar(MtcpHeader *dmtcp_hdri, char *envrion[]);
 typedef void (*PostRestartFnPtr_t)(double, int);
 
 void *ld_so_entry;
@@ -92,7 +92,7 @@ LowerHalfInfo_t *lh_info;
 
 void set_addr_no_randomize(char *argv[]) {
   extern char **environ;
-  char *first_time = "MANA_FIRST_TIME";
+  const char *first_time = "MANA_FIRST_TIME";
   char *env = getenv(first_time);
   if (env == NULL) {
     setenv(first_time, "1", 1);
@@ -126,8 +126,8 @@ void write_lh_info_addr(LowerHalfInfo_t *addr, int restore_mode) {
       DLOG(ERROR, "Could not create addr.bin file. Error: %s", strerror(errno));
       exit(1);
     }
-    int rc = write(fd, &lh_info, sizeof(lh_info));
-    if (rc < sizeof(lh_info)) {
+    ssize_t rc = write(fd, &lh_info, sizeof(lh_info));
+    if (rc < static_cast<ssize_t>(sizeof(lh_info))) {
       DLOG(ERROR, "Wrote fewer bytes than expected to addr.bin. Error: %s",
           strerror(errno));
       exit(1);
@@ -336,8 +336,8 @@ int main(int argc, char *argv[], char *envp[]) {
     JASSERT(t->pid() != 0);
 
     MtcpHeader ckpt_hdr;
-    int rc = read(t->fd(), &ckpt_hdr, sizeof(ckpt_hdr));
-    ASSERT_EQ(rc, sizeof(ckpt_hdr));
+    ssize_t rc = read(t->fd(), &ckpt_hdr, sizeof(ckpt_hdr));
+    ASSERT_EQ(rc, static_cast<ssize_t>(sizeof(ckpt_hdr)));
     ASSERT_EQ(string(ckpt_hdr.signature), string(MTCP_SIGNATURE));
 
     ProcMapsArea area;
@@ -345,9 +345,8 @@ int main(int argc, char *argv[], char *envp[]) {
     ckpt_file_pos = lseek(t->fd(), 0, SEEK_CUR);
     // Reserve space for memory areas saved in the ckpt image file.
     while(1) {
-      off_t cur_pos = ckpt_file_pos;
-      int rc = read(t->fd(), &area, sizeof area);
-      cur_pos = lseek(t->fd(), 0, SEEK_CUR);
+      ssize_t rc = read(t->fd(), &area, sizeof area);
+      assert(rc == sizeof area);
       if (area.addr == NULL) {
         lseek(t->fd(), ckpt_file_pos, SEEK_SET);
         break;
@@ -374,7 +373,7 @@ int main(int argc, char *argv[], char *envp[]) {
     t->initialize();
     // Release reserved memory areas
     while(1) {
-      int rc = read(t->fd(), &area, sizeof area);
+      ssize_t rc = read(t->fd(), &area, sizeof area);
       assert(rc > 0);
       if (area.addr == NULL) {
         lseek(t->fd(), ckpt_file_pos, SEEK_SET);
@@ -513,7 +512,7 @@ int main(int argc, char *argv[], char *envp[]) {
    *  above the lh_info->uh_stack_start position, so that recorded
    *  lh_info->uh_stack_start still falls in the stack region.
    */
-  if(create_red_zone((void*) lh_info->uh_stack_start - rlim.rlim_cur) == NULL) {
+  if (create_red_zone(lh_info->uh_stack_start - rlim.rlim_cur) == NULL) {
     perror("red block");
     exit(1);
   }
@@ -560,8 +559,8 @@ int main(int argc, char *argv[], char *envp[]) {
     munmap_offset = get_symbol_offset(buf, "munmap"); // elf interpreter debug path
   }
   assert(munmap_offset);
-  patch_trampoline((void*)interp_base_address + mmap_offset, (void*)&mmap_wrapper);
-  patch_trampoline((void*)interp_base_address + munmap_offset, (void*)&munmap_wrapper);
+  patch_trampoline((void*)(interp_base_address + mmap_offset), (void*)&mmap_wrapper);
+  patch_trampoline((void*)(interp_base_address + munmap_offset), (void*)&munmap_wrapper);
 
   // Then jump to _start, ld_so_entry, in ld.so (or call it
   //   as fnc that never returns).
@@ -598,8 +597,7 @@ int main(int argc, char *argv[], char *envp[]) {
 void get_elf_interpreter(int fd, Elf64_Addr *cmd_entry,
                          char elf_interpreter[], void *ld_so_addr) {
   unsigned char e_ident[EI_NIDENT];
-  int rc;
-  rc = read(fd, e_ident, sizeof(e_ident));
+  ssize_t rc = read(fd, e_ident, sizeof(e_ident));
   assert(rc == sizeof(e_ident));
   assert(strncmp((char *)e_ident, ELFMAG, strlen(ELFMAG)) == 0);
   // FIXME:  Add support for 32-bit ELF later
@@ -625,7 +623,7 @@ void get_elf_interpreter(int fd, Elf64_Addr *cmd_entry,
   lseek(fd, phdr.p_offset, SEEK_SET); // Point to beginning of elf interpreter
   assert(phdr.p_filesz < MAX_ELF_INTERP_SZ);
   rc = read(fd, elf_interpreter, phdr.p_filesz);
-  assert(rc == phdr.p_filesz);
+  assert(rc == static_cast<ssize_t>(phdr.p_filesz));
 }
 
 char *load_elf_interpreter(int fd, char elf_interpreter[],
@@ -833,14 +831,15 @@ static int restoreMemoryArea(int fd, MtcpHeader *ckptHdr)
   ProcMapsArea area;
 
   int rc = read(fd, &area, sizeof area);
+  assert(rc == sizeof area);
   if (area.addr == NULL) {
     return -1;
   }
 
   if (area.name[0] && strstr(area.name, "[heap]")
-      && (VA) brk(NULL) != area.addr + area.size) {
+      && (VA)sbrk(0) != area.addr + area.size) {
     // JWARNING(false);
-   // ("WARNING: break (%p) not equal to end of heap (%p)\n", mtcp_sys_brk(NULL), area.addr + area.size);
+    // ("WARNING: break (%p) not equal to end of heap (%p)\n", mtcp_sys_brk(NULL), area.addr + area.size);
   }
 
   /* MAP_GROWSDOWN flag is required for stack region on restart to make
@@ -896,14 +895,16 @@ static int restoreMemoryArea(int fd, MtcpHeader *ckptHdr)
       if (area.name[0] == '/') { /* If not null string, not [stack] or [vdso] */
         imagefd = open(area.name, O_RDONLY, 0);
         if (imagefd >= 0) {
-          /* If the current file size is smaller than the original, we map the region
-          * as private anonymous. Note that with this we lose the name of the region
-          * but most applications may not care.
-          */
+          /* If the current file size is smaller than the original, we map
+           * the region as private anonymous. Note that with this we lose
+           * the name of the region but most applications may not care.
+           */
           off_t curr_size = lseek(imagefd, 0, SEEK_END);
           JASSERT(curr_size != -1);
-          if ((curr_size < area.offset + area.size) && (area.prot & PROT_WRITE)) {
-            JTRACE("restoring non-anonymous area %s as anonymous: %p  bytes at %p\n") (area.name) (area.size) (area.addr);
+          if ((static_cast<size_t>(curr_size) < area.size + area.offset) &&
+              (area.prot & PROT_WRITE)) {
+            JTRACE("restoring non-anonymous area %s as anonymous: %p bytes at %p\n")
+                  (area.name) (area.size) (area.addr);
             close(imagefd);
             imagefd = -1;
             area.offset = 0;
@@ -913,7 +914,8 @@ static int restoreMemoryArea(int fd, MtcpHeader *ckptHdr)
       }
 
       if (area.flags & MAP_ANONYMOUS) {
-        JTRACE("restoring anonymous area, %p  bytes at %p\n") (area.size) (area.addr);
+        JTRACE("restoring anonymous area, %p bytes at %p\n")
+              (area.size) (area.addr);
       } else {
         JTRACE("restoring to non-anonymous area,"
                 " %p bytes at %p from %s + 0x%X\n") (area.size) (area.addr) (area.name) (area.offset);
@@ -959,7 +961,8 @@ static int restoreMemoryArea(int fd, MtcpHeader *ckptHdr)
       /* ANALYZE THE CONDITION FOR DOING mmapfile MORE CAREFULLY. */
       if (area.mmapFileSize > 0 && area.name[0] == '/') {
         JTRACE("restoring memory region %p of %p bytes at %p\n") (area.mmapFileSize) (area.size) (area.addr);
-        size_t rc = 0, count = 0;
+        ssize_t rc = 0;
+        int count = 0;
         do {
           rc = read(fd, area.addr + count, area.mmapFileSize - count);
           count += rc;
@@ -992,10 +995,10 @@ static int restoreMemoryArea(int fd, MtcpHeader *ckptHdr)
  * This function will mmap a new memory block with all
  * blocking permissions, i.e., NO ->(READ|WRITE|EXECUTE).
  */
-void *create_red_zone(void* stack_addr)
+void *create_red_zone(char * stack_addr)
 {
   void* red_zone = mmap_wrapper(
-      (void*)stack_addr - PAGE_SIZE,    //one page long red-zone
+      stack_addr - PAGE_SIZE,    //one page long red-zone
       PAGE_SIZE,
       PROT_NONE,
       MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED | MAP_GROWSDOWN,
