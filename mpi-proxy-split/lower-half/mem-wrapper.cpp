@@ -255,7 +255,7 @@ static void patchLibc(int fd, void *base, char *glibc)
 
 void addRegionTommaps(void * addr, size_t length) {
   MmapInfo_t newRegion;
-  newRegion.addr = addr;
+  newRegion.addr = (char*)addr;
   newRegion.len = length;
   mmaps.push_back(newRegion);
 }
@@ -278,7 +278,7 @@ void updateMmaps(void *addr, size_t length) {
         mmaps.erase(it);
         return;
       } else if (end_addr > unmaped_end_addr) {
-          it->addr = (void *)unmaped_end_addr;
+          it->addr = (char *)unmaped_end_addr;
           it->len = it->len - length;
           return;
         } else {
@@ -293,7 +293,7 @@ void updateMmaps(void *addr, size_t length) {
         mmaps.erase(it);
         return;
       } else if (end_addr > unmaped_end_addr) {
-          it->addr = (void *)unmaped_end_addr;
+          it->addr = (char *)unmaped_end_addr;
           it->len = end_addr - unmaped_end_addr;
           return;
         } else {
@@ -309,7 +309,7 @@ void updateMmaps(void *addr, size_t length) {
           return;
         } else if (end_addr > unmaped_end_addr) {
           MmapInfo_t new_entry;
-          new_entry.addr = (void *)unmaped_end_addr;
+          new_entry.addr = (char *)unmaped_end_addr;
           new_entry.len = end_addr - unmaped_end_addr;
           mmaps.push_back(new_entry);
           return;
