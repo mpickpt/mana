@@ -294,9 +294,6 @@ int main(int argc, char *argv[], char *envp[]) {
   lh_info->MANA_ERRORS_ARE_FATAL = MPI_ERRORS_ARE_FATAL;
   lh_info->MANA_ERRORS_RETURN = MPI_ERRORS_RETURN;
 
-  // Update LD_LIBRARY_PATH to contain
-  update_library_path(argv[0]);
-
   // Check arguments and setup arguments for the loader program (cmd)
   // if has "--restore", pass all arguments to mtcp_restart
   for (i = 1; i < argc; i++) {
@@ -418,6 +415,12 @@ int main(int argc, char *argv[], char *envp[]) {
     postRestart(0, 0);
     // The following line should not be reached.
     assert(0);
+  } else {
+    // In LAUNCH mode:
+    //  Prepend LD_LIBRARY_PATH env variable to
+    //    * '/PATH_TO_MANA/lib/dmtcp' for libmpistub.so (always)
+    //    * '/PATH_TO_MANA/lib/tmp'   for shadow libraries (only when launched with --use-shadowlibs flag)
+    update_library_path(argv[0]);
   }
 
   for (i = 1; i < argc; i++) {
