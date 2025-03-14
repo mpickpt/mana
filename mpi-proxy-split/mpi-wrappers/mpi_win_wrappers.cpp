@@ -7,8 +7,9 @@
 #include "protectedfds.h"
 #include "mpi_nextfunc.h"
 
-USER_DEFINED_WRAPPER(int, Alloc_mem, (MPI_Aint) size, (MPI_Info) info,
-                     (void *) baseptr)
+extern "C" {
+
+int MPI_Alloc_mem(MPI_Aint size, MPI_Info info, void *baseptr)
 {
   // Since memory allocated by the lower half will be discarded during
   // checkpoint, we need to translate MPI_Alloc_mem and MPI_Free_mem
@@ -17,7 +18,7 @@ USER_DEFINED_WRAPPER(int, Alloc_mem, (MPI_Aint) size, (MPI_Info) info,
   return MPI_SUCCESS;
 }
 
-USER_DEFINED_WRAPPER(int, Free_mem, (void *) baseptr)
+int MPI_Free_mem(void *baseptr)
 {
   // Since memory allocated by the lower half will be discarded during
   // checkpoint, we need to translate MPI_Alloc_mem and MPI_Free_mem
@@ -26,5 +27,4 @@ USER_DEFINED_WRAPPER(int, Free_mem, (void *) baseptr)
   return MPI_SUCCESS;
 }
 
-PMPI_IMPL(int, MPI_Alloc_mem, MPI_Aint size, MPI_Info info, void *baseptr)
-PMPI_IMPL(int, MPI_Free_mem, void *baseptr)
+} // end of: extern "C"

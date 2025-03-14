@@ -37,11 +37,13 @@ using namespace dmtcp_mpi;
 
 std::unordered_map<MPI_File, OpenFileParameters> g_params_map;
 
+extern "C" {
+
 // It's possible that there could be a Fortran to C interface bug in the
 // passing of the filename. If there are ever any bugs related to MPI
 // opening a file with the wrong name, that's likely the cause
-USER_DEFINED_WRAPPER(int, File_open, (MPI_Comm) comm, (const char *) filename,
-                     (int) amode, (MPI_Info) info, (MPI_File *) fh)
+int MPI_File_open(MPI_Comm comm, const char *filename,
+                  int amode, MPI_Info info, MPI_File *fh)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -73,7 +75,7 @@ USER_DEFINED_WRAPPER(int, File_open, (MPI_Comm) comm, (const char *) filename,
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, File_get_atomicity, (MPI_File) fh, (int*) flag)
+int MPI_File_get_atomicity(MPI_File fh, int *flag)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -85,7 +87,7 @@ USER_DEFINED_WRAPPER(int, File_get_atomicity, (MPI_File) fh, (int*) flag)
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, File_set_atomicity, (MPI_File) fh, (int) flag)
+int MPI_File_set_atomicity(MPI_File fh, int flag)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -97,7 +99,7 @@ USER_DEFINED_WRAPPER(int, File_set_atomicity, (MPI_File) fh, (int) flag)
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, File_set_size, (MPI_File) fh, (MPI_Offset) size)
+int MPI_File_set_size(MPI_File fh, MPI_Offset size)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -109,7 +111,7 @@ USER_DEFINED_WRAPPER(int, File_set_size, (MPI_File) fh, (MPI_Offset) size)
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, File_get_size, (MPI_File) fh, (MPI_Offset *) size)
+int MPI_File_get_size(MPI_File fh, MPI_Offset *size)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -121,9 +123,9 @@ USER_DEFINED_WRAPPER(int, File_get_size, (MPI_File) fh, (MPI_Offset *) size)
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, File_set_view, (MPI_File) fh, (MPI_Offset) disp,
-                     (MPI_Datatype) etype, (MPI_Datatype) filetype,
-                     (const char*) datarep, (MPI_Info) info)
+int MPI_File_set_view(MPI_File fh, MPI_Offset disp,
+                      MPI_Datatype etype, MPI_Datatype filetype,
+                      const char *datarep, MPI_Info info)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -151,9 +153,9 @@ USER_DEFINED_WRAPPER(int, File_set_view, (MPI_File) fh, (MPI_Offset) disp,
 }
 
 // TODO: Use descriptor to save etype and filetype set by File_set_view
-USER_DEFINED_WRAPPER(int, File_get_view, (MPI_File) fh, (MPI_Offset*) disp,
-                     (MPI_Datatype*) etype, (MPI_Datatype*) filetype,
-                     (char*) datarep)
+int MPI_File_get_view(MPI_File fh, MPI_Offset* disp,
+                      MPI_Datatype *etype, MPI_Datatype *filetype,
+                      char *datarep)
 {
   int retval = MPI_SUCCESS;
   /*
@@ -172,8 +174,8 @@ USER_DEFINED_WRAPPER(int, File_get_view, (MPI_File) fh, (MPI_Offset*) disp,
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, File_read, (MPI_File) fh, (void*) buf, (int) count,
-                     (MPI_Datatype) datatype, (MPI_Status*) status)
+int MPI_File_read(MPI_File fh, void *buf, int count,
+                  MPI_Datatype datatype, MPI_Status *status)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -186,9 +188,9 @@ USER_DEFINED_WRAPPER(int, File_read, (MPI_File) fh, (void*) buf, (int) count,
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, File_read_at, (MPI_File) fh, (MPI_Offset) offset,
-                     (void*) buf, (int) count, (MPI_Datatype) datatype,
-                     (MPI_Status*) status)
+int MPI_File_read_at(MPI_File fh, MPI_Offset offset,
+                     void *buf, int count, MPI_Datatype datatype,
+                     MPI_Status *status)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -202,9 +204,9 @@ USER_DEFINED_WRAPPER(int, File_read_at, (MPI_File) fh, (MPI_Offset) offset,
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, File_read_at_all, (MPI_File) fh, (MPI_Offset) offset,
-                     (void*) buf, (int) count, (MPI_Datatype) datatype,
-                     (MPI_Status*) status)
+int MPI_File_read_at_all(MPI_File fh, MPI_Offset offset,
+                         void *buf, int count, MPI_Datatype datatype,
+                         MPI_Status *status)
 {
   // FIXME:
   // This function is both blocking and collective. However, we believe that
@@ -223,8 +225,8 @@ USER_DEFINED_WRAPPER(int, File_read_at_all, (MPI_File) fh, (MPI_Offset) offset,
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, File_read_all, (MPI_File) fh, (void*) buf,
-                    (int) count, (MPI_Datatype) datatype, (MPI_Status *) status)
+int MPI_File_read_all(MPI_File fh, void *buf,
+                      int count, MPI_Datatype datatype, MPI_Status *status)
 {
   // FIXME:
   // This function is both blocking and collective. However, we believe that
@@ -242,8 +244,8 @@ USER_DEFINED_WRAPPER(int, File_read_all, (MPI_File) fh, (void*) buf,
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, File_write, (MPI_File) fh, (const void*) buf,
-                     (int) count, (MPI_Datatype) datatype, (MPI_Status*) status)
+int MPI_File_write(MPI_File fh, const void *buf,
+                   int count, MPI_Datatype datatype, MPI_Status *status)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -256,9 +258,9 @@ USER_DEFINED_WRAPPER(int, File_write, (MPI_File) fh, (const void*) buf,
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, File_write_at, (MPI_File) fh, (MPI_Offset) offset,
-                     (const void*) buf, (int) count, (MPI_Datatype) datatype,
-                     (MPI_Status*) status)
+int MPI_File_write_at(MPI_File fh, MPI_Offset offset,
+                      const void *buf, int count, MPI_Datatype datatype,
+                      MPI_Status *status)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -272,9 +274,9 @@ USER_DEFINED_WRAPPER(int, File_write_at, (MPI_File) fh, (MPI_Offset) offset,
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, File_write_at_all, (MPI_File) fh, (MPI_Offset) offset,
-                     (const void*) buf, (int) count, (MPI_Datatype) datatype,
-                     (MPI_Status*) status)
+int MPI_File_write_at_all(MPI_File fh, MPI_Offset offset,
+                          const void *buf, int count, MPI_Datatype datatype,
+                          MPI_Status *status)
 {
   // FIXME: See File_read_at_all (the same applies here)
   int retval;
@@ -289,8 +291,8 @@ USER_DEFINED_WRAPPER(int, File_write_at_all, (MPI_File) fh, (MPI_Offset) offset,
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, File_write_all, (MPI_File) fh, (const void*) buf,
-                     (int) count, (MPI_Datatype) datatype, (MPI_Status*) status)
+int MPI_File_write_all(MPI_File fh, const void *buf,
+                       int count, MPI_Datatype datatype, MPI_Status *status)
 {
   // FIXME: See File_read_all (the same applies here)
   int retval;
@@ -304,7 +306,7 @@ USER_DEFINED_WRAPPER(int, File_write_all, (MPI_File) fh, (const void*) buf,
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, File_sync, (MPI_File) fh)
+int MPI_File_sync(MPI_File fh)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -316,8 +318,7 @@ USER_DEFINED_WRAPPER(int, File_sync, (MPI_File) fh)
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, File_get_position, (MPI_File) fh,
-                     (MPI_Offset*) offset)
+int MPI_File_get_position(MPI_File fh, MPI_Offset* offset)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -329,8 +330,7 @@ USER_DEFINED_WRAPPER(int, File_get_position, (MPI_File) fh,
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, File_seek, (MPI_File) fh, (MPI_Offset) offset,
-                     (int) whence)
+int MPI_File_seek(MPI_File fh, MPI_Offset offset, int whence)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -342,7 +342,7 @@ USER_DEFINED_WRAPPER(int, File_seek, (MPI_File) fh, (MPI_Offset) offset,
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, File_close, (MPI_File*) fh)
+int MPI_File_close(MPI_File *fh)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -362,7 +362,7 @@ USER_DEFINED_WRAPPER(int, File_close, (MPI_File*) fh)
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, File_delete, (const char *) filename, (MPI_Info) info)
+int MPI_File_delete(const char *filename, MPI_Info info)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -383,8 +383,7 @@ USER_DEFINED_WRAPPER(int, File_delete, (const char *) filename, (MPI_Info) info)
 }
 
 
-USER_DEFINED_WRAPPER(int, File_set_errhandler, (MPI_File) file,
-                     (MPI_Errhandler) errhandler)
+int MPI_File_set_errhandler(MPI_File file, MPI_Errhandler errhandler)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -396,8 +395,7 @@ USER_DEFINED_WRAPPER(int, File_set_errhandler, (MPI_File) file,
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, File_get_errhandler, (MPI_File) file,
-                     (MPI_Errhandler *) errhandler)
+int MPI_File_get_errhandler(MPI_File file, MPI_Errhandler *errhandler)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -409,40 +407,4 @@ USER_DEFINED_WRAPPER(int, File_get_errhandler, (MPI_File) file,
   return retval;
 }
 
-
-PMPI_IMPL(int, MPI_File_open, MPI_Comm comm, const char *filename, int amode,
-          MPI_Info info, MPI_File *fh)
-PMPI_IMPL(int, MPI_File_get_atomicity, MPI_File fh, int* flag)
-PMPI_IMPL(int, MPI_File_set_atomicity, MPI_File fh, int flag)
-PMPI_IMPL(int, MPI_File_set_size, MPI_File fh, MPI_Offset size)
-PMPI_IMPL(int, MPI_File_get_size, MPI_File fh, MPI_Offset* size)
-PMPI_IMPL(int, MPI_File_set_view, MPI_File fh, MPI_Offset disp,
-          MPI_Datatype etype, MPI_Datatype filetype, const char* datarep,
-          MPI_Info info)
-PMPI_IMPL(int, MPI_File_get_view, MPI_File fh, MPI_Offset* disp,
-          MPI_Datatype* etype, MPI_Datatype* filetype, char* datarep)
-PMPI_IMPL(int, MPI_File_read, MPI_File fh, void* buf, int count,
-          MPI_Datatype datatype, MPI_Status* status)
-PMPI_IMPL(int, MPI_File_read_all, MPI_File fh, void* buf, int count,
-          MPI_Datatype datatype, MPI_Status* status)
-PMPI_IMPL(int, MPI_File_read_at, MPI_File fh, MPI_Offset offset, void* buf,
-          int count, MPI_Datatype datatype, MPI_Status* status)
-PMPI_IMPL(int, MPI_File_read_at_all, MPI_File fh, MPI_Offset offset, void* buf,
-          int count, MPI_Datatype datatype, MPI_Status* status)
-PMPI_IMPL(int, MPI_File_write, MPI_File fh, const void* buf, int count,
-          MPI_Datatype datatype, MPI_Status* status)
-PMPI_IMPL(int, MPI_File_write_all, MPI_File fh, const void* buf, int count,
-          MPI_Datatype datatype, MPI_Status* status)
-PMPI_IMPL(int, MPI_File_write_at, MPI_File fh, MPI_Offset offset,
-          const void* buf, int count, MPI_Datatype datatype, MPI_Status* status)
-PMPI_IMPL(int, MPI_File_write_at_all, MPI_File fh, MPI_Offset offset,
-          const void* buf, int count, MPI_Datatype datatype, MPI_Status* status)
-PMPI_IMPL(int, MPI_File_sync, MPI_File fh)
-PMPI_IMPL(int, MPI_File_get_position, MPI_File fh, MPI_Offset* offset)
-PMPI_IMPL(int, MPI_File_seek, MPI_File fh, MPI_Offset offset, int whence)
-PMPI_IMPL(int, MPI_File_close, MPI_File* fh)
-PMPI_IMPL(int, MPI_File_set_errhandler, MPI_File file,
-          MPI_Errhandler errhandler)
-PMPI_IMPL(int, MPI_File_get_errhandler, MPI_File file,
-          MPI_Errhandler *errhandler)
-PMPI_IMPL(int, MPI_File_delete, const char *filename, MPI_Info info)
+} // end of: extern "C"
