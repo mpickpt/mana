@@ -51,8 +51,10 @@ static const char collective_p2p_string[] =
 
 ManaHeader g_mana_header = { .init_flag = MPI_INIT_NO_THREAD };
 
-USER_DEFINED_WRAPPER(int, Init, (int *) argc, (char ***) argv) {
-  int retval = MPI_SUCCESS;
+extern "C" {
+
+int MPI_Init(int *argc, char ***argv) {
+  int retval;
   if (isUsingCollectiveToP2p()) {
     fprintf(stderr, collective_p2p_string);
   }
@@ -68,9 +70,9 @@ USER_DEFINED_WRAPPER(int, Init, (int *) argc, (char ***) argv) {
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
-USER_DEFINED_WRAPPER(int, Init_thread, (int *) argc, (char ***) argv,
-                     (int) required, (int *) provided) {
-  int retval = MPI_SUCCESS;
+
+int MPI_Init_thread(int *argc, char ***argv, int required, int *provided) {
+  int retval;
   if (isUsingCollectiveToP2p()) {
     fprintf(stderr, collective_p2p_string);
   }
@@ -85,15 +87,41 @@ USER_DEFINED_WRAPPER(int, Init_thread, (int *) argc, (char ***) argv,
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
-//
-// FIXME: See the comment in the wrapper function, defined
-// later in the file.
-// DEFINE_FNC(int, Finalize, (void))
-DEFINE_FNC(int, Finalized, (int *) flag)
-DEFINE_FNC(int, Get_processor_name, (char *) name, (int *) resultlen)
-DEFINE_FNC(int, Initialized, (int *) flag)
 
-USER_DEFINED_WRAPPER(double, Wtime, (void))
+int MPI_Initialized(int *flag)
+{
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
+  retval = NEXT_FUNC(Initialized)(flag);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return retval;
+}
+
+int MPI_Finalized(int *flag)
+{
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
+  retval = NEXT_FUNC(Finalized)(flag);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return retval;
+}
+
+int MPI_Get_processor_name(char *name, int *resultlen)
+{
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
+  retval = NEXT_FUNC(Get_processor_name)(name, resultlen);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return retval;
+}
+
+double MPI_Wtime()
 {
   struct timespec tp;
   clock_gettime(CLOCK_REALTIME, &tp);
@@ -102,7 +130,7 @@ USER_DEFINED_WRAPPER(double, Wtime, (void))
   return ret;
 }
 
-USER_DEFINED_WRAPPER(int, Finalize, (void))
+int MPI_Finalize(void)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -113,9 +141,7 @@ USER_DEFINED_WRAPPER(int, Finalize, (void))
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, Get_count,
-                     (const MPI_Status *) status, (MPI_Datatype) datatype,
-                     (int *) count)
+int MPI_Get_count(const MPI_Status *status, MPI_Datatype datatype, int *count)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -127,8 +153,7 @@ USER_DEFINED_WRAPPER(int, Get_count,
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, Get_library_version, (char *) version,
-                    (int *) resultlen)
+int MPI_Get_library_version(char *version, int *resultlen)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -139,8 +164,7 @@ USER_DEFINED_WRAPPER(int, Get_library_version, (char *) version,
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, Get_address, (const void *) location,
-                    (MPI_Aint *) address)
+int MPI_Get_address(const void *location, MPI_Aint *address)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -164,7 +188,7 @@ USER_DEFINED_WRAPPER(int, Get_address, (const void *) location,
 //   bin/mana_restart
 // If desired, add 'int dummy=1; shile(dummy);' inside MPI_MANA_Internal()
 //   for interactive debbugging
-USER_DEFINED_WRAPPER(int, MANA_Internal, (char *) dummy)
+int MPI_MANA_Internal(char *dummy)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -179,15 +203,4 @@ USER_DEFINED_WRAPPER(int, MANA_Internal, (char *) dummy)
   return retval;
 }
 
-PMPI_IMPL(int, MPI_Init, int *argc, char ***argv)
-PMPI_IMPL(int, MPI_Finalize, void)
-PMPI_IMPL(int, MPI_Finalized, int *flag)
-PMPI_IMPL(int, MPI_Get_processor_name, char *name, int *resultlen)
-PMPI_IMPL(double, MPI_Wtime, void)
-PMPI_IMPL(int, MPI_Initialized, int *flag)
-PMPI_IMPL(int, MPI_Init_thread, int *argc, char ***argv,
-          int required, int *provided)
-PMPI_IMPL(int, MPI_Get_count, const MPI_Status *status, MPI_Datatype datatype,
-          int *count)
-PMPI_IMPL(int, MPI_Get_library_version, char *version, int *resultlen)
-PMPI_IMPL(int, MPI_Get_address, const void *location, MPI_Aint *address)
+} // end of: extern "C"
