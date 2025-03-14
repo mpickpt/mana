@@ -32,10 +32,9 @@
 
 using namespace dmtcp_mpi;
 
+extern "C" {
 
-USER_DEFINED_WRAPPER(int, Op_create,
-                     (MPI_User_function *) user_fn, (int) commute,
-                     (MPI_Op *) op)
+int MPI_Op_create(MPI_User_function *user_fn, int commute, MPI_Op *op)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -52,7 +51,7 @@ USER_DEFINED_WRAPPER(int, Op_create,
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, Op_free, (MPI_Op*) op)
+int MPI_Op_free(MPI_Op *op)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -70,9 +69,8 @@ USER_DEFINED_WRAPPER(int, Op_free, (MPI_Op*) op)
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, Reduce_local,
-                     (const void *) inbuf, (void *) inoutbuf, (int) count,
-                     (MPI_Datatype) datatype, (MPI_Op) op)
+int MPI_Reduce_local(const void *inbuf, void *inoutbuf, int count,
+                     MPI_Datatype datatype, MPI_Op op)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -86,9 +84,4 @@ USER_DEFINED_WRAPPER(int, Reduce_local,
   return retval;
 }
 
-
-PMPI_IMPL(int, MPI_Op_create, MPI_User_function *user_fn,
-          int commute, MPI_Op *op)
-PMPI_IMPL(int, MPI_Op_free, MPI_Op *op)
-PMPI_IMPL(int, MPI_Reduce_local, const void *inbuf, void *inoutbuf, int count,
-          MPI_Datatype datatype, MPI_Op op)
+} // end of: extern "C"

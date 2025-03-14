@@ -38,9 +38,10 @@
 
 extern int p2p_deterministic_skip_save_request;
 
-USER_DEFINED_WRAPPER(int, Send,
-                     (const void *) buf, (int) count, (MPI_Datatype) datatype,
-                     (int) dest, (int) tag, (MPI_Comm) comm)
+extern "C" {
+
+int MPI_Send(const void *buf, int count, MPI_Datatype datatype,
+             int dest, int tag, MPI_Comm comm)
 {
   int retval;
   while (mana_state == CKPT_P2P) {
@@ -66,10 +67,9 @@ USER_DEFINED_WRAPPER(int, Send,
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, Isend,
-                     (const void *) buf, (int) count, (MPI_Datatype) datatype,
-                     (int) dest, (int) tag,
-                     (MPI_Comm) comm, (MPI_Request *) request)
+int MPI_Isend(const void *buf, int count, MPI_Datatype datatype,
+              int dest, int tag,
+              MPI_Comm comm, MPI_Request *request)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -101,9 +101,9 @@ USER_DEFINED_WRAPPER(int, Isend,
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, Rsend, (const void*) ibuf, (int) count,
-                     (MPI_Datatype) datatype, (int) dest,
-                     (int) tag, (MPI_Comm) comm)
+int MPI_Rsend(const void* ibuf, int count,
+              MPI_Datatype datatype, int dest,
+              int tag, MPI_Comm comm)
 {
   int retval;
   while (mana_state == CKPT_P2P) {
@@ -130,10 +130,8 @@ USER_DEFINED_WRAPPER(int, Rsend, (const void*) ibuf, (int) count,
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, Recv,
-                     (void *) buf, (int) count, (MPI_Datatype) datatype,
-                     (int) source, (int) tag,
-                     (MPI_Comm) comm, (MPI_Status *) status)
+int MPI_Recv(void *buf, int count, MPI_Datatype datatype,
+             int source, int tag, MPI_Comm comm, MPI_Status *status)
 {
   int retval;
   int flag = 0;
@@ -178,10 +176,8 @@ USER_DEFINED_WRAPPER(int, Recv,
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, Irecv,
-                     (void *) buf, (int) count, (MPI_Datatype) datatype,
-                     (int) source, (int) tag,
-                     (MPI_Comm) comm, (MPI_Request *) request)
+int MPI_Irecv(void *buf, int count, MPI_Datatype datatype,
+              int source, int tag, MPI_Comm comm, MPI_Request *request)
 {
   int retval;
   int flag = 0;
@@ -252,11 +248,11 @@ USER_DEFINED_WRAPPER(int, Irecv,
 }
 
 // FIXME: Move this to mpi_collective_wrappers.cpp and reimplement
-USER_DEFINED_WRAPPER(int, Sendrecv, (const void *) sendbuf, (int) sendcount,
-                     (MPI_Datatype) sendtype, (int) dest,
-                     (int) sendtag, (void *) recvbuf,
-                     (int) recvcount, (MPI_Datatype) recvtype, (int) source,
-                     (int) recvtag, (MPI_Comm) comm, (MPI_Status *) status)
+int MPI_Sendrecv(const void *sendbuf, int sendcount,
+                 MPI_Datatype sendtype, int dest,
+                 int sendtag, void *recvbuf,
+                 int recvcount, MPI_Datatype recvtype, int source,
+                 int recvtag, MPI_Comm comm, MPI_Status *status)
 {
   int retval;
 #if 0
@@ -296,10 +292,10 @@ USER_DEFINED_WRAPPER(int, Sendrecv, (const void *) sendbuf, (int) sendcount,
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, Sendrecv_replace, (void *) buf, (int) count,
-                     (MPI_Datatype) datatype, (int) dest,
-                     (int) sendtag, (int) source,
-                     (int) recvtag, (MPI_Comm) comm, (MPI_Status *) status)
+int MPI_Sendrecv_replace(void *buf, int count,
+                         MPI_Datatype datatype, int dest,
+                         int sendtag, int source,
+                         int recvtag, MPI_Comm comm, MPI_Status *status)
 {
   MPI_Request reqs[2];
   MPI_Status sts[2];
@@ -336,21 +332,4 @@ USER_DEFINED_WRAPPER(int, Sendrecv_replace, (void *) buf, (int) count,
   return retval;
 }
 
-
-PMPI_IMPL(int, MPI_Send, const void *buf, int count, MPI_Datatype datatype,
-          int dest, int tag, MPI_Comm comm)
-PMPI_IMPL(int, MPI_Isend, const void *buf, int count, MPI_Datatype datatype,
-          int dest, int tag, MPI_Comm comm, MPI_Request* request)
-PMPI_IMPL(int, MPI_Recv, void *buf, int count, MPI_Datatype datatype,
-          int source, int tag, MPI_Comm comm, MPI_Status *status)
-PMPI_IMPL(int, MPI_Irecv, void *buf, int count, MPI_Datatype datatype,
-          int source, int tag, MPI_Comm comm, MPI_Request *request)
-PMPI_IMPL(int, MPI_Sendrecv, const void *sendbuf, int sendcount,
-          MPI_Datatype sendtype, int dest, int sendtag, void *recvbuf,
-          int recvcount, MPI_Datatype recvtype, int source, int recvtag,
-          MPI_Comm comm, MPI_Status *status)
-PMPI_IMPL(int, MPI_Sendrecv_replace, void * buf, int count,
-          MPI_Datatype datatype, int dest, int sendtag, int source,
-          int recvtag, MPI_Comm comm, MPI_Status *status)
-PMPI_IMPL(int, MPI_Rsend, const void *ibuf, int count, MPI_Datatype datatype,
-          int dest, int tag, MPI_Comm comm)
+} // end of: extern "C"
