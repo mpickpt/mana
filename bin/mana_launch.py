@@ -84,7 +84,13 @@ if "--quiet" in dmtcp_flags or "-q" in dmtcp_flags:
 check_path_exists = os.path.exists(tmp_lib_path + "/tmp")
 if check_path_exists and not shadow:
   print(f"Remove all files from dir.. {tmp_lib_path}/tmp")
-  shutil.rmtree(tmp_lib_path + "/tmp")
+  try:
+    shutil.rmtree(tmp_lib_path + "/tmp")
+  except FileNotFoundError:
+    pass  # Ignore the error if file is already deleted by another process
+  except Exception as e:  # Catch all other errors
+    print(f"Error removing {dir_path}: {e}")
+
 elif not check_path_exists and shadow:
   print(f"Run the Python script create_shadow.py with the given argument")
   subprocess.run(
