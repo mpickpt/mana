@@ -1,22 +1,22 @@
 /****************************************************************************
- *   Copyright (C) 2019-2021 by Gene Cooperman, Rohan Garg, Yao Xu          *
- *   gene@ccs.neu.edu, rohgarg@ccs.neu.edu, xu.yao1@northeastern.edu        *
- *                                                                          *
- *  This file is part of DMTCP.                                             *
- *                                                                          *
- *  DMTCP is free software: you can redistribute it and/or                  *
- *  modify it under the terms of the GNU Lesser General Public License as   *
- *  published by the Free Software Foundation, either version 3 of the      *
- *  License, or (at your option) any later version.                         *
- *                                                                          *
- *  DMTCP is distributed in the hope that it will be useful,                *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
- *  GNU Lesser General Public License for more details.                     *
- *                                                                          *
- *  You should have received a copy of the GNU Lesser General Public        *
- *  License in the files COPYING and COPYING.LESSER.  If not, see           *
- *  <http://www.gnu.org/licenses/>.                                         *
+  *  Copyright (C) 2019-2021 by Gene Cooperman, Rohan Garg, Yao Xu          *
+  *  gene@ccs.neu.edu, rohgarg@ccs.neu.edu, xu.yao1@northeastern.edu        *
+  *                                                                         *
+  * This file is part of DMTCP.                                             *
+  *                                                                         *
+  * DMTCP is free software: you can redistribute it and/or                  *
+  * modify it under the terms of the GNU Lesser General Public License as   *
+  * published by the Free Software Foundation, either version 3 of the      *
+  * License, or (at your option) any later version.                         *
+  *                                                                         *
+  * DMTCP is distributed in the hope that it will be useful,                *
+  * but WITHOUT ANY WARRANTY; without even the implied warranty of          *
+  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
+  * GNU Lesser General Public License for more details.                     *
+  *                                                                         *
+  * You should have received a copy of the GNU Lesser General Public        *
+  * License in the files COPYING and COPYING.LESSER.  If not, see           *
+  * <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
 #include "mpi_plugin.h"
@@ -39,8 +39,9 @@
 
 using namespace dmtcp_mpi;
 
-USER_DEFINED_WRAPPER(int, Cart_coords, (MPI_Comm) comm, (int) rank,
-                     (int) maxdims, (int*) coords)
+extern "C" {
+
+int MPI_Cart_coords(MPI_Comm comm, int rank, int maxdims, int *coords)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -52,8 +53,7 @@ USER_DEFINED_WRAPPER(int, Cart_coords, (MPI_Comm) comm, (int) rank,
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, Cart_get, (MPI_Comm) comm, (int) maxdims,
-                     (int*) dims, (int*) periods, (int*) coords)
+int MPI_Cart_get(MPI_Comm comm, int maxdims, int *dims, int *periods, int *coords)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -65,8 +65,8 @@ USER_DEFINED_WRAPPER(int, Cart_get, (MPI_Comm) comm, (int) maxdims,
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, Cart_map, (MPI_Comm) comm, (int) ndims,
-                     (const int*) dims, (const int*) periods, (int *) newrank)
+int MPI_Cart_map(MPI_Comm comm, int ndims, const int *dims, const int *periods,
+                 int  *newrank)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -76,16 +76,15 @@ USER_DEFINED_WRAPPER(int, Cart_map, (MPI_Comm) comm, (int) ndims,
   retval = NEXT_FUNC(Cart_map)(realComm, ndims, dims, periods, newrank);
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS && MPI_LOGGING()) {
-    FncArg ds = CREATE_LOG_BUF(dims, ndims * sizeof(int));
-    FncArg ps = CREATE_LOG_BUF(periods, ndims * sizeof(int));
+    FncArg ds = CREATE_LOG_BUF(dims, ndims  *sizeof(int));
+    FncArg ps = CREATE_LOG_BUF(periods, ndims  *sizeof(int));
     LOG_CALL(restoreCarts, Cart_map, comm, ndims, ds, ps, newrank);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, Cart_rank, (MPI_Comm) comm,
-                     (const int*) coords, (int *) rank)
+int MPI_Cart_rank(MPI_Comm comm, const int *coords, int *rank)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -97,8 +96,8 @@ USER_DEFINED_WRAPPER(int, Cart_rank, (MPI_Comm) comm,
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, Cart_shift, (MPI_Comm) comm, (int) direction,
-                     (int) disp, (int *) rank_source, (int *) rank_dest)
+int MPI_Cart_shift(MPI_Comm comm, int direction, int disp, int *rank_source,
+                   int *rank_dest)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -115,8 +114,7 @@ USER_DEFINED_WRAPPER(int, Cart_shift, (MPI_Comm) comm, (int) direction,
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, Cart_sub, (MPI_Comm) comm,
-                     (const int*) remain_dims, (MPI_Comm *) new_comm)
+int MPI_Cart_sub(MPI_Comm comm, const int *remain_dims, MPI_Comm *new_comm)
 {
   int retval;
 
@@ -134,7 +132,7 @@ USER_DEFINED_WRAPPER(int, Cart_sub, (MPI_Comm) comm,
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, Cartdim_get, (MPI_Comm) comm, (int *) ndims)
+int MPI_Cartdim_get(MPI_Comm comm, int *ndims)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -146,7 +144,7 @@ USER_DEFINED_WRAPPER(int, Cartdim_get, (MPI_Comm) comm, (int *) ndims)
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, Dims_create, (int)nnodes, (int)ndims, (int *)dims)
+int Dims_create(int nnodes, int ndims, int *dims)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -165,9 +163,9 @@ CartesianProperties g_cartesian_properties = { .comm_old_size = -1,
                                                .comm_old_rank = -1,
                                                .comm_cart_rank = -1 };
 
-USER_DEFINED_WRAPPER(int, Cart_create, (MPI_Comm)old_comm, (int)ndims,
-                     (const int *)dims, (const int *)periods, (int)reorder,
-                     (MPI_Comm *)comm_cart)
+int MPI_Cart_create(MPI_Comm old_comm, int ndims,
+                    const int *dims, const int *periods, int reorder,
+                    MPI_Comm *comm_cart)
 {
   JWARNING(g_cartesian_properties.comm_old_size == -1)
     .Text("MPI_Cart_create() called more than once. Current implementation "
@@ -205,9 +203,9 @@ USER_DEFINED_WRAPPER(int, Cart_create, (MPI_Comm)old_comm, (int)ndims,
 }
 #else
 
-USER_DEFINED_WRAPPER(int, Cart_create, (MPI_Comm) old_comm, (int) ndims,
-                     (const int*) dims, (const int*) periods, (int) reorder,
-                     (MPI_Comm *) comm_cart)
+int MPI_Cart_create(MPI_Comm old_comm, int ndims,
+                    const int *dims, const int *periods, int reorder,
+                    MPI_Comm *comm_cart)
 {
   int retval;
   // The MPI library assigns the cartesian coordinates naively
@@ -244,21 +242,4 @@ USER_DEFINED_WRAPPER(int, Cart_create, (MPI_Comm) old_comm, (int) ndims,
 }
 
 #endif
-
-PMPI_IMPL(int, MPI_Cart_coords, MPI_Comm comm, int rank,
-          int maxdims, int coords[])
-PMPI_IMPL(int, MPI_Cart_create, MPI_Comm old_comm, int ndims,
-          const int dims[], const int periods[], int reorder,
-          MPI_Comm *comm_cart)
-PMPI_IMPL(int, MPI_Cart_get, MPI_Comm comm, int maxdims,
-          int dims[], int periods[], int coords[])
-PMPI_IMPL(int, MPI_Cart_map, MPI_Comm comm, int ndims,
-          const int dims[], const int periods[], int *newrank)
-PMPI_IMPL(int, MPI_Cart_rank, MPI_Comm comm, const int coords[], int *rank)
-PMPI_IMPL(int, MPI_Cart_shift, MPI_Comm comm, int direction,
-          int disp, int *rank_source, int *rank_dest)
-PMPI_IMPL(int, MPI_Cart_sub, MPI_Comm comm,
-          const int remain_dims[], MPI_Comm *new_comm)
-PMPI_IMPL(int, MPI_Cartdim_get, MPI_Comm comm, int *ndims)
-PMPI_IMPL(int, MPI_Dims_create, int nnodes, int ndims, int *dims)
-
+} // end of: extern "C"

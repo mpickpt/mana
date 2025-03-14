@@ -28,13 +28,29 @@
 #include "protectedfds.h"
 
 #include "mpi_nextfunc.h"
-#include "record-replay.h"
 
-DEFINE_FNC(int, Error_class, (int) errorcode, (int *) errorclass);
-DEFINE_FNC(int, Error_string, (int) errorcode, (char *) string,
-           (int *) resultlen);
+extern "C" {
 
-PMPI_IMPL(int, MPI_Error_class, int errorcode, int *errorclass)
-PMPI_IMPL(int, MPI_Error_string, int errorcode, char *string,
-          int *resultlen)
+int MPI_Error_class(int errorcode, int *errorclass)
+{
+  int retval = 0;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
+  retval = NEXT_FUNC(Error_class)(errorcode, errorclass);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return retval;
+}
 
+int MPI_Error_string(int errorcode, char *string, int *resultlen)
+{
+  int retval = 0;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
+  retval = NEXT_FUNC(Error_string)(errorcode, string, resultlen);
+  RETURN_TO_UPPER_HALF();
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return retval;
+}
+
+} // end of: extern "C"

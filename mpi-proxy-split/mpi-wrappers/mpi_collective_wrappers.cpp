@@ -52,10 +52,11 @@ isUsingCollectiveToP2p() {
 
 using namespace dmtcp_mpi;
 
+extern "C" {
+
 #ifndef MPI_COLLECTIVE_P2P
-USER_DEFINED_WRAPPER(int, Bcast,
-                     (void *) buffer, (int) count, (MPI_Datatype) datatype,
-                     (int) root, (MPI_Comm) comm)
+int MPI_Bcast(void *buffer, int count, MPI_Datatype datatype,
+              int root, MPI_Comm comm)
 {
   commit_begin(comm);
   int retval;
@@ -70,9 +71,8 @@ USER_DEFINED_WRAPPER(int, Bcast,
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, Ibcast,
-                     (void *) buffer, (int) count, (MPI_Datatype) datatype,
-                     (int) root, (MPI_Comm) comm, (MPI_Request *) request)
+int MPI_Ibcast(void *buffer, int count, MPI_Datatype datatype,
+               int root, MPI_Comm comm, MPI_Request *request)
 {
   int retval;
   commit_begin(comm);
@@ -95,7 +95,7 @@ USER_DEFINED_WRAPPER(int, Ibcast,
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, Barrier, (MPI_Comm) comm)
+int MPI_Barrier(MPI_Comm comm)
 {
   commit_begin(comm);
   int retval;
@@ -109,8 +109,7 @@ USER_DEFINED_WRAPPER(int, Barrier, (MPI_Comm) comm)
   return retval;
 }
 
-EXTERNC
-USER_DEFINED_WRAPPER(int, Ibarrier, (MPI_Comm) comm, (MPI_Request *) request)
+int MPI_Ibarrier(MPI_Comm comm, MPI_Request *request)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -207,10 +206,9 @@ MPI_Allreduce_reproducible(const void *sendbuf,
   return rc;
 }
 
-USER_DEFINED_WRAPPER(int, Allreduce,
-                     (const void *) sendbuf, (void *) recvbuf,
-                     (int) count, (MPI_Datatype) datatype,
-                     (MPI_Op) op, (MPI_Comm) comm)
+int MPI_Allreduce(const void * sendbuf, void * recvbuf,
+              int count, MPI_Datatype datatype,
+              MPI_Op op, MPI_Comm comm)
 {
   char *s = getenv("MANA_USE_ALLREDUCE_REPRODUCIBLE");
   int use_allreduce_reproducible = (s != NULL) ? atoi(s) : 0;
@@ -240,10 +238,8 @@ USER_DEFINED_WRAPPER(int, Allreduce,
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, Reduce,
-                     (const void *) sendbuf, (void *) recvbuf, (int) count,
-                     (MPI_Datatype) datatype, (MPI_Op) op,
-                     (int) root, (MPI_Comm) comm)
+int MPI_Reduce(const void *sendbuf, void *recvbuf, int count,
+               MPI_Datatype datatype, MPI_Op op, int root, MPI_Comm comm)
 {
   commit_begin(comm);
   int retval;
@@ -264,10 +260,9 @@ USER_DEFINED_WRAPPER(int, Reduce,
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, Ireduce,
-                     (const void *) sendbuf, (void *) recvbuf, (int) count,
-                     (MPI_Datatype) datatype, (MPI_Op) op,
-                     (int) root, (MPI_Comm) comm, (MPI_Request *) request)
+int MPI_Ireduce(const void *sendbuf, void *recvbuf, int count,
+                MPI_Datatype datatype, MPI_Op op,
+                int root, MPI_Comm comm, MPI_Request *request)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -293,10 +288,9 @@ USER_DEFINED_WRAPPER(int, Ireduce,
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, Reduce_scatter,
-                     (const void *) sendbuf, (void *) recvbuf,
-                     (const int) recvcounts[], (MPI_Datatype) datatype,
-                     (MPI_Op) op, (MPI_Comm) comm)
+int MPI_Reduce_scatter(const void *sendbuf, void *recvbuf,
+                       const int recvcounts[], MPI_Datatype datatype,
+                       MPI_Op op, MPI_Comm comm)
 {
   commit_begin(comm);
   int retval;
@@ -421,10 +415,9 @@ MPI_Alltoall_internal(const void *sendbuf, int sendcount,
 #endif
 
 #ifndef MPI_COLLECTIVE_P2P
-USER_DEFINED_WRAPPER(int, Alltoall,
-                     (const void *) sendbuf, (int) sendcount,
-                     (MPI_Datatype) sendtype, (void *) recvbuf, (int) recvcount,
-                     (MPI_Datatype) recvtype, (MPI_Comm) comm)
+int MPI_Alltoall(const void *sendbuf, int sendcount,
+                 MPI_Datatype sendtype, void *recvbuf, int recvcount,
+                 MPI_Datatype recvtype, MPI_Comm comm)
 {
   commit_begin(comm);
   int retval;
@@ -435,12 +428,11 @@ USER_DEFINED_WRAPPER(int, Alltoall,
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, Alltoallv,
-                     (const void *) sendbuf, (const int *) sendcounts,
-                     (const int *) sdispls, (MPI_Datatype) sendtype,
-                     (void *) recvbuf, (const int *) recvcounts,
-                     (const int *) rdispls, (MPI_Datatype) recvtype,
-                     (MPI_Comm) comm)
+int MPI_Alltoallv(const void *sendbuf, const int *sendcounts,
+                  const int *sdispls, MPI_Datatype sendtype,
+                  void *recvbuf, const int *recvcounts,
+                  const int *rdispls, MPI_Datatype recvtype,
+                  MPI_Comm comm)
 {
   commit_begin(comm);
   int retval;
@@ -462,9 +454,9 @@ USER_DEFINED_WRAPPER(int, Alltoallv,
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, Gather, (const void *) sendbuf, (int) sendcount,
-                     (MPI_Datatype) sendtype, (void *) recvbuf, (int) recvcount,
-                     (MPI_Datatype) recvtype, (int) root, (MPI_Comm) comm)
+int MPI_Gather(const void *sendbuf, int sendcount,
+               MPI_Datatype sendtype, void *recvbuf, int recvcount,
+               MPI_Datatype recvtype, int root, MPI_Comm comm)
 {
   commit_begin(comm);
   int retval;
@@ -490,10 +482,10 @@ USER_DEFINED_WRAPPER(int, Gather, (const void *) sendbuf, (int) sendcount,
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, Gatherv, (const void *) sendbuf, (int) sendcount,
-                     (MPI_Datatype) sendtype, (void *) recvbuf,
-                     (const int*) recvcounts, (const int*) displs,
-                     (MPI_Datatype) recvtype, (int) root, (MPI_Comm) comm)
+int MPI_Gatherv(const void *sendbuf, int sendcount,
+                MPI_Datatype sendtype, void *recvbuf,
+                const int *recvcounts, const int *displs,
+                MPI_Datatype recvtype, int root, MPI_Comm comm)
 {
   commit_begin(comm);
   int retval;
@@ -515,9 +507,9 @@ USER_DEFINED_WRAPPER(int, Gatherv, (const void *) sendbuf, (int) sendcount,
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, Scatter, (const void *) sendbuf, (int) sendcount,
-                     (MPI_Datatype) sendtype, (void *) recvbuf, (int) recvcount,
-                     (MPI_Datatype) recvtype, (int) root, (MPI_Comm) comm)
+int MPI_Scatter(const void *sendbuf, int sendcount,
+                MPI_Datatype sendtype, void *recvbuf, int recvcount,
+                MPI_Datatype recvtype, int root, MPI_Comm comm)
 {
   commit_begin(comm);
   int retval;
@@ -539,10 +531,10 @@ USER_DEFINED_WRAPPER(int, Scatter, (const void *) sendbuf, (int) sendcount,
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, Scatterv, (const void *) sendbuf,
-                     (const int *) sendcounts, (const int *) displs,
-                     (MPI_Datatype) sendtype, (void *) recvbuf, (int) recvcount,
-                     (MPI_Datatype) recvtype, (int) root, (MPI_Comm) comm)
+int MPI_Scatterv(const void *sendbuf,
+                 const int *sendcounts, const int *displs,
+                 MPI_Datatype sendtype, void *recvbuf, int recvcount,
+                 MPI_Datatype recvtype, int root, MPI_Comm comm)
 {
   commit_begin(comm);
   int retval;
@@ -564,9 +556,9 @@ USER_DEFINED_WRAPPER(int, Scatterv, (const void *) sendbuf,
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, Allgather, (const void *) sendbuf, (int) sendcount,
-                     (MPI_Datatype) sendtype, (void *) recvbuf, (int) recvcount,
-                     (MPI_Datatype) recvtype, (MPI_Comm) comm)
+int MPI_Allgather(const void *sendbuf, int sendcount,
+                  MPI_Datatype sendtype, void *recvbuf, int recvcount,
+                  MPI_Datatype recvtype, MPI_Comm comm)
 {
   commit_begin(comm);
   int retval;
@@ -588,10 +580,10 @@ USER_DEFINED_WRAPPER(int, Allgather, (const void *) sendbuf, (int) sendcount,
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, Allgatherv, (const void *) sendbuf, (int) sendcount,
-                     (MPI_Datatype) sendtype, (void *) recvbuf,
-                     (const int*) recvcounts, (const int *) displs,
-                     (MPI_Datatype) recvtype, (MPI_Comm) comm)
+int MPI_Allgatherv(const void *sendbuf, int sendcount,
+                   MPI_Datatype sendtype, void *recvbuf,
+                   const int *recvcounts, const int *displs,
+                   MPI_Datatype recvtype, MPI_Comm comm)
 {
   commit_begin(comm);
   int retval;
@@ -613,9 +605,9 @@ USER_DEFINED_WRAPPER(int, Allgatherv, (const void *) sendbuf, (int) sendcount,
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, Scan, (const void *) sendbuf, (void *) recvbuf,
-                     (int) count, (MPI_Datatype) datatype,
-                     (MPI_Op) op, (MPI_Comm) comm)
+int MPI_Scan(const void *sendbuf, void *recvbuf,
+             int count, MPI_Datatype datatype,
+             MPI_Op op, MPI_Comm comm)
 {
   commit_begin(comm);
   int retval;
@@ -638,8 +630,7 @@ USER_DEFINED_WRAPPER(int, Scan, (const void *) sendbuf, (void *) recvbuf,
 #endif // #ifndef MPI_COLLECTIVE_P2P
 
 // FIXME: Also check the MPI_Cart family, if they use collective communications.
-USER_DEFINED_WRAPPER(int, Comm_split, (MPI_Comm) comm, (int) color, (int) key,
-    (MPI_Comm *) newcomm)
+int MPI_Comm_split(MPI_Comm comm, int color, int key, MPI_Comm *newcomm)
 {
   commit_begin(comm);
   int retval;
@@ -660,7 +651,7 @@ USER_DEFINED_WRAPPER(int, Comm_split, (MPI_Comm) comm, (int) color, (int) key,
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, Comm_dup, (MPI_Comm) comm, (MPI_Comm *) newcomm)
+int MPI_Comm_dup(MPI_Comm comm, MPI_Comm *newcomm)
 {
   commit_begin(comm);
   int retval;
@@ -681,49 +672,4 @@ USER_DEFINED_WRAPPER(int, Comm_dup, (MPI_Comm) comm, (MPI_Comm *) newcomm)
   return retval;
 }
 
-
-#ifndef MPI_COLLECTIVE_P2P
-PMPI_IMPL(int, MPI_Bcast, void *buffer, int count, MPI_Datatype datatype,
-          int root, MPI_Comm comm)
-PMPI_IMPL(int, MPI_Ibcast, void *buffer, int count, MPI_Datatype datatype,
-          int root, MPI_Comm comm, MPI_Request *request)
-PMPI_IMPL(int, MPI_Barrier, MPI_Comm comm)
-PMPI_IMPL(int, MPI_Ibarrier, MPI_Comm comm, MPI_Request * request)
-PMPI_IMPL(int, MPI_Allreduce, const void *sendbuf, void *recvbuf, int count,
-          MPI_Datatype datatype, MPI_Op op, MPI_Comm comm)
-PMPI_IMPL(int, MPI_Reduce, const void *sendbuf, void *recvbuf, int count,
-          MPI_Datatype datatype, MPI_Op op, int root, MPI_Comm comm)
-PMPI_IMPL(int, MPI_Ireduce, const void *sendbuf, void *recvbuf, int count,
-          MPI_Datatype datatype, MPI_Op op, int root, MPI_Comm comm,
-          MPI_Request *request)
-PMPI_IMPL(int, MPI_Alltoall, const void *sendbuf, int sendcount,
-          MPI_Datatype sendtype, void *recvbuf, int recvcount,
-          MPI_Datatype recvtype, MPI_Comm comm)
-PMPI_IMPL(int, MPI_Alltoallv, const void *sendbuf, const int sendcounts[],
-          const int sdispls[], MPI_Datatype sendtype, void *recvbuf,
-          const int recvcounts[], const int rdispls[], MPI_Datatype recvtype,
-          MPI_Comm comm)
-PMPI_IMPL(int, MPI_Allgather, const void *sendbuf, int sendcount,
-          MPI_Datatype sendtype, void *recvbuf, int recvcount,
-          MPI_Datatype recvtype, MPI_Comm comm)
-PMPI_IMPL(int, MPI_Allgatherv, const void * sendbuf, int sendcount,
-          MPI_Datatype sendtype, void *recvbuf, const int *recvcount,
-          const int *displs, MPI_Datatype recvtype, MPI_Comm comm)
-PMPI_IMPL(int, MPI_Gather, const void *sendbuf, int sendcount,
-          MPI_Datatype sendtype, void *recvbuf, int recvcount,
-          MPI_Datatype recvtype, int root, MPI_Comm comm)
-PMPI_IMPL(int, MPI_Gatherv, const void *sendbuf, int sendcount,
-          MPI_Datatype sendtype, void *recvbuf, const int recvcounts[],
-          const int displs[], MPI_Datatype recvtype, int root, MPI_Comm comm)
-PMPI_IMPL(int, MPI_Scatter, const void *sendbuf, int sendcount,
-          MPI_Datatype sendtype, void *recvbuf, int recvcount,
-          MPI_Datatype recvtype, int root, MPI_Comm comm)
-PMPI_IMPL(int, MPI_Scatterv, const void *sendbuf, const int sendcounts[],
-          const int displs[], MPI_Datatype sendtype, void *recvbuf,
-          int recvcount, MPI_Datatype recvtype, int root, MPI_Comm comm)
-PMPI_IMPL(int, MPI_Scan, const void *sendbuf, void *recvbuf, int count,
-          MPI_Datatype datatype, MPI_Op op, MPI_Comm comm)
-#endif // #ifndef MPI_COLLECTIVE_P2P
-PMPI_IMPL(int, MPI_Comm_split, MPI_Comm comm, int color, int key,
-          MPI_Comm *newcomm)
-PMPI_IMPL(int, MPI_Comm_dup, MPI_Comm comm, MPI_Comm *newcomm)
+} // end of: extern "C"

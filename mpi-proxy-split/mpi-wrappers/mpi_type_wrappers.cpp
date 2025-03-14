@@ -32,7 +32,9 @@
 
 using namespace dmtcp_mpi;
 
-USER_DEFINED_WRAPPER(int, Type_size, (MPI_Datatype) datatype, (int *) size)
+extern "C" {
+
+int MPI_Type_size(MPI_Datatype datatype, int *size)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -44,7 +46,7 @@ USER_DEFINED_WRAPPER(int, Type_size, (MPI_Datatype) datatype, (int *) size)
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, Type_free, (MPI_Datatype *) type)
+int MPI_Type_free(MPI_Datatype *type)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -59,7 +61,7 @@ USER_DEFINED_WRAPPER(int, Type_free, (MPI_Datatype *) type)
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, Type_commit, (MPI_Datatype *) type)
+int MPI_Type_commit(MPI_Datatype *type)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -74,8 +76,7 @@ USER_DEFINED_WRAPPER(int, Type_commit, (MPI_Datatype *) type)
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, Type_contiguous, (int) count, (MPI_Datatype) oldtype,
-                     (MPI_Datatype *) newtype)
+int MPI_Type_contiguous(int count, MPI_Datatype oldtype, MPI_Datatype *newtype)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -91,39 +92,14 @@ USER_DEFINED_WRAPPER(int, Type_contiguous, (int) count, (MPI_Datatype) oldtype,
   return retval;
 }
 
-// removed in MPI-3.0 (2012)
-#if 0
-USER_DEFINED_WRAPPER(int, Type_hvector, (int) count, (int) blocklength,
-                    (MPI_Aint) stride, (MPI_Datatype) oldtype,
-                    (MPI_Datatype*) newtype)
-{
-  int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Datatype real_datatype = get_real_id((mana_mpi_handle){.datatype = oldtype}).datatype;
-  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
-  retval = NEXT_FUNC(Type_hvector)(count, blocklength,
-                                  stride, real_datatype, newtype);
-  RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
-    *newtype = new_virt_datatype(*newtype);
-    LOG_CALL(restoreTypes, Type_hvector, count, blocklength,
-             stride, oldtype, *newtype);
-  }
-  DMTCP_PLUGIN_ENABLE_CKPT();
-  return retval;
-}
-#endif
-
-USER_DEFINED_WRAPPER(int, Type_create_hvector, (int) count, (int) blocklength,
-                    (MPI_Aint) stride, (MPI_Datatype) oldtype,
-                    (MPI_Datatype*) newtype)
+int MPI_Type_create_hvector(int count, int blocklength, MPI_Aint stride,
+                            MPI_Datatype oldtype, MPI_Datatype *newtype)
 {
   return MPI_Type_create_hvector(count, blocklength, stride, oldtype, newtype);
 }
 
-USER_DEFINED_WRAPPER(int, Type_vector, (int) count, (int) blocklength,
-                     (int) stride, (MPI_Datatype) oldtype,
-                    (MPI_Datatype*) newtype)
+int MPI_Type_vector(int count, int blocklength, int stride, MPI_Datatype oldtype,
+                    MPI_Datatype *newtype)
 {
   int size;
   int retval = MPI_Type_size(oldtype, &size);
@@ -138,12 +114,11 @@ USER_DEFINED_WRAPPER(int, Type_vector, (int) count, (int) blocklength,
 //                                const int array_of_blocklengths[],
 //                                const MPI_Aint array_of_displacements[],
 //                                const MPI_Datatype array_of_types[],
-//                                MPI_Datatype *newtype)
+//                                MPI_Datat
 
-USER_DEFINED_WRAPPER(int, Type_create_struct, (int) count,
-                     (const int*) array_of_blocklengths,
-                     (const MPI_Aint*) array_of_displacements,
-                     (const MPI_Datatype*) array_of_types, (MPI_Datatype*) newtype)
+int MPI_Type_create_struct(int count, const int *array_of_blocklengths,
+                           const MPI_Aint *array_of_displacements,
+                           const MPI_Datatype *array_of_types, MPI_Datatype *newtype)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -174,21 +149,21 @@ USER_DEFINED_WRAPPER(int, Type_create_struct, (int) count,
 // on Perlmutter is fixed to use the right API.
 #ifdef MPICH_NUMVERSION
 #if MPICH_NUMVERSION < MPICH_CALC_VERSION(3,4,0,0,2) && defined(CRAY_MPICH_VERSION)
-USER_DEFINED_WRAPPER(int, Type_struct, (int) count,
-                     (const int*) array_of_blocklengths,
-                     (const MPI_Aint*) array_of_displacements,
-                     (const MPI_Datatype*) array_of_types, (MPI_Datatype*) newtype)
+int MPI_Type_struct(int count,
+                    const int *array_of_blocklengths,
+                    const MPI_Aint *array_of_displacements,
+                    const MPI_Datatype *array_of_types, MPI_Datatype *newtype)
 #else
-USER_DEFINED_WRAPPER(int, Type_struct, (int) count,
-                     (int*) array_of_blocklengths,
-                     (MPI_Aint*) array_of_displacements,
-                     (MPI_Datatype*) array_of_types, (MPI_Datatype*) newtype)
+int MPI_Type_struct(int count,
+                    int *array_of_blocklengths,
+                    MPI_Aint *array_of_displacements,
+                    MPI_Datatype *array_of_types, MPI_Datatype *newtype)
 #endif
 #else
-USER_DEFINED_WRAPPER(int, Type_struct, (int) count,
-                     (int*) array_of_blocklengths,
-                     (MPI_Aint*) array_of_displacements,
-                     (MPI_Datatype*) array_of_types, (MPI_Datatype*) newtype)
+int MPI_Type_struct(int count,
+                    int *array_of_blocklengths,
+                    MPI_Aint *array_of_displacements,
+                    MPI_Datatype *array_of_types, MPI_Datatype *newtype)
 #endif
 {
   return MPI_Type_create_struct(count, array_of_blocklengths,
@@ -196,58 +171,16 @@ USER_DEFINED_WRAPPER(int, Type_struct, (int) count,
                                 );
 }
 
-// removed in MPI-3.0 (2012)
-#if 0
-#ifdef MPICH_NUMVERSION
-#if MPICH_NUMVERSION < MPICH_CALC_VERSION(3,4,0,0,2) && defined(CRAY_MPICH_VERSION)
-USER_DEFINED_WRAPPER(int, Type_hindexed, (int) count,
-                     (const int*) array_of_blocklengths,
-                     (const MPI_Aint*) array_of_displacements,
-                     (MPI_Datatype) oldtype, (MPI_Datatype*) newtype)
-#else
-USER_DEFINED_WRAPPER(int, Type_hindexed, (int) count,
-                     (int*) array_of_blocklengths,
-                     (MPI_Aint*) array_of_displacements,
-                     (MPI_Datatype) oldtype, (MPI_Datatype*) newtype)
-#endif
-#else
-USER_DEFINED_WRAPPER(int, Type_hindexed, (int) count,
-                     (int*) array_of_blocklengths,
-                     (MPI_Aint*) array_of_displacements,
-                     (MPI_Datatype) oldtype, (MPI_Datatype*) newtype)
-#endif
-{
-  int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  MPI_Datatype real_datatype = get_real_id((mana_mpi_handle){.datatype = oldtype}).datatype;
-  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
-  retval = NEXT_FUNC(Type_hindexed)(count, array_of_blocklengths,
-                                   array_of_displacements,
-                                   real_datatype, newtype);
-  RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
-    *newtype = new_virt_datatype(*newtype);
-    FncArg bs = CREATE_LOG_BUF(array_of_blocklengths, count * sizeof(int));
-    FncArg ds = CREATE_LOG_BUF(array_of_displacements,
-                               count * sizeof(MPI_Aint));
-    LOG_CALL(restoreTypes, Type_hindexed, count, bs, ds, oldtype, *newtype);
-  }
-  DMTCP_PLUGIN_ENABLE_CKPT();
-  return retval;
-}
-#endif
-
-USER_DEFINED_WRAPPER(int, Type_create_hindexed, (int) count,
-                     (const int*) array_of_blocklengths,
-                     (const MPI_Aint*) array_of_displacements,
-                     (MPI_Datatype) oldtype, (MPI_Datatype*) newtype)
+int MPI_Type_create_hindexed(int count, const int *array_of_blocklengths,
+                             const MPI_Aint *array_of_displacements,
+                             MPI_Datatype oldtype, MPI_Datatype *newtype)
 {
 #ifdef MPICH_NUMVERSION
 #if MPICH_NUMVERSION < MPICH_CALC_VERSION(3,4,0,0,2) && defined(CRAY_MPICH_VERSION)
   return MPI_Type_create_hindexed(count, array_of_blocklengths, array_of_displacements,
                            oldtype, newtype);
 #else
-  int* non_const_bl_arr = (int*) malloc(count * sizeof(int));
+  int *non_const_bl_arr = (int*)malloc(count * sizeof(int));
   MPI_Aint* non_const_disp_arr = (MPI_Aint*) malloc(count * sizeof(MPI_Aint));
   memcpy(non_const_bl_arr, array_of_blocklengths, count * sizeof(int));
   memcpy(non_const_disp_arr, array_of_displacements, count * sizeof(MPI_Aint));
@@ -258,7 +191,7 @@ USER_DEFINED_WRAPPER(int, Type_create_hindexed, (int) count,
   return ret;
 #endif
 #else
-  int* non_const_bl_arr = (int*) malloc(count * sizeof(int));
+  int *non_const_bl_arr = (int*)malloc(count * sizeof(int));
   MPI_Aint* non_const_disp_arr = (MPI_Aint*) malloc(count * sizeof(MPI_Aint));
   memcpy(non_const_bl_arr, array_of_blocklengths, count * sizeof(int));
   memcpy(non_const_disp_arr, array_of_displacements, count * sizeof(MPI_Aint));
@@ -270,10 +203,9 @@ USER_DEFINED_WRAPPER(int, Type_create_hindexed, (int) count,
 #endif
 }
 
-USER_DEFINED_WRAPPER(int, Type_create_hindexed_block, (int) count,
-                     (int) blocklength,
-                     (const MPI_Aint*) array_of_displacements,
-                     (MPI_Datatype) oldtype, (MPI_Datatype*) newtype)
+int MPI_Type_create_hindexed_block(int count, int blocklength,
+                                   const MPI_Aint *array_of_displacements,
+                                   MPI_Datatype oldtype, MPI_Datatype *newtype)
 {
   int array_of_blocklengths[count];
   for (int i = 0; i < count; i++) {
@@ -301,20 +233,18 @@ USER_DEFINED_WRAPPER(int, Type_create_hindexed_block, (int) count,
 #endif
 }
 
-USER_DEFINED_WRAPPER(int, Type_hindexed_block, (int) count,
-                     (int) blocklength,
-                     (const MPI_Aint*) array_of_displacements,
-                     (MPI_Datatype) oldtype, (MPI_Datatype*) newtype)
+int MPI_Type_hindexed_block(int count, int blocklength,
+                            const MPI_Aint *array_of_displacements,
+                            MPI_Datatype oldtype, MPI_Datatype *newtype)
 {
   return MPI_Type_create_hindexed_block(count, blocklength,
                                         array_of_displacements, oldtype,
                                         newtype);
 }
 
-USER_DEFINED_WRAPPER(int, Type_indexed, (int) count,
-                     (const int*) array_of_blocklengths,
-                     (const int*) array_of_displacements,
-                     (MPI_Datatype) oldtype, (MPI_Datatype*) newtype)
+int MPI_Type_indexed(int count, const int *array_of_blocklengths,
+                     const int *array_of_displacements,
+                     MPI_Datatype oldtype, MPI_Datatype *newtype)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -334,8 +264,7 @@ USER_DEFINED_WRAPPER(int, Type_indexed, (int) count,
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, Type_dup, (MPI_Datatype) oldtype,
-                     (MPI_Datatype*) newtype)
+int MPI_Type_dup(MPI_Datatype oldtype, MPI_Datatype *newtype)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -351,8 +280,8 @@ USER_DEFINED_WRAPPER(int, Type_dup, (MPI_Datatype) oldtype,
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, Type_create_resized, (MPI_Datatype) oldtype,
-                     (MPI_Aint) lb, (MPI_Aint) extent, (MPI_Datatype*) newtype)
+int MPI_Type_create_resized(MPI_Datatype oldtype, MPI_Aint lb, MPI_Aint extent,
+                            MPI_Datatype *newtype)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -368,8 +297,7 @@ USER_DEFINED_WRAPPER(int, Type_create_resized, (MPI_Datatype) oldtype,
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, Type_get_extent, (MPI_Datatype) datatype,
-                     (MPI_Aint*) lb, (MPI_Aint*) extent)
+int MPI_Type_get_extent(MPI_Datatype datatype, MPI_Aint *lb, MPI_Aint *extent)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -381,9 +309,7 @@ USER_DEFINED_WRAPPER(int, Type_get_extent, (MPI_Datatype) datatype,
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, Pack_size, (int) incount,
-                     (MPI_Datatype) datatype, (MPI_Comm) comm,
-                     (int*) size)
+int MPI_Pack_size(int incount, MPI_Datatype datatype, MPI_Comm comm, int *size)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -396,9 +322,8 @@ USER_DEFINED_WRAPPER(int, Pack_size, (int) incount,
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, Pack, (const void*) inbuf, (int) incount,
-                     (MPI_Datatype) datatype, (void*) outbuf, (int) outsize,
-                     (int*) position, (MPI_Comm) comm)
+int MPI_Pack(const void *inbuf, int incount, MPI_Datatype datatype, 
+             void *outbuf, int outsize, int *position, MPI_Comm comm)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -412,8 +337,7 @@ USER_DEFINED_WRAPPER(int, Pack, (const void*) inbuf, (int) incount,
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, Type_get_name, (MPI_Datatype) datatype, 
-                      (char*) type_name, (int*) resultlen)
+int MPI_Type_get_name(MPI_Datatype datatype, char *type_name, int *resultlen)
 {
    int retval;
    DMTCP_PLUGIN_DISABLE_CKPT();
@@ -425,83 +349,17 @@ USER_DEFINED_WRAPPER(int, Type_get_name, (MPI_Datatype) datatype,
    return retval;
 }
 
+int MPI_Type_get_size_x(MPI_Datatype type, MPI_Count *size)
+{
+   int retval;
+   DMTCP_PLUGIN_DISABLE_CKPT();
+   MPI_Datatype real_datatype = get_real_id((mana_mpi_handle){.datatype = type}).datatype;
+   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
+   retval = NEXT_FUNC(Type_size_x)(real_datatype, size);
+   RETURN_TO_UPPER_HALF(); 
+   DMTCP_PLUGIN_ENABLE_CKPT();
+   return retval;
+}
+
 DEFINE_FNC(int, Type_size_x, (MPI_Datatype) type, (MPI_Count *) size);
-
-PMPI_IMPL(int, MPI_Type_size, MPI_Datatype datatype, int *size)
-PMPI_IMPL(int, MPI_Type_commit, MPI_Datatype *type)
-PMPI_IMPL(int, MPI_Type_contiguous, int count, MPI_Datatype oldtype,
-          MPI_Datatype *newtype)
-PMPI_IMPL(int, MPI_Type_free, MPI_Datatype *type)
-PMPI_IMPL(int, MPI_Type_vector, int count, int blocklength,
-          int stride, MPI_Datatype oldtype, MPI_Datatype *newtype)
-// removed in MPI-3.0 (2012)
-#if 0
-PMPI_IMPL(int, MPI_Type_hvector, int count, int blocklength,
-          MPI_Aint stride, MPI_Datatype oldtype, MPI_Datatype *newtype)
-#endif
-
-PMPI_IMPL(int, MPI_Type_create_hvector, int count, int blocklength,
-          MPI_Aint stride, MPI_Datatype oldtype, MPI_Datatype *newtype)
-// removed in MPI-3.0 (2012)
-#if 0
-PMPI_IMPL(int, MPI_Type_struct, int count, const int array_of_blocklengths[],
-          const MPI_Aint array_of_displacements[], const MPI_Datatype array_of_types[],
-          MPI_Datatype *newtype)
-#endif
-
-PMPI_IMPL(int, MPI_Type_create_struct, int count, const int array_of_blocklengths[],
-          const MPI_Aint array_of_displacements[], const MPI_Datatype array_of_types[],
-          MPI_Datatype *newtype)
-PMPI_IMPL(int, MPI_Type_create_hindexed, int count, const int array_of_blocklengths[],
-          const MPI_Aint array_of_displacements[], MPI_Datatype oldtype,
-          MPI_Datatype *newtype);
-#if 0
-#ifdef MPICH_NUMVERSION
-#if MPICH_NUMVERSION < MPICH_CALC_VERSION(3,4,0,0,2) && defined(CRAY_MPICH_VERSION)
-PMPI_IMPL(int, MPI_Type_create_struct, int count, const int array_of_blocklengths[],
-          const MPI_Aint array_of_displacements[], const MPI_Datatype array_of_types[],
-          MPI_Datatype *newtype)
-PMPI_IMPL(int, MPI_Type_create_hindexed, int count, const int array_of_blocklengths[],
-          const MPI_Aint array_of_displacements[], MPI_Datatype oldtype,
-          MPI_Datatype *newtype);
-#else
-PMPI_IMPL(int, MPI_Type_create_struct, int count, const int array_of_blocklengths[],
-          const MPI_Aint array_of_displacements[], const MPI_Datatype array_of_types[],
-          MPI_Datatype *newtype)
-PMPI_IMPL(int, MPI_Type_create_hindexed, int count, const int array_of_blocklengths[],
-          const MPI_Aint array_of_displacements[], MPI_Datatype oldtype,
-          MPI_Datatype *newtype);
-#endif
-#else
-PMPI_IMPL(int, MPI_Type_create_struct, int count, const int array_of_blocklengths[],
-          const MPI_Aint array_of_displacements[], const MPI_Datatype array_of_types[],
-          MPI_Datatype *newtype)
-PMPI_IMPL(int, MPI_Type_create_hindexed, int count, const int array_of_blocklengths[],
-          const MPI_Aint array_of_displacements[], MPI_Datatype oldtype,
-          MPI_Datatype *newtype);
-#endif
-#endif
-
-PMPI_IMPL(int, MPI_Type_size_x, MPI_Datatype type, MPI_Count *size)
-PMPI_IMPL(int, MPI_Type_indexed, int count, const int array_of_blocklengths[],
-          const int array_of_displacements[], MPI_Datatype oldtype,
-          MPI_Datatype *newtype)
-PMPI_IMPL(int, MPI_Type_get_extent, MPI_Datatype datatype, MPI_Aint *lb,
-          MPI_Aint *extent)
-PMPI_IMPL(int, MPI_Pack_size, int incount, MPI_Datatype datatype,
-          MPI_Comm comm, int *size)
-PMPI_IMPL(int, MPI_Pack, const void *inbuf, int incount, MPI_Datatype datatype,
-          void *outbuf, int outsize, int *position, MPI_Comm comm)
-PMPI_IMPL(int, MPI_Type_create_resized, MPI_Datatype oldtype, MPI_Aint lb,
-          MPI_Aint extent, MPI_Datatype *newtype);
-PMPI_IMPL(int, MPI_Type_dup, MPI_Datatype type, MPI_Datatype *newtype);
-// removed in MPI-3.0 (2012)
-#if 0
-PMPI_IMPL(int, MPI_Type_hindexed, int count,
-          const int array_of_blocklengths[],
-          const MPI_Aint array_of_displacements[], MPI_Datatype oldtype,
-          MPI_Datatype *newtype);
-#endif
-PMPI_IMPL(int, MPI_Type_create_hindexed_block, int count, int blocklength,
-          const MPI_Aint array_of_displacements[], MPI_Datatype oldtype,
-          MPI_Datatype *newtype);
+} // end of: extern "C"

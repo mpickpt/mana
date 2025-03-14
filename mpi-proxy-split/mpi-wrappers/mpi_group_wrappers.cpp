@@ -33,7 +33,9 @@
 
 using namespace dmtcp_mpi;
 
-USER_DEFINED_WRAPPER(int, Comm_group, (MPI_Comm) comm, (MPI_Group *) group)
+extern "C" {
+
+int MPI_Comm_group(MPI_Comm comm, MPI_Group *group)
 {
   int retval = MPI_SUCCESS;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -50,7 +52,7 @@ USER_DEFINED_WRAPPER(int, Comm_group, (MPI_Comm) comm, (MPI_Group *) group)
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, Group_size, (MPI_Group) group, (int *) size)
+int MPI_Group_size(MPI_Group group, int *size)
 {
   int retval = MPI_SUCCESS;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -62,7 +64,7 @@ USER_DEFINED_WRAPPER(int, Group_size, (MPI_Group) group, (int *) size)
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, Group_free, (MPI_Group *) group)
+int MPI_Group_free(MPI_Group *group)
 {
   int retval = MPI_SUCCESS;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -71,8 +73,7 @@ USER_DEFINED_WRAPPER(int, Group_free, (MPI_Group *) group)
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, Group_compare, (MPI_Group) group1,
-                     (MPI_Group) group2, (int *) result)
+int MPI_Group_compare(MPI_Group group1, MPI_Group group2, int *result)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -85,7 +86,7 @@ USER_DEFINED_WRAPPER(int, Group_compare, (MPI_Group) group1,
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, Group_rank, (MPI_Group) group, (int *) rank)
+int MPI_Group_rank(MPI_Group group, int *rank)
 {
   int retval = MPI_SUCCESS;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -97,8 +98,7 @@ USER_DEFINED_WRAPPER(int, Group_rank, (MPI_Group) group, (int *) rank)
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, Group_incl, (MPI_Group) group, (int) n,
-                     (const int*) ranks, (MPI_Group *) newgroup)
+int MPI_Group_incl(MPI_Group group, int n, const int* ranks, MPI_Group * newgroup)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -117,9 +117,8 @@ USER_DEFINED_WRAPPER(int, Group_incl, (MPI_Group) group, (int) n,
   return retval;
 }
 
-USER_DEFINED_WRAPPER(int, Group_translate_ranks, (MPI_Group) group1,
-                     (int) n, (const int) ranks1[], (MPI_Group) group2,
-                     (int) ranks2[])
+int MPI_Group_translate_ranks(MPI_Group group1, int n, const int ranks1[],
+                          MPI_Group group2, int ranks2[])
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -133,13 +132,4 @@ USER_DEFINED_WRAPPER(int, Group_translate_ranks, (MPI_Group) group1,
   return retval;
 }
 
-PMPI_IMPL(int, MPI_Comm_group, MPI_Comm comm, MPI_Group *group)
-PMPI_IMPL(int, MPI_Group_size, MPI_Group group, int *size)
-PMPI_IMPL(int, MPI_Group_free, MPI_Group *group)
-PMPI_IMPL(int, MPI_Group_compare, MPI_Group group1,
-          MPI_Group group2, int *result)
-PMPI_IMPL(int, MPI_Group_rank, MPI_Group group, int *rank)
-PMPI_IMPL(int, MPI_Group_incl, MPI_Group group, int n,
-          const int *ranks, MPI_Group *newgroup)
-PMPI_IMPL(int, MPI_Group_translate_ranks, MPI_Group group1, int n,
-          const int ranks1[], MPI_Group group2, int ranks2[]);
+} // end of: extern "C"
