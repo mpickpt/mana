@@ -87,8 +87,8 @@ class SwitchContext
 //   (similar to define's in lower-half/mmap_internal.h)
 #define PAGE_SIZE              0x1000
 #define HUGE_PAGE              0x200000
-#define ROUND_UP(addr, size) (((unsigned long)addr + size - 1) & ~(size - 1))
-#define ROUND_DOWN(addr, size) ((unsigned long)addr & ~(size - 1))
+#define ROUND_UP(addr, size) (((unsigned long)(addr) + size - 1) & ~(size - 1))
+#define ROUND_DOWN(addr, size) ((unsigned long)(addr) & ~(size - 1))
 
 #ifdef __clang__
 # define NO_OPTIMIZE __attribute__((optnone))

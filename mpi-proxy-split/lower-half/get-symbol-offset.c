@@ -15,7 +15,7 @@ static int readElfSection(int , int , const Elf64_Ehdr* ,
 static int expandDebugFile(char *debugLibName,
                            const char *dir, const char *debugName);
 
-off_t get_symbol_offset(char *pathname, char *symbol) {
+off_t get_symbol_offset(const char *pathname, const char *symbol) {
   unsigned char e_ident[EI_NIDENT];
   int rc;
   int symtab_found = 0;
