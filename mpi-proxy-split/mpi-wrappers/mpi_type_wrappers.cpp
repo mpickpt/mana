@@ -34,7 +34,8 @@ using namespace dmtcp_mpi;
 
 extern "C" {
 
-int MPI_Type_size(MPI_Datatype datatype, int *size)
+#pragma weak MPI_Type_size = PMPI_Type_size
+int PMPI_Type_size(MPI_Datatype datatype, int *size)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -46,7 +47,8 @@ int MPI_Type_size(MPI_Datatype datatype, int *size)
   return retval;
 }
 
-int MPI_Type_free(MPI_Datatype *type)
+#pragma weak MPI_Type_free = PMPI_Type_free
+int PMPI_Type_free(MPI_Datatype *type)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -61,7 +63,8 @@ int MPI_Type_free(MPI_Datatype *type)
   return retval;
 }
 
-int MPI_Type_commit(MPI_Datatype *type)
+#pragma weak MPI_Type_commit = PMPI_Type_commit
+int PMPI_Type_commit(MPI_Datatype *type)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -76,7 +79,8 @@ int MPI_Type_commit(MPI_Datatype *type)
   return retval;
 }
 
-int MPI_Type_contiguous(int count, MPI_Datatype oldtype, MPI_Datatype *newtype)
+#pragma weak MPI_Type_contiguous = PMPI_Type_contiguous
+int PMPI_Type_contiguous(int count, MPI_Datatype oldtype, MPI_Datatype *newtype)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -92,13 +96,15 @@ int MPI_Type_contiguous(int count, MPI_Datatype oldtype, MPI_Datatype *newtype)
   return retval;
 }
 
-int MPI_Type_create_hvector(int count, int blocklength, MPI_Aint stride,
+#pragma weak MPI_Type_create_hvector = PMPI_Type_create_hvector
+int PMPI_Type_create_hvector(int count, int blocklength, MPI_Aint stride,
                             MPI_Datatype oldtype, MPI_Datatype *newtype)
 {
   return MPI_Type_create_hvector(count, blocklength, stride, oldtype, newtype);
 }
 
-int MPI_Type_vector(int count, int blocklength, int stride, MPI_Datatype oldtype,
+#pragma weak MPI_Type_vector = PMPI_Type_vector
+int PMPI_Type_vector(int count, int blocklength, int stride, MPI_Datatype oldtype,
                     MPI_Datatype *newtype)
 {
   int size;
@@ -110,13 +116,14 @@ int MPI_Type_vector(int count, int blocklength, int stride, MPI_Datatype oldtype
   return MPI_Type_create_hvector(count, blocklength, stride*size, oldtype, newtype);
 }
 
-//       int MPI_Type_create_struct(int count,
+//       int PMPI_Type_create_struct(int count,
 //                                const int array_of_blocklengths[],
 //                                const MPI_Aint array_of_displacements[],
 //                                const MPI_Datatype array_of_types[],
 //                                MPI_Datat
 
-int MPI_Type_create_struct(int count, const int *array_of_blocklengths,
+#pragma weak MPI_Type_create_struct = PMPI_Type_create_struct
+int PMPI_Type_create_struct(int count, const int *array_of_blocklengths,
                            const MPI_Aint *array_of_displacements,
                            const MPI_Datatype *array_of_types, MPI_Datatype *newtype)
 {
@@ -147,20 +154,21 @@ int MPI_Type_create_struct(int count, const int *array_of_blocklengths,
 // APIs. We use MPICH_NUMVERSION (3.4a2) to differentiate the cray-mpich on Cori
 // and Perlmuttter. This ad-hoc workaround should be removed once the cray-mpich
 // on Perlmutter is fixed to use the right API.
+#pragma weak MPI_Type_struct = PMPI_Type_struct
 #ifdef MPICH_NUMVERSION
 #if MPICH_NUMVERSION < MPICH_CALC_VERSION(3,4,0,0,2) && defined(CRAY_MPICH_VERSION)
-int MPI_Type_struct(int count,
+int PMPI_Type_struct(int count,
                     const int *array_of_blocklengths,
                     const MPI_Aint *array_of_displacements,
                     const MPI_Datatype *array_of_types, MPI_Datatype *newtype)
 #else
-int MPI_Type_struct(int count,
+int PMPI_Type_struct(int count,
                     int *array_of_blocklengths,
                     MPI_Aint *array_of_displacements,
                     MPI_Datatype *array_of_types, MPI_Datatype *newtype)
 #endif
 #else
-int MPI_Type_struct(int count,
+int PMPI_Type_struct(int count,
                     int *array_of_blocklengths,
                     MPI_Aint *array_of_displacements,
                     MPI_Datatype *array_of_types, MPI_Datatype *newtype)
@@ -171,7 +179,8 @@ int MPI_Type_struct(int count,
                                 );
 }
 
-int MPI_Type_create_hindexed(int count, const int *array_of_blocklengths,
+#pragma weak MPI_Type_create_hindexed = PMPI_Type_create_hindexed
+int PMPI_Type_create_hindexed(int count, const int *array_of_blocklengths,
                              const MPI_Aint *array_of_displacements,
                              MPI_Datatype oldtype, MPI_Datatype *newtype)
 {
@@ -203,7 +212,8 @@ int MPI_Type_create_hindexed(int count, const int *array_of_blocklengths,
 #endif
 }
 
-int MPI_Type_create_hindexed_block(int count, int blocklength,
+#pragma weak MPI_Type_create_hindexed_block = PMPI_Type_create_hindexed_block
+int PMPI_Type_create_hindexed_block(int count, int blocklength,
                                    const MPI_Aint *array_of_displacements,
                                    MPI_Datatype oldtype, MPI_Datatype *newtype)
 {
@@ -233,7 +243,8 @@ int MPI_Type_create_hindexed_block(int count, int blocklength,
 #endif
 }
 
-int MPI_Type_hindexed_block(int count, int blocklength,
+#pragma weak MPI_Type_hindexed_block = PMPI_Type_hindexed_block
+int PMPI_Type_hindexed_block(int count, int blocklength,
                             const MPI_Aint *array_of_displacements,
                             MPI_Datatype oldtype, MPI_Datatype *newtype)
 {
@@ -242,7 +253,8 @@ int MPI_Type_hindexed_block(int count, int blocklength,
                                         newtype);
 }
 
-int MPI_Type_indexed(int count, const int *array_of_blocklengths,
+#pragma weak MPI_Type_indexed = PMPI_Type_indexed
+int PMPI_Type_indexed(int count, const int *array_of_blocklengths,
                      const int *array_of_displacements,
                      MPI_Datatype oldtype, MPI_Datatype *newtype)
 {
@@ -264,7 +276,8 @@ int MPI_Type_indexed(int count, const int *array_of_blocklengths,
   return retval;
 }
 
-int MPI_Type_dup(MPI_Datatype oldtype, MPI_Datatype *newtype)
+#pragma weak MPI_Type_dup = PMPI_Type_dup
+int PMPI_Type_dup(MPI_Datatype oldtype, MPI_Datatype *newtype)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -280,7 +293,8 @@ int MPI_Type_dup(MPI_Datatype oldtype, MPI_Datatype *newtype)
   return retval;
 }
 
-int MPI_Type_create_resized(MPI_Datatype oldtype, MPI_Aint lb, MPI_Aint extent,
+#pragma weak MPI_Type_create_resized = PMPI_Type_create_resized
+int PMPI_Type_create_resized(MPI_Datatype oldtype, MPI_Aint lb, MPI_Aint extent,
                             MPI_Datatype *newtype)
 {
   int retval;
@@ -297,7 +311,8 @@ int MPI_Type_create_resized(MPI_Datatype oldtype, MPI_Aint lb, MPI_Aint extent,
   return retval;
 }
 
-int MPI_Type_get_extent(MPI_Datatype datatype, MPI_Aint *lb, MPI_Aint *extent)
+#pragma weak MPI_Type_get_extent = PMPI_Type_get_extent
+int PMPI_Type_get_extent(MPI_Datatype datatype, MPI_Aint *lb, MPI_Aint *extent)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -309,7 +324,8 @@ int MPI_Type_get_extent(MPI_Datatype datatype, MPI_Aint *lb, MPI_Aint *extent)
   return retval;
 }
 
-int MPI_Pack_size(int incount, MPI_Datatype datatype, MPI_Comm comm, int *size)
+#pragma weak MPI_Pack_size = PMPI_Pack_size
+int PMPI_Pack_size(int incount, MPI_Datatype datatype, MPI_Comm comm, int *size)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -322,7 +338,8 @@ int MPI_Pack_size(int incount, MPI_Datatype datatype, MPI_Comm comm, int *size)
   return retval;
 }
 
-int MPI_Pack(const void *inbuf, int incount, MPI_Datatype datatype, 
+#pragma weak MPI_Pack = PMPI_Pack
+int PMPI_Pack(const void *inbuf, int incount, MPI_Datatype datatype, 
              void *outbuf, int outsize, int *position, MPI_Comm comm)
 {
   int retval;
@@ -337,7 +354,8 @@ int MPI_Pack(const void *inbuf, int incount, MPI_Datatype datatype,
   return retval;
 }
 
-int MPI_Type_get_name(MPI_Datatype datatype, char *type_name, int *resultlen)
+#pragma weak MPI_Type_get_name = PMPI_Type_get_name
+int PMPI_Type_get_name(MPI_Datatype datatype, char *type_name, int *resultlen)
 {
    int retval;
    DMTCP_PLUGIN_DISABLE_CKPT();
@@ -349,7 +367,8 @@ int MPI_Type_get_name(MPI_Datatype datatype, char *type_name, int *resultlen)
    return retval;
 }
 
-int MPI_Type_get_size_x(MPI_Datatype type, MPI_Count *size)
+#pragma weak MPI_Type_size_x = PMPI_Type_size_x
+int PMPI_Type_size_x(MPI_Datatype type, MPI_Count *size)
 {
    int retval;
    DMTCP_PLUGIN_DISABLE_CKPT();
@@ -361,5 +380,4 @@ int MPI_Type_get_size_x(MPI_Datatype type, MPI_Count *size)
    return retval;
 }
 
-DEFINE_FNC(int, Type_size_x, (MPI_Datatype) type, (MPI_Count *) size);
 } // end of: extern "C"

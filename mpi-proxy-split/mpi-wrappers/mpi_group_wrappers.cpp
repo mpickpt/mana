@@ -35,7 +35,8 @@ using namespace dmtcp_mpi;
 
 extern "C" {
 
-int MPI_Comm_group(MPI_Comm comm, MPI_Group *group)
+#pragma weak MPI_Comm_group = PMPI_Comm_group
+int PMPI_Comm_group(MPI_Comm comm, MPI_Group *group)
 {
   int retval = MPI_SUCCESS;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -52,7 +53,8 @@ int MPI_Comm_group(MPI_Comm comm, MPI_Group *group)
   return retval;
 }
 
-int MPI_Group_size(MPI_Group group, int *size)
+#pragma weak MPI_Group_size = PMPI_Group_size
+int PMPI_Group_size(MPI_Group group, int *size)
 {
   int retval = MPI_SUCCESS;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -64,7 +66,8 @@ int MPI_Group_size(MPI_Group group, int *size)
   return retval;
 }
 
-int MPI_Group_free(MPI_Group *group)
+#pragma weak MPI_Group_free = PMPI_Group_free
+int PMPI_Group_free(MPI_Group *group)
 {
   int retval = MPI_SUCCESS;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -73,7 +76,8 @@ int MPI_Group_free(MPI_Group *group)
   return retval;
 }
 
-int MPI_Group_compare(MPI_Group group1, MPI_Group group2, int *result)
+#pragma weak MPI_Group_compare = PMPI_Group_compare
+int PMPI_Group_compare(MPI_Group group1, MPI_Group group2, int *result)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -86,7 +90,8 @@ int MPI_Group_compare(MPI_Group group1, MPI_Group group2, int *result)
   return retval;
 }
 
-int MPI_Group_rank(MPI_Group group, int *rank)
+#pragma weak MPI_Group_rank = PMPI_Group_rank
+int PMPI_Group_rank(MPI_Group group, int *rank)
 {
   int retval = MPI_SUCCESS;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -98,7 +103,8 @@ int MPI_Group_rank(MPI_Group group, int *rank)
   return retval;
 }
 
-int MPI_Group_incl(MPI_Group group, int n, const int* ranks, MPI_Group * newgroup)
+#pragma weak MPI_Group_incl = PMPI_Group_incl
+int PMPI_Group_incl(MPI_Group group, int n, const int* ranks, MPI_Group * newgroup)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -117,7 +123,8 @@ int MPI_Group_incl(MPI_Group group, int n, const int* ranks, MPI_Group * newgrou
   return retval;
 }
 
-int MPI_Group_translate_ranks(MPI_Group group1, int n, const int ranks1[],
+#pragma weak MPI_Group_translate_ranks = PMPI_Group_translate_ranks
+int PMPI_Group_translate_ranks(MPI_Group group1, int n, const int ranks1[],
                           MPI_Group group2, int ranks2[])
 {
   int retval;

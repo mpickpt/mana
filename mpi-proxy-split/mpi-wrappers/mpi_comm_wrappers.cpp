@@ -93,7 +93,8 @@ static const int MPI_WTIME_IS_GLOBAL_VAL = 0;
 
 extern "C" {
 
-int MPI_Comm_size(MPI_Comm comm, int *size)
+#pragma weak MPI_Comm_size = PMPI_Comm_size
+int PMPI_Comm_size(MPI_Comm comm, int *size)
 {
   int retval = MPI_SUCCESS;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -105,7 +106,8 @@ int MPI_Comm_size(MPI_Comm comm, int *size)
   return retval;
 }
 
-int MPI_Comm_rank(MPI_Comm comm, int *rank)
+#pragma weak MPI_Comm_rank = PMPI_Comm_rank
+int PMPI_Comm_rank(MPI_Comm comm, int *rank)
 {
   int retval = MPI_SUCCESS;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -117,7 +119,8 @@ int MPI_Comm_rank(MPI_Comm comm, int *rank)
   return retval;
 }
 
-int MPI_Comm_create(MPI_Comm comm, MPI_Group group, MPI_Comm *newcomm)
+#pragma weak MPI_Comm_create = PMPI_Comm_create
+int PMPI_Comm_create(MPI_Comm comm, MPI_Group group, MPI_Comm *newcomm)
 {
   int retval;
   commit_begin(comm);
@@ -139,7 +142,8 @@ int MPI_Comm_create(MPI_Comm comm, MPI_Group group, MPI_Comm *newcomm)
   return retval;
 }
 
-int Abort(MPI_Comm comm, int errorcode)
+#pragma weak MPI_Abort = PMPI_Abort
+int PMPI_Abort(MPI_Comm comm, int errorcode)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -151,7 +155,8 @@ int Abort(MPI_Comm comm, int errorcode)
   return retval;
 }
 
-int MPI_Comm_compare(MPI_Comm comm1, MPI_Comm comm2, int *result)
+#pragma weak MPI_Comm_compare = PMPI_Comm_compare
+int PMPI_Comm_compare(MPI_Comm comm1, MPI_Comm comm2, int *result)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -176,7 +181,8 @@ int MPI_Comm_free_internal(MPI_Comm *comm)
   return retval;
 }
 
-int MPI_Comm_free(MPI_Comm *comm)
+#pragma weak MPI_Comm_free = PMPI_Comm_free
+int PMPI_Comm_free(MPI_Comm *comm)
 {
   // This bit of code is to execute the delete callback function when
   // MPI_Comm_free is called. Typically we call this function for each
@@ -205,7 +211,8 @@ int MPI_Comm_free(MPI_Comm *comm)
   return retval;
 }
 
-int MPI_Comm_get_attr(MPI_Comm comm, int comm_keyval, void *attribute_val, int *flag)
+#pragma weak MPI_Comm_get_attr = PMPI_Comm_get_attr
+int PMPI_Comm_get_attr(MPI_Comm comm, int comm_keyval, void *attribute_val, int *flag)
 {
   int retval = MPI_SUCCESS;
   *flag = 0;
@@ -245,7 +252,8 @@ int MPI_Comm_get_attr(MPI_Comm comm, int comm_keyval, void *attribute_val, int *
   return retval;
 }
 
-int MPI_Comm_set_attr(MPI_Comm comm, int comm_keyval, void *attribute_val)
+#pragma weak MPI_Comm_set_attr = PMPI_Comm_set_attr
+int PMPI_Comm_set_attr(MPI_Comm comm, int comm_keyval, void *attribute_val)
 {
   int retval = MPI_SUCCESS;
   if (comm == MPI_COMM_NULL) {
@@ -271,7 +279,8 @@ int MPI_Comm_set_attr(MPI_Comm comm, int comm_keyval, void *attribute_val)
   return retval;
 }
 
-int MPI_Comm_delete_attr(MPI_Comm comm, int comm_keyval)
+#pragma weak MPI_Comm_delete_attr = PMPI_Comm_delete_attr
+int PMPI_Comm_delete_attr(MPI_Comm comm, int comm_keyval)
 {
   int retval = MPI_SUCCESS;
   if (comm == MPI_COMM_NULL) {
@@ -295,7 +304,8 @@ int MPI_Comm_delete_attr(MPI_Comm comm, int comm_keyval)
   return retval;
 }
 
-int MPI_Comm_set_errhandler(MPI_Comm comm, MPI_Errhandler errhandler)
+#pragma weak MPI_Comm_set_errhandler = PMPI_Comm_set_errhandler
+int PMPI_Comm_set_errhandler(MPI_Comm comm, MPI_Errhandler errhandler)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -307,7 +317,8 @@ int MPI_Comm_set_errhandler(MPI_Comm comm, MPI_Errhandler errhandler)
   return retval;
 }
 
-int Topo_test(MPI_Comm comm, int *status)
+#pragma weak MPI_Topo_test = PMPI_Topo_test
+int PMPI_Topo_test(MPI_Comm comm, int *status)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -319,7 +330,8 @@ int Topo_test(MPI_Comm comm, int *status)
   return retval;
 }
 
-int MPI_Comm_split_type(MPI_Comm comm, int split_type,
+#pragma weak MPI_Comm_split_type = PMPI_Comm_split_type
+int PMPI_Comm_split_type(MPI_Comm comm, int split_type,
                         int key, MPI_Info inf, MPI_Comm *newcomm)
 {
   int retval;
@@ -339,7 +351,8 @@ int MPI_Comm_split_type(MPI_Comm comm, int split_type,
   return retval;
 }
 
-int MPI_Attr_get(MPI_Comm comm, int keyval,
+#pragma weak MPI_Attr_get = PMPI_Attr_get
+int PMPI_Attr_get(MPI_Comm comm, int keyval,
                  void *attribute_val, int *flag)
 {
   JWARNING(false).Text(
@@ -354,7 +367,8 @@ int MPI_Attr_get(MPI_Comm comm, int keyval,
   return retval;
 }
 
-int MPI_Attr_delete(MPI_Comm comm, int keyval)
+#pragma weak MPI_Attr_delete = PMPI_Attr_delete
+int PMPI_Attr_delete(MPI_Comm comm, int keyval)
 {
 
   JWARNING(false).Text(
@@ -369,7 +383,8 @@ int MPI_Attr_delete(MPI_Comm comm, int keyval)
   return retval;
 }
 
-int MPI_Attr_put(MPI_Comm comm, int keyval, void *attribute_val)
+#pragma weak MPI_Attr_put = PMPI_Attr_put
+int PMPI_Attr_put(MPI_Comm comm, int keyval, void *attribute_val)
 {
   JWARNING(false).Text(
     "Use of MPI_Attr_put is deprecated - use MPI_Comm_set_attr instead");
@@ -383,7 +398,8 @@ int MPI_Attr_put(MPI_Comm comm, int keyval, void *attribute_val)
   return retval;
 }
 
-int MPI_Comm_create_keyval(MPI_Comm_copy_attr_function *comm_copy_attr_fn,
+#pragma weak MPI_Comm_create_keyval = PMPI_Comm_create_keyval
+int PMPI_Comm_create_keyval(MPI_Comm_copy_attr_function *comm_copy_attr_fn,
                        MPI_Comm_delete_attr_function *comm_delete_attr_fn,
                        int *comm_keyval, void *extra_state)
 {
@@ -414,7 +430,8 @@ int MPI_Comm_create_keyval(MPI_Comm_copy_attr_function *comm_copy_attr_fn,
   return retval;
 }
 
-int MPI_Comm_free_keyval(int *comm_keyval)
+#pragma weak MPI_Comm_free_keyval = PMPI_Comm_free_keyval
+int PMPI_Comm_free_keyval(int *comm_keyval)
 {
   int retval = MPI_SUCCESS;
   int keyval = *comm_keyval;
@@ -427,6 +444,7 @@ int MPI_Comm_free_keyval(int *comm_keyval)
   return retval;
 }
 
+#pragma weak MPI_Comm_create_group = PMPI_Comm_create_group
 int MPI_Comm_create_group_internal(MPI_Comm comm, MPI_Group group, int tag,
                                    MPI_Comm *newcomm)
 {
@@ -441,7 +459,7 @@ int MPI_Comm_create_group_internal(MPI_Comm comm, MPI_Group group, int tag,
   return retval;
 }
 
-int MPI_Comm_create_group(MPI_Comm comm,
+int PMPI_Comm_create_group(MPI_Comm comm,
                           MPI_Group group, int tag, MPI_Comm *newcomm)
 {
   commit_begin(comm);

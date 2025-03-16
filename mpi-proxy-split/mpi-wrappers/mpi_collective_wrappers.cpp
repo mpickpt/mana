@@ -55,7 +55,8 @@ using namespace dmtcp_mpi;
 extern "C" {
 
 #ifndef MPI_COLLECTIVE_P2P
-int MPI_Bcast(void *buffer, int count, MPI_Datatype datatype,
+#pragma weak MPI_Bcast = PMPI_Bcast
+int PMPI_Bcast(void *buffer, int count, MPI_Datatype datatype,
               int root, MPI_Comm comm)
 {
   commit_begin(comm);
@@ -71,7 +72,8 @@ int MPI_Bcast(void *buffer, int count, MPI_Datatype datatype,
   return retval;
 }
 
-int MPI_Ibcast(void *buffer, int count, MPI_Datatype datatype,
+#pragma weak MPI_Ibcast = PMPI_Ibcast
+int PMPI_Ibcast(void *buffer, int count, MPI_Datatype datatype,
                int root, MPI_Comm comm, MPI_Request *request)
 {
   int retval;
@@ -95,7 +97,8 @@ int MPI_Ibcast(void *buffer, int count, MPI_Datatype datatype,
   return retval;
 }
 
-int MPI_Barrier(MPI_Comm comm)
+#pragma weak MPI_Barrier = PMPI_Barrier
+int PMPI_Barrier(MPI_Comm comm)
 {
   commit_begin(comm);
   int retval;
@@ -109,7 +112,8 @@ int MPI_Barrier(MPI_Comm comm)
   return retval;
 }
 
-int MPI_Ibarrier(MPI_Comm comm, MPI_Request *request)
+#pragma weak MPI_Ibarrier = PMPI_Ibarrier
+int PMPI_Ibarrier(MPI_Comm comm, MPI_Request *request)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -206,7 +210,8 @@ MPI_Allreduce_reproducible(const void *sendbuf,
   return rc;
 }
 
-int MPI_Allreduce(const void * sendbuf, void * recvbuf,
+#pragma weak MPI_Allreduce = PMPI_Allreduce
+int PMPI_Allreduce(const void * sendbuf, void * recvbuf,
               int count, MPI_Datatype datatype,
               MPI_Op op, MPI_Comm comm)
 {
@@ -238,7 +243,8 @@ int MPI_Allreduce(const void * sendbuf, void * recvbuf,
   return retval;
 }
 
-int MPI_Reduce(const void *sendbuf, void *recvbuf, int count,
+#pragma weak MPI_Reduce = PMPI_Reduce
+int PMPI_Reduce(const void *sendbuf, void *recvbuf, int count,
                MPI_Datatype datatype, MPI_Op op, int root, MPI_Comm comm)
 {
   commit_begin(comm);
@@ -260,7 +266,8 @@ int MPI_Reduce(const void *sendbuf, void *recvbuf, int count,
   return retval;
 }
 
-int MPI_Ireduce(const void *sendbuf, void *recvbuf, int count,
+#pragma weak MPI_Ireduce = PMPI_Ireduce
+int PMPI_Ireduce(const void *sendbuf, void *recvbuf, int count,
                 MPI_Datatype datatype, MPI_Op op,
                 int root, MPI_Comm comm, MPI_Request *request)
 {
@@ -288,7 +295,8 @@ int MPI_Ireduce(const void *sendbuf, void *recvbuf, int count,
   return retval;
 }
 
-int MPI_Reduce_scatter(const void *sendbuf, void *recvbuf,
+#pragma weak MPI_Reduce_scatter = PMPI_Reduce_scatter
+int PMPI_Reduce_scatter(const void *sendbuf, void *recvbuf,
                        const int recvcounts[], MPI_Datatype datatype,
                        MPI_Op op, MPI_Comm comm)
 {
@@ -358,7 +366,7 @@ MPI_Alltoall_internal(const void *sendbuf, int sendcount,
                       MPI_Datatype sendtype, void *recvbuf, int recvcount,
                       MPI_Datatype recvtype, MPI_Comm comm)
 {
-  static int MPI_ALLTOALL_TAG = 0;
+  static int PMPI_ALLTOALL_TAG = 0;
   int retval, comm_size, rank;
   MPI_Comm_rank(comm, &rank);
   MPI_Comm_size(comm, &comm_size);
@@ -415,7 +423,8 @@ MPI_Alltoall_internal(const void *sendbuf, int sendcount,
 #endif
 
 #ifndef MPI_COLLECTIVE_P2P
-int MPI_Alltoall(const void *sendbuf, int sendcount,
+#pragma weak MPI_Alltoall = PMPI_Alltoall
+int PMPI_Alltoall(const void *sendbuf, int sendcount,
                  MPI_Datatype sendtype, void *recvbuf, int recvcount,
                  MPI_Datatype recvtype, MPI_Comm comm)
 {
@@ -428,7 +437,8 @@ int MPI_Alltoall(const void *sendbuf, int sendcount,
   return retval;
 }
 
-int MPI_Alltoallv(const void *sendbuf, const int *sendcounts,
+#pragma weak MPI_Alltoallv = PMPI_Alltoallv
+int PMPI_Alltoallv(const void *sendbuf, const int *sendcounts,
                   const int *sdispls, MPI_Datatype sendtype,
                   void *recvbuf, const int *recvcounts,
                   const int *rdispls, MPI_Datatype recvtype,
@@ -454,7 +464,8 @@ int MPI_Alltoallv(const void *sendbuf, const int *sendcounts,
   return retval;
 }
 
-int MPI_Gather(const void *sendbuf, int sendcount,
+#pragma weak MPI_Gather = PMPI_Gather
+int PMPI_Gather(const void *sendbuf, int sendcount,
                MPI_Datatype sendtype, void *recvbuf, int recvcount,
                MPI_Datatype recvtype, int root, MPI_Comm comm)
 {
@@ -482,7 +493,8 @@ int MPI_Gather(const void *sendbuf, int sendcount,
   return retval;
 }
 
-int MPI_Gatherv(const void *sendbuf, int sendcount,
+#pragma weak MPI_Gatherv = PMPI_Gatherv
+int PMPI_Gatherv(const void *sendbuf, int sendcount,
                 MPI_Datatype sendtype, void *recvbuf,
                 const int *recvcounts, const int *displs,
                 MPI_Datatype recvtype, int root, MPI_Comm comm)
@@ -507,7 +519,8 @@ int MPI_Gatherv(const void *sendbuf, int sendcount,
   return retval;
 }
 
-int MPI_Scatter(const void *sendbuf, int sendcount,
+#pragma weak MPI_Scatter = PMPI_Scatter
+int PMPI_Scatter(const void *sendbuf, int sendcount,
                 MPI_Datatype sendtype, void *recvbuf, int recvcount,
                 MPI_Datatype recvtype, int root, MPI_Comm comm)
 {
@@ -531,7 +544,8 @@ int MPI_Scatter(const void *sendbuf, int sendcount,
   return retval;
 }
 
-int MPI_Scatterv(const void *sendbuf,
+#pragma weak MPI_Scatterv = PMPI_Scatterv
+int PMPI_Scatterv(const void *sendbuf,
                  const int *sendcounts, const int *displs,
                  MPI_Datatype sendtype, void *recvbuf, int recvcount,
                  MPI_Datatype recvtype, int root, MPI_Comm comm)
@@ -556,7 +570,8 @@ int MPI_Scatterv(const void *sendbuf,
   return retval;
 }
 
-int MPI_Allgather(const void *sendbuf, int sendcount,
+#pragma weak MPI_Allgather = PMPI_Allgather
+int PMPI_Allgather(const void *sendbuf, int sendcount,
                   MPI_Datatype sendtype, void *recvbuf, int recvcount,
                   MPI_Datatype recvtype, MPI_Comm comm)
 {
@@ -580,7 +595,8 @@ int MPI_Allgather(const void *sendbuf, int sendcount,
   return retval;
 }
 
-int MPI_Allgatherv(const void *sendbuf, int sendcount,
+#pragma weak MPI_Allgatherv = PMPI_Allgatherv
+int PMPI_Allgatherv(const void *sendbuf, int sendcount,
                    MPI_Datatype sendtype, void *recvbuf,
                    const int *recvcounts, const int *displs,
                    MPI_Datatype recvtype, MPI_Comm comm)
@@ -605,7 +621,8 @@ int MPI_Allgatherv(const void *sendbuf, int sendcount,
   return retval;
 }
 
-int MPI_Scan(const void *sendbuf, void *recvbuf,
+#pragma weak MPI_Scan = PMPI_Scan
+int PMPI_Scan(const void *sendbuf, void *recvbuf,
              int count, MPI_Datatype datatype,
              MPI_Op op, MPI_Comm comm)
 {
@@ -630,7 +647,8 @@ int MPI_Scan(const void *sendbuf, void *recvbuf,
 #endif // #ifndef MPI_COLLECTIVE_P2P
 
 // FIXME: Also check the MPI_Cart family, if they use collective communications.
-int MPI_Comm_split(MPI_Comm comm, int color, int key, MPI_Comm *newcomm)
+#pragma weak MPI_Comm_split = PMPI_Comm_split
+int PMPI_Comm_split(MPI_Comm comm, int color, int key, MPI_Comm *newcomm)
 {
   commit_begin(comm);
   int retval;
@@ -651,7 +669,8 @@ int MPI_Comm_split(MPI_Comm comm, int color, int key, MPI_Comm *newcomm)
   return retval;
 }
 
-int MPI_Comm_dup(MPI_Comm comm, MPI_Comm *newcomm)
+#pragma weak MPI_Comm_dup = PMPI_Comm_dup
+int PMPI_Comm_dup(MPI_Comm comm, MPI_Comm *newcomm)
 {
   commit_begin(comm);
   int retval;

@@ -66,7 +66,8 @@ extern "C" {
 #endif
 
 // MPI standard 3.1:  Section 5.3
-int MPI_Barrier(MPI_Comm comm) {
+#pragma weak MPI_Barrier = PMPI_Barrier
+int PMPI_Barrier(MPI_Comm comm) {
   PROLOG_Comm_rank_size;
   // Does MPI specify that a send/recv count of 0 must be blocking?
   int buffer[1] = {98};
@@ -93,7 +94,8 @@ int MPI_Barrier(MPI_Comm comm) {
 }
 
 // MPI standard 3.1:  Section 5.4
-int MPI_Bcast(void* buffer, int count, MPI_Datatype datatype,
+#pragma weak MPI_Bcast = PMPI_Bcast
+int PMPI_Bcast(void* buffer, int count, MPI_Datatype datatype,
               int root, MPI_Comm comm) {
   PROLOG_Comm_rank_size;
   if (rank == root) {
@@ -110,7 +112,8 @@ int MPI_Bcast(void* buffer, int count, MPI_Datatype datatype,
 }
 
 // MPI standard 3.1:  Section 5.5
-int MPI_Gather(const void* sendbuf, int sendcount, MPI_Datatype sendtype,
+#pragma weak MPI_Gather = PMPI_Gather
+int PMPI_Gather(const void* sendbuf, int sendcount, MPI_Datatype sendtype,
                void* recvbuf, int recvcount, MPI_Datatype recvtype,
                int root, MPI_Comm comm) {
   PROLOG_Comm_rank_size;
@@ -141,7 +144,8 @@ int MPI_Gather(const void* sendbuf, int sendcount, MPI_Datatype sendtype,
   return MPI_SUCCESS;
 }
 
-int MPI_Gatherv(const void* sendbuf, int sendcount, MPI_Datatype sendtype,
+#pragma weak MPI_Gatherv = PMPI_Gatherv
+int PMPI_Gatherv(const void* sendbuf, int sendcount, MPI_Datatype sendtype,
                 void* recvbuf, const int recvcounts[], const int displs[],
                 MPI_Datatype recvtype, int root, MPI_Comm comm) {
   PROLOG_Comm_rank_size;
@@ -177,7 +181,8 @@ int MPI_Gatherv(const void* sendbuf, int sendcount, MPI_Datatype sendtype,
 }
 
 // MPI standard 3.1:  Section 5.6
-int MPI_Scatter(const void* sendbuf, int sendcount, MPI_Datatype sendtype,
+#pragma weak MPI_Scatter = PMPI_Scatter
+int PMPI_Scatter(const void* sendbuf, int sendcount, MPI_Datatype sendtype,
                 void* recvbuf, int recvcount, MPI_Datatype recvtype,
                 int root, MPI_Comm comm) {
   PROLOG_Comm_rank_size;
@@ -218,7 +223,8 @@ int MPI_Scatter(const void* sendbuf, int sendcount, MPI_Datatype sendtype,
   return MPI_SUCCESS;
 }
 
-int MPI_Scatterv(const void* sendbuf, const int sendcounts[],
+#pragma weak MPI_Scatterv = PMPI_Scatterv
+int PMPI_Scatterv(const void* sendbuf, const int sendcounts[],
                  const int displs[], MPI_Datatype sendtype,
                  void* recvbuf, int recvcount, MPI_Datatype recvtype,
                  int root, MPI_Comm comm) {
@@ -252,7 +258,8 @@ int MPI_Scatterv(const void* sendbuf, const int sendcounts[],
 
 // MPI standard 3.1:  Section 5.7
 //   Implementations based on 'man MPI_Allgather' for Open MPI
-int MPI_Allgather(const void* sendbuf, int sendcount, MPI_Datatype sendtype,
+#pragma weak MPI_Allgather = PMPI_Allgather
+int PMPI_Allgather(const void* sendbuf, int sendcount, MPI_Datatype sendtype,
                   void* recvbuf, int recvcount, MPI_Datatype recvtype,
                   MPI_Comm comm) {
   PROLOG_Comm_rank_size;
@@ -265,7 +272,8 @@ int MPI_Allgather(const void* sendbuf, int sendcount, MPI_Datatype sendtype,
   return MPI_SUCCESS;
 }
 
-int MPI_Allgatherv(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
+#pragma weak MPI_Allgatherv = PMPI_Allgatherv
+int PMPI_Allgatherv(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
                    void *recvbuf, const int recvcounts[], const int displs[],
                    MPI_Datatype recvtype, MPI_Comm comm) {
   PROLOG_Comm_rank_size;
@@ -278,7 +286,8 @@ int MPI_Allgatherv(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
 }
 
 // MPI standard 3.1:  Section 5.8
-int MPI_Alltoall(const void* sendbuf, int sendcount, MPI_Datatype sendtype,
+#pragma weak MPI_Alltoall = PMPI_Alltoall
+int PMPI_Alltoall(const void* sendbuf, int sendcount, MPI_Datatype sendtype,
                  void* recvbuf, int recvcount, MPI_Datatype recvtype,
                  MPI_Comm comm) {
   PROLOG_Comm_rank_size;
@@ -328,7 +337,8 @@ int MPI_Alltoall(const void* sendbuf, int sendcount, MPI_Datatype sendtype,
   return MPI_SUCCESS;
 }
 
-int MPI_Alltoallv(const void* sendbuf, const int sendcounts[],
+#pragma weak MPI_Alltoallv = PMPI_Alltoallv
+int PMPI_Alltoallv(const void* sendbuf, const int sendcounts[],
                   const int sdispls[], MPI_Datatype sendtype,
                   void* recvbuf, const int recvcounts[],
                   const int rdispls[], MPI_Datatype recvtype,
@@ -389,7 +399,8 @@ int MPI_Alltoallv(const void* sendbuf, const int sendcounts[],
 }
 
 #ifdef ADD_UNDEFINED
-int MPI_Alltoallw(const void* sendbuf, const int sendcounts[],
+#pragma weak MPI_Alltoallw = PMPI_Alltoallw
+int PMPI_Alltoallw(const void* sendbuf, const int sendcounts[],
                   const int sdispls[], const MPI_Datatype sendtypes[],
                   void* recvbuf, const int recvcounts[], const int rdispls[],
                   const MPI_Datatype recvtypes[], MPI_Comm comm) {
@@ -420,7 +431,8 @@ int MPI_Alltoallw(const void* sendbuf, const int sendcounts[],
  * MPI_MAXLOC
  * MPI_MINLOC
  */
-int MPI_Reduce(const void* sendbuf, void* recvbuf, int count,
+#pragma weak MPI_Reduce = PMPI_Reduce
+int PMPI_Reduce(const void* sendbuf, void* recvbuf, int count,
                MPI_Datatype datatype, MPI_Op op, int root, MPI_Comm comm) {
   PROLOG_Comm_rank_size;
   MPI_Aint lower_bound;
@@ -456,7 +468,8 @@ int MPI_Reduce(const void* sendbuf, void* recvbuf, int count,
   return MPI_SUCCESS;
 }
 
-int MPI_Allreduce(const void* sendbuf, void* recvbuf, int count,
+#pragma weak MPI_Allreduce = PMPI_Allreduce
+int PMPI_Allreduce(const void* sendbuf, void* recvbuf, int count,
                   MPI_Datatype datatype, MPI_Op op, MPI_Comm comm) {
   // sendbuf can propagate MPI_IN_PLACE and FORTRAN_MPI_IN_PLACE
   MPI_Reduce(sendbuf, recvbuf, count, datatype, op, 0 /* root */, comm);
@@ -466,7 +479,8 @@ int MPI_Allreduce(const void* sendbuf, void* recvbuf, int count,
 
 #ifdef ADD_UNDEFINED
 // MPI standard 3.1:  Section 5.10
-int MPI_Reduce_scatter_block(const void* sendbuf, void* recvbuf,
+#pragma weak MPI_Reduce_scatter_block = PMPI_Reduce_scatter_block
+int PMPI_Reduce_scatter_block(const void* sendbuf, void* recvbuf,
                              int recvcount, MPI_Datatype datatype, MPI_Op op,
                              MPI_Comm comm) {
   fprintf(stderr, "%s not implemented\n", __FUNCTION__);
@@ -475,7 +489,8 @@ int MPI_Reduce_scatter_block(const void* sendbuf, void* recvbuf,
 }
 #endif
 
-int MPI_Reduce_scatter(const void* sendbuf, void* recvbuf,
+#pragma weak MPI_Reduce_scatter = PMPI_Reduce_scatter
+int PMPI_Reduce_scatter(const void* sendbuf, void* recvbuf,
                        const int recvcounts[], MPI_Datatype datatype, MPI_Op op,
                        MPI_Comm comm) {
   fprintf(stderr, "%s not implemented\n", __FUNCTION__);
@@ -484,7 +499,8 @@ int MPI_Reduce_scatter(const void* sendbuf, void* recvbuf,
 }
 
 // MPI standard 3.1:  Section 5.11
-int MPI_Scan(const void* sendbuf, void* recvbuf, int count,
+#pragma weak MPI_Scan = PMPI_Scan
+int PMPI_Scan(const void* sendbuf, void* recvbuf, int count,
              MPI_Datatype datatype, MPI_Op op, MPI_Comm comm) {
   PROLOG_Comm_rank_size;
 
@@ -545,7 +561,8 @@ int MPI_Scan(const void* sendbuf, void* recvbuf, int count,
   return MPI_SUCCESS;
 }
 #ifdef ADD_UNDEFINED
-int MPI_Exscan(const void* sendbuf, void* recvbuf, int count,
+#pragma weak MPI_Exscan = PMPI_Exscan
+int PMPI_Exscan(const void* sendbuf, void* recvbuf, int count,
              MPI_Datatype datatype, MPI_Op op, MPI_Comm comm) {
   fprintf(stderr, "%s not implemented\n", __FUNCTION__);
   ABORT();
@@ -561,21 +578,24 @@ int MPI_Exscan(const void* sendbuf, void* recvbuf, int count,
  ********************************************************************/
 // MPI standard 3.1:  Section 5.12
 
-int MPI_Ibarrier(MPI_Comm comm, MPI_Request *request) {
+#pragma weak MPI_Ibarrier = PMPI_Ibarrier
+int PMPI_Ibarrier(MPI_Comm comm, MPI_Request *request) {
   ACTIVATE_REQUEST(request);
   return MPI_Barrier(comm);
 }
 
 // FIXME:  This works for most applications, but there is a theoretical danger
 //         of deadlock.  We could implement using MPI_{Isend,Irecv} to fix that.
-int MPI_Ibcast(void* buffer, int count, MPI_Datatype datatype,
+#pragma weak MPI_Ibcast = PMPI_Ibcast
+int PMPI_Ibcast(void* buffer, int count, MPI_Datatype datatype,
                int root, MPI_Comm comm, MPI_Request *request) {
   ACTIVATE_REQUEST(request);
   return MPI_Bcast(buffer, count, datatype, root, comm);
 }
 
 #ifdef ADD_UNDEFINED
-int MPI_Igather(const void* sendbuf, int sendcount, MPI_Datatype sendtype,
+#pragma weak MPI_Igather = PMPI_Igather
+int PMPI_Igather(const void* sendbuf, int sendcount, MPI_Datatype sendtype,
                 void* recvbuf, int recvcount, MPI_Datatype recvtype,
                 int root, MPI_Comm comm, MPI_Request *request) {
   ACTIVATE_REQUEST(request);
@@ -583,7 +603,8 @@ int MPI_Igather(const void* sendbuf, int sendcount, MPI_Datatype sendtype,
                     recvbuf, recvcount, recvtype, root, comm);
 }
 
-int MPI_Iscatter(const void* sendbuf, int sendcount, MPI_Datatype sendtype,
+#pragma weak MPI_Iscatter = PMPI_Iscatter
+int PMPI_Iscatter(const void* sendbuf, int sendcount, MPI_Datatype sendtype,
                  void* recvbuf, int recvcount, MPI_Datatype recvtype,
                  int root, MPI_Comm comm, MPI_Request *request) {
   ACTIVATE_REQUEST(request);
@@ -591,7 +612,8 @@ int MPI_Iscatter(const void* sendbuf, int sendcount, MPI_Datatype sendtype,
                      recvbuf, recvcount, recvtype, root, comm);
 }
 
-int MPI_Iallgather(const void* sendbuf, int sendcount, MPI_Datatype sendtype,
+#pragma weak MPI_Iallgather = PMPI_Iallgather
+int PMPI_Iallgather(const void* sendbuf, int sendcount, MPI_Datatype sendtype,
                    void* recvbuf, int recvcount, MPI_Datatype recvtype,
                    MPI_Comm comm, MPI_Request *request) {
   ACTIVATE_REQUEST(request);
@@ -599,7 +621,8 @@ int MPI_Iallgather(const void* sendbuf, int sendcount, MPI_Datatype sendtype,
                        recvtype, comm);
 }
 
-int MPI_Iallgatherv(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
+#pragma weak MPI_Iallgatherv = PMPI_Iallgatherv
+int PMPI_Iallgatherv(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
                      void *recvbuf, const int recvcounts[], const int displs[],
                      MPI_Datatype recvtype, MPI_Comm comm,
                      MPI_Request *request) {
@@ -608,7 +631,8 @@ int MPI_Iallgatherv(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
                         recvbuf, recvcounts, displs, recvtype, comm);
 }
 
-int MPI_Ialltoall(const void* sendbuf, int sendcount, MPI_Datatype sendtype,
+#pragma weak MPI_Ialltoall = PMPI_Ialltoall
+int PMPI_Ialltoall(const void* sendbuf, int sendcount, MPI_Datatype sendtype,
           void* recvbuf, int recvcount, MPI_Datatype recvtype,
           MPI_Comm comm, MPI_Request *request) {
   ACTIVATE_REQUEST(request);
@@ -616,7 +640,8 @@ int MPI_Ialltoall(const void* sendbuf, int sendcount, MPI_Datatype sendtype,
                       recvbuf, recvcount, recvtype, comm);
 }
 
-int MPI_Ialltoallv(const void* sendbuf, const int sendcounts[],
+#pragma weak MPI_Ialltoallv = PMPI_Ialltoallv
+int PMPI_Ialltoallv(const void* sendbuf, const int sendcounts[],
                    const int sdispls[], MPI_Datatype sendtype,
                    void* recvbuf, const int recvcounts[],
                    const int rdispls[], MPI_Datatype recvtype,
@@ -626,7 +651,8 @@ int MPI_Ialltoallv(const void* sendbuf, const int sendcounts[],
                    recvbuf, recvcounts, rdispls, recvtype, comm);
 }
 
-int MPI_Ialltoallw(const void* sendbuf, const int sendcounts[],
+#pragma weak MPI_Ialltoallw = PMPI_Ialltoallw
+int PMPI_Ialltoallw(const void* sendbuf, const int sendcounts[],
                    const int sdispls[], const MPI_Datatype sendtypes[],
                    void* recvbuf, const int recvcounts[], const int rdispls[],
                    const MPI_Datatype recvtypes[], MPI_Comm comm,
@@ -640,7 +666,8 @@ int MPI_Ialltoallw(const void* sendbuf, const int sendcounts[],
 
 // FIXME:  This works for most applications, but there is a theoretical danger
 //         of deadlock.  We could implement using MPI_{Isend,Irecv} to fix that.
-int MPI_Ireduce(const void* sendbuf, void* recvbuf, int count,
+#pragma weak MPI_Ireduce = PMPI_Ireduce
+int PMPI_Ireduce(const void* sendbuf, void* recvbuf, int count,
                 MPI_Datatype datatype, MPI_Op op, int root, MPI_Comm comm,
                 MPI_Request *request) {
   ACTIVATE_REQUEST(request);
@@ -648,14 +675,16 @@ int MPI_Ireduce(const void* sendbuf, void* recvbuf, int count,
 }
 
 #ifdef ADD_UNDEFINED
-int MPI_Iallreduce(const void* sendbuf, void* recvbuf, int count,
+#pragma weak MPI_Iallreduce = PMPI_Iallreduce
+int PMPI_Iallreduce(const void* sendbuf, void* recvbuf, int count,
                 MPI_Datatype datatype, MPI_Op op, MPI_Comm comm,
                 MPI_Request *request) {
   ACTIVATE_REQUEST(request);
   return MPI_Allreduce(sendbuf, recvbuf, count, datatype, op, comm);
 }
 
-int MPI_Ireduce_scatter_block(const void* sendbuf, void* recvbuf,
+#pragma weak MPI_Ireduce_scatter_block = PMPI_Ireduce_scatter_block
+int PMPI_Ireduce_scatter_block(const void* sendbuf, void* recvbuf,
                               int recvcount, MPI_Datatype datatype, MPI_Op op,
                               MPI_Comm comm, MPI_Request *request) {
   ACTIVATE_REQUEST(request);
@@ -663,7 +692,8 @@ int MPI_Ireduce_scatter_block(const void* sendbuf, void* recvbuf,
                                    op, comm);
 }
 
-int MPI_Ireduce_scatter(const void* sendbuf, void* recvbuf,
+#pragma weak MPI_Ireduce_scatter = PMPI_Ireduce_scatter
+int PMPI_Ireduce_scatter(const void* sendbuf, void* recvbuf,
                         const int recvcounts[], MPI_Datatype datatype,
                         MPI_Op op, MPI_Comm comm, MPI_Request *request) {
   ACTIVATE_REQUEST(request);
@@ -671,14 +701,16 @@ int MPI_Ireduce_scatter(const void* sendbuf, void* recvbuf,
                             op, comm);
 }
 
-int MPI_Iscan(const void* sendbuf, void* recvbuf, int count,
+#pragma weak MPI_Iscan = PMPI_Iscan
+int PMPI_Iscan(const void* sendbuf, void* recvbuf, int count,
               MPI_Datatype datatype, MPI_Op op, MPI_Comm comm,
               MPI_Request *request) {
   ACTIVATE_REQUEST(request);
   return MPI_Scan(sendbuf, recvbuf, count, datatype, op, comm);
 }
 
-int MPI_Iexscan(const void* sendbuf, void* recvbuf, int count,
+#pragma weak MPI_Iexscan = PMPI_Iexscan
+int PMPI_Iexscan(const void* sendbuf, void* recvbuf, int count,
                 MPI_Datatype datatype, MPI_Op op, MPI_Comm comm,
                 MPI_Request *request) {
   ACTIVATE_REQUEST(request);

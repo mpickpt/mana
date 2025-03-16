@@ -34,7 +34,8 @@ using namespace dmtcp_mpi;
 
 extern "C" {
 
-int MPI_Op_create(MPI_User_function *user_fn, int commute, MPI_Op *op)
+#pragma weak MPI_Op_create = PMPI_Op_create
+int PMPI_Op_create(MPI_User_function *user_fn, int commute, MPI_Op *op)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -51,7 +52,8 @@ int MPI_Op_create(MPI_User_function *user_fn, int commute, MPI_Op *op)
   return retval;
 }
 
-int MPI_Op_free(MPI_Op *op)
+#pragma weak MPI_Op_free = PMPI_Op_free
+int PMPI_Op_free(MPI_Op *op)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -69,7 +71,8 @@ int MPI_Op_free(MPI_Op *op)
   return retval;
 }
 
-int MPI_Reduce_local(const void *inbuf, void *inoutbuf, int count,
+#pragma weak MPI_Reduce_local = PMPI_Reduce_local
+int PMPI_Reduce_local(const void *inbuf, void *inoutbuf, int count,
                      MPI_Datatype datatype, MPI_Op op)
 {
   int retval;

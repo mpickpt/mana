@@ -46,9 +46,6 @@
     NOT_IMPLEMENTED(MPIProxy_Cmd_Shutdown_Proxy); \
   }
 
-#define PMPI_IMPL(ret, func, ...)                               \
-  EXTERNC ret P##func(__VA_ARGS__) __attribute__ ((weak, alias (#func)));
-
 bool isUsingCollectiveToP2p();
 void recordPreMpiInitMaps();
 void recordPostMpiInitMaps();
