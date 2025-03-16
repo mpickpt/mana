@@ -70,39 +70,11 @@
 // addresses of the functions) might change post restart; so, we cannot simply
 // remember the old addresses. We need to update the addresses post restart.
 #ifndef NEXT_FUNC
-#if 0
-# define NEXT_FUNC(func)                                                       \
-  ({                                                                           \
-    static __typeof__(&MPI_##func)_real_MPI_## func =                          \
-                                                (__typeof__(&MPI_##func)) - 1; \
-    if (_real_MPI_ ## func == (__typeof__(&MPI_##func)) - 1) {                 \
-      _real_MPI_ ## func = (__typeof__(&MPI_##func))pdlsym(MPI_Fnc_##func);    \
-    }                                                                          \
-    _real_MPI_ ## func;                                                        \
-  })
-#else
 # define NEXT_FUNC(func)                                                       \
   ({                                                                           \
     (__typeof__(&MPI_##func))pdlsym(MPI_Fnc_##func);                           \
   })
-#endif
 #endif // ifndef NEXT_FUNC
-
-// Convenience macro to define simple wrapper functions
-#define DEFINE_FNC(rettype, name, args...)                                     \
-  EXTERNC rettype MPI_##name(APPLY(PAIR, args))                                \
-  {                                                                            \
-    rettype retval;                                                            \
-    DMTCP_PLUGIN_DISABLE_CKPT();                                               \
-    JUMP_TO_LOWER_HALF(lh_info->fsaddr);                                           \
-    retval = NEXT_FUNC(name)(APPLY(STRIP, args));                              \
-    RETURN_TO_UPPER_HALF();                                                    \
-    DMTCP_PLUGIN_ENABLE_CKPT();                                                \
-    return retval;                                                             \
-  }
-
-#define USER_DEFINED_WRAPPER(rettype, name, args...)                           \
-  EXTERNC rettype MPI_##name(APPLY(PAIR, args))
 
 // Fortran MPI named constants
 // MPI 3.1 standard:

@@ -53,7 +53,8 @@ ManaHeader g_mana_header = { .init_flag = MPI_INIT_NO_THREAD };
 
 extern "C" {
 
-int MPI_Init(int *argc, char ***argv) {
+#pragma weak MPI_Init = PMPI_Init
+int PMPI_Init(int *argc, char ***argv) {
   int retval;
   if (isUsingCollectiveToP2p()) {
     fprintf(stderr, collective_p2p_string);
@@ -71,7 +72,8 @@ int MPI_Init(int *argc, char ***argv) {
   return retval;
 }
 
-int MPI_Init_thread(int *argc, char ***argv, int required, int *provided) {
+#pragma weak MPI_Init_thread = PMPI_Init_thread
+int PMPI_Init_thread(int *argc, char ***argv, int required, int *provided) {
   int retval;
   if (isUsingCollectiveToP2p()) {
     fprintf(stderr, collective_p2p_string);
@@ -88,7 +90,8 @@ int MPI_Init_thread(int *argc, char ***argv, int required, int *provided) {
   return retval;
 }
 
-int MPI_Initialized(int *flag)
+#pragma weak MPI_Initialized = PMPI_Initialized
+int PMPI_Initialized(int *flag)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -99,7 +102,8 @@ int MPI_Initialized(int *flag)
   return retval;
 }
 
-int MPI_Finalized(int *flag)
+#pragma weak MPI_Finalized = PMPI_Finalized
+int PMPI_Finalized(int *flag)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -110,7 +114,8 @@ int MPI_Finalized(int *flag)
   return retval;
 }
 
-int MPI_Get_processor_name(char *name, int *resultlen)
+#pragma weak MPI_Get_processor_name = PMPI_Get_processor_name
+int PMPI_Get_processor_name(char *name, int *resultlen)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -121,7 +126,8 @@ int MPI_Get_processor_name(char *name, int *resultlen)
   return retval;
 }
 
-double MPI_Wtime()
+#pragma weak MPI_Wtime = PMPI_Wtime
+double PMPI_Wtime()
 {
   struct timespec tp;
   clock_gettime(CLOCK_REALTIME, &tp);
@@ -130,7 +136,8 @@ double MPI_Wtime()
   return ret;
 }
 
-int MPI_Finalize(void)
+#pragma weak MPI_Finalize = PMPI_Finalize
+int PMPI_Finalize(void)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -141,7 +148,8 @@ int MPI_Finalize(void)
   return retval;
 }
 
-int MPI_Get_count(const MPI_Status *status, MPI_Datatype datatype, int *count)
+#pragma weak MPI_Get_count = PMPI_Get_count
+int PMPI_Get_count(const MPI_Status *status, MPI_Datatype datatype, int *count)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -153,7 +161,8 @@ int MPI_Get_count(const MPI_Status *status, MPI_Datatype datatype, int *count)
   return retval;
 }
 
-int MPI_Get_library_version(char *version, int *resultlen)
+#pragma weak MPI_Get_library_version = PMPI_Get_library_version
+int PMPI_Get_library_version(char *version, int *resultlen)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -164,7 +173,8 @@ int MPI_Get_library_version(char *version, int *resultlen)
   return retval;
 }
 
-int MPI_Get_address(const void *location, MPI_Aint *address)
+#pragma weak MPI_Get_address = PMPI_Get_address
+int PMPI_Get_address(const void *location, MPI_Aint *address)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();

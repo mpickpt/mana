@@ -42,7 +42,8 @@ extern "C" {
 // It's possible that there could be a Fortran to C interface bug in the
 // passing of the filename. If there are ever any bugs related to MPI
 // opening a file with the wrong name, that's likely the cause
-int MPI_File_open(MPI_Comm comm, const char *filename,
+#pragma weak MPI_File_open = PMPI_File_open
+int PMPI_File_open(MPI_Comm comm, const char *filename,
                   int amode, MPI_Info info, MPI_File *fh)
 {
   int retval;
@@ -75,7 +76,8 @@ int MPI_File_open(MPI_Comm comm, const char *filename,
   return retval;
 }
 
-int MPI_File_get_atomicity(MPI_File fh, int *flag)
+#pragma weak MPI_File_get_atomicity = PMPI_File_get_atomicity
+int PMPI_File_get_atomicity(MPI_File fh, int *flag)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -87,7 +89,8 @@ int MPI_File_get_atomicity(MPI_File fh, int *flag)
   return retval;
 }
 
-int MPI_File_set_atomicity(MPI_File fh, int flag)
+#pragma weak MPI_File_set_atomicity = PMPI_File_set_atomicity
+int PMPI_File_set_atomicity(MPI_File fh, int flag)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -99,7 +102,8 @@ int MPI_File_set_atomicity(MPI_File fh, int flag)
   return retval;
 }
 
-int MPI_File_set_size(MPI_File fh, MPI_Offset size)
+#pragma weak MPI_File_set_size = PMPI_File_set_size
+int PMPI_File_set_size(MPI_File fh, MPI_Offset size)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -111,7 +115,8 @@ int MPI_File_set_size(MPI_File fh, MPI_Offset size)
   return retval;
 }
 
-int MPI_File_get_size(MPI_File fh, MPI_Offset *size)
+#pragma weak MPI_File_get_size = PMPI_File_get_size
+int PMPI_File_get_size(MPI_File fh, MPI_Offset *size)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -123,7 +128,8 @@ int MPI_File_get_size(MPI_File fh, MPI_Offset *size)
   return retval;
 }
 
-int MPI_File_set_view(MPI_File fh, MPI_Offset disp,
+#pragma weak MPI_File_set_view = PMPI_File_set_view
+int PMPI_File_set_view(MPI_File fh, MPI_Offset disp,
                       MPI_Datatype etype, MPI_Datatype filetype,
                       const char *datarep, MPI_Info info)
 {
@@ -153,7 +159,8 @@ int MPI_File_set_view(MPI_File fh, MPI_Offset disp,
 }
 
 // TODO: Use descriptor to save etype and filetype set by File_set_view
-int MPI_File_get_view(MPI_File fh, MPI_Offset* disp,
+#pragma weak MPI_File_get_view = PMPI_File_get_view
+int PMPI_File_get_view(MPI_File fh, MPI_Offset* disp,
                       MPI_Datatype *etype, MPI_Datatype *filetype,
                       char *datarep)
 {
@@ -174,7 +181,8 @@ int MPI_File_get_view(MPI_File fh, MPI_Offset* disp,
   return retval;
 }
 
-int MPI_File_read(MPI_File fh, void *buf, int count,
+#pragma weak MPI_File_read = PMPI_File_read
+int PMPI_File_read(MPI_File fh, void *buf, int count,
                   MPI_Datatype datatype, MPI_Status *status)
 {
   int retval;
@@ -188,7 +196,8 @@ int MPI_File_read(MPI_File fh, void *buf, int count,
   return retval;
 }
 
-int MPI_File_read_at(MPI_File fh, MPI_Offset offset,
+#pragma weak MPI_File_read_at = PMPI_File_read_at
+int PMPI_File_read_at(MPI_File fh, MPI_Offset offset,
                      void *buf, int count, MPI_Datatype datatype,
                      MPI_Status *status)
 {
@@ -204,7 +213,8 @@ int MPI_File_read_at(MPI_File fh, MPI_Offset offset,
   return retval;
 }
 
-int MPI_File_read_at_all(MPI_File fh, MPI_Offset offset,
+#pragma weak MPI_File_read_at_all = PMPI_File_read_at_all
+int PMPI_File_read_at_all(MPI_File fh, MPI_Offset offset,
                          void *buf, int count, MPI_Datatype datatype,
                          MPI_Status *status)
 {
@@ -225,7 +235,8 @@ int MPI_File_read_at_all(MPI_File fh, MPI_Offset offset,
   return retval;
 }
 
-int MPI_File_read_all(MPI_File fh, void *buf,
+#pragma weak MPI_File_read_all = PMPI_File_read_all
+int PMPI_File_read_all(MPI_File fh, void *buf,
                       int count, MPI_Datatype datatype, MPI_Status *status)
 {
   // FIXME:
@@ -244,7 +255,8 @@ int MPI_File_read_all(MPI_File fh, void *buf,
   return retval;
 }
 
-int MPI_File_write(MPI_File fh, const void *buf,
+#pragma weak MPI_File_write = PMPI_File_write
+int PMPI_File_write(MPI_File fh, const void *buf,
                    int count, MPI_Datatype datatype, MPI_Status *status)
 {
   int retval;
@@ -258,7 +270,8 @@ int MPI_File_write(MPI_File fh, const void *buf,
   return retval;
 }
 
-int MPI_File_write_at(MPI_File fh, MPI_Offset offset,
+#pragma weak MPI_File_write_at = PMPI_File_write_at
+int PMPI_File_write_at(MPI_File fh, MPI_Offset offset,
                       const void *buf, int count, MPI_Datatype datatype,
                       MPI_Status *status)
 {
@@ -274,7 +287,8 @@ int MPI_File_write_at(MPI_File fh, MPI_Offset offset,
   return retval;
 }
 
-int MPI_File_write_at_all(MPI_File fh, MPI_Offset offset,
+#pragma weak MPI_File_write_at_all = PMPI_File_write_at_all
+int PMPI_File_write_at_all(MPI_File fh, MPI_Offset offset,
                           const void *buf, int count, MPI_Datatype datatype,
                           MPI_Status *status)
 {
@@ -291,7 +305,8 @@ int MPI_File_write_at_all(MPI_File fh, MPI_Offset offset,
   return retval;
 }
 
-int MPI_File_write_all(MPI_File fh, const void *buf,
+#pragma weak MPI_File_write_all = PMPI_File_write_all
+int PMPI_File_write_all(MPI_File fh, const void *buf,
                        int count, MPI_Datatype datatype, MPI_Status *status)
 {
   // FIXME: See File_read_all (the same applies here)
@@ -306,7 +321,8 @@ int MPI_File_write_all(MPI_File fh, const void *buf,
   return retval;
 }
 
-int MPI_File_sync(MPI_File fh)
+#pragma weak MPI_File_sync = PMPI_File_sync
+int PMPI_File_sync(MPI_File fh)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -318,7 +334,8 @@ int MPI_File_sync(MPI_File fh)
   return retval;
 }
 
-int MPI_File_get_position(MPI_File fh, MPI_Offset* offset)
+#pragma weak MPI_File_get_position = PMPI_File_get_position
+int PMPI_File_get_position(MPI_File fh, MPI_Offset* offset)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -330,7 +347,8 @@ int MPI_File_get_position(MPI_File fh, MPI_Offset* offset)
   return retval;
 }
 
-int MPI_File_seek(MPI_File fh, MPI_Offset offset, int whence)
+#pragma weak MPI_File_seek = PMPI_File_seek
+int PMPI_File_seek(MPI_File fh, MPI_Offset offset, int whence)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -342,7 +360,8 @@ int MPI_File_seek(MPI_File fh, MPI_Offset offset, int whence)
   return retval;
 }
 
-int MPI_File_close(MPI_File *fh)
+#pragma weak MPI_File_close = PMPI_File_close
+int PMPI_File_close(MPI_File *fh)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -362,7 +381,8 @@ int MPI_File_close(MPI_File *fh)
   return retval;
 }
 
-int MPI_File_delete(const char *filename, MPI_Info info)
+#pragma weak MPI_File_delete = PMPI_File_delete
+int PMPI_File_delete(const char *filename, MPI_Info info)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -383,7 +403,8 @@ int MPI_File_delete(const char *filename, MPI_Info info)
 }
 
 
-int MPI_File_set_errhandler(MPI_File file, MPI_Errhandler errhandler)
+#pragma weak MPI_File_set_errhandler = PMPI_File_set_errhandler
+int PMPI_File_set_errhandler(MPI_File file, MPI_Errhandler errhandler)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -395,7 +416,8 @@ int MPI_File_set_errhandler(MPI_File file, MPI_Errhandler errhandler)
   return retval;
 }
 
-int MPI_File_get_errhandler(MPI_File file, MPI_Errhandler *errhandler)
+#pragma weak MPI_File_get_errhandler = PMPI_File_get_errhandler
+int PMPI_File_get_errhandler(MPI_File file, MPI_Errhandler *errhandler)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();

@@ -41,7 +41,8 @@ using namespace dmtcp_mpi;
 
 extern "C" {
 
-int MPI_Cart_coords(MPI_Comm comm, int rank, int maxdims, int *coords)
+#pragma weak MPI_Cart_coords = PMPI_Cart_coords
+int PMPI_Cart_coords(MPI_Comm comm, int rank, int maxdims, int *coords)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -53,7 +54,8 @@ int MPI_Cart_coords(MPI_Comm comm, int rank, int maxdims, int *coords)
   return retval;
 }
 
-int MPI_Cart_get(MPI_Comm comm, int maxdims, int *dims, int *periods, int *coords)
+#pragma weak MPI_Cart_get = PMPI_Cart_get
+int PMPI_Cart_get(MPI_Comm comm, int maxdims, int *dims, int *periods, int *coords)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -65,7 +67,8 @@ int MPI_Cart_get(MPI_Comm comm, int maxdims, int *dims, int *periods, int *coord
   return retval;
 }
 
-int MPI_Cart_map(MPI_Comm comm, int ndims, const int *dims, const int *periods,
+#pragma weak MPI_Cart_map = PMPI_Cart_map
+int PMPI_Cart_map(MPI_Comm comm, int ndims, const int *dims, const int *periods,
                  int  *newrank)
 {
   int retval;
@@ -84,7 +87,8 @@ int MPI_Cart_map(MPI_Comm comm, int ndims, const int *dims, const int *periods,
   return retval;
 }
 
-int MPI_Cart_rank(MPI_Comm comm, const int *coords, int *rank)
+#pragma weak MPI_Cart_rank = PMPI_Cart_rank
+int PMPI_Cart_rank(MPI_Comm comm, const int *coords, int *rank)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -96,7 +100,8 @@ int MPI_Cart_rank(MPI_Comm comm, const int *coords, int *rank)
   return retval;
 }
 
-int MPI_Cart_shift(MPI_Comm comm, int direction, int disp, int *rank_source,
+#pragma weak MPI_Cart_shift = PMPI_Cart_shift
+int PMPI_Cart_shift(MPI_Comm comm, int direction, int disp, int *rank_source,
                    int *rank_dest)
 {
   int retval;
@@ -114,7 +119,8 @@ int MPI_Cart_shift(MPI_Comm comm, int direction, int disp, int *rank_source,
   return retval;
 }
 
-int MPI_Cart_sub(MPI_Comm comm, const int *remain_dims, MPI_Comm *new_comm)
+#pragma weak MPI_Cart_sub = PMPI_Cart_sub
+int PMPI_Cart_sub(MPI_Comm comm, const int *remain_dims, MPI_Comm *new_comm)
 {
   int retval;
 
@@ -132,7 +138,8 @@ int MPI_Cart_sub(MPI_Comm comm, const int *remain_dims, MPI_Comm *new_comm)
   return retval;
 }
 
-int MPI_Cartdim_get(MPI_Comm comm, int *ndims)
+#pragma weak MPI_Cartdim_get = PMPI_Cartdim_get
+int PMPI_Cartdim_get(MPI_Comm comm, int *ndims)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -144,7 +151,8 @@ int MPI_Cartdim_get(MPI_Comm comm, int *ndims)
   return retval;
 }
 
-int Dims_create(int nnodes, int ndims, int *dims)
+#pragma weak MPI_Dims_create = PMPI_Dims_create
+int PMPI_Dims_create(int nnodes, int ndims, int *dims)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -163,7 +171,8 @@ CartesianProperties g_cartesian_properties = { .comm_old_size = -1,
                                                .comm_old_rank = -1,
                                                .comm_cart_rank = -1 };
 
-int MPI_Cart_create(MPI_Comm old_comm, int ndims,
+#pragma weak MPI_Cart_create = PMPI_Cart_create
+int PMPI_Cart_create(MPI_Comm old_comm, int ndims,
                     const int *dims, const int *periods, int reorder,
                     MPI_Comm *comm_cart)
 {
@@ -203,7 +212,8 @@ int MPI_Cart_create(MPI_Comm old_comm, int ndims,
 }
 #else
 
-int MPI_Cart_create(MPI_Comm old_comm, int ndims,
+#pragma weak MPI_Cart_create = PMPI_Cart_create
+int PMPI_Cart_create(MPI_Comm old_comm, int ndims,
                     const int *dims, const int *periods, int reorder,
                     MPI_Comm *comm_cart)
 {
@@ -242,4 +252,5 @@ int MPI_Cart_create(MPI_Comm old_comm, int ndims,
 }
 
 #endif
+
 } // end of: extern "C"

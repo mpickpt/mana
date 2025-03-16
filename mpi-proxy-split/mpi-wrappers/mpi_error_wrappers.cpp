@@ -31,7 +31,8 @@
 
 extern "C" {
 
-int MPI_Error_class(int errorcode, int *errorclass)
+#pragma weak MPI_Error_class = PMPI_Error_class
+int PMPI_Error_class(int errorcode, int *errorclass)
 {
   int retval = 0;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -42,7 +43,8 @@ int MPI_Error_class(int errorcode, int *errorclass)
   return retval;
 }
 
-int MPI_Error_string(int errorcode, char *string, int *resultlen)
+#pragma weak MPI_Error_string = PMPI_Error_string
+int PMPI_Error_string(int errorcode, char *string, int *resultlen)
 {
   int retval = 0;
   DMTCP_PLUGIN_DISABLE_CKPT();

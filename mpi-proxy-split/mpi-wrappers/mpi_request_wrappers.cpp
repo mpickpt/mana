@@ -59,7 +59,8 @@ int MPI_Test_internal(MPI_Request *request, int *flag, MPI_Status *status,
   return retval;
 }
 
-int MPI_Test(MPI_Request* request, int* flag, MPI_Status* status)
+#pragma weak MPI_Test = PMPI_Test
+int PMPI_Test(MPI_Request* request, int* flag, MPI_Status* status)
 {
   int retval;
   if (*request == MPI_REQUEST_NULL) {
@@ -122,7 +123,8 @@ int MPI_Test(MPI_Request* request, int* flag, MPI_Status* status)
   return retval;
 }
 
-int MPI_Testall(int count, MPI_Request *array_of_requests, int *flag,
+#pragma weak MPI_Testall = PMPI_Testall
+int PMPI_Testall(int count, MPI_Request *array_of_requests, int *flag,
                 MPI_Status *array_of_statuses)
 {
   // NOTE: See MPI_Testany below for the rationale for these variables.
@@ -160,7 +162,8 @@ int MPI_Testall(int count, MPI_Request *array_of_requests, int *flag,
   return retval;
 }
 
-int MPI_Testany(int count, MPI_Request *array_of_requests, int *index,
+#pragma weak MPI_Testany = PMPI_Testany
+int PMPI_Testany(int count, MPI_Request *array_of_requests, int *index,
                 int *flag, MPI_Status *status)
 {
   // FIXME:  Revise this note if definition if FORTRAM_MPI_STATUS_IGNORE
@@ -197,7 +200,8 @@ int MPI_Testany(int count, MPI_Request *array_of_requests, int *index,
   return retval;
 }
 
-int MPI_Waitall(int count, MPI_Request *array_of_requests,
+#pragma weak MPI_Waitall = PMPI_Waitall
+int PMPI_Waitall(int count, MPI_Request *array_of_requests,
                 MPI_Status *array_of_statuses)
 {
   // FIXME: Revisit this wrapper - call get_real_id on array
@@ -240,7 +244,8 @@ int MPI_Waitall(int count, MPI_Request *array_of_requests,
   return retval;
 }
 
-int MPI_Waitany(int count, MPI_Request *array_of_requests,
+#pragma weak MPI_Waitany = PMPI_Waitany
+int PMPI_Waitany(int count, MPI_Request *array_of_requests,
                 int *index, MPI_Status *status)
 {
   // NOTE: See MPI_Testany above for the rationale for these variables.
@@ -318,7 +323,8 @@ int MPI_Waitany(int count, MPI_Request *array_of_requests,
   }
 }
 
-int MPI_Wait(MPI_Request *request, MPI_Status *status)
+#pragma weak MPI_Wait = PMPI_Wait
+int PMPI_Wait(MPI_Request *request, MPI_Status *status)
 {
   int retval;
   if (*request == MPI_REQUEST_NULL) {
@@ -379,7 +385,8 @@ int MPI_Wait(MPI_Request *request, MPI_Status *status)
   return retval;
 }
 
-int MPI_Probe(int source, int tag, MPI_Comm comm, MPI_Status *status)
+#pragma weak MPI_Probe = PMPI_Probe
+int PMPI_Probe(int source, int tag, MPI_Comm comm, MPI_Status *status)
 {
   int retval;
   int flag = 0;
@@ -389,7 +396,8 @@ int MPI_Probe(int source, int tag, MPI_Comm comm, MPI_Status *status)
   return retval;
 }
 
-int MPI_Iprobe(int source, int tag, MPI_Comm comm, int *flag, MPI_Status *status)
+#pragma weak MPI_Iprobe = PMPI_Iprobe
+int PMPI_Iprobe(int source, int tag, MPI_Comm comm, int *flag, MPI_Status *status)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -405,7 +413,8 @@ int MPI_Iprobe(int source, int tag, MPI_Comm comm, int *flag, MPI_Status *status
   return retval;
 }
 
-int MPI_Request_get_status(MPI_Request request, int *flag, MPI_Status *status)
+#pragma weak MPI_Request_get_status = PMPI_Request_get_status
+int PMPI_Request_get_status(MPI_Request request, int *flag, MPI_Status *status)
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
@@ -417,7 +426,8 @@ int MPI_Request_get_status(MPI_Request request, int *flag, MPI_Status *status)
   return retval;
 }
 
-int MPI_Get_elements(const MPI_Status *status, MPI_Datatype datatype,
+#pragma weak MPI_Get_elements = PMPI_Get_elements
+int PMPI_Get_elements(const MPI_Status *status, MPI_Datatype datatype,
                      int *count)
 {
   int retval;
@@ -429,7 +439,8 @@ int MPI_Get_elements(const MPI_Status *status, MPI_Datatype datatype,
   return retval;
 }
 
-int MPI_Get_elements_x(const MPI_Status *status, MPI_Datatype datatype,
+#pragma weak MPI_Get_elements_x = PMPI_Get_elements_x
+int PMPI_Get_elements_x(const MPI_Status *status, MPI_Datatype datatype,
                        MPI_Count *count)
 {
   int retval;

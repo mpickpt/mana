@@ -40,7 +40,8 @@ extern int p2p_deterministic_skip_save_request;
 
 extern "C" {
 
-int MPI_Send(const void *buf, int count, MPI_Datatype datatype,
+#pragma weak MPI_Send = PMPI_Send
+int PMPI_Send(const void *buf, int count, MPI_Datatype datatype,
              int dest, int tag, MPI_Comm comm)
 {
   int retval;
@@ -67,7 +68,8 @@ int MPI_Send(const void *buf, int count, MPI_Datatype datatype,
   return retval;
 }
 
-int MPI_Isend(const void *buf, int count, MPI_Datatype datatype,
+#pragma weak MPI_Isend = PMPI_Isend
+int PMPI_Isend(const void *buf, int count, MPI_Datatype datatype,
               int dest, int tag,
               MPI_Comm comm, MPI_Request *request)
 {
@@ -101,7 +103,8 @@ int MPI_Isend(const void *buf, int count, MPI_Datatype datatype,
   return retval;
 }
 
-int MPI_Rsend(const void* ibuf, int count,
+#pragma weak MPI_Rsend = PMPI_Rsend
+int PMPI_Rsend(const void* ibuf, int count,
               MPI_Datatype datatype, int dest,
               int tag, MPI_Comm comm)
 {
@@ -130,7 +133,8 @@ int MPI_Rsend(const void* ibuf, int count,
   return retval;
 }
 
-int MPI_Recv(void *buf, int count, MPI_Datatype datatype,
+#pragma weak MPI_Recv = PMPI_Recv
+int PMPI_Recv(void *buf, int count, MPI_Datatype datatype,
              int source, int tag, MPI_Comm comm, MPI_Status *status)
 {
   int retval;
@@ -176,7 +180,8 @@ int MPI_Recv(void *buf, int count, MPI_Datatype datatype,
   return retval;
 }
 
-int MPI_Irecv(void *buf, int count, MPI_Datatype datatype,
+#pragma weak MPI_Irecv = PMPI_Irecv
+int PMPI_Irecv(void *buf, int count, MPI_Datatype datatype,
               int source, int tag, MPI_Comm comm, MPI_Request *request)
 {
   int retval;
@@ -247,8 +252,8 @@ int MPI_Irecv(void *buf, int count, MPI_Datatype datatype,
   return retval;
 }
 
-// FIXME: Move this to mpi_collective_wrappers.cpp and reimplement
-int MPI_Sendrecv(const void *sendbuf, int sendcount,
+#pragma weak MPI_Sendrecv = PMPI_Sendrecv
+int PMPI_Sendrecv(const void *sendbuf, int sendcount,
                  MPI_Datatype sendtype, int dest,
                  int sendtag, void *recvbuf,
                  int recvcount, MPI_Datatype recvtype, int source,
@@ -292,7 +297,8 @@ int MPI_Sendrecv(const void *sendbuf, int sendcount,
   return retval;
 }
 
-int MPI_Sendrecv_replace(void *buf, int count,
+#pragma weak MPI_Sendrecv_replace = PMPI_Sendrecv_replace
+int PMPI_Sendrecv_replace(void *buf, int count,
                          MPI_Datatype datatype, int dest,
                          int sendtag, int source,
                          int recvtag, MPI_Comm comm, MPI_Status *status)
