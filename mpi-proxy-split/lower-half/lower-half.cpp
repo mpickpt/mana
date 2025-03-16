@@ -73,16 +73,8 @@ static void patchAuxv(Elf64_auxv_t *av, unsigned long phnum,
 void *create_red_zone(char *stack_addr);
 void update_library_path(const char *argv0);
 int prepend_to_library_path(const char *new_path);
-
-// Restart Mode helper functions
-int parse_restore_flag(int *argc, char **argv);
-RestoreTarget* get_restore_target_info(DmtcpRestart &dmtcpRestart, int rank);
-void validate_checkpoint_header(RestoreTarget *t, MtcpHeader &ckpt_hdr);
-void reserve_memory_areas(RestoreTarget *t, off_t &ckpt_file_pos);
-void release_reserved_memory(RestoreTarget *t, off_t ckpt_file_pos);
-void restore_session_leadership(RestoreTarget *t);
-void restore_memory_data(RestoreTarget *t, MtcpHeader &ckpt_hdr);
-
+void print_usage_and_exit(char *prog_name);
+void parse_launch_arguments(int argc, char **argv, int *cmd_argc, char ***cmd_argv);
 
 off_t get_symbol_offset(const char *pathame, const char *symbol);
 // See: http://articles.manugarg.com/aboutelfauxiliaryvectors.html
@@ -93,6 +85,15 @@ char *deepCopyStack(int argc, char **argv, char *argc_ptr, char *argv_ptr,
 void *lh_dlsym(enum MPI_Fncs fnc);
 static int restoreMemoryArea(int fd, MtcpHeader *ckptHdr);
 typedef void (*PostRestartFnPtr_t)(double, int);
+
+// Restart Mode helper functions
+int parse_restore_flag(int *argc, char **argv);
+RestoreTarget* get_restore_target_info(DmtcpRestart &dmtcpRestart, int rank);
+void validate_checkpoint_header(RestoreTarget *t, MtcpHeader &ckpt_hdr);
+void reserve_memory_areas(RestoreTarget *t, off_t &ckpt_file_pos);
+void release_reserved_memory(RestoreTarget *t, off_t ckpt_file_pos);
+void restore_session_leadership(RestoreTarget *t);
+void restore_memory_data(RestoreTarget *t, MtcpHeader &ckpt_hdr);
 
 void *ld_so_entry;
 LowerHalfInfo_t lh_info_obj;
@@ -308,8 +309,8 @@ int main(int argc, char *argv[], char *envp[]) {
   int restore_mode = parse_restore_flag(&argc, argv);
   write_lh_info_addr(lh_info, restore_mode);
   
-  // Restart case
   if (restore_mode) {
+    // RESTART MODE:
     DmtcpRestart dmtcpRestart(argc, argv, BINARY_NAME, MTCP_RESTART_BINARY);
     RestoreTarget *t = get_restore_target_info(dmtcpRestart, rank);
     
@@ -331,186 +332,172 @@ int main(int argc, char *argv[], char *envp[]) {
     // The following line should not be reached.
     assert(0);
   } else {
-    // In LAUNCH mode:
+    // LAUNCH MODE:
+    parse_launch_arguments(argc, argv, &cmd_argc, &cmd_argv);
+    // set default loader address
+    if (ld_so_addr == NULL) {
+      ld_so_addr = (void*) 0x80000000;
+    }
+    // User application name not provided
+    if (cmd_argc == 0) {
+      print_usage_and_exit(argv[0]);
+    }
+
     //  Prepend LD_LIBRARY_PATH env variable to
     //    * '/PATH_TO_MANA/lib/dmtcp' for libmpistub.so (always)
     //    * '/PATH_TO_MANA/lib/tmp'   for shadow libraries (only when launched with --use-shadowlibs flag)
     update_library_path(argv[0]);
-  }
+    
+    // open and parse ELF
+    cmd_fd = open(cmd_argv[0], O_RDONLY);
+    get_elf_interpreter(cmd_fd, &cmd_entry, elf_interpreter, ld_so_addr);
+    // FIXME: The ELF Format manual says that we could pass the cmd_fd to ld.so,
+    //   and it would use that to load it.
+    close(cmd_fd);
 
-  for (i = 1; i < argc; i++) {
-    if (strcmp(argv[i], "-h") == 0) {
-      fprintf(stderr, "USAGE:  %s [-a load_address] <command_line>\n", argv[0]);
-      fprintf(stderr, "  (load_address is typically a multiple of 0x200000)\n");
-      exit(1);
-    } else {
-      // Break at the first argument of the loader program (the program name)
-      cmd_argc = argc - i;
-      cmd_argv = argv + i;
-      break;
+    // Open the elf interpreter (ldso)
+    ld_so_fd = open(elf_interpreter, O_RDONLY);
+    char *interp_base_address =
+      load_elf_interpreter(ld_so_fd, elf_interpreter, ld_so_addr, &ld_so_elf_hdr);
+    ld_so_entry = interp_base_address  + ld_so_elf_hdr.e_entry;
+    // FIXME: The ELF Format manual says that we could pass the ld_so_fd to ld.so,
+    //   and it would use that to load it.
+    close(ld_so_fd);
+
+    // Insert elf interpreter before user application's arguments
+    char *cmd_argv2[100];
+    assert(cmd_argc+1 < 100);
+    cmd_argv2[0] = elf_interpreter;
+    for (i = 0; i < cmd_argc; i++) {
+      cmd_argv2[i+1] = cmd_argv[i];
     }
-  }
-  if (ld_so_addr == NULL) {
-    ld_so_addr = (void*) 0x80000000;
-  }
-
-  // Program name not provided
-  if (cmd_argc == 0) {
-    fprintf(stderr, "USAGE:  %s [-a load_address] <command_line>\n", argv[0]);
-    fprintf(stderr, "  (load_address is typically a multiple of 0x200000)\n");
-    exit(1);
-  }
-
-  // Launch case
-  cmd_fd = open(cmd_argv[0], O_RDONLY);
-  get_elf_interpreter(cmd_fd, &cmd_entry, elf_interpreter, ld_so_addr);
-  // FIXME: The ELF Format manual says that we could pass the cmd_fd to ld.so,
-  //   and it would use that to load it.
-  close(cmd_fd);
-
-  // Open the elf interpreter (ldso)
-  ld_so_fd = open(elf_interpreter, O_RDONLY);
-  char *interp_base_address =
-    load_elf_interpreter(ld_so_fd, elf_interpreter, ld_so_addr, &ld_so_elf_hdr);
-  ld_so_entry = interp_base_address  + ld_so_elf_hdr.e_entry;
-  // FIXME: The ELF Format manual says that we could pass the ld_so_fd to ld.so,
-  //   and it would use that to load it.
-  close(ld_so_fd);
-
-  // Insert elf interpreter before loaded program's arguments
-  char *cmd_argv2[100];
-  assert(cmd_argc+1 < 100);
-  cmd_argv2[0] = elf_interpreter;
-  for (i = 0; i < cmd_argc; i++) {
-    cmd_argv2[i+1] = cmd_argv[i];
-  }
-  cmd_argv2[i+1] = NULL;
-
-  // Deep copy the stack and get the auxv pointer
-  Elf64_auxv_t *auxv_ptr;
-  void *stack_bottom;
-  // Get stack's size limit. We need to leave enough space between the loader
-  // and the initial top of the stack. This also helps us to decide which segments
-  // are upper half stack at checkpoint time.
-  struct rlimit rlim;
-  getrlimit(RLIMIT_STACK, &rlim);
-
-  // Check for the edge case where soft limit for rlimit stack is
-  // set to RLIM_INFINITY (which is -1) failing the 16-bit layout check.
-  if(rlim.rlim_cur == RLIM_INFINITY){
-    // FIXME: putting in a placeholder value for now as 16MB
-    // This size is chosen to provide good distance between 
-    //  library segments and red zone, as well as red zone and UH-stack.
-    rlim.rlim_cur = 0x1000000;
-  }
-
-  /*
-   * NOTE: In some systems, rlimit_cur for stack can be as small as 8KB.
-   *  Yet mapping a bigger stack(calculated below) for UH goes unnoticed by kernel,
-   *  becasue UH stack is not recognized by kernel as 'stack', thus 
-   *    no kernel errors are thrown.
-   *
-   * FIXME:Should add check that interp_base_address + 0x2000000 not already mapped
-   *  Or else, could use newer MAP_FIXED_NOREPLACE in mmap of deepCopyStack.
-   *  
-   * LOADER_SIZE_LIMIT is set to 0x2000000 to avoid conflict with 
-   *    ld.so address space in UH.
-   * Seen on MPICH-3.3.2 on Discovery (login/ssh node) CentOS-7 and Dekaksi Ubuntu-server.
-   */
-  char *dest_stack = deepCopyStack(argc, argv, (char *)&argc, (char *)&argv[0],
-                                  cmd_argc+1, cmd_argv2,
-                                  interp_base_address + rlim.rlim_cur + LOADER_SIZE_LIMIT,
-                                  &auxv_ptr, &stack_bottom);
-  lh_info->uh_stack_start = (char*) ROUND_DOWN(interp_base_address + LOADER_SIZE_LIMIT, PAGE_SIZE);
-  lh_info->uh_stack_end = (char*) ROUND_UP(stack_bottom, PAGE_SIZE);
+    cmd_argv2[i+1] = NULL;
+    
+    // Deep copy the stack and get the auxv pointer
+    Elf64_auxv_t *auxv_ptr;
+    void *stack_bottom;
+    // Get stack's size limit. We need to leave enough space between the loader
+    // and the initial top of the stack. This also helps us to decide which segments
+    // are upper half stack at checkpoint time.
+    struct rlimit rlim;
+    getrlimit(RLIMIT_STACK, &rlim);
   
-  /*
-   * Creating a red zone for UH stack for detecting
-   *  collision  with ld.so library segments.
-   * The red zone will be created (rlim.rlim_cur + PAGE_SIZE) size
-   *  above the lh_info->uh_stack_start position, so that recorded
-   *  lh_info->uh_stack_start still falls in the stack region.
-   */
-  if (create_red_zone(lh_info->uh_stack_start - rlim.rlim_cur) == NULL) {
-    perror("red block");
-    exit(1);
-  }
-
-  // FIXME:
-  // **************************************************************************
-  // *******   elf_hdr.e_entry is pointing to lower-half instead of to ld.so
-  // *******   ld_so_entry and interp_base_address + ld_so_elf_hdr.e_entry
-  // *******     should be the same.  Eventually, rationalize this.
-  // **************************************************************************
-  //   AT_PHDR: "The address of the program headers of the executable."
-  // elf_hdr.e_phoff is offset from begining of file.
-  patchAuxv(auxv_ptr, ld_so_elf_hdr.e_phnum,
-            (unsigned long)(interp_base_address + ld_so_elf_hdr.e_phoff),
-            (unsigned long)interp_base_address + ld_so_elf_hdr.e_entry);
-  // info->phnum, (uintptr_t)info->phdr, (uintptr_t)info->entryPoint);
-
-  // Insert trampolines for mmap and munmap
-  off_t mmap_offset = get_symbol_offset(elf_interpreter, "mmap");
-  if (! mmap_offset) {
-    char buf[256] = "/usr/lib/debug";
-    buf[sizeof(buf)-1] = '\0';
-    ssize_t rc = 0;
-    rc = readlink(elf_interpreter, buf+strlen(buf), sizeof(buf)-strlen(buf)-1);
-    if (rc != -1 && access(buf, F_OK) == 0) {
-      // Debian family (Ubuntu, etc.) use this scheme to store debug symbols.
-      //   http://sourceware.org/gdb/onlinedocs/gdb/Separate-Debug-Files.html
-      fprintf(stderr, "Debug symbols for interpreter in: %s\n", buf);
+    // Check for the edge case where soft limit for rlimit stack is
+    // set to RLIM_INFINITY (which is -1) failing the 16-bit layout check.
+    if(rlim.rlim_cur == RLIM_INFINITY){
+      // FIXME: putting in a placeholder value for now as 16MB
+      // This size is chosen to provide good distance between 
+      //  library segments and red zone, as well as red zone and UH-stack.
+      rlim.rlim_cur = 0x1000000;
     }
-    mmap_offset = get_symbol_offset(buf, "mmap"); // elf interpreter debug path
-  }
-  assert(mmap_offset);
-  off_t munmap_offset = get_symbol_offset(elf_interpreter, "munmap");
-  if (! munmap_offset) {
-    char buf[256] = "/usr/lib/debug";
-    buf[sizeof(buf)-1] = '\0';
-    ssize_t rc = 0;
-    rc = readlink(elf_interpreter, buf+strlen(buf), sizeof(buf)-strlen(buf)-1);
-    if (rc != -1 && access(buf, F_OK) == 0) {
-      // Debian family (Ubuntu, etc.) use this scheme to store debug symbols.
-      //   http://sourceware.org/gdb/onlinedocs/gdb/Separate-Debug-Files.html
-      fprintf(stderr, "Debug symbols for interpreter in: %s\n", buf);
+  
+    /*
+     * NOTE: In some systems, rlimit_cur for stack can be as small as 8KB.
+     *  Yet mapping a bigger stack(calculated below) for UH goes unnoticed by kernel,
+     *  becasue UH stack is not recognized by kernel as 'stack', thus 
+     *    no kernel errors are thrown.
+     *
+     * FIXME:Should add check that interp_base_address + 0x2000000 not already mapped
+     *  Or else, could use newer MAP_FIXED_NOREPLACE in mmap of deepCopyStack.
+     *  
+     * LOADER_SIZE_LIMIT is set to 0x2000000 to avoid conflict with 
+     *    ld.so address space in UH.
+     * Seen on MPICH-3.3.2 on Discovery (login/ssh node) CentOS-7 and Dekaksi Ubuntu-server.
+     */
+    char *dest_stack = deepCopyStack(argc, argv, (char *)&argc, (char *)&argv[0],
+                                    cmd_argc+1, cmd_argv2,
+                                    interp_base_address + rlim.rlim_cur + LOADER_SIZE_LIMIT,
+                                    &auxv_ptr, &stack_bottom);
+    lh_info->uh_stack_start = (char*) ROUND_DOWN(interp_base_address + LOADER_SIZE_LIMIT, PAGE_SIZE);
+    lh_info->uh_stack_end = (char*) ROUND_UP(stack_bottom, PAGE_SIZE);
+    
+    /*
+     * Creating a red zone for UH stack for detecting
+     *  collision  with ld.so library segments.
+     * The red zone will be created (rlim.rlim_cur + PAGE_SIZE) size
+     *  above the lh_info->uh_stack_start position, so that recorded
+     *  lh_info->uh_stack_start still falls in the stack region.
+     */
+    if (create_red_zone(lh_info->uh_stack_start - rlim.rlim_cur) == NULL) {
+      perror("red zone");
+      exit(1);
     }
-    munmap_offset = get_symbol_offset(buf, "munmap"); // elf interpreter debug path
-  }
-  assert(munmap_offset);
-  patch_trampoline((void*)(interp_base_address + mmap_offset), (void*)&mmap_wrapper);
-  patch_trampoline((void*)(interp_base_address + munmap_offset), (void*)&munmap_wrapper);
+    // FIXME:
+    // **************************************************************************
+    // *******   elf_hdr.e_entry is pointing to lower-half instead of to ld.so
+    // *******   ld_so_entry and interp_base_address + ld_so_elf_hdr.e_entry
+    // *******     should be the same.  Eventually, rationalize this.
+    // **************************************************************************
+    //   AT_PHDR: "The address of the program headers of the executable."
+    // elf_hdr.e_phoff is offset from begining of file.
+    patchAuxv(auxv_ptr, ld_so_elf_hdr.e_phnum,
+              (unsigned long)(interp_base_address + ld_so_elf_hdr.e_phoff),
+              (unsigned long)interp_base_address + ld_so_elf_hdr.e_entry);
+    // info->phnum, (uintptr_t)info->phdr, (uintptr_t)info->entryPoint);
+  
+    // Insert trampolines for mmap and munmap
+    off_t mmap_offset = get_symbol_offset(elf_interpreter, "mmap");
+    if (! mmap_offset) {
+      char buf[256] = "/usr/lib/debug";
+      buf[sizeof(buf)-1] = '\0';
+      ssize_t rc = 0;
+      rc = readlink(elf_interpreter, buf+strlen(buf), sizeof(buf)-strlen(buf)-1);
+      if (rc != -1 && access(buf, F_OK) == 0) {
+        // Debian family (Ubuntu, etc.) use this scheme to store debug symbols.
+        //   http://sourceware.org/gdb/onlinedocs/gdb/Separate-Debug-Files.html
+        fprintf(stderr, "Debug symbols for interpreter in: %s\n", buf);
+      }
+      mmap_offset = get_symbol_offset(buf, "mmap"); // elf interpreter debug path
+    }
+    assert(mmap_offset);
+    off_t munmap_offset = get_symbol_offset(elf_interpreter, "munmap");
+    if (! munmap_offset) {
+      char buf[256] = "/usr/lib/debug";
+      buf[sizeof(buf)-1] = '\0';
+      ssize_t rc = 0;
+      rc = readlink(elf_interpreter, buf+strlen(buf), sizeof(buf)-strlen(buf)-1);
+      if (rc != -1 && access(buf, F_OK) == 0) {
+        // Debian family (Ubuntu, etc.) use this scheme to store debug symbols.
+        //   http://sourceware.org/gdb/onlinedocs/gdb/Separate-Debug-Files.html
+        fprintf(stderr, "Debug symbols for interpreter in: %s\n", buf);
+      }
+      munmap_offset = get_symbol_offset(buf, "munmap"); // elf interpreter debug path
+    }
+    assert(munmap_offset);
+    patch_trampoline((void*)(interp_base_address + mmap_offset), (void*)&mmap_wrapper);
+    patch_trampoline((void*)(interp_base_address + munmap_offset), (void*)&munmap_wrapper);
 
-  // Then jump to _start, ld_so_entry, in ld.so (or call it
-  //   as fnc that never returns).
-  //   > ldso_entrypoint = getEntryPoint(ldso);
-  //   > // TODO: Clean up all the registers?
-  //   > asm volatile (CLEAN_FOR_64_BIT(mov %0, %%esp; )
-  //   >               : : "g" (newStack) : "memory");
-  //   > asm volatile ("jmp *%0" : : "g" (ld_so_entry) : "memory");
+    // Then jump to _start, ld_so_entry, in ld.so (or call it
+    //   as fnc that never returns).
+    //   > ldso_entrypoint = getEntryPoint(ldso);
+    //   > // TODO: Clean up all the registers?
+    //   > asm volatile (CLEAN_FOR_64_BIT(mov %0, %%esp; )
+    //   >               : : "g" (newStack) : "memory");
+    //   > asm volatile ("jmp *%0" : : "g" (ld_so_entry) : "memory");
 #if defined(__i386__) || defined(__x86_64__)
-  asm volatile (CLEAN_FOR_64_BIT(mov %0, %%esp; )
-                : : "g" (dest_stack) : "memory");
-  asm volatile ("jmp *%0" : : "g" (ld_so_entry) : "memory");
+    asm volatile (CLEAN_FOR_64_BIT(mov %0, %%esp; )
+                  : : "g" (dest_stack) : "memory");
+    asm volatile ("jmp *%0" : : "g" (ld_so_entry) : "memory");
 #elif defined(__arm__)
 # warning "__arm__ not yet implemented."
 #elif defined(__aarch64__)
-  asm volatile ("mov sp, %0" : : "r" (dest_stack) );
-  asm volatile ("mov x8, %0" : : "g" (ld_so_entry) : "memory");
-  asm volatile ("br x8");
+    asm volatile ("mov sp, %0" : : "r" (dest_stack) );
+    asm volatile ("mov x8, %0" : : "g" (ld_so_entry) : "memory");
+    asm volatile ("br x8");
 #elif defined(__riscv)
-  asm volatile ("addi sp, %0, 0" : : "r" (dest_stack) : );
-  // We would ant to do "%%hi(%0)"/"%%lo(%0)".  But %hi/%lo is a reloaction
-  //   directove for the linker, and asm() doens't understand this.
-  // %%pcrel_hi/lo would be nice (to generate pic code), but when
-  //   trying that, we get:
-  // lower-half.c: dangerous relocation: %pcrel_lo missing matching %pcrel_hi
-  asm volatile ("lui t0, %%hi(ld_so_entry)" : : "g" (ld_so_entry) : "memory");
-  asm volatile ("ld  t0, %%lo(ld_so_entry)(t0)" : : "g" (ld_so_entry) : "memory");
-  asm volatile ("jalr  zero, t0");
+    asm volatile ("addi sp, %0, 0" : : "r" (dest_stack) : );
+    // We would ant to do "%%hi(%0)"/"%%lo(%0)".  But %hi/%lo is a reloaction
+    //   directove for the linker, and asm() doens't understand this.
+    // %%pcrel_hi/lo would be nice (to generate pic code), but when
+    //   trying that, we get:
+    // lower-half.c: dangerous relocation: %pcrel_lo missing matching %pcrel_hi
+    asm volatile ("lui t0, %%hi(ld_so_entry)" : : "g" (ld_so_entry) : "memory");
+    asm volatile ("ld  t0, %%lo(ld_so_entry)(t0)" : : "g" (ld_so_entry) : "memory");
+    asm volatile ("jalr  zero, t0");
 #else
 # error "current architecture not supported"
 #endif /* if defined(__i386__) || defined(__x86_64__) */
+  }
 }
 
 void get_elf_interpreter(int fd, Elf64_Addr *cmd_entry,
@@ -1164,7 +1151,7 @@ void restore_session_leadership(RestoreTarget *t)
 
 /*
  *  Restore all the memory regions from the checkpoint file
- *    by reading and mapping them back to the memory
+ *    by reading and mapping them back to the memory.
  */
 void restore_memory_data(RestoreTarget *t, MtcpHeader &ckpt_hdr)
 {
@@ -1172,6 +1159,34 @@ void restore_memory_data(RestoreTarget *t, MtcpHeader &ckpt_hdr)
     int ret = restoreMemoryArea(t->fd(), &ckpt_hdr);
     if (ret == -1) {
       break; /* end of ckpt image */
+    }
+  }
+}
+
+/*
+ * Helper function to print usage message and exit gracefully.
+ */
+void print_usage_and_exit(char *prog_name)
+{
+  fprintf(stderr, "USAGE:  %s [-a load_address] <command_line>\n", prog_name);
+  fprintf(stderr, "  (load_address is typically a multiple of 0x200000)\n");
+  exit(1);
+}
+
+/*
+ *  Parse command line arguments at launch time, 
+ *    for upper half (user application).
+ */
+void parse_launch_arguments(int argc, char **argv, int *cmd_argc, char ***cmd_argv)
+{
+  for (int i = 1; i < argc; i++) {
+    if (strcmp(argv[i], "-h") == 0) {
+     print_usage_and_exit(argv[0]); 
+    } else {
+      // Break at the first argument of the loader program (the program name)
+      *cmd_argc = argc - i;
+      *cmd_argv = argv + i;
+      break;
     }
   }
 }
