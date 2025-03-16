@@ -74,6 +74,16 @@ void *create_red_zone(char *stack_addr);
 void update_library_path(const char *argv0);
 int prepend_to_library_path(const char *new_path);
 
+// Restart Mode helper functions
+int parse_restore_flag(int *argc, char **argv);
+RestoreTarget* get_restore_target_info(DmtcpRestart &dmtcpRestart, int rank);
+void validate_checkpoint_header(RestoreTarget *t, MtcpHeader &ckpt_hdr);
+void reserve_memory_areas(RestoreTarget *t, off_t &ckpt_file_pos);
+void release_reserved_memory(RestoreTarget *t, off_t ckpt_file_pos);
+void restore_session_leadership(RestoreTarget *t);
+void restore_memory_data(RestoreTarget *t, MtcpHeader &ckpt_hdr);
+
+
 off_t get_symbol_offset(const char *pathame, const char *symbol);
 // See: http://articles.manugarg.com/aboutelfauxiliaryvectors.html
 //   (but unfortunately, that's for a 32-bit system)
@@ -143,7 +153,6 @@ void write_lh_info_addr(LowerHalfInfo_t *addr, int restore_mode) {
 int main(int argc, char *argv[], char *envp[]) {
   set_addr_no_randomize(argv);
   int i;
-  int restore_mode = 0;
   int cmd_argc = 0;
   char **cmd_argv;
   int cmd_fd;
@@ -296,115 +305,22 @@ int main(int argc, char *argv[], char *envp[]) {
 
   // Check arguments and setup arguments for the loader program (cmd)
   // if has "--restore", pass all arguments to mtcp_restart
-  for (i = 1; i < argc; i++) {
-    if (strcmp(argv[i], "--restore") == 0) {
-      restore_mode = 1;
-      // Remove the --restore flag because dmtcp does not recognize
-      // this flag.
-      argc--;
-      for (int j = i; j < argc; j++) {
-        argv[j] = argv[j + 1];
-      }
-      break;
-    }
-  }
+  int restore_mode = parse_restore_flag(&argc, argv);
   write_lh_info_addr(lh_info, restore_mode);
+  
   // Restart case
   if (restore_mode) {
     DmtcpRestart dmtcpRestart(argc, argv, BINARY_NAME, MTCP_RESTART_BINARY);
-
-    RestoreTarget *t;
-    if (dmtcpRestart.restartDir.empty()) {
-      t = new RestoreTarget(dmtcpRestart.ckptImages[0]);
-    } else {
-      string image_path;
-      string restart_dir = dmtcpRestart.restartDir;
-      string image_dir = restart_dir + "/ckpt_rank_" + jalib::XToString(rank) + "/";
-      vector<string> files = jalib::Filesystem::ListDirEntries(image_dir);
-      for (const string &file : files) {
-        if (Util::strStartsWith(file.c_str(), "ckpt") &&
-            Util::strEndsWith(file.c_str(), ".dmtcp")) {
-          image_path = image_dir + file;
-          break;
-        }
-      }
-      t = new RestoreTarget(image_path.c_str());
-    }
-    JASSERT(t->pid() != 0);
-
+    RestoreTarget *t = get_restore_target_info(dmtcpRestart, rank);
+    
     MtcpHeader ckpt_hdr;
-    ssize_t rc = read(t->fd(), &ckpt_hdr, sizeof(ckpt_hdr));
-    ASSERT_EQ(rc, static_cast<ssize_t>(sizeof(ckpt_hdr)));
-    ASSERT_EQ(string(ckpt_hdr.signature), string(MTCP_SIGNATURE));
-
-    ProcMapsArea area;
+    validate_checkpoint_header(t, ckpt_hdr);
     off_t ckpt_file_pos = 0;
-    ckpt_file_pos = lseek(t->fd(), 0, SEEK_CUR);
-    // Reserve space for memory areas saved in the ckpt image file.
-    while(1) {
-      ssize_t rc = read(t->fd(), &area, sizeof area);
-      assert(rc == sizeof area);
-      if (area.addr == NULL) {
-        lseek(t->fd(), ckpt_file_pos, SEEK_SET);
-        break;
-      }
-      if ((area.properties & DMTCP_ZERO_PAGE_CHILD_HEADER) == 0) {
-        void *mmapedat = mmap_fixed_noreplace(area.addr, area.size, PROT_NONE,
-                                              MAP_PRIVATE | MAP_ANONYMOUS,
-                                              0, 0);
-        if (mmapedat == MAP_FAILED) {
-          fprintf(stderr, "restore failed area.addr: %p, area.endAddr%p\n", area.addr, area.endAddr);
-          volatile int dummy = 1;
-          while (dummy);
-        }
-      }
-      if ((area.properties & DMTCP_ZERO_PAGE) == 0 &&
-          (area.properties & DMTCP_ZERO_PAGE_PARENT_HEADER) == 0) {
-        off_t seekLen = area.size;
-        if (!(area.flags & MAP_ANONYMOUS) && area.mmapFileSize > 0) {
-          seekLen =  area.mmapFileSize;
-        }
-        lseek(t->fd(), seekLen, SEEK_CUR);
-      }
-    }
+    reserve_memory_areas(t, ckpt_file_pos);
     t->initialize();
-    // Release reserved memory areas
-    while(1) {
-      ssize_t rc = read(t->fd(), &area, sizeof area);
-      assert(rc > 0);
-      if (area.addr == NULL) {
-        lseek(t->fd(), ckpt_file_pos, SEEK_SET);
-        break;
-      }
-      if ((area.properties & DMTCP_ZERO_PAGE_CHILD_HEADER) == 0) {
-        munmap(area.addr, area.size);
-      }
-      if ((area.properties & DMTCP_ZERO_PAGE) == 0 &&
-          (area.properties & DMTCP_ZERO_PAGE_PARENT_HEADER) == 0) {
-        off_t seekLen = area.size;
-        if (!(area.flags & MAP_ANONYMOUS) && area.mmapFileSize > 0) {
-          seekLen =  area.mmapFileSize;
-        }
-        lseek(t->fd(), seekLen, SEEK_CUR);
-      }
-    }
-
-    // If we were the session leader, become one now.
-    if (t->sid() == t->pid()) {
-      if (getsid(0) != t->pid()) {
-        JWARNING(setsid() != -1)
-          (getsid(0))(JASSERT_ERRNO)
-          .Text("Failed to resotre this process as session leader.");
-      }
-    }
-
-    while (1) {
-      int ret = restoreMemoryArea(t->fd(), &ckpt_hdr);
-      if (ret == -1) {
-        break; /* end of ckpt image */
-      }
-    }
-
+    release_reserved_memory(t, ckpt_file_pos);
+    restore_session_leadership(t);
+    restore_memory_data(t, ckpt_hdr);
     /* Everything restored, close file and finish up */
     close(t->fd());
 
@@ -1098,5 +1014,165 @@ void update_library_path(const char *argv0)
     }
   }
   free(lib2);
+}
+
+/*
+ *  Parse out "--restore" flag from the command line arguemnts, 
+ *    and update restre_mode flag.
+ */
+int parse_restore_flag(int *argc, char **argv)
+{
+  int restore_mode = 0;
+  // Iterate over command line arguments
+  for (int i = 1; i < *argc; i++) {
+    if (strcmp(argv[i], "--restore") == 0) {
+      restore_mode = 1;
+      // Remove the --restore flag because dmtcp does not recognize
+      // this flag.
+      (*argc)--;
+      for (int j = i; j < *argc; j++) {
+        argv[j] = argv[j + 1];
+      }
+      break;
+    }
+  }
+  return restore_mode;
+}
+
+/*
+ *  Get information of  restore target as a class object,
+ *    based on the checkpoint image location and name.
+ *  If restart directory is specified: 
+ *     constructs a path to the correct checkpoint image 
+ *     based on the rank of current process.
+ */
+RestoreTarget* get_restore_target_info(DmtcpRestart &dmtcpRestart, int rank)
+{
+  RestoreTarget *t;
+  // if no resatrt direcory present 
+  if (dmtcpRestart.restartDir.empty()) {
+     t = new RestoreTarget(dmtcpRestart.ckptImages[0]);
+   } else{
+     // read from directory '/ckpt_rank_X/', where X=process rank 
+     string image_path;
+     string restart_dir = dmtcpRestart.restartDir;
+     string image_dir = restart_dir + "/ckpt_rank_" + jalib::XToString(rank) + "/";
+     vector<string> files = jalib::Filesystem::ListDirEntries(image_dir);
+     for (const string &file : files) {
+        if (Util::strStartsWith(file.c_str(), "ckpt") &&
+            Util::strEndsWith(file.c_str(), ".dmtcp")) {
+          image_path = image_dir + file;
+          break;
+        }
+     }
+    t = new RestoreTarget(image_path.c_str());
+   }
+  JASSERT(t->pid() != 0);
+  return t;
+}
+
+/*
+ *  Validate checkpoint file header to ensure
+ *    it matches the expected MTCP signature.
+ */
+void validate_checkpoint_header(RestoreTarget *t, MtcpHeader &ckpt_hdr)
+{
+  ssize_t rc = read(t->fd(), &ckpt_hdr, sizeof(ckpt_hdr));
+  ASSERT_EQ(rc, static_cast<ssize_t>(sizeof(ckpt_hdr)));
+  ASSERT_EQ(string(ckpt_hdr.signature), string(MTCP_SIGNATURE));
+}
+
+/*
+ *  Reserve Memory regions required for restoring the process,
+ *    by iterating over the checkpoint file, and 
+ *    ensuring they are mapped without replacement.
+ */
+void reserve_memory_areas(RestoreTarget *t, off_t &ckpt_file_pos)
+{
+  ProcMapsArea area;
+  ckpt_file_pos = lseek(t->fd(), 0, SEEK_CUR);
+  while(1) {
+    ssize_t rc = read(t->fd(), &area, sizeof area);
+    assert(rc == sizeof area);
+    if (area.addr == NULL) {
+      lseek(t->fd(), ckpt_file_pos, SEEK_SET);
+      break;
+    }
+    if ((area.properties & DMTCP_ZERO_PAGE_CHILD_HEADER) == 0) {
+      void *mmapedat = mmap_fixed_noreplace(area.addr, area.size, PROT_NONE,
+                                            MAP_PRIVATE | MAP_ANONYMOUS,
+                                            0, 0);
+      if (mmapedat == MAP_FAILED) {
+        fprintf(stderr, "restore failed area.addr: %p, area.endAddr%p\n", area.addr, area.endAddr);
+        volatile int dummy = 1;
+        while (dummy);
+      }
+    }
+    if ((area.properties & DMTCP_ZERO_PAGE) == 0 &&
+        (area.properties & DMTCP_ZERO_PAGE_PARENT_HEADER) == 0) {
+      off_t seekLen = area.size;
+      if (!(area.flags & MAP_ANONYMOUS) && area.mmapFileSize > 0) {
+        seekLen =  area.mmapFileSize;
+      }
+      lseek(t->fd(), seekLen, SEEK_CUR);
+    }
+  }
+}
+
+/*
+ *  Release the memory areas, that were previously reserved,
+ *    before starting restoration process with saved memory data.
+ */
+void release_reserved_memory(RestoreTarget *t, off_t ckpt_file_pos)
+{
+  ProcMapsArea area;
+  while(1) {
+    ssize_t rc = read(t->fd(), &area, sizeof area);
+    assert(rc > 0);
+    if (area.addr == NULL) {
+      lseek(t->fd(), ckpt_file_pos, SEEK_SET);
+      break;
+    }
+    if ((area.properties & DMTCP_ZERO_PAGE_CHILD_HEADER) == 0) {
+      munmap(area.addr, area.size);
+    }
+    if ((area.properties & DMTCP_ZERO_PAGE) == 0 &&
+        (area.properties & DMTCP_ZERO_PAGE_PARENT_HEADER) == 0) {
+      off_t seekLen = area.size;
+      if (!(area.flags & MAP_ANONYMOUS) && area.mmapFileSize > 0) {
+        seekLen =  area.mmapFileSize;
+      }
+      lseek(t->fd(), seekLen, SEEK_CUR);
+    }
+  }
+}
+
+/*
+ *  If the process was the session leader before checkpointing, 
+ *    reinstate leadership at restart.
+ */
+void restore_session_leadership(RestoreTarget *t)
+{
+  if (t->sid() == t->pid()) {
+    if (getsid(0) != t->pid()) {
+      JWARNING(setsid() != -1)
+        (getsid(0))(JASSERT_ERRNO)
+        .Text("Failed to resotre this process as session leader.");
+    }
+  }
+}
+
+/*
+ *  Restore all the memory regions from the checkpoint file
+ *    by reading and mapping them back to the memory
+ */
+void restore_memory_data(RestoreTarget *t, MtcpHeader &ckpt_hdr)
+{
+  while (1) {
+    int ret = restoreMemoryArea(t->fd(), &ckpt_hdr);
+    if (ret == -1) {
+      break; /* end of ckpt image */
+    }
+  }
 }
 
