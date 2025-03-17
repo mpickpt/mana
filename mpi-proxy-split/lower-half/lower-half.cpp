@@ -83,17 +83,17 @@ char *deepCopyStack(int argc, char **argv, char *argc_ptr, char *argv_ptr,
                     unsigned long dest_argc, char **dest_argv, char *dest_stack,
                     Elf64_auxv_t **auxv_ptr, void **stack_bottom);
 void *lh_dlsym(enum MPI_Fncs fnc);
-static int restoreMemoryArea(int fd, MtcpHeader *ckptHdr);
+static int restoreMemoryArea(int fd, DmtcpCkptHeader *ckptHdr);
 typedef void (*PostRestartFnPtr_t)(double, int);
 
 // Restart Mode helper functions
 int parse_restore_flag(int *argc, char **argv);
 RestoreTarget* get_restore_target_info(DmtcpRestart &dmtcpRestart, int rank);
-void validate_checkpoint_header(RestoreTarget *t, MtcpHeader &ckpt_hdr);
+void validate_checkpoint_header(RestoreTarget *t, DmtcpCkptHeader &ckpt_hdr);
 void reserve_memory_areas(RestoreTarget *t, off_t &ckpt_file_pos);
 void release_reserved_memory(RestoreTarget *t, off_t ckpt_file_pos);
 void restore_session_leadership(RestoreTarget *t);
-void restore_memory_data(RestoreTarget *t, MtcpHeader &ckpt_hdr);
+void restore_memory_data(RestoreTarget *t, DmtcpCkptHeader &ckpt_hdr);
 
 void *ld_so_entry;
 LowerHalfInfo_t lh_info_obj;
@@ -314,7 +314,7 @@ int main(int argc, char *argv[], char *envp[]) {
     DmtcpRestart dmtcpRestart(argc, argv, BINARY_NAME, MTCP_RESTART_BINARY);
     RestoreTarget *t = get_restore_target_info(dmtcpRestart, rank);
     
-    MtcpHeader ckpt_hdr;
+    DmtcpCkptHeader ckpt_hdr;
     validate_checkpoint_header(t, ckpt_hdr);
     off_t ckpt_file_pos = 0;
     reserve_memory_areas(t, ckpt_file_pos);
@@ -327,7 +327,7 @@ int main(int argc, char *argv[], char *envp[]) {
 
     // IMB; /* flush instruction cache, since mtcp_restart.c code is now gone. */
 
-    PostRestartFnPtr_t postRestart = (PostRestartFnPtr_t) ckpt_hdr.post_restart;
+    PostRestartFnPtr_t postRestart = (PostRestartFnPtr_t) ckpt_hdr.postRestartAddr;
     postRestart(0, 0);
     // The following line should not be reached.
     assert(0);
@@ -728,7 +728,11 @@ int MPI_MANA_Internal(char *dummy) {
   return 0;
 }
 
-static int restoreMemoryArea(int fd, MtcpHeader *ckptHdr)
+// FIXME: This function is copied from DMTCP's mtcp_restart.c
+// For maintenance, we should stop having two copies of the 
+// same function. A possible plan is using "ld.so" and "mtcp_restart"
+// to restore the upper-half instead of using this lower-half program
+static int restoreMemoryArea(int fd, DmtcpCkptHeader *ckptHdr)
 {
   int imagefd;
   void *mmappedat;
@@ -757,9 +761,9 @@ static int restoreMemoryArea(int fd, MtcpHeader *ckptHdr)
    * in processinfo.cpp.
    */
   if ((area.name[0] && area.name[0] != '/' && strstr(area.name, "stack"))
-      || (area.endAddr == (VA) ckptHdr->end_of_stack)) {
+      || (area.endAddr == (VA) ckptHdr->endOfStack)) {
     area.flags = area.flags | MAP_GROWSDOWN;
-    JTRACE("Detected stack area")(ckptHdr->end_of_stack) (area.endAddr);
+    JTRACE("Detected stack area")(ckptHdr->endOfStack) (area.endAddr);
   }
 
   // We could have replaced MAP_SHARED with MAP_PRIVATE in writeckpt.cpp
@@ -1062,11 +1066,11 @@ RestoreTarget* get_restore_target_info(DmtcpRestart &dmtcpRestart, int rank)
  *  Validate checkpoint file header to ensure
  *    it matches the expected MTCP signature.
  */
-void validate_checkpoint_header(RestoreTarget *t, MtcpHeader &ckpt_hdr)
+void validate_checkpoint_header(RestoreTarget *t, DmtcpCkptHeader &ckpt_hdr)
 {
   ssize_t rc = read(t->fd(), &ckpt_hdr, sizeof(ckpt_hdr));
   ASSERT_EQ(rc, static_cast<ssize_t>(sizeof(ckpt_hdr)));
-  ASSERT_EQ(string(ckpt_hdr.signature), string(MTCP_SIGNATURE));
+  ASSERT_EQ(string(ckpt_hdr.ckptSignature), string(DMTCP_CKPT_SIGNATURE));
 }
 
 /*
@@ -1153,7 +1157,7 @@ void restore_session_leadership(RestoreTarget *t)
  *  Restore all the memory regions from the checkpoint file
  *    by reading and mapping them back to the memory.
  */
-void restore_memory_data(RestoreTarget *t, MtcpHeader &ckpt_hdr)
+void restore_memory_data(RestoreTarget *t, DmtcpCkptHeader &ckpt_hdr)
 {
   while (1) {
     int ret = restoreMemoryArea(t->fd(), &ckpt_hdr);
