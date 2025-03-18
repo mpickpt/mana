@@ -50,7 +50,7 @@ all: default
 mana: mana_prereqs dmtcp
 	cd mpi-proxy-split && $(MAKE) install && $(MAKE) -j tests
 
-dmtcp:
+dmtcp: dmtcp/configure
 	cd ${DMTCP_ROOT} && $(MAKE)
 	cp -rf ${DMTCP_ROOT}/bin .
 	cp -rf ${DMTCP_ROOT}/lib .
