@@ -18,6 +18,8 @@ For details of installing and using MANA, please see:
 - [the MANA 'man' page](manpages/mana.1.md) (or `man ./mana.1` on a local copy)
 
 For technical details, see:
+* "Enabling Practical Transparent Checkpointing for MPI: A Topological Sort Approach",
+  Yao Xu, Gene Cooperman, Cluster'24
 * "Implementation-Oblivious Transparent Checkpoint-Restart for MPI",
   Yao Xu, Leonid Belyaev, Twinkle Jain,
     Derek Schafer, Anthony Skjellum, Gene Cooperman, SuperCheck-SC23 Workshop
