@@ -31,6 +31,8 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/mman.h>
+#include <sys/auxv.h>
+#include <elf.h>
 #include <libgen.h>
 #include <limits.h>
 #include <link.h>
@@ -45,35 +47,16 @@
 #include <link.h>
 #include <assert.h>
 
-
 #include "switch-context.h"
 #include "lower-half-api.h"
 
+#ifndef HWCAP2_FSGSBASE
+#  define HWCAP2_FSGSBASE (1 << 1)
+#endif
 int CheckAndEnableFsGsBase()
 {
-  int FsGsBaseEnabled = 0;
-
-  pid_t childPid = fork();
-  assert(childPid != -1);
-
-  if (childPid == 0) {
-    unsigned long fsbase = -1;
-    // On systems without FSGSBASE support (Linux kernel < 5.9, this instruction
-    // fails with SIGILL).
-    asm volatile("rex.W\n rdfsbase %0" : "=r" (fsbase) :: "memory");
-    asm volatile("rex.W\n wrfsbase %0" :: "r" (fsbase) : "memory");
-    exit(0);
-  }
-
-  int status = 0;
-  assert(waitpid(childPid, &status, 0) == childPid);
-
-  if (WIFEXITED(status) == 1 && WEXITSTATUS(status) == 0) {
-    FsGsBaseEnabled = 1;
-  } else {
-    FsGsBaseEnabled = 0;
-  }
-  return FsGsBaseEnabled;
+  unsigned val = getauxval(AT_HWCAP2);
+  return val & HWCAP2_FSGSBASE;
 }
 
 /* The support to set and get FS base register in user-space has been merged in
