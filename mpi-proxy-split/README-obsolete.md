@@ -1,3 +1,6 @@
+**OBSOLETE:**  
+- This document relates to an older versoin of MANA.  It is being retained as motivation to bring back debugging instrumentation (e.g., MANA_RESTART_PAUSE similar to DMTCP_RESTART_PAUSE)
+
 **Contents:**
 - [General notes for building, testing and running on Perlmutter supercomputer at NERSC:](#general-notes-for-building-testing-and-running-on-perlmutter-supercomputer-at-nersc)
   - [1. Setting up MANA from its Github repository](#1-setting-up-mana-from-its-github-repository)
