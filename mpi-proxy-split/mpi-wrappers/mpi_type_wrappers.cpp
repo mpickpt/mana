@@ -100,7 +100,20 @@ int PMPI_Type_contiguous(int count, MPI_Datatype oldtype, MPI_Datatype *newtype)
 int PMPI_Type_create_hvector(int count, int blocklength, MPI_Aint stride,
                             MPI_Datatype oldtype, MPI_Datatype *newtype)
 {
-  return MPI_Type_create_hvector(count, blocklength, stride, oldtype, newtype);
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  MPI_Datatype real_datatype = get_real_id((mana_mpi_handle){.datatype = oldtype}).datatype;
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
+  retval = NEXT_FUNC(Type_create_hvector)(count, blocklength,
+                                  stride, real_datatype, newtype);
+  RETURN_TO_UPPER_HALF();
+  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
+    *newtype = new_virt_datatype(*newtype);
+    LOG_CALL(restoreTypes, Type_create_hvector, count, blocklength,
+             stride, oldtype, *newtype);
+  }
+  DMTCP_PLUGIN_ENABLE_CKPT();
+  return retval;
 }
 
 #pragma weak MPI_Type_vector = PMPI_Type_vector
@@ -113,7 +126,7 @@ int PMPI_Type_vector(int count, int blocklength, int stride, MPI_Datatype oldtyp
     return retval;
   }
 
-  return MPI_Type_create_hvector(count, blocklength, stride*size, oldtype, newtype);
+  return PMPI_Type_create_hvector(count, blocklength, stride*size, oldtype, newtype);
 }
 
 //       int PMPI_Type_create_struct(int count,
