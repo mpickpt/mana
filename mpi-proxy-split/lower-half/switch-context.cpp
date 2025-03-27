@@ -55,8 +55,17 @@
 #endif
 int CheckAndEnableFsGsBase()
 {
+  // FSGSBASE is a x86 specific feature
+#ifdef __x86_64__
   unsigned val = getauxval(AT_HWCAP2);
-  return val & HWCAP2_FSGSBASE;
+  if (val & HWCAP2_FSGSBASE) {
+    return 1;
+  } else {
+    return 0;
+  }
+#else
+  return 0;
+#endif
 }
 
 /* The support to set and get FS base register in user-space has been merged in
@@ -77,7 +86,9 @@ unsigned long getFS(void)
     // For now, include "defined(HAS_FSGSBASE)" to see if FSGSBASE was backported.
 
     // The prefix 'rex.W' is required or 'rdfsbase' will assume 32 bits.
+#ifdef __x86_64__
     asm volatile("rex.W\n rdfsbase %0" : "=r" (fsbase) :: "memory");
+#endif
   } else {
     syscall(SYS_arch_prctl, ARCH_GET_FS, &fsbase);
   }
@@ -94,7 +105,9 @@ void setFS(unsigned long fsbase)
     // For now, include "defined(HAS_FSGSBASE)" to see if FSGSBASE was backported.
 
     // The prefix 'rex.W' is required or 'rdfsbase' will assume 32 bits.
+#ifdef __x86_64__
     asm volatile("rex.W\n wrfsbase %0" :: "r" (fsbase) : "memory");
+#endif
   } else {
     syscall(SYS_arch_prctl, ARCH_SET_FS, fsbase);
   }
