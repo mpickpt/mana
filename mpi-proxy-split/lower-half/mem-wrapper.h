@@ -26,4 +26,5 @@
 void* mmap_wrapper(void *, size_t , int , int , int , off_t );
 int munmap_wrapper(void *, size_t);
 std::vector<MmapInfo_t> &get_mmapped_list(int *num);
+void set_curr_uh_free_addr(char *addr);
 #endif // MMAP_WRAPPER_H
