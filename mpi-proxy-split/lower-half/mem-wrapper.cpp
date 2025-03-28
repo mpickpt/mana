@@ -52,7 +52,13 @@ using namespace std;
 //         memory segment?
 #define DEFAULT_UH_BASE_ADDR reinterpret_cast<char*>(0xc0000000) // 3 GB
 
-static std::vector<MmapInfo_t> mmaps;
+std::vector<MmapInfo_t> allocated_blocks;
+// The arena for memory allocation is from the DEFAULT_UH_BASE_ADDR (3GB)
+// with size SIZE_MAX/2 (an arbitrary large address). SIZE_MAX is the largest
+// size_t supported by the machine.
+// FIXME: Make this starting and end address dynamic and configurable
+std::vector<MmapInfo_t> free_blocks = {{DEFAULT_UH_BASE_ADDR, SIZE_MAX/2}};
+char *max_allocated_addr = NULL;
 
 static void* __mmap_wrapper(void * , size_t , int , int , int , off_t);
 static void patchLibc(int , char * , char *);
@@ -60,27 +66,140 @@ static void addRegionTommaps(char *, size_t);
 static int __munmap_wrapper(void *, size_t);
 static void updateMmaps(char *, size_t);
 
-char *curr_uh_free_addr = NULL;
-
 off_t get_symbol_offset(const char *pathame, const char *symbol);
 
-void *get_next_addr(size_t len) {
-  void *addr = curr_uh_free_addr;
-  curr_uh_free_addr += ROUND_DOWN(len, PAGE_SIZE) + PAGE_SIZE;
-  return addr;
+bool mem_compare (MmapInfo_t &a, MmapInfo_t &b) {
+  return (a.addr < b.addr);
 }
 
-bool compare (MmapInfo_t &a, MmapInfo_t &b) {
-  return (a.addr < b.addr);
+void print_blocks(vector<MmapInfo_t> &blocks) {
+  for (auto b : blocks) {
+    printf("block %p ~ %p, size %lx\n", b.addr, b.addr + b.len, b.len);
+  }
+  fflush(stdout);
+}
+
+void merge_overlap_blocks(MmapInfo_t new_block, vector<MmapInfo_t> &blocks) {
+  MmapInfo_t merged_block = new_block;
+  // Find and merge all overlapping blocks in the allocated list.
+  for (auto it = blocks.begin(); it != blocks.end();) {
+    char *it_end_addr = it->addr + it->len;
+    char *merged_end_addr = merged_block.addr + merged_block.len;
+    if (it_end_addr < merged_block.addr) {
+      it++;
+      continue;
+    } else if (it->addr > merged_end_addr) {
+      // If the iterator points to a block whose start address
+      // is larger than the end address of the merged block, there's
+      // no more blocks that may overlap with the merged_block since
+      // the allocated list is sorted.
+      break;
+    } else {
+      char *min_start_addr, *max_end_addr;
+      if (it->addr < merged_block.addr) {
+        min_start_addr = it->addr;
+      } else {
+        min_start_addr = merged_block.addr;
+      }
+      if (it_end_addr > merged_end_addr) {
+        max_end_addr = it->addr + it->len;
+      } else {
+        max_end_addr = merged_end_addr;
+      }
+      merged_block.addr = min_start_addr;
+      merged_block.len = max_end_addr - min_start_addr;
+      blocks.erase(it);
+    }
+  }
+  // Insert the new allocated block and sort the list.
+  blocks.push_back(merged_block);
+  std::sort(blocks.begin(), blocks.end(), mem_compare);
+}
+
+void remove_overlap_blocks(MmapInfo_t new_block, vector<MmapInfo_t> &blocks) {
+  char *new_block_end_addr = new_block.addr + new_block.len;
+  for (auto it = blocks.begin(); it != blocks.end();) {
+    char *it_end_addr = it->addr + it->len;
+    if (it_end_addr <= new_block.addr) {
+      it++;
+      continue;
+    } else if (it->addr >= new_block_end_addr) {
+      // If the iterator points to a block whose start address
+      // is larger than the end address of the new block, there's
+      // no more blocks that may overlap with the merged_block since
+      // the allocated list is sorted.
+      break;
+    } else {
+      MmapInfo_t updated_block;
+      if (it->addr < new_block.addr) {
+        if (it_end_addr > new_block.addr && it_end_addr < new_block_end_addr) {
+          // Overlap case 1:
+          // [==it==]
+          //      [==new_block==]
+          updated_block.addr = it->addr;
+          updated_block.len = it->len - (it_end_addr - new_block.addr);
+          blocks.erase(it);
+          if (updated_block.len > 0) {
+            blocks.push_back(updated_block);
+          }
+        } else {
+          // Overlap case 2:
+          // [==========it==========]
+          //      [==new_block==]
+          // New free block in front
+          updated_block.addr = it->addr;
+          updated_block.len = it->len - (it_end_addr - new_block.addr);
+          blocks.erase(it);
+          if (updated_block.len > 0) {
+            blocks.push_back(updated_block);
+          }
+          // New free block at back
+          updated_block.addr = new_block_end_addr;
+          updated_block.len = it_end_addr - new_block_end_addr;
+          if (updated_block.len > 0) {
+            blocks.push_back(updated_block);
+          }
+        }
+      } else { 
+        if (it_end_addr > new_block_end_addr) {
+          // Overlap case 3:
+          //           [==it==]
+          // [==new_block==]
+          updated_block.addr = new_block_end_addr;
+          updated_block.len = it_end_addr - new_block_end_addr;
+          blocks.erase(it);
+          if (updated_block.len > 0) {
+            blocks.push_back(updated_block);
+          }
+        } else {
+          // Overlap case 4:
+          //    [==it==]
+          // [==new_block==]
+          blocks.erase(it);
+        }
+      }
+    }
+  }
+  std::sort(blocks.begin(), blocks.end(), mem_compare);
+}
+
+void *next_free_addr(char *addr, size_t length) {
+  // Find the a entry in the free_mem_list that has enough size.
+  for (auto it = free_blocks.begin(); it != free_blocks.end(); it++) {
+    if (it->len > length) {
+      addr = it->addr;
+      return addr;
+    }
+  }
+  // If no available block found, return error.
+  return NULL;
 }
 
 // Returns a pointer to the array of mmap-ed regions
 // Sets num to the number of valid items in the array
 std::vector<MmapInfo_t> &get_mmapped_list(int *num) {
-  *num = mmaps.size();
-  // sort the mmaps list by address
-  std::sort(mmaps.begin(), mmaps.end(), compare);
-  return mmaps;
+  *num = allocated_blocks.size();
+  return allocated_blocks;
 }
 
 int checkLibrary(int fd, const char* name,
@@ -113,18 +232,27 @@ void block_if_contains(void *target, void *addr, size_t length) {
   }
 }
 
-// FIXME:  What is a "BASS ADDR"?  And what is it used for?
-//         If it's for debugging, add a comment about that.
+// This is a mmap wrapper only for restoring memory after restart.
+void* restore_mmap(void *addr, size_t length, int prot,
+                   int flags, int fd, off_t offset) {
+  void *ret = MAP_FAILED;
+  length = ROUND_UP(length, PAGE_SIZE);
+  if ((char*)addr + length > max_allocated_addr) {
+    max_allocated_addr = (char*)addr + length;
+  }
+  ret = _real_mmap(addr, length, prot, flags, fd, offset);
+  if (ret != MAP_FAILED) {
+    char *new_block_end_addr = (char*)addr + length;
+    MmapInfo_t new_block = {(char*)addr,
+                            (size_t)(new_block_end_addr - (char*)addr)};
+    merge_overlap_blocks(new_block, allocated_blocks);
+    remove_overlap_blocks(new_block, free_blocks);
+  }
+  return ret;
+}
+
 void* mmap_wrapper(void *addr, size_t length, int prot,
                   int flags, int fd, off_t offset) {
-  if (curr_uh_free_addr == NULL) {
-    char *user_uh_bass_addr = getenv("MANA_UH_BASS_ADDR");
-    if (user_uh_bass_addr == NULL) {
-      curr_uh_free_addr = DEFAULT_UH_BASE_ADDR;
-    } else {
-      curr_uh_free_addr = reinterpret_cast<char*>(strtoll(user_uh_bass_addr, NULL, 0));
-    }
-  }
   void *ret = MAP_FAILED;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   ret = __mmap_wrapper(addr, length, prot, flags, fd, offset);
@@ -133,37 +261,35 @@ void* mmap_wrapper(void *addr, size_t length, int prot,
 }
 
 static void* __mmap_wrapper(void *addr, size_t length, int prot,
-                           int flags, int fd, off_t offset) {
+                            int flags, int fd, off_t offset) {
   static char *libc_base_addr = NULL;
   void *ret = MAP_FAILED;
-  if (flags & MAP_FIXED) {
-    if (addr > curr_uh_free_addr) {
-      get_next_addr(length);
+  length = ROUND_UP(length, PAGE_SIZE);
+  if (addr == NULL ||
+      flags & MAP_FIXED == 0 ||
+      (max_allocated_addr != NULL && (char*)addr > max_allocated_addr)) {
+    addr = next_free_addr((char*)addr, length);
+    if ((char*)addr + length > max_allocated_addr) {
+      max_allocated_addr = (char*)addr + length;
     }
-    DLOG(INFO, "User calls mmap with MAP_FIXED\n");
-#ifdef MAP_FIXED_NOREPLACE
-  } else if (flags & MAP_FIXED_NOREPLACE) {
-    if (addr > curr_uh_free_addr) {
-      get_next_addr(length);
-    }
-    DLOG(INFO, "User calls mmap with MAP_FIXED_NOREPLACE\n");
-#endif
-  } else {
-    addr = get_next_addr(length);
   }
 #ifdef MAP_FIXED_NOREPLACE
   flags &= ~MAP_FIXED_NOREPLACE;
 #endif
   flags |= MAP_FIXED;
-  if (offset & MMAP_OFF_MASK) {
-    errno = EINVAL;
-    return ret;
-  }
-  length = ROUND_UP(length, PAGE_SIZE);
   ret = _real_mmap(addr, length, prot, flags, fd, offset);
   if (ret != MAP_FAILED) {
-    addRegionTommaps(static_cast<char*>(ret), length);
-    DLOG(NOISE, "LH: mmap (%lu): addr %p (%p) @ 0x%zx\n", mmaps.size(), ret, addr, length);
+    DLOG(NOISE, "LH: mmap (%lu): addr %p (%p) @ 0x%zx\n",
+         allocated_blocks.size(), ret, addr, length);
+    // Add the new block to the allocated_blocks and
+    // remove it from the free_blocks.
+    char *new_block_end_addr = (char*)addr + length;
+    MmapInfo_t new_block = {(char*)addr,
+                            (size_t)(new_block_end_addr - (char*)addr)};
+    merge_overlap_blocks(new_block, allocated_blocks);
+    remove_overlap_blocks(new_block, free_blocks);
+    // if the fd is not NULL, check if it's the libc. If it's the libc, patch
+    // the mmap and munmap functions to use MANA's wrappers.
     if (fd > 0) {
       char glibcFullPath[PATH_MAX] = {0};
       int found = checkLibrary(fd, "libc.so", glibcFullPath, PATH_MAX) ||
@@ -175,8 +301,9 @@ static void* __mmap_wrapper(void *addr, size_t length, int prot,
         if (prot & PROT_EXEC) {
           int rc = mprotect(ret, length, prot | PROT_WRITE);
           if (rc < 0) {
-            DLOG(ERROR, "Failed to add PROT_WRITE perms for memory region at: %p "
-                "of: %zu bytes. Error: %s\n", addr, length, strerror(errno));
+            DLOG(ERROR,
+                 "Failed to add PROT_WRITE perms for memory region at: %p "
+                 "of: %zu bytes. Error: %s\n", addr, length, strerror(errno));
             return NULL;
           }
           patchLibc(fd, libc_base_addr, glibcFullPath);
@@ -211,8 +338,13 @@ static int __munmap_wrapper(void *addr, size_t length) {
   length = ROUND_UP(length, PAGE_SIZE);
   ret = _real_munmap(addr, length);
   if (ret != -1) {
-    DLOG(NOISE, "LH: munmap (%lu): %p @ 0x%zx\n", mmaps.size(), addr, length);
-    updateMmaps(static_cast<char*>(addr), length);
+    DLOG(NOISE, "LH: munmap (%lu): %p @ 0x%zx\n",
+         allocated_blocks.size(), addr, length);
+    char *new_block_end_addr = (char*)addr + length;
+    MmapInfo_t new_block = {(char*)addr,
+                            (size_t)(new_block_end_addr - (char*)addr)};
+    remove_overlap_blocks(new_block, allocated_blocks);
+    merge_overlap_blocks(new_block, free_blocks);
   }
   return ret;
 }
@@ -258,73 +390,5 @@ static void patchLibc(int fd, char *base, char *glibc)
   lseek(fd, save_offset, SEEK_SET);
 }
 
-void addRegionTommaps(char * addr, size_t length) {
-  MmapInfo_t newRegion;
-  newRegion.addr = addr;
-  newRegion.len = length;
-  mmaps.push_back(newRegion);
-}
-
-void updateMmaps(char *addr, size_t length) {
-  // traverse through the mmap'ed list and check whether to remove the whole
-  // entry or update the address and length
-  char *unmapped_start_addr = addr;
-  char *unmapped_end_addr = addr + length;
-  // sort the mmaps list by address
-  std::sort(mmaps.begin(), mmaps.end(), compare);
-  // iterate over the list
-  for (auto it = mmaps.begin(); it != mmaps.end(); it++) {
-    char *start_addr = it->addr;
-    char *end_addr = start_addr + it->len;
-    // if unmapped start address is same as mmaped start address
-    if (start_addr == unmapped_start_addr) {
-      if (unmapped_end_addr == end_addr) {
-        // remove full entry
-        mmaps.erase(it);
-        return;
-      } else if (end_addr > unmapped_end_addr) {
-          it->addr = unmapped_end_addr;
-          it->len = it->len - length;
-          return;
-        } else {
-        // if the unmapped region is going beyond the len
-        unmapped_start_addr = end_addr;
-        length -= it->len;
-        mmaps.erase(it);
-        it--;
-      }
-    } else if ((unmapped_start_addr < start_addr) && (unmapped_end_addr > start_addr)) {
-      if (unmapped_end_addr ==  end_addr) {
-        mmaps.erase(it);
-        return;
-      } else if (end_addr > unmapped_end_addr) {
-          it->addr = unmapped_end_addr;
-          it->len = end_addr - unmapped_end_addr;
-          return;
-        } else {
-        // if the unmapped region is going beyond the len
-        length -= length - (end_addr - unmapped_start_addr);
-        unmapped_start_addr = end_addr;
-        mmaps.erase(it);
-        it--;
-      }
-    } else if ((unmapped_start_addr > start_addr) && (unmapped_start_addr <= end_addr)) {
-        it->len = unmapped_start_addr - start_addr;
-        if (unmapped_end_addr ==  end_addr) {
-          return;
-        } else if (end_addr > unmapped_end_addr) {
-          MmapInfo_t new_entry;
-          new_entry.addr = unmapped_end_addr;
-          new_entry.len = end_addr - unmapped_end_addr;
-          mmaps.push_back(new_entry);
-          return;
-        } else {
-          // if the unmapped region is going beyond the len
-          length = length - (end_addr - unmapped_start_addr);
-          unmapped_start_addr = end_addr;
-        }
-    }
-  }
-}
-
-// We don't need a wrapper for sbrk() because DMTCP has created a page above here to make sbrk(0) fail in libc/application.
+// We don't need a wrapper for sbrk() because DMTCP has created a page above here
+// to make sbrk(0) fail in libc/application.
