@@ -816,7 +816,8 @@ static int restoreMemoryArea(int fd, DmtcpCkptHeader *ckptHdr)
       */
       mmappedat =
         mmap_wrapper(area.addr, area.size, area.prot | PROT_WRITE,
-                            area.flags, imagefd, area.offset);
+                     area.flags | MAP_FIXED_NOREPLACE, imagefd, area.offset);
+      set_curr_uh_free_addr((char*)area.addr + area.size);
 
       if (mmappedat != area.addr) {
         fprintf(stderr, "restore failed area.addr: %p, area.endAddr%p\n", area.addr, area.endAddr);

@@ -64,9 +64,15 @@ char *curr_uh_free_addr = NULL;
 
 off_t get_symbol_offset(const char *pathame, const char *symbol);
 
+void set_curr_uh_free_addr(char *addr) {
+  if (addr > curr_uh_free_addr) {
+    curr_uh_free_addr = (char*)ROUND_UP(addr , PAGE_SIZE);
+  }
+}
+
 void *get_next_addr(size_t len) {
   void *addr = curr_uh_free_addr;
-  curr_uh_free_addr += ROUND_DOWN(len, PAGE_SIZE) + PAGE_SIZE;
+  set_curr_uh_free_addr(curr_uh_free_addr + len);
   return addr;
 }
 
