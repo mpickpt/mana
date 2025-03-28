@@ -145,8 +145,8 @@ if gdb:
   cmd_line = shutil.which("gdb") + " --args "
 else:
   cmd_line = ""
-cmd_line += mana_root_path + "bin/dmtcp_launch --mpi" + host_flag + port_flag + \
-            "--no-gzip --join-coordinator --disable-dl-plugin" + \
+cmd_line += mana_root_path + "bin/dmtcp_launch --mpi " + host_flag + port_flag + \
+            " --no-gzip --join-coordinator --disable-dl-plugin" + \
             " --with-plugin " + mana_root_path + "lib/dmtcp/libmana.so " + \
             " ".join(dmtcp_flags) + " " + mana_root_path + "bin/lower-half " + \
             " " .join(target_app)
