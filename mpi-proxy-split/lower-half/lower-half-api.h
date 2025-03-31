@@ -56,6 +56,7 @@ typedef struct _LowerHalfInfo
   void *lh_dlsym;
   char *uh_stack_start;
   char *uh_stack_end;
+  char *uh_next_free_addr;
 
   // MPI Constants
   MPI_Group MANA_GROUP_NULL;
