@@ -60,13 +60,17 @@ static void addRegionTommaps(char *, size_t);
 static int __munmap_wrapper(void *, size_t);
 static void updateMmaps(char *, size_t);
 
-char *curr_uh_free_addr = NULL;
-
 off_t get_symbol_offset(const char *pathame, const char *symbol);
 
+void set_curr_uh_free_addr(char *addr) {
+  if (addr > lh_info->uh_next_free_addr) {
+    lh_info->uh_next_free_addr = (char*)ROUND_UP(addr , PAGE_SIZE);
+  }
+}
+
 void *get_next_addr(size_t len) {
-  void *addr = curr_uh_free_addr;
-  curr_uh_free_addr += ROUND_DOWN(len, PAGE_SIZE) + PAGE_SIZE;
+  void *addr = lh_info->uh_next_free_addr;
+  set_curr_uh_free_addr(lh_info->uh_next_free_addr + len);
   return addr;
 }
 
@@ -117,12 +121,13 @@ void block_if_contains(void *target, void *addr, size_t length) {
 //         If it's for debugging, add a comment about that.
 void* mmap_wrapper(void *addr, size_t length, int prot,
                   int flags, int fd, off_t offset) {
-  if (curr_uh_free_addr == NULL) {
+  if (lh_info->uh_next_free_addr == NULL) {
     char *user_uh_bass_addr = getenv("MANA_UH_BASS_ADDR");
     if (user_uh_bass_addr == NULL) {
-      curr_uh_free_addr = DEFAULT_UH_BASE_ADDR;
+      lh_info->uh_next_free_addr = DEFAULT_UH_BASE_ADDR;
     } else {
-      curr_uh_free_addr = reinterpret_cast<char*>(strtoll(user_uh_bass_addr, NULL, 0));
+      lh_info->uh_next_free_addr =
+        reinterpret_cast<char*>(strtoll(user_uh_bass_addr, NULL, 0));
     }
   }
   void *ret = MAP_FAILED;
@@ -137,13 +142,13 @@ static void* __mmap_wrapper(void *addr, size_t length, int prot,
   static char *libc_base_addr = NULL;
   void *ret = MAP_FAILED;
   if (flags & MAP_FIXED) {
-    if (addr > curr_uh_free_addr) {
+    if (addr > lh_info->uh_next_free_addr) {
       get_next_addr(length);
     }
     DLOG(INFO, "User calls mmap with MAP_FIXED\n");
 #ifdef MAP_FIXED_NOREPLACE
   } else if (flags & MAP_FIXED_NOREPLACE) {
-    if (addr > curr_uh_free_addr) {
+    if (addr > lh_info->uh_next_free_addr) {
       get_next_addr(length);
     }
     DLOG(INFO, "User calls mmap with MAP_FIXED_NOREPLACE\n");

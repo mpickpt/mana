@@ -74,6 +74,7 @@ extern CartesianProperties g_cartesian_properties;
 
 void * lh_ckpt_mem_addr = NULL;
 size_t lh_ckpt_mem_size = 0;
+char *uh_next_free_addr_before_ckpt = NULL;
 int pagesize = sysconf(_SC_PAGESIZE);
 get_mmapped_list_fptr_t get_mmapped_list_fnc = NULL;
 std::vector<MmapInfo_t> uh_mmaps;
@@ -922,6 +923,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       old_brk = sbrk(0);
       uh_stack_start = lh_info->uh_stack_start;
       uh_stack_end = lh_info->uh_stack_end;
+      uh_next_free_addr_before_ckpt = lh_info->uh_next_free_addr;
       break;
     }
 
@@ -942,6 +944,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       initialize_wrappers();
       lh_info->uh_stack_start = uh_stack_start;
       lh_info->uh_stack_end = uh_stack_end;
+      lh_info->uh_next_free_addr = uh_next_free_addr_before_ckpt;
       printEventToStderr("EVENT_RESTART");
       processingOpenCkpFileFds = false;
       logCkptFileFds();
