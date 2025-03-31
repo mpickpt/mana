@@ -20,6 +20,7 @@ gdb = False
 shadow = False
 mana_root_path = os.path.dirname(os.path.realpath(__file__)) + "/../"
 tmp_lib_path = mana_root_path + "lib"
+ckptdir_path = './'
 
 # if no arguments provided, print the help message
 if not sys.argv:
@@ -76,6 +77,14 @@ if "--quiet" in dmtcp_flags or "-q" in dmtcp_flags:
     dmtcp_flags.remove("--quiet")
   else:
     dmtcp_flags.remove("-q")
+
+# Check if an old checkpoint file exists in the ckptdir
+for entry in os.scandir(ckptdir_path):
+  if entry.is_dir() and entry.name.find("ckpt_rank_") != -1:
+    print("Old checkpoint files detected in the given checkpoint directory.")
+    print("  " + os.path.abspath(ckptdir_path) + "/ckpt_rank_*")
+    print("Please move or delete the old checkpoint files before a new run.")
+    sys.exit(1)
 
 # Shadow library creation
 #   This check is important because in lower-half, we will check 
@@ -145,8 +154,8 @@ if gdb:
   cmd_line = shutil.which("gdb") + " --args "
 else:
   cmd_line = ""
-cmd_line += mana_root_path + "bin/dmtcp_launch --mpi" + host_flag + port_flag + \
-            "--no-gzip --join-coordinator --disable-dl-plugin" + \
+cmd_line += mana_root_path + "bin/dmtcp_launch --mpi " + host_flag + port_flag + \
+            " --no-gzip --join-coordinator --disable-dl-plugin" + \
             " --with-plugin " + mana_root_path + "lib/dmtcp/libmana.so " + \
             " ".join(dmtcp_flags) + " " + mana_root_path + "bin/lower-half " + \
             " " .join(target_app)
