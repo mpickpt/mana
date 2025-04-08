@@ -81,6 +81,8 @@ std::vector<MmapInfo_t> uh_mmaps;
 extern ManaHeader g_mana_header;
 extern std::unordered_map<MPI_File, OpenFileParameters> g_params_map;
 
+bool g_libmana_is_initialized = false;
+
 constexpr const char *MANA_FILE_REGEX_ENV = "MANA_FILE_REGEX";
 constexpr const char *MANA_SEGV_DEBUG_LOOP = "MANA_SEGV_DEBUG_LOOP";
 static std::regex *file_regex = NULL;
@@ -849,6 +851,11 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       //             detect that there is an mmap'ed region just beyond it,
       //             thus causing glibc to allocate a second arena elsewhere.
       mmap(heapAddr, 4096, PROT_READ, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+
+      //set global flag to indiacte MANA is initialized
+      // FIXME: Move the code from PMPI_Init and PMPI_init_thread wrappers to
+      //        This section before setting the Flag for MANA's initialization
+      g_libmana_is_initialized = true;
       break;
     }
     case DMTCP_EVENT_EXIT: {

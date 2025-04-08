@@ -37,6 +37,7 @@
 #include "uh_wrappers.h"
 
 using namespace dmtcp_mpi;
+bool g_libmpi_is_initialized = false;
 
 static const char collective_p2p_string[] =
    "\n"
@@ -63,12 +64,24 @@ int PMPI_Init(int *argc, char ***argv) {
 
   g_mana_header.init_flag = MPI_INIT_NO_THREAD;
 
+  /*
+   * The code below to Initialize MANA should be synchronized 
+   *  with code section in PMPI_Init_thread code section below.
+   *   
+   * FIXME: This code section to Initialize MANA needs to 
+   *    be moved to MANA's Plugin file. 
+   * NOTE: But currently moving this code section casues segmentation 
+   *    fault. This segmenation fault stems from execution of 
+   *    function `init_predefined_virt_ids()` where updating
+   *    `upper_to_lower_constants` maps results in comparision with a NULL pointer. 
+   */
   recordPreMpiInitMaps();
   recordPostMpiInitMaps();
 
   init_predefined_virt_ids();
   initialize_drain_send_recv();
   DMTCP_PLUGIN_ENABLE_CKPT();
+  g_libmpi_is_initialized = true;
   return retval;
 }
 
@@ -81,12 +94,24 @@ int PMPI_Init_thread(int *argc, char ***argv, int required, int *provided) {
   DMTCP_PLUGIN_DISABLE_CKPT();
   g_mana_header.init_flag = required;
 
+  /*
+   * The code below to Initialize MANA should be synchronized 
+   *  with code section in PMPI_Init code section above.
+   *   
+   * FIXME: This code section to Initialize MANA needs to 
+   *    be moved to MANA's Plugin file. 
+   * NOTE: But currently moving this code section casues segmentation 
+   *    fault. This segmenation fault stems from execution of 
+   *    function `init_predefined_virt_ids()` where updating
+   *    `upper_to_lower_constants` maps results in comparision with a NULL pointer. 
+   */
   recordPreMpiInitMaps();
   recordPostMpiInitMaps();
 
   init_predefined_virt_ids();
   initialize_drain_send_recv();
   DMTCP_PLUGIN_ENABLE_CKPT();
+  g_libmpi_is_initialized = true;
   return retval;
 }
 
@@ -94,12 +119,18 @@ int PMPI_Init_thread(int *argc, char ***argv, int required, int *provided) {
 int PMPI_Initialized(int *flag)
 {
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
-  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
-  retval = NEXT_FUNC(Initialized)(flag);
-  RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
-  return retval;
+  if (g_libmpi_is_initialized && g_libmana_is_initialized) {
+    DMTCP_PLUGIN_DISABLE_CKPT();
+    JUMP_TO_LOWER_HALF(lh_info->fsaddr);
+    retval = NEXT_FUNC(Initialized)(flag);
+    RETURN_TO_UPPER_HALF();
+    DMTCP_PLUGIN_ENABLE_CKPT();
+    return retval;
+  }
+  else {
+    *flag = 0;
+    return 0;
+  } 
 }
 
 #pragma weak MPI_Finalized = PMPI_Finalized
