@@ -60,5 +60,6 @@ enum mana_state_t {
 };
 
 extern mana_state_t mana_state;
+extern bool g_libmana_is_initialized;
 
 #endif // ifndef _MPI_PLUGIN_H
