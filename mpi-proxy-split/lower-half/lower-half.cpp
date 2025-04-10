@@ -815,7 +815,7 @@ static int restoreMemoryArea(int fd, DmtcpCkptHeader *ckptHdr)
       * mtcp_safemmap here to check for address conflicts.
       */
       mmappedat = restore_mmap(area.addr, area.size, area.prot | PROT_WRITE,
-                               area.flags | MAP_FIXED_NOREPLACE, imagefd, area.offset);
+                               area.flags, imagefd, area.offset);
 
       if (mmappedat != area.addr) {
         fprintf(stderr, "restore failed area.addr: %p, area.endAddr%p\n", area.addr, area.endAddr);
@@ -1331,7 +1331,6 @@ char *setup_upper_half_stack(int argc, char **argv, int cmd_argc, char **cmd_arg
                                     cmd_argc+1, cmd_argv2,
                                     interp_base_address + rlim.rlim_cur + LOADER_SIZE_LIMIT,
                                     auxv_ptr, stack_bottom);
-                                   // &auxv_ptr, &stack_bottom);
     lh_info->uh_stack_start = (char*) ROUND_DOWN(interp_base_address + LOADER_SIZE_LIMIT, PAGE_SIZE);
     lh_info->uh_stack_end = (char*) ROUND_UP(*stack_bottom, PAGE_SIZE);
     
