@@ -82,13 +82,14 @@ void print_blocks(vector<MmapInfo_t> &blocks) {
 void merge_overlap_blocks(MmapInfo_t new_block, vector<MmapInfo_t> &blocks) {
   MmapInfo_t merged_block = new_block;
   // Find and merge all overlapping blocks in the allocated list.
-  for (auto it = blocks.begin(); it != blocks.end();) {
-    char *it_end_addr = it->addr + it->len;
+  size_t blocks_size = blocks.size();
+  for (size_t i = 0; i < blocks_size;) {
+    char *it_end_addr = blocks[i].addr + blocks[i].len;
     char *merged_end_addr = merged_block.addr + merged_block.len;
     if (it_end_addr < merged_block.addr) {
-      it++;
+      i++;
       continue;
-    } else if (it->addr > merged_end_addr) {
+    } else if (blocks[i].addr > merged_end_addr) {
       // If the iterator points to a block whose start address
       // is larger than the end address of the merged block, there's
       // no more blocks that may overlap with the merged_block since
@@ -96,19 +97,20 @@ void merge_overlap_blocks(MmapInfo_t new_block, vector<MmapInfo_t> &blocks) {
       break;
     } else {
       char *min_start_addr, *max_end_addr;
-      if (it->addr < merged_block.addr) {
-        min_start_addr = it->addr;
+      if (blocks[i].addr < merged_block.addr) {
+        min_start_addr = blocks[i].addr;
       } else {
         min_start_addr = merged_block.addr;
       }
       if (it_end_addr > merged_end_addr) {
-        max_end_addr = it->addr + it->len;
+        max_end_addr = blocks[i].addr + blocks[i].len;
       } else {
         max_end_addr = merged_end_addr;
       }
       merged_block.addr = min_start_addr;
       merged_block.len = max_end_addr - min_start_addr;
-      blocks.erase(it);
+      blocks.erase(blocks.begin() + i);
+      blocks_size--;
     }
   }
   // Insert the new allocated block and sort the list.
@@ -118,12 +120,23 @@ void merge_overlap_blocks(MmapInfo_t new_block, vector<MmapInfo_t> &blocks) {
 
 void remove_overlap_blocks(MmapInfo_t new_block, vector<MmapInfo_t> &blocks) {
   char *new_block_end_addr = new_block.addr + new_block.len;
-  for (auto it = blocks.begin(); it != blocks.end();) {
-    char *it_end_addr = it->addr + it->len;
+  char *old_it_start = NULL, *old_it_end = NULL;
+  size_t blocks_size = blocks.size();
+  for (size_t i = 0; i < blocks_size;) {
+    char *it_end_addr = blocks[i].addr + blocks[i].len;
+    if (blocks[i].addr == NULL || (blocks[i].addr == old_it_start && it_end_addr == old_it_end)) {
+      printf("loop detected\n");
+      fflush(stdout);
+      volatile int dummy = 1;
+      while (dummy);
+    } else {
+      old_it_start = blocks[i].addr;
+      old_it_end = it_end_addr;
+    }
     if (it_end_addr <= new_block.addr) {
-      it++;
+      i++;
       continue;
-    } else if (it->addr >= new_block_end_addr) {
+    } else if (blocks[i].addr >= new_block_end_addr) {
       // If the iterator points to a block whose start address
       // is larger than the end address of the new block, there's
       // no more blocks that may overlap with the merged_block since
@@ -131,14 +144,15 @@ void remove_overlap_blocks(MmapInfo_t new_block, vector<MmapInfo_t> &blocks) {
       break;
     } else {
       MmapInfo_t updated_block;
-      if (it->addr < new_block.addr) {
+      if (blocks[i].addr < new_block.addr) {
         if (it_end_addr > new_block.addr && it_end_addr < new_block_end_addr) {
           // Overlap case 1:
           // [==it==]
           //      [==new_block==]
-          updated_block.addr = it->addr;
-          updated_block.len = it->len - (it_end_addr - new_block.addr);
-          blocks.erase(it);
+          updated_block.addr = blocks[i].addr;
+          updated_block.len = blocks[i].len - (it_end_addr - new_block.addr);
+          blocks.erase(blocks.begin() + i);
+          blocks_size--;
           if (updated_block.len > 0) {
             blocks.push_back(updated_block);
           }
@@ -147,9 +161,10 @@ void remove_overlap_blocks(MmapInfo_t new_block, vector<MmapInfo_t> &blocks) {
           // [==========it==========]
           //      [==new_block==]
           // New free block in front
-          updated_block.addr = it->addr;
-          updated_block.len = it->len - (it_end_addr - new_block.addr);
-          blocks.erase(it);
+          updated_block.addr = blocks[i].addr;
+          updated_block.len = blocks[i].len - (it_end_addr - new_block.addr);
+          blocks.erase(blocks.begin() + i);
+          blocks_size--;
           if (updated_block.len > 0) {
             blocks.push_back(updated_block);
           }
@@ -167,7 +182,8 @@ void remove_overlap_blocks(MmapInfo_t new_block, vector<MmapInfo_t> &blocks) {
           // [==new_block==]
           updated_block.addr = new_block_end_addr;
           updated_block.len = it_end_addr - new_block_end_addr;
-          blocks.erase(it);
+          blocks.erase(blocks.begin() + i);
+          blocks_size--;
           if (updated_block.len > 0) {
             blocks.push_back(updated_block);
           }
@@ -175,7 +191,8 @@ void remove_overlap_blocks(MmapInfo_t new_block, vector<MmapInfo_t> &blocks) {
           // Overlap case 4:
           //    [==it==]
           // [==new_block==]
-          blocks.erase(it);
+          blocks.erase(blocks.begin() + i);
+          blocks_size--;
         }
       }
     }
@@ -240,7 +257,7 @@ void* restore_mmap(void *addr, size_t length, int prot,
   if ((char*)addr + length > max_allocated_addr) {
     max_allocated_addr = (char*)addr + length;
   }
-  ret = _real_mmap(addr, length, prot, flags, fd, offset);
+  ret = _real_mmap(addr, length, prot, flags | MAP_FIXED, fd, offset);
   if (ret != MAP_FAILED) {
     char *new_block_end_addr = (char*)addr + length;
     MmapInfo_t new_block = {(char*)addr,
