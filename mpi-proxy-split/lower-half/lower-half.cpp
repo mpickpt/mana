@@ -814,9 +814,8 @@ static int restoreMemoryArea(int fd, DmtcpCkptHeader *ckptHdr)
       * are valid.  Can we unmap vdso and vsyscall in Linux?  Used to use
       * mtcp_safemmap here to check for address conflicts.
       */
-      mmappedat =
-        mmap_wrapper(area.addr, area.size, area.prot | PROT_WRITE,
-                            area.flags, imagefd, area.offset);
+      mmappedat = restore_mmap(area.addr, area.size, area.prot | PROT_WRITE,
+                               area.flags | MAP_FIXED_NOREPLACE, imagefd, area.offset);
 
       if (mmappedat != area.addr) {
         fprintf(stderr, "restore failed area.addr: %p, area.endAddr%p\n", area.addr, area.endAddr);
