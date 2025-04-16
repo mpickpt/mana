@@ -65,8 +65,10 @@ char *deepCopyStack(int argc, char **argv, char *argc_ptr, char *argv_ptr,
     env_strings_size += strlen(__environ[i]) + 1;
     env_strings_count += 1;
   }
-  int env_ptr_size = (i+1) * sizeof(__environ[0]);
+  int env_ptr_size = (env_strings_count + 1) * sizeof(__environ[0]);
   char *env_ptr_addr = (char *)&__environ[0];
+  char **new_env_ptrs = (char**)malloc(env_ptr_size);
+  memset(new_env_ptrs, 0, env_ptr_size);
   char *argv_strings_addr = argv[0];
   int argv_strings_size = (argv[argc-1] + strlen(argv[argc-1]) + 1) - argv[0];
   int argv_ptr_size = (dest_argc + 1) * sizeof(argv[0]);
@@ -157,6 +159,12 @@ dbg_end_marker_addr = dest_curr_stack;
   dest_curr_stack -= env_strings_size;
   for (i = 0; __environ[i] != NULL; i++) {
     strcpy( dest_curr_stack, __environ[i] );
+    // Change UH_PRELOAD to LD_PRELOAD
+    if (strstr(dest_curr_stack, "UH_PRELOAD")) {
+      dest_curr_stack[0] = 'L';
+      dest_curr_stack[1] = 'D';
+    }
+    new_env_ptrs[i] = dest_curr_stack;
     dest_curr_stack += strlen(dest_curr_stack) + 1;
   }
   assert(__environ[i] == NULL);
@@ -204,10 +212,14 @@ dbg_auxv_ptr_addr = dest_curr_stack;
   // We copied __environ to dest_stack earlier.  So, we're pointing to stack.
   // We use the "padded" variable so that it will be 16-byte aligned.
   dest_curr_stack -= env_ptr_size;
-  memcpy(dest_curr_stack, env_ptr_addr, env_ptr_size);
+  // We can't just copy from env_ptr_addr, to dest_curr_stack because
+  // env_ptr_addr is an array of pointers to the _old_ stack.  We need
+  // new_env_ptrs, an array pointing to the _new_ stack.
+  memcpy(dest_curr_stack, new_env_ptrs, env_ptr_size);
   assert( (uint64_t)dest_curr_stack % 16 == 0 ); // env is 16-byte aligned.
   assert( *(char **)((char *)env_ptr_addr+env_ptr_size - sizeof(__environ[0]))
                      == NULL );
+  free(new_env_ptrs);
 dbg_env_ptr_addr = dest_curr_stack;
 
  /*****************************
@@ -229,16 +241,6 @@ dbg_argc_addr = dest_curr_stack;
   // We're reseting __environ and environ now, but we shouldn't need to do this.
   // ld.so will do this again.
   __environ = environ = (char **)env_ptr_addr;
-
-// FIXME: We will migrate this to Kapil's new architecture
-  char **newEnvPtr = (char**)__environ;
-  for (; *newEnvPtr; newEnvPtr++) {
-    if (strstr(*newEnvPtr, "UH_PRELOAD")) {
-      (*newEnvPtr)[0] = 'L';
-      (*newEnvPtr)[1] = 'D';
-      break;
-    }
-  }
 
 #ifdef DEBUG
 debugStack(argc_ptr, argv_ptr);
