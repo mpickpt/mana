@@ -72,7 +72,7 @@ int PMPI_Type_commit(MPI_Datatype *type)
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Type_commit)(&real_datatype);
   RETURN_TO_UPPER_HALF();
-  if (retval != MPI_SUCCESS && MPI_LOGGING()) {
+  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
     LOG_CALL(restoreTypes, Type_commit, *type);
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
