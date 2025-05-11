@@ -31,6 +31,9 @@
 #include "jfilesystem.h"
 #include "util.h"
 
+// kernel-loader.tgz (Gene Cooperman, gene@ccs.neu.edu) has upstream source
+// for many files in this dir.  This file is kernel-loader.c at upstream.
+
 // Uses ELF Format.  For background, read both of:
 //  * http://www.skyfree.org/linux/references/ELF_Format.pdf
 //  * /usr/include/elf.h
@@ -211,7 +214,7 @@ int main(int argc, char *argv[], char *envp[]) {
     // *******     should be the same.  Eventually, rationalize this.
     // **************************************************************************
     //   AT_PHDR: "The address of the program headers of the executable."
-    // elf_hdr.e_phoff is offset from begining of file.
+    // elf_hdr.e_phoff is offset from beginning of file.
     patchAuxv(auxv_ptr, ld_so_elf_hdr.e_phnum,
               (unsigned long)(interp_base_address + ld_so_elf_hdr.e_phoff),
               (unsigned long)interp_base_address + ld_so_elf_hdr.e_entry);
@@ -241,18 +244,12 @@ int main(int argc, char *argv[], char *envp[]) {
     asm volatile ("mov x8, %0" : : "g" (ld_so_entry) : "memory");
     asm volatile ("br x8");
 #elif defined(__riscv)
-    asm volatile ("addi sp, %0, 0" : : "r" (dest_stack) : );
-    // We would ant to do "%%hi(%0)"/"%%lo(%0)".  But %hi/%lo is a reloaction
-    //   directove for the linker, and asm() doens't understand this.
-    // %%pcrel_hi/lo would be nice (to generate pic code), but when
-    //   trying that, we get:
-    // lower-half.c: dangerous relocation: %pcrel_lo missing matching %pcrel_hi
-    asm volatile ("lui t0, %%hi(ld_so_entry)" : : "g" (ld_so_entry) : "memory");
-    asm volatile ("ld  t0, %%lo(ld_so_entry)(t0)" : : "g" (ld_so_entry) : "memory");
+    asm volatile ("move sp, %0" : : "r" (dest_stack) : );
+    asm volatile ("move t0, %0" : : "g" (ld_so_entry) : "memory");
     asm volatile ("jalr  zero, t0");
 #else
 # error "current architecture not supported"
-#endif /* if defined(__i386__) || defined(__x86_64__) */
+#endif /* if defined: __i386__ || x86_64 || __aarch64__ || __riscv */
   }
 }
 
