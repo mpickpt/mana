@@ -39,11 +39,11 @@ void patch_trampoline(void *from_addr, void *to_addr) {
   // Remember that in AArch64, stack-pointer must be 128-bit (16-byte) aligned.
    // This is the assembly, converted to binary using 'objdump -d a.out'
    // SEE: https://stackoverflow.com/questions/44949124/absolute-jump-with-a-pc-relative-data-source-aarch64
-    // For testing in GDB, after "ldr", do: (gdb) set $x8 = &bar
-    /* asm("ldr x8, .+8"); // Add 8 to pc, store in x8
-     * asm("br x8"); // jump to the 8-byte word
-     * asm("target: .dword 0x1234567812345678");
-     */
+   // For testing in GDB, after "ldr", do: (gdb) set $x8 = &bar
+   /* asm("ldr x8, .+8"); // Add 8 to pc, store in x8
+    * asm("br x8"); // jump to the 8-byte word
+    * asm("target: .dword 0x1234567812345678");
+    */
 #elif defined(__riscv)
   unsigned char asm_jump[] = {
     0x97, 0x02, 0x00, 0x00, 0xb1, 0x02, 0x83, 0xb2, 0x02, 0x00, 0x82, 0x82,
