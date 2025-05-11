@@ -96,9 +96,18 @@ off_t get_symbol_offset(const char *pathname, const char *symbol) {
       //       Package glibc-debuginfo-*.rpm exists: provides libc-*.debug
       if (access("/lib/debug/.build-id", F_OK) == 0) { // If Debian/Ubuntu
         // Debian variants use separate debug symbol file: /lib/debug/.build-id
+        // The file below is the older hierarchy.  Now it uses .build-id.
         snprintf(debugLibName, sizeof debugLibName, "%s/%s",
                  "/usr/lib/debug/lib/x86_64-linux-gnu", debugName);
-        assert(expandDebugFile(debugLibName, "/lib/debug/.build-id", debugName));
+        if (! expandDebugFile(debugLibName,
+                              "/lib/debug/.build-id", debugName)) {
+          fprintf(stderr,
+            "\nsymtab was stripped from ld-linux.so file, and no debug file\n"
+            "was found in .build-id.  Consider installing libc6-dbg package,\n"
+            "or else build a new libc6 from source.  In the latter case,\n"
+            "set LD_LIBRARY_PATH to your locally built ld-linux.so\n\n");
+          abort();
+        }
         close(fd);
         fd = open(debugLibName, O_RDONLY);
         assert(fd != -1);
