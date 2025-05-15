@@ -171,11 +171,21 @@ double PMPI_Wtime()
 int PMPI_Finalize(void)
 {
   int retval;
+  /*
+   *  When calling MPI_Finalize, we disable checkpointing
+   *    and do not enable it back up. 
+   *  Rationale: Some MPI applications have special code sections 
+   *    that run for specific ranks only. 
+   *    For example, `rank = 0` is generally seen to print out output of 
+   *      Collective Communication calls, such as MPI_Reduce. 
+   *      Therefore, since the rest of the ranks  exit before 
+   *      `rank = 0` process, `interval` based checkpointing can create 
+   *      corrupt ckpt_images, which give segmentation fault on restart.
+   */
   DMTCP_PLUGIN_DISABLE_CKPT();
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Finalize)();
   RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
 
