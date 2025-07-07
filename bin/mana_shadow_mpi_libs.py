@@ -20,7 +20,7 @@ def filter_library_dependencies(executable):
     symbolic and absolute library names.
   """
   try :
-    result = subprocess.run(["ldd", executable], capture_output=True, text=True, check=True)
+    result = subprocess.run(["ldd", executable], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
   except subprocess.CalledProcessError:
     print(f"Error: UNable to run ldd on {executable}")
     sys.exit(1)

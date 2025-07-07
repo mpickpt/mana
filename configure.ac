@@ -39,24 +39,6 @@ AX_CHECK_COMPILE_FLAG([-fallow-argument-mismatch],
                       [])
 AC_LANG_POP([Fortran])
 
-AC_MSG_CHECKING([for Python 3.7 or later])
-AC_CACHE_CHECK([for python3 version >= 3.7], ac_cv_python3_version_3_7_or_later,
-[
-  ac_cv_python3_version_3_7_or_later=no
-  if python3 -c 'import sys; exit(0 if sys.version_info >= (3, 7) else 1)' \
-      2>/dev/null; then
-    ac_cv_python3_version_3_7_or_later=yes
-    PYTHON3_BIN="python3"
-  fi
-])
-if test "x$ac_cv_python3_version_3_7_or_later" = "xyes"; then
-  AC_MSG_RESULT([yes, found $PYTHON3_BIN])
-  AC_SUBST([PYTHON3_BIN])
-else
-  AC_MSG_RESULT([no])
-  AC_MSG_ERROR([Python 3.7 or later is required])
-fi
-
 AC_CHECK_FILE([dmtcp/configure],
   [AC_MSG_RESULT([yes, dmtcp/configure exists])
    AC_DEFINE([HAVE_DMTCP_CONFIGURE], 1, [Define if dmtcp/configure exists])

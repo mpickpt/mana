@@ -5251,36 +5251,6 @@ ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
 ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
-
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for Python 3.7 or later" >&5
-printf %s "checking for Python 3.7 or later... " >&6; }
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for python3 version >= 3.7" >&5
-printf %s "checking for python3 version >= 3.7... " >&6; }
-if test ${ac_cv_python3_version_3_7_or_later+y}
-then :
-  printf %s "(cached) " >&6
-else $as_nop
-
-  ac_cv_python3_version_3_7_or_later=no
-  if python3 -c 'import sys; exit(0 if sys.version_info >= (3, 7) else 1)' \
-      2>/dev/null; then
-    ac_cv_python3_version_3_7_or_later=yes
-    PYTHON3_BIN="python3"
-  fi
-
-fi
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_cv_python3_version_3_7_or_later" >&5
-printf "%s\n" "$ac_cv_python3_version_3_7_or_later" >&6; }
-if test "x$ac_cv_python3_version_3_7_or_later" = "xyes"; then
-  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes, found $PYTHON3_BIN" >&5
-printf "%s\n" "yes, found $PYTHON3_BIN" >&6; }
-
-else
-  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
-printf "%s\n" "no" >&6; }
-  as_fn_error $? "Python 3.7 or later is required" "$LINENO" 5
-fi
-
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for dmtcp/configure" >&5
 printf %s "checking for dmtcp/configure... " >&6; }
 if test ${ac_cv_file_dmtcp_configure+y}
