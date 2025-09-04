@@ -14,9 +14,9 @@ options=""
 verbose=0
 help=0
 while [ -n "$1" ]; do
-  if [ "$1" == --verbose ]; then
+  if [ "$1" = --verbose ]; then
     verbose=1
-  elif [ "$1" == --help ]; then
+  elif [ "$1" = --help ]; then
     help=1
   else
     options="$options $1"
@@ -44,11 +44,11 @@ if [ "$SITE" = "nersc" ]; then
   fi
 fi
 
-if [ "$verbose" == 0 ]; then
+if [ "$verbose" = 0 ]; then
   options="$options -q -q"
 fi
 
-if [ "$verbose" == 1 ]; then
+if [ "$verbose" = 1 ]; then
   set -x
 fi
 

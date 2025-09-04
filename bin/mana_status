@@ -27,9 +27,9 @@ options=""
 verbose=0
 help=0
 while [ -n "$1" ]; do
-  if [ "$1" == --verbose ]; then
+  if [ "$1" = --verbose ]; then
     verbose=1
-  elif [ "$1" == --help ]; then
+  elif [ "$1" = --help ]; then
     help=1
   else
     options="$options $1"
@@ -45,7 +45,7 @@ fi
 coordinator_found=0
 $dir/dmtcp_command -s -h $submissionHost -p $submissionPort 1>/dev/null \
                    && coordinator_found=1
-if [ "$coordinator_found" == 0 ]; then
+if [ "$coordinator_found" = 0 ]; then
   echo "*** Checking for coordinator:"
   set -x
     $dir/dmtcp_command --status \
@@ -59,6 +59,6 @@ if [ "$coordinator_found" == 0 ]; then
   exit 2
 fi
 
-if [ "$verbose" == 1 ]; then set -x; fi
+if [ "$verbose" = 1 ]; then set -x; fi
 $dir/dmtcp_command -h $submissionHost -p $submissionPort --list $options
 set +x
