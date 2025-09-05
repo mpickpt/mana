@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # This Python script is used for creating shadow library for MPI-executables
 #   linked with libraries containing constructors at comile time.
