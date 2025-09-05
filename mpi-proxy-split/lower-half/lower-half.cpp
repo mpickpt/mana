@@ -981,20 +981,20 @@ void update_library_path(const char *argv0)
  */
 int prepend_to_library_path(const char *new_path) {
   const char *old_path = getenv("LD_LIBRARY_PATH");
-  size_t new_len = strlen(new_path) + strlen(old_path) + 2;
-
-  char *updated_path = static_cast<char*>(malloc(new_len));
-  if (!updated_path) {
-    return -1;
-  }
   if (old_path) {
+    size_t new_len = strlen(new_path) + strlen(old_path) + 2;
+
+    char *updated_path = static_cast<char*>(malloc(new_len));
+    if (!updated_path) {
+      return -1;
+    }
     snprintf(updated_path, new_len, "%s:%s", new_path, old_path);
+    setenv("LD_LIBRARY_PATH", updated_path, 1);
+    free(updated_path);
   } else {
-    snprintf(updated_path, new_len, "%s", new_path);
+    setenv("LD_LIBRARY_PATH", new_path, 1);
   }
 
-  setenv("LD_LIBRARY_PATH", updated_path, 1);
-  free(updated_path);
   return 0;
 }
 
