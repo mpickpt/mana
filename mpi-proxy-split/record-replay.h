@@ -437,7 +437,7 @@ namespace dmtcp_mpi
 	    {
               MPI_Datatype newtype = (MPI_Datatype)(int)rec->args(4);
               int count = rec->args(0);
-              MPI_Datatype *oldtypes = (MPI_Datatype*)(intptr_t)rec->args(3);
+              MPI_Datatype *oldtypes = (MPI_Datatype*)rec->args(3);
               datatype_create(newtype);
               datatype_incRef(count, oldtypes);
               break;
