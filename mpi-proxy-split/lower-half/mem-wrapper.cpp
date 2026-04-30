@@ -290,10 +290,6 @@ static void* __mmap_wrapper(void *addr, size_t length, int prot,
       max_allocated_addr = (char*)addr + length;
     }
   }
-#ifdef MAP_FIXED_NOREPLACE
-  flags &= ~MAP_FIXED_NOREPLACE;
-#endif
-  flags |= MAP_FIXED;
   ret = _real_mmap(addr, length, prot, flags, fd, offset);
   if (ret != MAP_FAILED) {
     DLOG(NOISE, "LH: mmap (%lu): addr %p (%p) @ 0x%zx\n",
