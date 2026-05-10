@@ -75,7 +75,7 @@ void write_lh_info_addr(int restore_mode);
 
 // Restart Mode helper functions
 int parse_restore_flag(int *argc, char **argv);
-RestoreTarget* get_restore_target_info(DmtcpRestart &dmtcpRestart, int rank);
+string get_restore_target_info(string restart_dir, int rank);
 void validate_checkpoint_header(RestoreTarget *t, DmtcpCkptHeader &ckpt_hdr);
 void reserve_memory_areas(RestoreTarget *t, off_t &ckpt_file_pos);
 void *mmap_fixed_noreplace(void *addr, size_t length, int prot, int flags,
@@ -156,8 +156,32 @@ int main(int argc, char *argv[], char *envp[]) {
   
   if (restore_mode) {
     // RESTART MODE:
+    string image_path;
+    // Iterate over command line arguments to find restart dir
+    for (int i = 1; i < argc; i++) {
+      if (strcmp(argv[i], "--restartdir") == 0) {
+        // Repace the --restartdir flags and its value to the path of the actual checkpoint image file.
+        image_path = get_restore_target_info(argv[i+1], rank);
+        argc--;
+        for (int j = i; j < argc; j++) {
+          argv[j] = argv[j + 1];
+        }
+        argv[i] = const_cast<char*>(image_path.c_str());
+        break;
+      }
+    }
+    // FIXME: Since we already convert the restart dir to a specific image
+    // file, we can use dmtcpRestart.processCkptImage() to complete the
+    // rest of the restoring process instead of having a second copy of the
+    // restoring code in this file. But the current solution diverges from
+    // the original DMTCP restore code because we need a special mmap
+    // wrapper during the restoring process. In a later patch, we should
+    // update the upper half memory management/tagging system so that we
+    // don't need the specific mmap wrapper, and we can reuse more of the
+    // DMTCP code.
     DmtcpRestart dmtcpRestart(argc, argv, BINARY_NAME, MTCP_RESTART_BINARY);
-    RestoreTarget *t = get_restore_target_info(dmtcpRestart, rank);
+    RestoreTarget *t = new RestoreTarget(image_path.c_str());
+    JASSERT(t->pid() != 0);
     
     DmtcpCkptHeader ckpt_hdr;
     validate_checkpoint_header(t, ckpt_hdr);
@@ -169,8 +193,6 @@ int main(int argc, char *argv[], char *envp[]) {
     restore_memory_data(t, ckpt_hdr);
     /* Everything restored, close file and finish up */
     close(t->fd());
-
-    // IMB; /* flush instruction cache, since mtcp_restart.c code is now gone. */
 
     PostRestartFnPtr_t postRestart = (PostRestartFnPtr_t) ckpt_hdr.postRestartAddr;
     postRestart(0, 0);
@@ -485,7 +507,7 @@ void write_lh_info_addr(int restore_mode)
  *
  * This function checks if the "--restore" flag is present in the command-line
  *  arguments. If found, it removes the flag from the argument list and sets
- *  the restore mode to `1`. This is required because DMTCP does not recognize 
+ *  the restore mode to `1`. This is required because DMTCP does not recognize
  *  the flag, but the restart logic need to handle it.
  *
  * @param argc  Pointer to the number of command-line arguments.
@@ -514,38 +536,24 @@ int parse_restore_flag(int *argc, char **argv)
 /**
  * @brief Retrieves the restore target based checkpoint image location.
  *
- * This function determines the correct checkpoint image to restore from.
- *  If a restart directory is specified, it constructs the correct image path
- *  based on the rank of the process.
+ * Get the full path for this process, based on the MPI rank number.
  *
- * @param dmtcpRestart  Reference to the DmtcpRestart object holding restart info.
+ * @param restart_dir    Path of the restart directory.
  * @param rank          Rank of the process in MPI-based applications.
- * @return              A pointer to the a RestoreTarget object representing the 
- *                      checkpoint image to restore application from.
+ * @return              Path to the checkpoint file.
  */
-RestoreTarget* get_restore_target_info(DmtcpRestart &dmtcpRestart, int rank)
+string get_restore_target_info(string restart_dir, int rank)
 {
-  RestoreTarget *t;
-  // if no resatrt direcory present 
-  if (dmtcpRestart.restartDir.empty()) {
-     t = new RestoreTarget(dmtcpRestart.ckptImages[0]);
-   } else{
-     // read from directory '/ckpt_rank_X/', where X=process rank 
-     string image_path;
-     string restart_dir = dmtcpRestart.restartDir;
-     string image_dir = restart_dir + "/ckpt_rank_" + jalib::XToString(rank) + "/";
-     vector<string> files = jalib::Filesystem::ListDirEntries(image_dir);
-     for (const string &file : files) {
-        if (Util::strStartsWith(file.c_str(), "ckpt") &&
-            Util::strEndsWith(file.c_str(), ".dmtcp")) {
-          image_path = image_dir + file;
-          break;
-        }
-     }
-    t = new RestoreTarget(image_path.c_str());
-   }
-  JASSERT(t->pid() != 0);
-  return t;
+  string image_path;
+  string image_dir = restart_dir + "/ckpt_rank_" + jalib::XToString(rank) + "/";
+  vector<string> files = jalib::Filesystem::ListDirEntries(image_dir);
+  for (const string &file : files) {
+    if (Util::strStartsWith(file.c_str(), "ckpt_") &&
+        Util::strEndsWith(file.c_str(), ".dmtcp")) {
+      image_path = image_dir + file;
+    }
+  }
+  return image_path;
 }
 
 /**
@@ -942,7 +950,7 @@ void update_library_path(const char *argv0)
     perror("Lib1 prepend to LD_LIBRARY_PATH failed");
     exit(1);
   }
-  free(lib1); 
+  free(lib1);
 
   // constructing lib2 path: "/path_to_mana/lib/tmp"
   const char *lib2_suffix = "lib/tmp";
@@ -952,7 +960,7 @@ void update_library_path(const char *argv0)
     perror("Malloc for lib2 path failed");
     exit(1);
   }
-  strncpy(lib1, argv0, base_len);
+  strncpy(lib2, argv0, base_len);
   lib2[base_len] = '\0';
   strcat(lib2, lib2_suffix);
 
