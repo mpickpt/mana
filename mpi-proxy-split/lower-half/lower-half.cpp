@@ -64,11 +64,11 @@
 #define MAX_ELF_INTERP_SZ 256
 #define LOADER_SIZE_LIMIT 0x2000000
 #define MAX_CMD_ARGV2_LENGTH 100
-#define HEAP_SIZE 0x1000000
+#define HEAP_GUARD_SIZE 0x1000000
 
 // Lower half initialization helper functions
 void set_addr_no_randomize(char *argv[]);
-char *allocate_rtld_heap();
+void create_heap_guard_page();
 void initialize_lh_info();
 void *lh_dlsym(enum MPI_Fncs fnc);
 void write_lh_info_addr(int restore_mode);
@@ -135,12 +135,6 @@ int main(int argc, char *argv[], char *envp[]) {
   lh_info->fsaddr = (void*)fsaddr;
   lh_info->fsgsbase_enabled = CheckAndEnableFsGsBase();
 
-  char *heap_addr = allocate_rtld_heap();
-
-  // Add a guard page before the start of heap; this protects
-  // the heap from getting merged with a "previous" region.
-  mprotect(heap_addr, HEAP_SIZE, PROT_NONE);
-
   // Initialize MPI in advance
   int rank;
   MPI_Init(&argc, &argv);
@@ -191,6 +185,7 @@ int main(int argc, char *argv[], char *envp[]) {
     release_reserved_memory(t, ckpt_file_pos);
     restore_session_leadership(t);
     restore_memory_data(t, ckpt_hdr);
+    create_heap_guard_page();
     /* Everything restored, close file and finish up */
     close(t->fd());
 
@@ -200,6 +195,7 @@ int main(int argc, char *argv[], char *envp[]) {
     assert(0);
   } else {
     // LAUNCH MODE:
+    create_heap_guard_page();
     parse_launch_arguments(argc, argv, &cmd_argc, &cmd_argv);
     // set default loader address
     if (ld_so_addr == NULL) {
@@ -300,29 +296,22 @@ void set_addr_no_randomize(char *argv[]) {
 }
 
 /**
- * @brief Creates a new heap region for use by the runtime linker (RTLD).
- *
- * This function allocates a new memory region to be used as the heap by 
- *  mapping a memory area starting from the current program break (`sbrk(0)`).
- *  The allocated region is initially set to `PROT_NONE` to prevent accidental access.
- *
- * @return  A pointer to the allocated heap region, or exits the program on failure.
+ * Create a guard page above the heap so that the upper half will use an arena
+ * outside of the heap.
  */
-char *allocate_rtld_heap()
+void create_heap_guard_page()
 {
   // Create new heap region to be used by RTLD
   void *lh_brk = sbrk(0);
   //const uint64_t heapSize = HEAP_SIZE;
-  char *heap_addr = (char *)mmap(lh_brk, HEAP_SIZE, PROT_NONE,
-      MAP_PRIVATE | MAP_ANONYMOUS |
-      MAP_NORESERVE ,
+  char *heap_addr = (char *)mmap(lh_brk, HEAP_GUARD_SIZE, PROT_NONE,
+      MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE | MAP_FIXED,
       -1, 0);
   if (heap_addr == MAP_FAILED) {
     DLOG(ERROR, "Failed to mmap region. Error: %s\n",
         strerror(errno));
     exit(1);
   }
-  return heap_addr; 
 }
 
 /**

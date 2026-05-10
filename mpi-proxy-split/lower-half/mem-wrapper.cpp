@@ -213,6 +213,10 @@ void init_mem_arena(char *base)
 {
   arena_base = base;
   free_blocks.clear();
+  // This [arena_base, SIZE_MAX] pair is just for bookkeeping, suggesting
+  // this area is available for the mmap wrapper to allocate memories.
+  // The wrapper allocates memories starting from the arena_base address.
+  // We are not really mapping this region in the memory now at this moment.
   free_blocks.push_back({arena_base, SIZE_MAX / 2});
 }
 
