@@ -29,11 +29,23 @@ if "--verbose" in dmtcp_flags:
 if "--timing" in dmtcp_flags:
   os.environ["MANA_TIMING"] = "1"
   dmtcp_flags.remove("--timing")
+if "--restartdir" not in dmtcp_flags:
+  dmtcp_flags.append("--restartdir ./")
 if "--restartdir" in dmtcp_flags:
   ckptdir_path = dmtcp_flags[dmtcp_flags.index("--restartdir") + 1]
   if not os.path.exists(ckptdir_path):
-    print("mana_restart: --restartdir " + ckptdir_path + ": Restart directory doesn't exist")
+    print("mana_restart: --restartdir " + ckptdir_path + 
+          ": Restart directory doesn't exist")
     sys.exit(1)
+  for rank_dir in os.listdir(ckptdir_path):
+    if (os.path.isfile(rank_dir)):
+      continue
+    for fname in os.listdir(rank_dir):
+      if fname.endswith('.tmp'):
+        print("mana_restart: --restartdir " + ckptdir_path + 
+              ": Restart directory has .tmp files. ")
+        print("Previous checkpoint may be incomplete.")
+        sys.exit(1)
 if "--ckptdir" in dmtcp_flags:
   ckptdir_path = dmtcp_flags[dmtcp_flags.index("--ckptdir") + 1]
   if not os.path.exists(ckptdir_path):
@@ -45,11 +57,6 @@ if "--quiet" in dmtcp_flags or "-q" in dmtcp_flags:
     dmtcp_flags.remove("--quiet")
   else:
     dmtcp_flags.remove("-q")
-
-if "--restartdir" not in dmtcp_flags:
-  dmtcp_flags.append("--restartdir ./")
-
-# TODO: Check if checkpoint image files exists and .tmp files do not exist
 
 # # At higher ranks, restarting NIMROD causes a heap overflow (for a more detailed
 # # write up, refer to Section 4 of mpi-proxy-split/doc/nimrod-build-tutorial.txt).
