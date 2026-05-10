@@ -4,9 +4,9 @@ import os
 import shutil
 
 help_msg = '''
-  USAGE: [srun] mana_launch [--verbose] [--timing] [DMTCP_OPTIONS ...]
-                                         [--ckptdir DIR] MPI_EXECUTABLE [...]
-          For DMTCP options, do: dmtcp_launch --help
+  USAGE: [srun/mpirun] mana_restart [--verbose] [--timing] [DMTCP_OPTIONS ...]
+                                    [--restartdir DIR] [--ckptdir DIR]
+          For DMTCP options, do: dmtcp_restart --help
 '''
 
 # dmtcp options that requires a value
