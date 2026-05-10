@@ -47,18 +47,10 @@ using namespace std;
 #define _real_mmap mmap
 #define _real_munmap munmap
 
-// FIXME:  This is a hard-wired constant address.  Do we have code
-//         elsewhere that checks if this address conflicts with another
-//         memory segment?
-#define DEFAULT_UH_BASE_ADDR reinterpret_cast<char*>(0xc0000000) // 3 GB
-
 std::vector<MmapInfo_t> allocated_blocks;
-// The arena for memory allocation is from the DEFAULT_UH_BASE_ADDR (3GB)
-// with size SIZE_MAX/2 (an arbitrary large address). SIZE_MAX is the largest
-// size_t supported by the machine.
-// FIXME: Make this starting and end address dynamic and configurable
-std::vector<MmapInfo_t> free_blocks = {{DEFAULT_UH_BASE_ADDR, SIZE_MAX/2}};
+std::vector<MmapInfo_t> free_blocks;
 char *max_allocated_addr = NULL;
+static char *arena_base = NULL;
 
 static void* __mmap_wrapper(void * , size_t , int , int , int , off_t);
 static void patchLibc(int , char * , char *);
@@ -201,15 +193,27 @@ void remove_overlap_blocks(MmapInfo_t new_block, vector<MmapInfo_t> &blocks) {
 }
 
 void *next_free_addr(char *addr, size_t length) {
-  // Find the a entry in the free_mem_list that has enough size.
-  for (auto it = free_blocks.begin(); it != free_blocks.end(); it++) {
-    if (it->len > length) {
-      addr = it->addr;
-      return addr;
+  uintptr_t align_mask = PAGE_SIZE - 1;
+  if (addr != NULL) {
+    uintptr_t hint_align = (uintptr_t)addr & -(uintptr_t)addr;
+    if (hint_align > (uintptr_t)PAGE_SIZE && hint_align <= (1UL << 21)) {
+      align_mask |= (hint_align - 1);
     }
   }
-  // If no available block found, return error.
+  for (auto it = free_blocks.begin(); it != free_blocks.end(); it++) {
+    char *aligned = (char*) ROUND_UP((unsigned long)it->addr, align_mask + 1);
+    if ((size_t)(aligned - it->addr) + length <= it->len) {
+      return aligned;
+    }
+  }
   return NULL;
+}
+
+void init_mem_arena(char *base)
+{
+  arena_base = base;
+  free_blocks.clear();
+  free_blocks.push_back({arena_base, SIZE_MAX / 2});
 }
 
 // Returns a pointer to the array of mmap-ed regions
@@ -282,31 +286,29 @@ static void* __mmap_wrapper(void *addr, size_t length, int prot,
   static char *libc_base_addr = NULL;
   void *ret = MAP_FAILED;
   length = ROUND_UP(length, PAGE_SIZE);
-  if (addr == NULL ||
-      flags & MAP_FIXED == 0 ||
-      (max_allocated_addr != NULL && (char*)addr > max_allocated_addr)) {
-    addr = next_free_addr((char*)addr, length);
-    if ((char*)addr + length > max_allocated_addr) {
-      max_allocated_addr = (char*)addr + length;
+  if (arena_base != NULL) {
+    if (addr == NULL ||
+        (flags & MAP_FIXED) == 0 ||
+        (max_allocated_addr != NULL && (char*)addr > max_allocated_addr)) {
+      addr = next_free_addr((char*)addr, length);
+      if ((char*)addr + length > max_allocated_addr) {
+        max_allocated_addr = (char*)addr + length;
+      }
     }
-  }
 #ifdef MAP_FIXED_NOREPLACE
-  flags &= ~MAP_FIXED_NOREPLACE;
+    flags &= ~MAP_FIXED_NOREPLACE;
 #endif
-  flags |= MAP_FIXED;
+    flags |= MAP_FIXED;
+  }
   ret = _real_mmap(addr, length, prot, flags, fd, offset);
   if (ret != MAP_FAILED) {
     DLOG(NOISE, "LH: mmap (%lu): addr %p (%p) @ 0x%zx\n",
          allocated_blocks.size(), ret, addr, length);
-    // Add the new block to the allocated_blocks and
-    // remove it from the free_blocks.
-    char *new_block_end_addr = (char*)addr + length;
-    MmapInfo_t new_block = {(char*)addr,
-                            (size_t)(new_block_end_addr - (char*)addr)};
+    char *new_block_end_addr = (char*)ret + length;
+    MmapInfo_t new_block = {(char*)ret,
+                            (size_t)(new_block_end_addr - (char*)ret)};
     merge_overlap_blocks(new_block, allocated_blocks);
     remove_overlap_blocks(new_block, free_blocks);
-    // if the fd is not NULL, check if it's the libc. If it's the libc, patch
-    // the mmap and munmap functions to use MANA's wrappers.
     if (fd > 0) {
       char glibcFullPath[PATH_MAX] = {0};
       int found = checkLibrary(fd, "libc.so", glibcFullPath, PATH_MAX) ||
