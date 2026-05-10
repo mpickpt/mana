@@ -1352,6 +1352,8 @@ char *setup_upper_half_stack(int argc, char **argv, int cmd_argc, char **cmd_arg
       exit(1);
     }
 
+    init_mem_arena((char*) ROUND_UP(lh_info->uh_stack_end + PAGE_SIZE, PAGE_SIZE));
+
     return dest_stack;
 }
 
