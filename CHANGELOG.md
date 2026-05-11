@@ -22,6 +22,29 @@ TODO for all releases:
 - Finally, go to github and do a new release there.
 --->
 
+## [1.3.0] - 2026-05-11
+
+We're pleased to announce `MANA` 1.3.0 !
+
+### What's Changed
+
+- Solved Hydra compatibility issue by @xuyao0127 in https://github.com/mpickpt/mana/pull/474
+- Update the DMTCP submodule to 4.1.1 by @xuyao0127 in https://github.com/mpickpt/mana/pull/472
+- Improved the mmap wrapper for the upper half by @xuyao0127 in https://github.com/mpickpt/mana/pull/473
+- Fixed a bug that MPI_Type_commit is not recorded by @xuyao0127 in https://github.com/mpickpt/mana/pull/452
+- Fix for riscv by @gc00 in https://github.com/mpickpt/mana/pull/453
+- Disable checkpointing at MPI_Finalize call by @rajatpratapbisht in https://github.com/mpickpt/mana/pull/454
+- Update README.md by @gc00 in https://github.com/mpickpt/mana/pull/461
+- Linux 'test' cmd uses '=', not '==' by @gc00 in https://github.com/mpickpt/mana/pull/460
+- Shadow lib fix by @xuyao0127 in https://github.com/mpickpt/mana/pull/462
+- Fix segfault in MPI_Type_create_struct by @dariomnz in https://github.com/mpickpt/mana/pull/466
+
+### New Contributors
+
+- @dariomnz made their first contribution in https://github.com/mpickpt/mana/pull/466
+
+**Full Changelog**: https://github.com/mpickpt/mana/compare/v1.2.0...v1.3.0
+
 ## [1.2.0] - 2025-03-19
 
 We're pleased to announce `MANA` 1.2.0 !
