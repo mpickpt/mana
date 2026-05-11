@@ -146,6 +146,26 @@ int main(int argc, char *argv[], char *envp[]) {
   // Check arguments and setup arguments for the loader program (cmd)
   // if has "--restore", pass all arguments to mtcp_restart
   int restore_mode = parse_restore_flag(&argc, argv);
+
+  // Save Hydra PM fds to high fd numbers before DMTCP's restart fd restoration
+  // clobbers them. The upper half will restore them in DMTCP_EVENT_THREAD_RESUME.
+  if (restore_mode) {
+    lh_info->pm_fd_count = 0;
+    const char *pmi_fd_str = getenv("PMI_FD");
+    const char *hydi_fd_str = getenv("HYDI_CONTROL_FD");
+    if (hydi_fd_str && pmi_fd_str) {
+      int fds[] = {atoi(pmi_fd_str), atoi(hydi_fd_str)};
+      for (int i = 0; i < 2; i++) {
+        int saved = fcntl(fds[i], F_DUPFD, 256);
+        if (saved >= 0) {
+          lh_info->pm_fds[lh_info->pm_fd_count] = fds[i];
+          lh_info->pm_saved_fds[lh_info->pm_fd_count] = saved;
+          lh_info->pm_fd_count++;
+        }
+      }
+    }
+  }
+
   write_lh_info_addr(restore_mode);
   
   if (restore_mode) {
@@ -188,6 +208,11 @@ int main(int argc, char *argv[], char *envp[]) {
     create_heap_guard_page();
     /* Everything restored, close file and finish up */
     close(t->fd());
+
+    // Close Hydra's original PM fds so DMTCP won't clobber them during fd restoration.
+    for (int i = 0; i < lh_info->pm_fd_count; i++) {
+      close(lh_info->pm_fds[i]);
+    }
 
     PostRestartFnPtr_t postRestart = (PostRestartFnPtr_t) ckpt_hdr.postRestartAddr;
     postRestart(0, 0);

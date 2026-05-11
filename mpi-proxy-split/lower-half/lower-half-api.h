@@ -58,6 +58,10 @@ typedef struct _LowerHalfInfo
   char *uh_stack_end;
   char *uh_next_free_addr;
 
+  int pm_fd_count;
+  int pm_fds[4];
+  int pm_saved_fds[4];
+
   // MPI Constants
   MPI_Group MANA_GROUP_NULL;
   MPI_Comm MANA_COMM_NULL;
