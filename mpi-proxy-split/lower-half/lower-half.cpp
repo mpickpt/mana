@@ -752,7 +752,7 @@ static int restoreMemoryArea(int fd, DmtcpCkptHeader *ckptHdr)
   if ((area.name[0] && area.name[0] != '/' && strstr(area.name, "stack"))
       || (area.endAddr == (VA) ckptHdr->endOfStack)) {
     area.flags = area.flags | MAP_GROWSDOWN;
-    JTRACE("Detected stack area")(ckptHdr->endOfStack) (area.endAddr);
+    JTRACE("Detected stack area")((void*)ckptHdr->endOfStack) ((void*)area.endAddr);
   }
 
   // We could have replaced MAP_SHARED with MAP_PRIVATE in writeckpt.cpp
@@ -767,7 +767,7 @@ static int restoreMemoryArea(int fd, DmtcpCkptHeader *ckptHdr)
 
   /* CASE MAPPED AS ZERO PAGE: */
   if ((area.properties & DMTCP_ZERO_PAGE) != 0) {
-    JTRACE("restoring zero-paged anonymous area, %p bytes at %p\n") (area.size) (area.addr);
+    JTRACE("restoring zero-paged anonymous area, %p bytes at %p\n") (area.size) ((void*)area.addr);
     // No need to mmap since the region has already been mmapped by the parent
     // header.
     // Just restore write-protection if needed.
@@ -803,7 +803,7 @@ static int restoreMemoryArea(int fd, DmtcpCkptHeader *ckptHdr)
           if ((static_cast<size_t>(curr_size) < area.size + area.offset) &&
               (area.prot & PROT_WRITE)) {
             JTRACE("restoring non-anonymous area %s as anonymous: %p bytes at %p\n")
-                  (area.name) (area.size) (area.addr);
+                  (area.name) (area.size) ((void*)area.addr);
             close(imagefd);
             imagefd = -1;
             area.offset = 0;
@@ -814,10 +814,10 @@ static int restoreMemoryArea(int fd, DmtcpCkptHeader *ckptHdr)
 
       if (area.flags & MAP_ANONYMOUS) {
         JTRACE("restoring anonymous area, %p bytes at %p\n")
-              (area.size) (area.addr);
+              (area.size) ((void*)area.addr);
       } else {
         JTRACE("restoring to non-anonymous area,"
-                " %p bytes at %p from %s + 0x%X\n") (area.size) (area.addr) (area.name) (area.offset);
+                " %p bytes at %p from %s + 0x%X\n") (area.size) ((void*)area.addr) (area.name) (area.offset);
       }
 
       /* Create the memory area */
@@ -858,7 +858,7 @@ static int restoreMemoryArea(int fd, DmtcpCkptHeader *ckptHdr)
 
       /* ANALYZE THE CONDITION FOR DOING mmapfile MORE CAREFULLY. */
       if (area.mmapFileSize > 0 && area.name[0] == '/') {
-        JTRACE("restoring memory region %p of %p bytes at %p\n") (area.mmapFileSize) (area.size) (area.addr);
+        JTRACE("restoring memory region %p of %p bytes at %p\n") (area.mmapFileSize) (area.size) ((void*)area.addr);
         ssize_t rc = 0;
         int count = 0;
         do {
