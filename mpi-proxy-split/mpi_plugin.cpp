@@ -998,18 +998,6 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       DmtcpMutexLock(&g_upper_half_fsbase_lock);
       g_upper_half_fsbase->insert(std::make_pair(dmtcp_get_real_tid(), getFS()));
       DmtcpMutexUnlock(&g_upper_half_fsbase_lock);
-
-      // Restore Hydra PM fds saved in the lower half before postRestart.
-      // DMTCP's fd restoration has already run by now, so we overwrite
-      // the dead restored fds with Hydra's live PM fds.
-      if (lh_info && lh_info->pm_fd_count > 0) {
-        int count = lh_info->pm_fd_count;
-        lh_info->pm_fd_count = 0;
-        for (int i = 0; i < count; i++) {
-          dup2(lh_info->pm_saved_fds[i], lh_info->pm_fds[i]);
-          close(lh_info->pm_saved_fds[i]);
-        }
-      }
       break;
     }
 
