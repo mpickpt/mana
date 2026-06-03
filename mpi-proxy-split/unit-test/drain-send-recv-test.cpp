@@ -125,7 +125,7 @@ TEST_F(DrainTests, testSendDrain)
   }
   getLocalRankInfo();
   registerLocalSendsAndRecvs();
-  drainSendRecv();
+  drainInFlightP2p();
   for (int i = 0; i < TWO; i++) {
     EXPECT_EQ(consumeMatchingMsgBuffer(&rbuf, 1, MPI_INT, 0,
                                     0, _comm, &sts[i], size), MPI_SUCCESS);
@@ -153,7 +153,7 @@ TEST_F(DrainTests, testSendDrainOnDiffComm)
   }
   getLocalRankInfo();
   registerLocalSendsAndRecvs();
-  drainSendRecv();
+  drainInFlightP2p();
   for (int i = 0; i < TWO; i++) {
     int rc;
     EXPECT_TRUE(existsMatchingMsgBuffer(0, 0, newcomm, &flag, &sts[i]));
@@ -190,7 +190,7 @@ TEST_F(DrainTests, testRecvDrain)
   // Checkpoint
   getLocalRankInfo();
   registerLocalSendsAndRecvs();
-  drainSendRecv();
+  drainInFlightP2p();
   // Resume
   for (int i = 0; i < TWO; i++) {
     int rc;
