@@ -899,7 +899,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       drain_mpi_collective();
       dmtcp_global_barrier("MPI:Drain-Send-Recv");
       mana_state = CKPT_P2P;
-      drainSendRecv(); // p2p_drain_send_recv.cpp
+      drainP2p(); // p2p_drain_send_recv.cpp
       openCkptFileFds();
       printEventToStderr("EVENT_PRESUSPEND (done)");
       break;
