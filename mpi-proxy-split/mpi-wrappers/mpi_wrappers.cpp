@@ -87,6 +87,11 @@ int PMPI_Init(int *argc, char ***argv) {
 
 #pragma weak MPI_Init_thread = PMPI_Init_thread
 int PMPI_Init_thread(int *argc, char ***argv, int required, int *provided) {
+  if (*provided == MPI_THREAD_MULTIPLE) {
+    fprintf(stderr, "WARNING: MANA does not support MPI_THREAD_MULTIPLE.\n"); 
+    fprintf(stderr, "MANA initialized with MPI_THREAD_SINGLE instead.\n"); 
+    fflush(stderr);
+  }
   int retval;
   if (isUsingCollectiveToP2p()) {
     fprintf(stderr, collective_p2p_string);
