@@ -79,6 +79,16 @@ char *deepCopyStack(int argc, char **argv, char *argc_ptr, char *argv_ptr,
   int auxv_size = (char *)&auxv[i+1] - (char *)&auxv[0];
   char *auxv_addr = (char *)&auxv[0];
 
+  // x86_64 SysV ABI: at program entry, %rsp (the address of 'argc') must be
+  //   16-byte aligned, or ld.so/_start fault on SSE (movaps) accesses.
+  // The strings region is 16-byte aligned (see padding below) and auxv_size is
+  //   a multiple of 16 (sizeof(Elf64_auxv_t) == 16), so the only slack that can
+  //   misalign 'argc' is (env_ptr_size + argv_ptr_size + the argc word).  Pad by
+  //   whatever is needed to bring that total back to a 16-byte boundary.
+  assert(auxv_size % 16 == 0);
+  int argc_align_pad =
+    (16 - ((env_ptr_size + argv_ptr_size + (int)sizeof(char *)) % 16)) % 16;
+
   char *top_of_stack = (char *)&argv[-1];
   assert( (auxv_size + env_ptr_size) % 8 == 0);
   // The fnc _start() may copy 'argc', but this is its original address.
@@ -88,7 +98,7 @@ char *deepCopyStack(int argc, char **argv, char *argc_ptr, char *argv_ptr,
                         env_strings_size + argv_strings_size +
                         32 /* max.  padding is 32 for x86_64 */ +
                         auxv_size + env_ptr_size + argv_ptr_size +
-                        (auxv_size + env_ptr_size) % 16 /* 16-byte aligned */ +
+                        argc_align_pad /* make argc/%rsp 16-byte aligned */ +
                         (argv_ptr - argc_ptr_original);
 
   char *dest_top_of_stack =
@@ -198,9 +208,10 @@ dbg_argv_strings_addr = dest_curr_stack;
   * auxv
   *****************************/
   dest_curr_stack -= auxv_size;
-  // env_ptr_addr must be 16-byte aligned, and auxv_ptr 8-byte aligned:
+  // Pad so that, after argv pointers and the argc word are laid down below,
+  //   'argc' (the new %rsp) lands on a 16-byte boundary as the ABI requires.
   assert( (auxv_size + env_ptr_size) % 8 == 0);
-  dest_curr_stack -= (auxv_size + env_ptr_size) % 16;
+  dest_curr_stack -= argc_align_pad;
   // Save this now, and return at end of function.  This is an OUT parameter.
   Elf64_auxv_t *dest_auxv_ptr = (Elf64_auxv_t *)dest_curr_stack;
   memcpy(dest_curr_stack, auxv_addr, auxv_size);
@@ -216,7 +227,6 @@ dbg_auxv_ptr_addr = dest_curr_stack;
   // env_ptr_addr is an array of pointers to the _old_ stack.  We need
   // new_env_ptrs, an array pointing to the _new_ stack.
   memcpy(dest_curr_stack, new_env_ptrs, env_ptr_size);
-  assert( (uint64_t)dest_curr_stack % 16 == 0 ); // env is 16-byte aligned.
   assert( *(char **)((char *)env_ptr_addr+env_ptr_size - sizeof(__environ[0]))
                      == NULL );
   free(new_env_ptrs);
@@ -236,6 +246,8 @@ dbg_argv_ptr_addr = dest_curr_stack;
   *****************************/
   dest_curr_stack -= sizeof(char *);
   *(long int *)dest_curr_stack = dest_argc;
+  // The new %rsp (address of argc) must be 16-byte aligned per the x86_64 ABI.
+  assert( (uint64_t)dest_curr_stack % 16 == 0 );
 dbg_argc_addr = dest_curr_stack;
 
   // We're reseting __environ and environ now, but we shouldn't need to do this.
