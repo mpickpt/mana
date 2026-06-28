@@ -22,6 +22,22 @@ TODO for all releases:
 - Finally, go to github and do a new release there.
 --->
 
+## [1.4.0] - 2026-06-28
+
+We're pleased to announce `MANA` 1.4.0 !
+
+### What's Changed
+* Improved P2P drainning algorithm by @xuyao0127 in https://github.com/mpickpt/mana/pull/478
+* Updating DMTCP to include the fix for compatibility issue with Hydra by @xuyao0127 in https://github.com/mpickpt/mana/pull/477
+* Updating DMTCP to include CUDA support by @xuyao0127 in https://github.com/mpickpt/mana/pull/481
+* Changed the required python version to 3.6+ instead of 3.7+ by @xuyao0127 in https://github.com/mpickpt/mana/pull/457
+* Fixed an address alignment issue in lower-half by @xuyao0127 in https://github.com/mpickpt/mana/pull/479
+* Fixed deepCopyStack desination address by @xuyao0127 in https://github.com/mpickpt/mana/pull/480
+* Cleanup JTRACE in lower half by @xuyao0127 in https://github.com/mpickpt/mana/pull/476
+
+
+**Full Changelog**: https://github.com/mpickpt/mana/compare/v1.3.0...v1.4.0
+
 ## [1.3.0] - 2026-05-11
 
 We're pleased to announce `MANA` 1.3.0 !
