@@ -147,6 +147,27 @@ if coordinator_found != 0:
   print("  " + mana_root_path + "bin/dmtcp_coordinator --exit-on-last -q --daemon")
   sys.exit(1)
 
+# Merge any user-supplied --with-plugin values with the mana plugin.
+# DMTCP's --with-plugin uses setenv(..., overwrite=1), so passing the flag
+# more than once silently keeps only the last list. We therefore strip the
+# user's --with-plugin pairs out of dmtcp_flags and combine every plugin
+# (mana first, then the user's, in order) into a single colon-separated list.
+user_plugins = []
+filtered_flags = []
+index = 0
+while index < len(dmtcp_flags):
+  if dmtcp_flags[index] == "--with-plugin":
+    if index + 1 < len(dmtcp_flags):
+      user_plugins.append(dmtcp_flags[index + 1])
+    index = index + 2
+  else:
+    filtered_flags.append(dmtcp_flags[index])
+    index = index + 1
+dmtcp_flags = filtered_flags
+
+mana_plugin = mana_root_path + "lib/dmtcp/libmana.so"
+plugin_list = ":".join([mana_plugin] + user_plugins)
+
 # Build the command line to be executed
 if not verbose:
   dmtcp_flags.insert(0, "-q -q")
@@ -156,7 +177,7 @@ else:
   cmd_line = ""
 cmd_line += mana_root_path + "bin/dmtcp_launch --kernel-loader " + host_flag + port_flag + \
             " --no-gzip --join-coordinator --disable-dl-plugin" + \
-            " --with-plugin " + mana_root_path + "lib/dmtcp/libmana.so " + \
+            " --with-plugin " + plugin_list + " " + \
             " ".join(dmtcp_flags) + " " + mana_root_path + "bin/lower-half " + \
             " " .join(target_app)
 if verbose:
