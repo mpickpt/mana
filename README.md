@@ -4,6 +4,9 @@ MANA is an implementation of transparent checkpointing for MPI.  It is
 built as a plugin on top of [DMTCP](https://github.com/dmtcp/dmtcp).
 
 For details of installing and using MANA, please see:
+- [MANA Manual](https://github.com/mpickpt/mana/wiki)
+
+Older documentation:
 - [MANA documentation (https://mana-doc.readthedocs.io/en/latest/) ](https://mana-doc.readthedocs.io/en/latest/)
 - [the MANA 'man' page](manpages/mana.1.md) (or `man ./mana.1` on a local copy)
 
