@@ -42,7 +42,9 @@ DMTCP_ROOT ?= $(top_builddir)/dmtcp
 # Macros TEST and XTERM_E used on command line by check1, check2, ...:
 #   make TEST=readline XTERM_E="xterm -e" check-readline
 
+# MANA configure does configure DMTCP.  But no re-make in DMTCP.  Check ${CC}.
 default: display-build-env add-git-hooks mana_prereqs
+	$(MAKE) maybe_clean_dmtcp
 	$(MAKE) mana
 
 all: default
@@ -82,13 +84,35 @@ distclean: clean
 	rm -rf $(top_builddir)/lib
 	- cd $(top_builddir)/bin && find . \! -name '*mana*' -delete
 
+clean: tidy
+	$(MAKE) maybe_clean_dmtcp
+	cd mpi-proxy-split && $(MAKE) clean
+
 tidy:
 	rm -rf ckpt_rank*
 	rm -f ckpt_*.dmtcp dmtcp_restart_script*
 	rm -f dmtcp_coordinator_db-*.json
 
-clean: tidy
-	cd mpi-proxy-split && $(MAKE) clean
+# MANA configure does configure DMTCP and 'make'; but doesn't do a 'clean'.
+# This saves having to re-compile DMTCP when clean'ing MANA.
+# But if a previous 'make' used a different ${CC} version, then do 'clean'.
+# NOTE on $${mycc...}:  This extracts first word (e.g., in case CC='gcc -O3').
+maybe_clean_dmtcp:
+	@ mycc='${CC}' ; \
+	@ if ! test -e $${mycc%% *} ; then \
+	  echo "C compiler ($${mycc%% *}) not found."; \
+	  echo "Please do:  ./configure && make clean && make -j8"; \
+	  exit 1; \
+	fi
+	@ cc_version="${CC} --version | head -1 | tr -d '\n')" ; \
+	  if test ! -e dmtcp/bin/dmtcp_coordinator || \
+	     test ! -e dmtcp/config.log || \
+	     ! grep --quiet "$${cc_version}" dmtcp/config.log; then \
+	    echo "** DMTCP: not present, or else compiler version"; \
+	    echo "     is not current: $${cc_version}"; \
+	    echo "** Doing 'clean' in dmtcp subdirectory."; \
+	    cd ${DMTCP_ROOT} && ${MAKE} clean; \
+	  fi
 
 mana_prereqs:
 	@ if test -n "$$HUGETLB_DEFAULT_PAGE_SIZE"; then \
