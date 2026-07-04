@@ -287,12 +287,20 @@ logCkptFileFds()
   }
 }
 
+// FIXME: Some of these lower-half devices names are obsolete. We can remove
+// this function in the future. This function is a "short-cut" for memory
+// regions that we believe only used by the lower half. Without it, MANA still
+// check all memory regions to decide if DMTCP should skip or not.
 static bool
 isLhDevice(const ProcMapsArea *area)
 {
-  // FIXME:  An MPI application might also create /dev/zero in upper half.
-  if (strstr(area->name, "/dev/zero") ||
-      strstr(area->name, "/dev/kgni") ||
+  // NOTE: "/dev/zero" is intentionally NOT matched here.  The kernel labels
+  // every MAP_SHARED|MAP_ANONYMOUS region "/dev/zero (deleted)", including
+  // upper-half ones (e.g. the GPU-state staging buffers created by CUDA's
+  // cuCheckpointProcessCheckpoint()).  So the "/dev/zero" name alone is not a
+  // lower-half indicator; upper-half vs lower-half is decided by uh_mmaps
+  // membership in dmtcp_skip_memory_region_ckpting() instead.
+  if (strstr(area->name, "/dev/kgni") ||
       /* DMTCP SysVIPC plugin should be able to C/R this correctly
        * And if it's created by lower half, we hope it goes through mmap,
        * and so it will be recognized by isLhMmapRegion().
@@ -311,6 +319,9 @@ isLhDevice(const ProcMapsArea *area)
 EXTERNC int
 dmtcp_skip_memory_region_ckpting(ProcMapsArea *area)
 {
+  // Fast-path skips: regions that are never upper-half memory, so we can skip
+  // them without scanning uh_mmaps.  ("/dev/zero" is deliberately excluded
+  // from isLhDevice() -- it is ambiguous -- and is resolved via uh_mmaps below.)
   if (isLhDevice(area)) {
     JTRACE("Ignoring region")(area->name)((void*)area->addr);
     return 1;
@@ -331,6 +342,12 @@ dmtcp_skip_memory_region_ckpting(ProcMapsArea *area)
     return 0;
   }
 
+  // Otherwise, checkpoint the region only if it belongs to the upper half, i.e.
+  // it overlaps a region allocated through the upper-half mmap wrapper (tracked
+  // in uh_mmaps).  uh_mmaps is kept sorted and non-overlapping by
+  // merge_overlap_blocks(), and the caller (mtcp_writememoryareas) reprocesses
+  // the tail of a partially-kept area, so clipping to the overlap here walks a
+  // kernel-merged area across consecutive upper-half regions correctly.
   get_mmapped_list_fnc = (get_mmapped_list_fptr_t) lh_info->mmap_list_fptr;
 
   int numUhRegions;
