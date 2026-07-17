@@ -5,6 +5,7 @@ built as a plugin on top of [DMTCP](https://github.com/dmtcp/dmtcp).
 
 For details of installing and using MANA, please see:
 - [MANA Manual](https://github.com/mpickpt/mana/wiki)
+  * [Distributed MPICH/Hydra checkpoint and restart](doc/distributed-mpich-hydra.md)
 
 Older documentation:
 - [MANA documentation (https://mana-doc.readthedocs.io/en/latest/) ](https://mana-doc.readthedocs.io/en/latest/)
