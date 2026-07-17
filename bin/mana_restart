@@ -30,22 +30,48 @@ if "--timing" in dmtcp_flags:
   os.environ["MANA_TIMING"] = "1"
   dmtcp_flags.remove("--timing")
 if "--restartdir" not in dmtcp_flags:
-  dmtcp_flags.append("--restartdir ./")
-if "--restartdir" in dmtcp_flags:
-  ckptdir_path = dmtcp_flags[dmtcp_flags.index("--restartdir") + 1]
-  if not os.path.exists(ckptdir_path):
-    print("mana_restart: --restartdir " + ckptdir_path + 
-          ": Restart directory doesn't exist")
+    dmtcp_flags.extend(["--restartdir", "./"])
+
+restartdir_index = dmtcp_flags.index("--restartdir")
+
+if restartdir_index + 1 >= len(dmtcp_flags):
+    print("mana_restart: --restartdir requires a directory")
     sys.exit(1)
-  for rank_dir in os.listdir(ckptdir_path):
-    if (os.path.isfile(rank_dir)):
-      continue
-    for fname in os.listdir(rank_dir):
-      if fname.endswith('.tmp'):
-        print("mana_restart: --restartdir " + ckptdir_path + 
-              ": Restart directory has .tmp files. ")
-        print("Previous checkpoint may be incomplete.")
-        sys.exit(1)
+
+restartdir_path = os.path.abspath(
+    os.path.expanduser(dmtcp_flags[restartdir_index + 1])
+)
+
+if not os.path.isdir(restartdir_path):
+    print(
+        "mana_restart: --restartdir "
+        + restartdir_path
+        + ": Restart directory doesn't exist"
+    )
+    sys.exit(1)
+
+for rank_entry in os.scandir(restartdir_path):
+    if not rank_entry.is_dir():
+        continue
+    for checkpoint_entry in os.scandir(rank_entry.path):
+        if checkpoint_entry.name.endswith(".tmp"):
+            print(
+                "mana_restart: --restartdir "
+                + restartdir_path
+                + ": Restart directory has .tmp files."
+            )
+            print("Previous checkpoint may be incomplete.")
+            sys.exit(1)
+
+dmtcp_flags[restartdir_index + 1] = restartdir_path
+
+# lower-half replaces this pair with a rank-specific checkpoint image.
+# Keep it after all other DMTCP options so the image is the final
+# positional argument.
+restartdir_pair = dmtcp_flags[restartdir_index:restartdir_index + 2]
+del dmtcp_flags[restartdir_index:restartdir_index + 2]
+dmtcp_flags.extend(restartdir_pair)
+
 if "--ckptdir" in dmtcp_flags:
   ckptdir_path = dmtcp_flags[dmtcp_flags.index("--ckptdir") + 1]
   if not os.path.exists(ckptdir_path):
