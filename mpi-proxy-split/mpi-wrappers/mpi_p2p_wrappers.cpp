@@ -147,7 +147,7 @@ int PMPI_Recv(void *buf, int count, MPI_Datatype datatype,
   //      drained from in-flight Sends during a previous checkpoint's
   //      pre-suspend (via recvMsgIntoInternalBuffer) are served here.
   //
-  //   2. Publish (source, tag, comm, count, datatype) to g_pending_recv
+  //   2. Publish (source, tag, comm) to g_pending_recv
   //      with active=true, so that unblockPendingRecvs(), running on
   //      the DMTCP coordinator thread during a future pre-suspend, can
   //      identify this rank as blocked and arrange for a matching dummy
@@ -201,8 +201,6 @@ retry:
   g_pending_recv.source = source;
   g_pending_recv.tag = tag;
   g_pending_recv.comm = comm;
-  g_pending_recv.count = count;
-  g_pending_recv.datatype = datatype;
   g_pending_recv.active = true;
 
   // Step 3: resolve virtual handles and call into the lower half.

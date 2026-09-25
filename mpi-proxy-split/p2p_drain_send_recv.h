@@ -33,7 +33,6 @@ extern int *g_rsendBytesByRank; // Number of bytes sent to other ranks by MPI_Rs
 extern int *g_bytesSentToUsByRank; // Number of bytes other ranks sent to us
 extern int *g_recvBytesByRank; // Number of bytes received from other ranks
 #endif
-extern int64_t global_sent_messages, global_recv_messages;
 extern int64_t local_sent_messages, local_recv_messages;
 extern std::unordered_set<MPI_Comm> active_comms;
 extern dmtcp::vector<mpi_message_t*> g_message_queue;
@@ -55,15 +54,12 @@ typedef struct {
   int source;     // user-provided value; may be MPI_ANY_SOURCE
   int tag;        // user-provided value; may be MPI_ANY_TAG
   MPI_Comm comm;  // virtual communicator
-  int count;      // user-provided count (needed for dummy buffer size)
-  MPI_Datatype datatype;  // virtual datatype handle (needed for dummy matching)
 } pending_recv_t;
 
 extern pending_recv_t g_pending_recv;
 
 // Set to true at the start of the pending-Recv dummy-injection phase
-// (after drainInFlightP2p() returns and global_sent ==
-// global_recv has been proven).  Cleared in resetDrainCounters() on
+// (after drainInFlightP2p() returns).  Cleared in resetDrainCounters() on
 // EVENT_RESUME and EVENT_RESTART.
 //
 // INVARIANT while true: no real user-issued p2p messages can arrive at
@@ -91,11 +87,10 @@ extern pending_recv_t g_pending_recv;
 extern volatile bool p2p_dummy_phase;
 
 void initialize_drain_send_recv();
-void registerLocalSendsAndRecvs();
 
 // Drain all in-flight point-to-point messages by completing nonblocking
-// receives and probing for unexpected messages until global_sent ==
-// global_recv.
+// receives and probing for unexpected messages until no sent message
+// remains unreceived.
 void drainInFlightP2p();
 
 // Dispatch dummy MPI_Send messages to unblock any rank that is parked
