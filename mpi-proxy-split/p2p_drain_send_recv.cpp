@@ -241,7 +241,18 @@ drainRemainingP2pMsgs()
           // on the request to complete the communication.
           // Otherwise, the message will be drained to the MANA internal buffer,
           // and then be received out of order, after restart.
-          MPI_Wait(&matched_request, MPI_STATUS_IGNORE);
+          // Don't use the MPI_Wait wrapper: it would free the virtual
+          // request, which the application still holds.  The application's
+          // own MPI_Wait/MPI_Test frees it.
+          int done = 0;
+          MPI_Status recv_status;
+          while (!done) {
+            MPI_Test_internal(&matched_request, &done, &recv_status, false);
+          }
+          local_recv_messages++;
+          update_virt_id((mana_mpi_handle){.request = matched_request},
+                         (mana_mpi_handle){.request = MPI_REQUEST_NULL});
+          clearPendingRequestFromLog(matched_request);
         } else {
           bytesReceived += recvMsgIntoInternalBuffer(status, *comm);
         }
