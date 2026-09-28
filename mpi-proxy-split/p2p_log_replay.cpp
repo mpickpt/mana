@@ -190,6 +190,20 @@ pendingRequestsInPostingOrder()
   return requests;
 }
 
+mpi_req_t
+pendingRequestType(MPI_Request req)
+{
+  mpi_req_t type = UNKNOW_REQUEST;
+  pthread_mutex_lock(&logMutex);
+  dmtcp::map<MPI_Request, mpi_nonblocking_call_t*>::iterator it =
+    g_nonblocking_calls.find(req);
+  if (it != g_nonblocking_calls.end()) {
+    type = it->second->type;
+  }
+  pthread_mutex_unlock(&logMutex);
+  return type;
+}
+
 void
 replayMpiP2pOnRestart()
 {
