@@ -38,20 +38,24 @@ extern int64_t local_sent_messages, local_recv_messages;
 extern std::unordered_set<MPI_Comm> active_comms;
 extern dmtcp::vector<mpi_message_t*> g_message_queue;
 
-// State of a single pending blocking MPI_Recv.
+// State of the single pending blocking MPI_Recv.  MANA does not support
+// MPI_THREAD_MULTIPLE; supporting it would need one slot per thread.
 //
-// MANA does not support MPI_THREAD_MULTIPLE.  Therefore at most one
-// MPI_Recv can be in flight per process at any time, and a single
-// global slot suffices to record its parameters.  If MPI_THREAD_MULTIPLE
-// support is ever added, this slot will need to become per-thread, and
-// the kvdb publish in unblockPendingRecvs() will need to publish a
+// 'state' is changed by the MPI_Recv wrapper and by unblockPendingRecvs()
+// (checkpoint thread, pre-suspend):
+//   IDLE:   no MPI_Recv is in the lower half.
+//   ACTIVE: an MPI_Recv is in, or entering, the lower half; the fields
+//           below describe it.
+//   CLOSED: set by unblockPendingRecvs() or after a dummy.  No MPI_Recv may
+//           enter the lower half until resetDrainCounters() sets IDLE.
+// Both threads leave IDLE by compare-and-swap, so exactly one wins: the
+// MPI_Recv enters the lower half and gets a dummy, or it waits in the upper
+// half until the checkpoint is over.
+enum { PENDING_RECV_IDLE, PENDING_RECV_ACTIVE, PENDING_RECV_CLOSED };
 
-  // It is read by unblockPendingRecvs() running in the DMTCP coordinator
-// thread during pre-suspend.  Declared volatile for cross-thread
-// visibility.
 typedef struct {
-  volatile bool active;
-  // The following fields are valid only when active is true.
+  int state;
+  // The following fields are valid only when state is PENDING_RECV_ACTIVE.
   int source;     // user-provided value; may be MPI_ANY_SOURCE
   int tag;        // user-provided value; may be MPI_ANY_TAG
   MPI_Comm comm;  // virtual communicator
