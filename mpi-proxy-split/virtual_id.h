@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <map>
+#include <vector>
 
 #define MANA_COMM_KIND 1
 #define MANA_GROUP_KIND 2
@@ -122,6 +123,9 @@ void free_desc(void *desc, int kind);
 void free_virt_id(mana_mpi_handle virt_id);
 void update_virt_id(mana_mpi_handle virt_id, mana_mpi_handle real_id);
 size_t virt_id_live_count();
+// Returns the virtual communicators in use, in creation order.  The
+// checkpoint thread may call it while an application thread runs.
+std::vector<MPI_Comm> live_virt_comms();
 
 void reconstruct_descriptors();
 void init_predefined_virt_ids();
