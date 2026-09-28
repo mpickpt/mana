@@ -55,10 +55,15 @@ TESTS_DUMMY=$(addsuffix .mana.exe, ${FILES})
 TESTS=$(addsuffix .exe, ${FILES})
 LDFLAGS_DUMMY=-L$$PWD/../mpi-wrappers -lmpistub
 
+# Benchmarks of MANA's overhead; built with -O2 and not run by 'make check'.
+BENCH_FILES=virtid_bench synthetic_app
+BENCHES=$(addsuffix .exe, ${BENCH_FILES}) \
+        $(addsuffix .mana.exe, ${BENCH_FILES})
+
 default: default_prereqs
 	+ $(MAKE) default_part2
 
-default_part2: ${TESTS} ${TESTS_DUMMY}
+default_part2: ${TESTS} ${TESTS_DUMMY} ${BENCHES}
 
 default_prereqs:
 	@ # The darshan module is used at NERSC.
@@ -154,6 +159,9 @@ check-integrated_dmtcp_text: tidy integrated_dmtcp_test
 %.o: %.c
 	 $(MPICC) -g3 -O0 -c -o $@ $< $(MPI_CFLAGS)
 
+$(addsuffix .o, ${BENCH_FILES}): %.o: %.c
+	 $(MPICC) -g -O2 -c -o $@ $< $(MPI_CFLAGS)
+
 # Allowing fortran argument mismatch in order to allow wave and day1 tests to
 # compile with GNU compiler. Note that this should not affect execution
 # Intel/GNU compilers on Cray Haswell
@@ -181,4 +189,4 @@ tidy:
 	rm -f dmtcp_coordinator_db-*.json
 
 clean: tidy
-	rm -f $(TESTS) ${OBJS} ${TESTS_DUMMY} *.pyc *.so
+	rm -f $(TESTS) ${OBJS} ${TESTS_DUMMY} ${BENCHES} *.pyc *.so

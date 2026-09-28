@@ -17,6 +17,8 @@ TESTS = record-replay-comm-test \
 
 TEST_OBJS=$(addsuffix .o, ${TESTS})
 TEST_BINS=$(addsuffix .exe, ${TESTS})
+# Tests that don't need gtest.
+PLAIN_TEST_BINS=virtual-id-test.exe
 
 # Modify if your DMTCP_ROOT is located elsewhere.
 ifndef DMTCP_ROOT
@@ -43,7 +45,7 @@ TEST_LD_FLAGS=${DMTCP_ROOT}/src/libdmtcpinternal.a \
 DRAIN_TEST_OBJS = drain-send-recv-test.o ../p2p_drain_send_recv.cpp \
                   ../p2p_log_replay.cpp ${DMTCP_ROOT}/src/lookup_service.o
 
-default: ${TEST_BINS}
+default: ${TEST_BINS} ${PLAIN_TEST_BINS}
 
 ../record-replay.o ../drain_send_recv_packets.o:
 	@make -C ..
@@ -58,6 +60,17 @@ default: ${TEST_BINS}
 drain-send-recv-test.exe: ${DRAIN_TEST_OBJS}
 	${MPICXX} -fPIC -g3 -O0 ${CXXFLAGS} -o $@ $^ ${TEST_LD_FLAGS}
 
+# The lower half's predefined constants, for tests that stand in for it.
+lh_constants.inc: ../lower-half/lower-half.cpp
+	sed -n '/lh_info->MANA_GROUP_NULL = /,/lh_info->MANA_ERRORS_RETURN = /p' \
+	  $< > $@
+
+# Built with -O2: 'virtual-id-test.exe --bench' times the table.
+virtual-id-test.exe: virtual-id-test.cpp lh_constants.inc ../virtual_id.cpp \
+                     ../virtual_id.h ../lower-half/switch-context.cpp
+	${MPICXX} ${CXXFLAGS} -O2 -o $@ virtual-id-test.cpp ../virtual_id.cpp \
+	  ../lower-half/switch-context.cpp
+
 .c.o:
 	${MPICC} ${CFLAGS} -g3 -O0 -c -o $@ $<
 
@@ -67,11 +80,11 @@ drain-send-recv-test.exe: ${DRAIN_TEST_OBJS}
 gdb-%: ${TEST_BINS}
 	gdb --args ./record-replay-$*-test.exe
 
-check: ${TEST_BINS}
+check: ${TEST_BINS} ${PLAIN_TEST_BINS}
 	@for x in $^; do ${MPIRUN} -n 1 ./$$x; done
 
 clean: tidy
-	rm -f ${TEST_BINS} ${TEST_OBJS}
+	rm -f ${TEST_BINS} ${PLAIN_TEST_BINS} ${TEST_OBJS} lh_constants.inc
 
 distclean: clean
 

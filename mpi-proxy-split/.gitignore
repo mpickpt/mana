@@ -1,5 +1,6 @@
 test/*.exe
 unit-test/*.exe
+unit-test/lh_constants.inc
 proxy
 mpi-wrappers/*.c*
 mpi-wrappers/*.so*
