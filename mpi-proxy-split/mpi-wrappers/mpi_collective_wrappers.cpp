@@ -92,8 +92,8 @@ int PMPI_Ibcast(void *buffer, int count, MPI_Datatype datatype,
     logRequestInfo(*request, IBCAST_REQUEST);
 #endif
   }
-  commit_finish(comm);
   DMTCP_PLUGIN_ENABLE_CKPT();
+  commit_finish(comm);
   return retval;
 }
 
