@@ -17,8 +17,7 @@ LIBWRAPPER_OBJS = mpi_p2p_wrappers.o mpi_collective_wrappers.o \
                   mpi_cart_wrappers.o mpi_op_wrappers.o \
                   mpi_unimplemented_wrappers.o mpi_fortran_wrappers.o \
                   mpi_wrappers.o get_fortran_constants.o fortran_constants.o \
-                  mpi_win_wrappers.o mpi_file_wrappers.o mpi_error_wrappers.o \
-                  p2p-deterministic.o
+                  mpi_win_wrappers.o mpi_file_wrappers.o mpi_error_wrappers.o
 
 
 # Modify if your MANA_ROOT is located elsewhere.
@@ -58,27 +57,12 @@ mpi_unimplemented_wrappers.cpp: generate-mpi-unimplemented-wrappers.py \
 .c.o:
 	${MPICC} ${CFLAGS} -c -o $@ $<
 
-mana_p2p_update_logs: mana_p2p_update_logs.c
-	${MPICC} ${CFLAGS} -o $@ $<
-
 .cpp.o:
 	${MPICXX} ${CXXFLAGS} -c -o $@ $<
 
 # Make ignores prerequisites on suffix rules, so list header dependencies
 # explicitly.  virtual_id.h defines inline functions (get_real_id()).
 $(filter mpi_%,${LIBWRAPPER_OBJS}): ../virtual_id.h
-
-p2p-deterministic.h: p2p-deterministic.txt p2p-deterministic.py
-	./p2p-deterministic.py $< > $@
-
-p2p-deterministic.o: p2p-deterministic.c p2p-deterministic.h
-	${MPICC} ${CFLAGS} -c -o $@ $<
-
-mpi_p2p_wrappers.o: mpi_p2p_wrappers.cpp p2p-deterministic.h
-	${MPICXX} ${CXXFLAGS} -c -o $@ $<
-
-mpi_request_wrappers.o: mpi_request_wrappers.cpp p2p-deterministic.h
-	${MPICXX} ${CXXFLAGS} -c -o $@ $<
 
 # FIXME:  This assumes 'CFLAGS' is compatible with FORTRAN, since MANA does not
 #         define 'FFLAGS'.  But Fortran doesn't use '-std=gnu11' from CFLAGS.
@@ -146,7 +130,7 @@ tidy:
 	rm -rf ckpt_rank_*
 	rm -f dmtcp_coordinator_db-*.json
 
-install: libmpistub.so mana_p2p_update_logs
+install: libmpistub.so
 	cp -f libmpistub.so ${MANA_ROOT}/lib/dmtcp/
 	cd ${MANA_ROOT}/lib/dmtcp && \
 		ln -sf libmpistub.so libmpich_intel.so.3.0.1 && \
@@ -156,14 +140,12 @@ install: libmpistub.so mana_p2p_update_logs
 	cd ${MANA_ROOT}/lib/dmtcp && \
 		ln -sf libmpistub.so libpmi.so.0.5.0 && \
 		ln -sf libpmi.so.0.5.0 libpmi.so.0
-	cp -f mana_p2p_update_logs ${MANA_ROOT}/bin/
 
 clean: tidy
 	rm -f ${LIBWRAPPER_OBJS}
 	rm -f ${LIBNAME}.a libmpistub.so
 	rm -f ${MANA_ROOT}/lib/dmtcp/libmpistub.so
 	rm -f mpi_stub_wrappers.c
-	rm -f p2p-deterministic.h
 	rm -f mpi_unimplemented_wrappers.cpp
 	rm -f mpi_fortran_wrappers.cpp
 	rm -f libmpich_intel.so.3.0.1 libmpich_intel.so.3
