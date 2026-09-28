@@ -24,6 +24,7 @@
 #include <sys/stat.h>
 #include <mpi.h>
 #include <pthread.h>
+#include <algorithm>
 #include <map>
 #include <unordered_map>
 #include <execinfo.h>
@@ -47,6 +48,8 @@ int g_world_rank = -1; // Global rank of the current process
 int g_world_size = -1; // Total number of ranks in the current computation
 // Mutex protecting g_nonblocking_calls
 static pthread_mutex_t logMutex = PTHREAD_MUTEX_INITIALIZER;
+// Posting order of the calls in g_nonblocking_calls
+static uint64_t nextPendingSeq = 0;
 
 void
 getLocalRankInfo()
@@ -150,6 +153,7 @@ addPendingRequestToLog(mpi_req_t req, const void* sbuf, void* rbuf, int cnt,
   call->tag = tag;
   call->comm = comm;
   pthread_mutex_lock(&logMutex);
+  call->seq = ++nextPendingSeq;
   g_nonblocking_calls[rq] = call;
   pthread_mutex_unlock(&logMutex);
 }
@@ -168,6 +172,24 @@ clearPendingRequestFromLog(MPI_Request req)
   pthread_mutex_unlock(&logMutex);
 }
 
+std::vector<MPI_Request>
+pendingRequestsInPostingOrder()
+{
+  std::vector<std::pair<uint64_t, MPI_Request> > calls;
+  pthread_mutex_lock(&logMutex);
+  for (std::pair<MPI_Request, mpi_nonblocking_call_t*> it :
+       g_nonblocking_calls) {
+    calls.push_back(std::make_pair(it.second->seq, it.first));
+  }
+  pthread_mutex_unlock(&logMutex);
+  std::sort(calls.begin(), calls.end());
+  std::vector<MPI_Request> requests;
+  for (std::pair<uint64_t, MPI_Request> call : calls) {
+    requests.push_back(call.second);
+  }
+  return requests;
+}
+
 void
 replayMpiP2pOnRestart()
 {
@@ -175,11 +197,11 @@ replayMpiP2pOnRestart()
   mpi_nonblocking_call_t *call = NULL;
   JTRACE("Replaying unserviced isend/irecv calls");
 
-  for (std::pair<MPI_Request, mpi_nonblocking_call_t*> it :
-       g_nonblocking_calls) {
+  // Re-post the receives in the order they were posted.
+  for (MPI_Request pending : pendingRequestsInPostingOrder()) {
     int retval = 0;
-    request = it.first;
-    call = it.second;
+    request = pending;
+    call = g_nonblocking_calls[request];
     MPI_Comm realComm = get_real_id((mana_mpi_handle){.comm = call->comm}).comm;
     MPI_Datatype realType = get_real_id((mana_mpi_handle){.datatype = call->datatype}).datatype;
     MPI_Request realRequest;
