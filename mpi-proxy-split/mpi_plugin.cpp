@@ -43,6 +43,7 @@
 #include "mana_header.h"
 #include "mpi_plugin.h"
 #include "lower-half-api.h"
+#include "lower_half_ckpt.h"
 #include "p2p_log_replay.h"
 #include "p2p_drain_send_recv.h"
 #include "record-replay.h"
@@ -806,6 +807,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       initialize_signal_handlers();
       initialize_segv_handler();
       seq_num_init();
+      init_lower_half_ckpt();
       mana_state = RUNNING;
 
       DmtcpMutexInit(&g_upper_half_fsbase_lock, DMTCP_MUTEX_LLL);
@@ -876,6 +878,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 
     case DMTCP_EVENT_PTHREAD_RETURN:
     case DMTCP_EVENT_PTHREAD_EXIT: {
+      unregister_lower_half_thread();
       // Do we need a mutex here?
       DmtcpMutexLock(&g_upper_half_fsbase_lock);
       pid_t real_tid = dmtcp_get_real_tid();
@@ -894,12 +897,17 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       mana_state = CKPT_P2P;
       drainP2p(); // p2p_drain_send_recv.cpp
       openCkptFileFds();
+      // No thread may be in the lower half when DMTCP suspends the threads.
+      wait_for_threads_to_leave_lower_half();  // lower_half_ckpt.cpp
       printEventToStderr("EVENT_PRESUSPEND (done)");
       break;
     }
 
     case DMTCP_EVENT_PRECHECKPOINT: {
       printEventToStderr("EVENT_PRECHECKPOINT (drain send/recv)");
+      // The threads are suspended now; let them back into the lower half
+      // when they resume.
+      allow_threads_to_enter_lower_half();
       // dmtcp_skip_memory_region_ckpting() saves only the regions in
       // uh_mmaps and refetches it when empty.  A stale list would miss the
       // regions mapped since the last checkpoint.

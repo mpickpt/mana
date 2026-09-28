@@ -23,6 +23,7 @@
 #include "dmtcp.h"
 #include "util.h"
 #include "jassert.h"
+#include "lower_half_ckpt.h"
 #include "jfilesystem.h"
 #include "protectedfds.h"
 
@@ -61,13 +62,13 @@ int PMPI_Bcast(void *buffer, int count, MPI_Datatype datatype,
 {
   commit_begin(comm);
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_Comm real_comm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   MPI_Datatype real_datatype = get_real_id((mana_mpi_handle){.datatype = datatype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Bcast)(buffer, count, real_datatype, root, real_comm);
   RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   commit_finish(comm);
   return retval;
 }
@@ -78,7 +79,7 @@ int PMPI_Ibcast(void *buffer, int count, MPI_Datatype datatype,
 {
   int retval;
   commit_begin(comm);
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_Comm real_comm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   MPI_Datatype real_datatype = get_real_id((mana_mpi_handle){.datatype = datatype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
@@ -92,7 +93,7 @@ int PMPI_Ibcast(void *buffer, int count, MPI_Datatype datatype,
     logRequestInfo(*request, IBCAST_REQUEST);
 #endif
   }
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   commit_finish(comm);
   return retval;
 }
@@ -102,12 +103,12 @@ int PMPI_Barrier(MPI_Comm comm)
 {
   commit_begin(comm);
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_Comm real_comm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Barrier)(real_comm);
   RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   commit_finish(comm);
   return retval;
 }
@@ -116,7 +117,7 @@ int PMPI_Barrier(MPI_Comm comm)
 int PMPI_Ibarrier(MPI_Comm comm, MPI_Request *request)
 {
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_Comm real_comm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Ibarrier)(real_comm, request);
@@ -128,7 +129,7 @@ int PMPI_Ibarrier(MPI_Comm comm, MPI_Request *request)
     logRequestInfo(*request, IBARRIER_REQUEST);
 #endif
   }
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
 
@@ -139,7 +140,7 @@ int PMPI_Allreduce(const void * sendbuf, void * recvbuf,
 {
   commit_begin(comm);
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   get_fortran_constants();
   MPI_Comm real_comm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   MPI_Datatype real_datatype =
@@ -153,7 +154,7 @@ int PMPI_Allreduce(const void * sendbuf, void * recvbuf,
   retval = NEXT_FUNC(Allreduce)(sendbuf, recvbuf, count, real_datatype,
                                 real_op, real_comm);
   RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   commit_finish(comm);
   return retval;
 }
@@ -164,7 +165,7 @@ int PMPI_Reduce(const void *sendbuf, void *recvbuf, int count,
 {
   commit_begin(comm);
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_Comm real_comm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   MPI_Datatype real_datatype = get_real_id((mana_mpi_handle){.datatype = datatype}).datatype;
   MPI_Op real_op = get_real_id((mana_mpi_handle){.op = op}).op;
@@ -176,7 +177,7 @@ int PMPI_Reduce(const void *sendbuf, void *recvbuf, int count,
   retval = NEXT_FUNC(Reduce)(sendbuf, recvbuf, count,
                              real_datatype, real_op, root, real_comm);
   RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   commit_finish(comm);
   return retval;
 }
@@ -187,7 +188,7 @@ int PMPI_Ireduce(const void *sendbuf, void *recvbuf, int count,
                 int root, MPI_Comm comm, MPI_Request *request)
 {
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_Comm real_comm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   MPI_Datatype real_datatype = get_real_id((mana_mpi_handle){.datatype = datatype}).datatype;
   MPI_Op real_op = get_real_id((mana_mpi_handle){.op = op}).op;
@@ -206,7 +207,7 @@ int PMPI_Ireduce(const void *sendbuf, void *recvbuf, int count,
     logRequestInfo(*request, IREDUCE_REQUEST);
 #endif
   }
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
 
@@ -217,7 +218,7 @@ int PMPI_Reduce_scatter(const void *sendbuf, void *recvbuf,
 {
   commit_begin(comm);
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_Comm real_comm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   MPI_Datatype real_datatype = get_real_id((mana_mpi_handle){.datatype = datatype}).datatype;
   MPI_Op real_op = get_real_id((mana_mpi_handle){.op = op}).op;
@@ -229,7 +230,7 @@ int PMPI_Reduce_scatter(const void *sendbuf, void *recvbuf,
   retval = NEXT_FUNC(Reduce_scatter)(sendbuf, recvbuf, recvcounts,
                                      real_datatype, real_op, real_comm);
   RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   commit_finish(comm);
   return retval;
 }
@@ -249,7 +250,7 @@ MPI_Alltoall_internal(const void *sendbuf, int sendcount,
                       MPI_Datatype recvtype, MPI_Comm comm)
 {
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_Comm real_comm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   MPI_Datatype realSendType = get_real_id((mana_mpi_handle){.datatype = sendtype}).datatype;
   MPI_Datatype realRecvType = get_real_id((mana_mpi_handle){.datatype = recvtype}).datatype;
@@ -261,7 +262,7 @@ MPI_Alltoall_internal(const void *sendbuf, int sendcount,
   retval = NEXT_FUNC(Alltoall)(sendbuf, sendcount, realSendType, recvbuf,
       recvcount, realRecvType, real_comm);
   RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
 #else
@@ -288,7 +289,7 @@ MPI_Alltoall_internal(const void *sendbuf, int sendcount,
   MPI_Aint rlb, slb, recvtype_extent,sendtype_extent;
   MPI_Type_get_extent(sendtype, &slb, &sendtype_extent);
   MPI_Type_get_extent(recvtype, &rlb, &recvtype_extent);
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_Comm real_comm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   MPI_Datatype realSendType = get_real_id((mana_mpi_handle){.datatype = sendtype}).datatype;
   MPI_Datatype realRecvType = get_real_id((mana_mpi_handle){.datatype = recvtype}).datatype;
@@ -332,7 +333,7 @@ MPI_Alltoall_internal(const void *sendbuf, int sendcount,
   free(reqarray);
   free(starray);
   RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
 #endif
@@ -365,7 +366,7 @@ int PMPI_Alltoallv(const void *sendbuf, const int *sendcounts,
   if (sendbuf == FORTRAN_MPI_IN_PLACE) {
     sendbuf = MPI_IN_PLACE;
   }
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_Comm real_comm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   MPI_Datatype realSendType = get_real_id((mana_mpi_handle){.datatype = sendtype}).datatype;
   MPI_Datatype realRecvType = get_real_id((mana_mpi_handle){.datatype = recvtype}).datatype;
@@ -374,7 +375,7 @@ int PMPI_Alltoallv(const void *sendbuf, const int *sendcounts,
                                 recvbuf, recvcounts, rdispls, realRecvType,
                                 real_comm);
   RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   commit_finish(comm);
   return retval;
 }
@@ -390,7 +391,7 @@ int PMPI_Gather(const void *sendbuf, int sendcount,
   if (sendbuf == FORTRAN_MPI_IN_PLACE) {
     sendbuf = MPI_IN_PLACE;
   }
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_Comm real_comm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   MPI_Datatype realSendType = get_real_id((mana_mpi_handle){.datatype = sendtype}).datatype;
   MPI_Datatype realRecvType = get_real_id((mana_mpi_handle){.datatype = recvtype}).datatype;
@@ -403,7 +404,7 @@ int PMPI_Gather(const void *sendbuf, int sendcount,
                              recvbuf, recvcount, realRecvType,
                              root, real_comm);
   RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   commit_finish(comm);
   return retval;
 }
@@ -420,7 +421,7 @@ int PMPI_Gatherv(const void *sendbuf, int sendcount,
   if (sendbuf == FORTRAN_MPI_IN_PLACE) {
     sendbuf = MPI_IN_PLACE;
   }
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_Comm real_comm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   MPI_Datatype realSendType = get_real_id((mana_mpi_handle){.datatype = sendtype}).datatype;
   MPI_Datatype realRecvType = get_real_id((mana_mpi_handle){.datatype = recvtype}).datatype;
@@ -429,7 +430,7 @@ int PMPI_Gatherv(const void *sendbuf, int sendcount,
                               recvbuf, recvcounts, displs, realRecvType,
                               root, real_comm);
   RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   commit_finish(comm);
   return retval;
 }
@@ -445,7 +446,7 @@ int PMPI_Scatter(const void *sendbuf, int sendcount,
   if (recvbuf == FORTRAN_MPI_IN_PLACE) {
     recvbuf = MPI_IN_PLACE;
   }
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_Comm real_comm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   MPI_Datatype realSendType = get_real_id((mana_mpi_handle){.datatype = sendtype}).datatype;
   MPI_Datatype realRecvType = get_real_id((mana_mpi_handle){.datatype = recvtype}).datatype;
@@ -454,7 +455,7 @@ int PMPI_Scatter(const void *sendbuf, int sendcount,
                               recvbuf, recvcount, realRecvType,
                               root, real_comm);
   RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   commit_finish(comm);
   return retval;
 }
@@ -471,7 +472,7 @@ int PMPI_Scatterv(const void *sendbuf,
   if (recvbuf == FORTRAN_MPI_IN_PLACE) {
     recvbuf = MPI_IN_PLACE;
   }
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_Comm real_comm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   MPI_Datatype realSendType = get_real_id((mana_mpi_handle){.datatype = sendtype}).datatype;
   MPI_Datatype realRecvType = get_real_id((mana_mpi_handle){.datatype = recvtype}).datatype;
@@ -480,7 +481,7 @@ int PMPI_Scatterv(const void *sendbuf,
                                recvbuf, recvcount, realRecvType,
                                root, real_comm);
   RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   commit_finish(comm);
   return retval;
 }
@@ -496,7 +497,7 @@ int PMPI_Allgather(const void *sendbuf, int sendcount,
   if (sendbuf == FORTRAN_MPI_IN_PLACE) {
     sendbuf = MPI_IN_PLACE;
   }
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_Comm real_comm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   MPI_Datatype realSendType = get_real_id((mana_mpi_handle){.datatype = sendtype}).datatype;
   MPI_Datatype realRecvType = get_real_id((mana_mpi_handle){.datatype = recvtype}).datatype;
@@ -505,7 +506,7 @@ int PMPI_Allgather(const void *sendbuf, int sendcount,
                                 recvbuf, recvcount, realRecvType,
                                 real_comm);
   RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   commit_finish(comm);
   return retval;
 }
@@ -522,7 +523,7 @@ int PMPI_Allgatherv(const void *sendbuf, int sendcount,
   if (sendbuf == FORTRAN_MPI_IN_PLACE) {
     sendbuf = MPI_IN_PLACE;
   }
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_Comm real_comm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   MPI_Datatype realSendType = get_real_id((mana_mpi_handle){.datatype = sendtype}).datatype;
   MPI_Datatype realRecvType = get_real_id((mana_mpi_handle){.datatype = recvtype}).datatype;
@@ -531,7 +532,7 @@ int PMPI_Allgatherv(const void *sendbuf, int sendcount,
                                  recvbuf, recvcounts, displs, realRecvType,
                                  real_comm);
   RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   commit_finish(comm);
   return retval;
 }
@@ -543,7 +544,7 @@ int PMPI_Scan(const void *sendbuf, void *recvbuf,
 {
   commit_begin(comm);
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_Comm real_comm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   MPI_Datatype real_datatype = get_real_id((mana_mpi_handle){.datatype = datatype}).datatype;
   // FIXME: Ideally, check FORTRAN_MPI_IN_PLACE only in the Fortran wrapper.
@@ -555,7 +556,7 @@ int PMPI_Scan(const void *sendbuf, void *recvbuf,
   retval = NEXT_FUNC(Scan)(sendbuf, recvbuf, count,
                            real_datatype, real_op, real_comm);
   RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   commit_finish(comm);
   return retval;
 }
@@ -567,7 +568,7 @@ int PMPI_Comm_split(MPI_Comm comm, int color, int key, MPI_Comm *newcomm)
 {
   commit_begin(comm);
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_Comm real_comm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Comm_split)(real_comm, color, key, newcomm);
@@ -579,7 +580,7 @@ int PMPI_Comm_split(MPI_Comm comm, int color, int key, MPI_Comm *newcomm)
       *newcomm = new_virt_comm(*newcomm);
     }
   }
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   commit_finish(comm);
   return retval;
 }
@@ -589,7 +590,7 @@ int PMPI_Comm_dup(MPI_Comm comm, MPI_Comm *newcomm)
 {
   commit_begin(comm);
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_Comm real_comm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Comm_dup)(real_comm, newcomm);
@@ -601,7 +602,7 @@ int PMPI_Comm_dup(MPI_Comm comm, MPI_Comm *newcomm)
       *newcomm = new_virt_comm(*newcomm);
     }
   }
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   commit_finish(comm);
   return retval;
 }

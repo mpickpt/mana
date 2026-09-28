@@ -31,7 +31,8 @@ LH_SRCDIR=lower-half
 # As you add new files to your plugin library, add the object file names here.
 
 LIBOBJS = uh_wrappers.o mpi_plugin.o p2p_drain_send_recv.o p2p_log_replay.o \
-          record-replay.o seq_num.o virtual_id.o lower-half/switch-context.o \
+          record-replay.o seq_num.o virtual_id.o lower_half_ckpt.o \
+          lower-half/switch-context.o \
 
 #MANA_COORD_OBJS = mana_coordinator.o
 
@@ -76,9 +77,9 @@ mpi_unimplemented_wrappers.cpp: generate-mpi-unimplemented-wrappers.py \
 	${MPICXX} ${CXXFLAGS} -c -o $@ $<
 
 # Make ignores prerequisites on suffix rules, so list header dependencies
-# explicitly.  virtual_id.h defines inline functions (get_real_id()), and
-# record-replay.h defines the MpiRecordReplay class inline.
-$(filter-out lower-half/%,${LIBOBJS}): virtual_id.h record-replay.h
+# here: the headers that define inline code.
+$(filter-out lower-half/%,${LIBOBJS}): virtual_id.h record-replay.h \
+                                       lower_half_ckpt.h
 
 ${LOWER_HALF_SRCDIR}/procmapsutils.o: ${LOWER_HALF_SRCDIR}/procmapsutils.c
 	@make -C ${LOWER_HALF_SRCDIR} procmapsutils.o
