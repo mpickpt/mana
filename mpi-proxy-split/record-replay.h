@@ -62,9 +62,6 @@
 #define CLEAR_COMM_LOGS(comm) \
   dmtcp_mpi::MpiRecordReplay::instance().clearCommLogs(comm)
 
-#define LOG_REMOVE_REQUEST(request) \
-  dmtcp_mpi::MpiRecordReplay::instance().removeRequestLog(request)
-
 // Returns true if we are currently replaying the MPI calls from the saved MPI
 // calls log; false, otherwise. Normally, this would be true while restoring
 // the MPI state at restart time. All other times, this would return false.
@@ -502,17 +499,6 @@ namespace dmtcp_mpi
         _records.clear();
       }
 
-      void removeRequestLog(MPI_Request request)
-      {
-        lock_t lock(_mutex);
-	auto iter = _recordsMap.find(request);
-	if (iter == _recordsMap.end()) {
-          return;
-	} else {
-	  iter->second = 1; // finished
-	}
-      }
-
       // Returns true if we are currently replaying the MPI calls
       bool isReplayOn()
       {
@@ -565,7 +551,6 @@ namespace dmtcp_mpi
 
       // Virtual Ids Table
       dmtcp::vector<MpiRecord*> _records;
-      std::unordered_map<MPI_Request, int> _recordsMap; //map<key=request, val=is_the_request_complete>
       std::unordered_map<MPI_Datatype, int> _datatypeMap; //map<key=datatype, val=ref_cnt_from_creating_newtype>
       // True on restart, false otherwise
       bool _replayOn;
