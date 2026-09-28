@@ -262,6 +262,30 @@ drainRemainingP2pMsgs()
   return bytesReceived;
 }
 
+// Once every message that was sent has been received, an MPI_Isend that
+// the application hasn't waited for yet is complete, but its request is
+// still in g_nonblocking_calls, and restart can't replay a send (see
+// replayMpiP2pOnRestart()).  Complete such requests the way
+// completePendingP2pRequests() does: the application's MPI_Wait/MPI_Test
+// then sees the real request MPI_REQUEST_NULL.
+static void
+completePendingIsends()
+{
+  for (MPI_Request request : pendingRequestsInPostingOrder()) {
+    if (pendingRequestType(request) != ISEND_REQUEST) {
+      continue;
+    }
+    int flag = 0;
+    MPI_Status status;
+    while (!flag) {
+      MPI_Test_internal(&request, &flag, &status, false);
+    }
+    update_virt_id((mana_mpi_handle){.request = request},
+                   (mana_mpi_handle){.request = MPI_REQUEST_NULL});
+    clearPendingRequestFromLog(request);
+  }
+}
+
 void
 drainInFlightP2p()
 {
@@ -274,6 +298,7 @@ drainInFlightP2p()
     // Update global recv coutner.
     registerLocalSendsAndRecvs();
   }
+  completePendingIsends();
 }
 
 // FIXME: existsMatchingMsgBuffer and consumeMatchingMsgBuffer both search

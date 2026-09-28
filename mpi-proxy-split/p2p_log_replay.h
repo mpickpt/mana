@@ -112,6 +112,10 @@ extern void clearPendingRequestFromLog(MPI_Request req);
 // must follow it; the order of the (reused) virtual request handles doesn't.
 extern std::vector<MPI_Request> pendingRequestsInPostingOrder();
 
+// Returns the type of a request in the global map, or UNKNOW_REQUEST if the
+// request is not (or no longer) there.
+extern mpi_req_t pendingRequestType(MPI_Request req);
+
 // Log the creation or update of a virtual request
 extern void logRequestInfo(MPI_Request request, mpi_req_t req_type);
 
