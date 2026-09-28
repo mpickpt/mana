@@ -60,6 +60,12 @@ typedef struct {
   int size;
   int rank;
   int *global_ranks;
+  // The Collective Clock's state of this communicator (see seq_num.cpp):
+  // the global id of its group, and the group's entries in seq_num and
+  // target, which all communicators of the same group share.
+  unsigned int ggid;
+  unsigned long *seq_num;
+  unsigned long *target;
 } mana_comm_desc;
 
 typedef struct {

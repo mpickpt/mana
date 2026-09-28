@@ -132,6 +132,10 @@ MPI_Comm new_virt_comm(MPI_Comm real_comm) {
                                     desc->size);
   seq_num[ggid] = 0;
   target[ggid] = 0;
+  // The maps never erase entries, so these pointers stay valid.
+  desc->ggid = ggid;
+  desc->seq_num = &seq_num[ggid];
+  desc->target = &target[ggid];
   mana_mpi_handle virt_id;
   virt_id = add_virt_id((mana_mpi_handle){.comm = real_comm}, desc, MANA_COMM_KIND);
   ggid_table[virt_id.comm] = ggid;
