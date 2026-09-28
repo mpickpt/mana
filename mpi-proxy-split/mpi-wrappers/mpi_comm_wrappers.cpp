@@ -30,6 +30,7 @@
 #include "dmtcp.h"
 #include "util.h"
 #include "jassert.h"
+#include "lower_half_ckpt.h"
 #include "jfilesystem.h"
 #include "protectedfds.h"
 
@@ -97,12 +98,12 @@ extern "C" {
 int PMPI_Comm_size(MPI_Comm comm, int *size)
 {
   int retval = MPI_SUCCESS;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_Comm real_comm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Comm_size)(real_comm, size);
   RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
 
@@ -110,12 +111,12 @@ int PMPI_Comm_size(MPI_Comm comm, int *size)
 int PMPI_Comm_rank(MPI_Comm comm, int *rank)
 {
   int retval = MPI_SUCCESS;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_Comm real_comm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Comm_rank)(real_comm, rank);
   RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
 
@@ -124,7 +125,7 @@ int PMPI_Comm_create(MPI_Comm comm, MPI_Group group, MPI_Comm *newcomm)
 {
   int retval;
   commit_begin(comm);
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_Comm real_comm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   MPI_Group real_group = get_real_id((mana_mpi_handle){.group = group}).group;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
@@ -137,7 +138,7 @@ int PMPI_Comm_create(MPI_Comm comm, MPI_Group group, MPI_Comm *newcomm)
       *newcomm = new_virt_comm(*newcomm);
     }
   }
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   commit_finish(comm);
   return retval;
 }
@@ -146,12 +147,12 @@ int PMPI_Comm_create(MPI_Comm comm, MPI_Group group, MPI_Comm *newcomm)
 int PMPI_Abort(MPI_Comm comm, int errorcode)
 {
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_Comm real_comm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Abort)(real_comm, errorcode);
   RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
 
@@ -159,13 +160,13 @@ int PMPI_Abort(MPI_Comm comm, int errorcode)
 int PMPI_Comm_compare(MPI_Comm comm1, MPI_Comm comm2, int *result)
 {
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_Comm real_comm1 = get_real_id((mana_mpi_handle){.comm = comm1}).comm;
   MPI_Comm real_comm2 = get_real_id((mana_mpi_handle){.comm = comm2}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Comm_compare)(real_comm1, real_comm2, result);
   RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
 
@@ -202,12 +203,12 @@ int PMPI_Comm_free(MPI_Comm *comm)
       attributeMap->erase(*comm);
     }
   }
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   int retval = MPI_Comm_free_internal(comm);
   if (retval == MPI_SUCCESS) {
     free_virt_id((mana_mpi_handle){.comm = *comm});
   }
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
 
@@ -308,12 +309,12 @@ int PMPI_Comm_delete_attr(MPI_Comm comm, int comm_keyval)
 int PMPI_Comm_set_errhandler(MPI_Comm comm, MPI_Errhandler errhandler)
 {
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_Comm real_comm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Comm_set_errhandler)(real_comm, errhandler);
   RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
 
@@ -321,12 +322,12 @@ int PMPI_Comm_set_errhandler(MPI_Comm comm, MPI_Errhandler errhandler)
 int PMPI_Topo_test(MPI_Comm comm, int *status)
 {
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_Comm real_comm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Topo_test)(real_comm, status);
   RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
 
@@ -335,7 +336,7 @@ int PMPI_Comm_split_type(MPI_Comm comm, int split_type,
                         int key, MPI_Info inf, MPI_Comm *newcomm)
 {
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_Comm real_comm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Comm_split_type)(real_comm, split_type, key, inf, newcomm);
@@ -347,7 +348,7 @@ int PMPI_Comm_split_type(MPI_Comm comm, int split_type,
       *newcomm = new_virt_comm(*newcomm);
     }
   }
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
 
@@ -358,12 +359,12 @@ int PMPI_Attr_get(MPI_Comm comm, int keyval,
   JWARNING(false).Text(
     "Use of MPI_Attr_get is deprecated - use MPI_Comm_get_attr instead");
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_Comm real_comm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Attr_get)(real_comm, keyval, attribute_val, flag);
   RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
 
@@ -374,12 +375,12 @@ int PMPI_Attr_delete(MPI_Comm comm, int keyval)
   JWARNING(false).Text(
     "Use of MPI_Attr_delete is deprecated - use MPI_Comm_delete_attr instead");
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_Comm real_comm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Attr_delete)(real_comm, keyval);
   RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
 
@@ -389,12 +390,12 @@ int PMPI_Attr_put(MPI_Comm comm, int keyval, void *attribute_val)
   JWARNING(false).Text(
     "Use of MPI_Attr_put is deprecated - use MPI_Comm_set_attr instead");
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_Comm real_comm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Attr_put)(real_comm, keyval, attribute_val);
   RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
 
@@ -449,13 +450,13 @@ int MPI_Comm_create_group_internal(MPI_Comm comm, MPI_Group group, int tag,
                                    MPI_Comm *newcomm)
 {
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_Comm real_comm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   MPI_Group real_group = get_real_id((mana_mpi_handle){.group = group}).group;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Comm_create_group)(real_comm, real_group, tag, newcomm);
   RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
 

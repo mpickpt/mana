@@ -61,9 +61,11 @@ mpi_unimplemented_wrappers.cpp: generate-mpi-unimplemented-wrappers.py \
 	${MPICXX} ${CXXFLAGS} -c -o $@ $<
 
 # Make ignores prerequisites on suffix rules, so list header dependencies
-# explicitly.  virtual_id.h defines inline functions (get_real_id()), and
-# record-replay.h defines the MpiRecordReplay class inline.
-$(filter mpi_%,${LIBWRAPPER_OBJS}): ../virtual_id.h ../record-replay.h
+# explicitly.  virtual_id.h and lower_half_ckpt.h define inline functions
+# (get_real_id(), LOWER_HALF_DISABLE_CKPT()), and record-replay.h defines
+# the MpiRecordReplay class inline.
+$(filter mpi_%,${LIBWRAPPER_OBJS}): ../virtual_id.h ../record-replay.h \
+                                    ../lower_half_ckpt.h
 
 # FIXME:  This assumes 'CFLAGS' is compatible with FORTRAN, since MANA does not
 #         define 'FFLAGS'.  But Fortran doesn't use '-std=gnu11' from CFLAGS.

@@ -24,6 +24,7 @@
 #include "dmtcp.h"
 #include "util.h"
 #include "jassert.h"
+#include "lower_half_ckpt.h"
 #include "jfilesystem.h"
 #include "protectedfds.h"
 #include "mpi_nextfunc.h"
@@ -38,7 +39,7 @@ extern "C" {
 int PMPI_Op_create(MPI_User_function *user_fn, int commute, MPI_Op *op)
 {
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Op_create)(user_fn, commute, op);
   RETURN_TO_UPPER_HALF();
@@ -48,7 +49,7 @@ int PMPI_Op_create(MPI_User_function *user_fn, int commute, MPI_Op *op)
     op_desc->user_fn = user_fn;
     op_desc->commute = commute;
   }
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
 
@@ -56,7 +57,7 @@ int PMPI_Op_create(MPI_User_function *user_fn, int commute, MPI_Op *op)
 int PMPI_Op_free(MPI_Op *op)
 {
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_Op real_op = MPI_OP_NULL;
   if (op) {
     real_op = get_real_id((mana_mpi_handle){.op = *op}).op;
@@ -67,7 +68,7 @@ int PMPI_Op_free(MPI_Op *op)
   if (retval == MPI_SUCCESS) {
     free_virt_id((mana_mpi_handle){.op = *op});
   }
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
 
@@ -76,14 +77,14 @@ int PMPI_Reduce_local(const void *inbuf, void *inoutbuf, int count,
                      MPI_Datatype datatype, MPI_Op op)
 {
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_Datatype real_datatype = get_real_id((mana_mpi_handle){.datatype = datatype}).datatype;
   MPI_Op real_op = get_real_id((mana_mpi_handle){.op = op}).op;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Reduce_local)(inbuf, inoutbuf, count, real_datatype, real_op);
   RETURN_TO_UPPER_HALF();
   // This is non-blocking.  No need to log it.
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
 
