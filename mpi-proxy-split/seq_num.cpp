@@ -319,10 +319,18 @@ drain_mpi_collective()
 // the checkpoint image, whose lower half is discarded at restart, and none is
 // replayed.  The request is kept and maps to MPI_REQUEST_NULL: the
 // application's MPI_Wait/MPI_Test on it completes at once.
+//
+// A rank that finishes here early leaves no peer behind: a request completes
+// only once this rank's part of the collective (its sends and receives) is
+// done, and after that no peer needs this rank to call MPI again.
 void
 complete_pending_nonblocking_collectives()
 {
   for (MPI_Request request : pending_collective_requests()) {
+    // The application may be testing it too (see claim_request()).
+    if (!claim_request_for_checkpoint(request)) {
+      continue;  // The application has completed it.
+    }
     int flag = 0;
     MPI_Status status;
     while (!flag) {
@@ -330,5 +338,6 @@ complete_pending_nonblocking_collectives()
     }
     update_virt_id((mana_mpi_handle){.request = request},
                    (mana_mpi_handle){.request = MPI_REQUEST_NULL});
+    release_request(request);
   }
 }

@@ -1,3 +1,4 @@
+#include <sched.h>
 #include <mpi.h>
 #include <algorithm>
 #include <vector>
@@ -572,6 +573,7 @@ mana_mpi_handle add_virt_id(mana_mpi_handle real_id, void *desc, int kind) {
   entry->seq = ++virt_id_next_seq;
   entry->call.type = UNKNOW_REQUEST;
   entry->collective = false;
+  entry->claim = REQUEST_UNCLAIMED;
   // Publish the handle last; see virtual_id.h.
   __atomic_store_n(&entry->virt, handle, __ATOMIC_RELEASE);
   virt_id_live++;
@@ -728,4 +730,27 @@ std::vector<MPI_Request> pending_collective_requests() {
     result.push_back(request.second);
   }
   return result;
+}
+
+bool claim_request_for_checkpoint(MPI_Request request) {
+  while (true) {
+    virt_id_entry *entry =
+      lookup_virt_id_entry((mana_mpi_handle){.request = request});
+    if (entry == NULL) {
+      return false;  // Completed and freed by the application.
+    }
+    int unclaimed = REQUEST_UNCLAIMED;
+    if (__atomic_compare_exchange_n(&entry->claim, &unclaimed,
+                                    REQUEST_CLAIMED_BY_CHECKPOINT, false,
+                                    __ATOMIC_ACQUIRE, __ATOMIC_RELAXED)) {
+      // The application may have freed the request since the lookup, and
+      // a new request may use the slot.
+      if (__atomic_load_n(&entry->virt, __ATOMIC_ACQUIRE) == (int)request) {
+        return true;
+      }
+      __atomic_store_n(&entry->claim, REQUEST_UNCLAIMED, __ATOMIC_RELEASE);
+      return false;
+    }
+    sched_yield();  // The application is testing it.
+  }
 }

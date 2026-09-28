@@ -21,6 +21,7 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include <sched.h>
 #include "config.h"
 #include "dmtcp.h"
 #include "util.h"
@@ -67,6 +68,12 @@ int PMPI_Test(MPI_Request* request, int* flag, MPI_Status* status)
     return MPI_SUCCESS;
   }
   LOWER_HALF_DISABLE_CKPT();
+  if (!claim_request(*request)) {
+    // The checkpoint thread is completing it (see claim_request()).
+    *flag = 0;
+    LOWER_HALF_ENABLE_CKPT();
+    return MPI_SUCCESS;
+  }
   MPI_Status statusBuffer;
   MPI_Status *statusPtr = status;
   if (statusPtr == MPI_STATUS_IGNORE ||
@@ -113,6 +120,8 @@ int PMPI_Test(MPI_Request* request, int* flag, MPI_Status* status)
     clearPendingRequestFromLog(*request);
     free_virt_id((mana_mpi_handle){.request = *request});
     *request = MPI_REQUEST_NULL;
+  } else {
+    release_request(*request);
   }
   LOWER_HALF_ENABLE_CKPT();
   return retval;
@@ -269,9 +278,15 @@ int PMPI_Waitany(int count, MPI_Request *array_of_requests,
       }
       all_null = false;
       LOWER_HALF_DISABLE_CKPT();
+      if (!claim_request(local_array_of_requests[i])) {
+        // The checkpoint thread is completing it (see claim_request()).
+        LOWER_HALF_ENABLE_CKPT();
+        continue;
+      }
       retval = MPI_Test_internal(&local_array_of_requests[i], &flag,
                                  local_status, false);
       if (retval != MPI_SUCCESS) {
+        release_request(local_array_of_requests[i]);
         LOWER_HALF_ENABLE_CKPT();
         return retval;
       }
@@ -303,6 +318,8 @@ int PMPI_Waitany(int count, MPI_Request *array_of_requests,
           clearPendingRequestFromLog(local_array_of_requests[i]);
           free_virt_id((mana_mpi_handle){.request = local_array_of_requests[i]});
           local_array_of_requests[i] = MPI_REQUEST_NULL;
+        } else {
+          release_request(local_array_of_requests[i]);
         }
 
         *local_index = i;
@@ -311,6 +328,7 @@ int PMPI_Waitany(int count, MPI_Request *array_of_requests,
         return retval;
       }
 
+      release_request(local_array_of_requests[i]);
       LOWER_HALF_ENABLE_CKPT();
     }
     if (all_null) {
@@ -342,6 +360,12 @@ int PMPI_Wait(MPI_Request *request, MPI_Status *status)
   // completes it, and a restart rebinds it).
   while (!flag) {
     LOWER_HALF_DISABLE_CKPT();
+    if (!claim_request(*request)) {
+      // The checkpoint thread is completing it (see claim_request()).
+      LOWER_HALF_ENABLE_CKPT();
+      sched_yield();
+      continue;
+    }
     retval = MPI_Test_internal(request, &flag, statusPtr, false);
     // Updating global counter of recv bytes
     // FIXME: This if statement should be merged into
@@ -371,6 +395,8 @@ int PMPI_Wait(MPI_Request *request, MPI_Status *status)
       clearPendingRequestFromLog(*request);  // Remove from pending calls
       free_virt_id((mana_mpi_handle){.request = *request}); // Remove from virtual id
       *request = MPI_REQUEST_NULL;
+    } else {
+      release_request(*request);
     }
     LOWER_HALF_ENABLE_CKPT();
   }
@@ -406,10 +432,17 @@ int PMPI_Request_get_status(MPI_Request request, int *flag, MPI_Status *status)
 {
   int retval;
   LOWER_HALF_DISABLE_CKPT();
+  if (!claim_request(request)) {
+    // The checkpoint thread is completing it (see claim_request()).
+    *flag = 0;
+    LOWER_HALF_ENABLE_CKPT();
+    return MPI_SUCCESS;
+  }
   MPI_Request real_request = get_real_id((mana_mpi_handle){.request = request}).request;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Request_get_status)(real_request, flag, status);
   RETURN_TO_UPPER_HALF();
+  release_request(request);
   LOWER_HALF_ENABLE_CKPT();
   return retval;
 }

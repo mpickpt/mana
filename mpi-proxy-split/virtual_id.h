@@ -133,6 +133,9 @@ typedef struct virt_id_entry {
   // True for the request of a non-blocking collective, which a checkpoint
   // completes first (see complete_pending_nonblocking_collectives()).
   bool collective;
+  // For such a request: the thread that may use the real request now (see
+  // claim_request()).
+  int claim;
 } virt_id_entry;
 
 // Synchronization: the table lives in upper-half memory and is saved in the
@@ -215,4 +218,48 @@ get_real_id(mana_mpi_handle virt_id)
   }
   return get_real_id_slow(virt_id);
 }
+
+// A non-blocking collective's request may be tested both by the application
+// (MPI_Test, MPI_Wait, ...) and, at checkpoint time, by the checkpoint thread
+// (complete_pending_nonblocking_collectives()).  The two must not pass the
+// same real request to the lower half at once: the call that completes it
+// frees it.  So a thread claims the request first, and releases it after.
+enum {
+  REQUEST_UNCLAIMED,
+  REQUEST_CLAIMED_BY_APPLICATION,
+  REQUEST_CLAIMED_BY_CHECKPOINT
+};
+
+// Called by the application before it tests 'request'.  Returns false if the
+// checkpoint thread is completing it; for the caller, the request is then not
+// complete yet.  Other requests need no claim.
+static inline bool
+claim_request(MPI_Request request)
+{
+  virt_id_entry *entry =
+    lookup_virt_id_entry((mana_mpi_handle){.request = request});
+  if (entry == NULL || !entry->collective) {
+    return true;
+  }
+  int unclaimed = REQUEST_UNCLAIMED;
+  return __atomic_compare_exchange_n(&entry->claim, &unclaimed,
+                                     REQUEST_CLAIMED_BY_APPLICATION, false,
+                                     __ATOMIC_ACQUIRE, __ATOMIC_RELAXED);
+}
+
+// Releases the claim on 'request'.  (There is nothing to release once the
+// request has been freed.)
+static inline void
+release_request(MPI_Request request)
+{
+  virt_id_entry *entry =
+    lookup_virt_id_entry((mana_mpi_handle){.request = request});
+  if (entry != NULL && entry->collective) {
+    __atomic_store_n(&entry->claim, REQUEST_UNCLAIMED, __ATOMIC_RELEASE);
+  }
+}
+
+// The checkpoint thread's claim_request(): waits while the application tests
+// the request.  Returns false if the application has completed it meanwhile.
+bool claim_request_for_checkpoint(MPI_Request request);
 #endif // MANA_VIRTUAL_ID_H
