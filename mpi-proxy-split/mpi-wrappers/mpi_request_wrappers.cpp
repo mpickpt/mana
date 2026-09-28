@@ -111,7 +111,6 @@ int PMPI_Test(MPI_Request* request, int* flag, MPI_Status* status)
   if (retval == MPI_SUCCESS && *flag && MPI_LOGGING()) {
     clearPendingRequestFromLog(*request);
     free_virt_id((mana_mpi_handle){.request = *request});
-    LOG_REMOVE_REQUEST(*request); // remove from record-replay log
     *request = MPI_REQUEST_NULL;
   }
   DMTCP_PLUGIN_ENABLE_CKPT();
@@ -370,7 +369,6 @@ int PMPI_Wait(MPI_Request *request, MPI_Status *status)
     if (flag && MPI_LOGGING()) {
       clearPendingRequestFromLog(*request);  // Remove from pending calls
       free_virt_id((mana_mpi_handle){.request = *request}); // Remove from virtual id
-      LOG_REMOVE_REQUEST(*request); // Remove from record-replay log
       *request = MPI_REQUEST_NULL;
     }
     DMTCP_PLUGIN_ENABLE_CKPT();
