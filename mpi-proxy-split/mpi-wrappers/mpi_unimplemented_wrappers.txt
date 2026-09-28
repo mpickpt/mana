@@ -10,27 +10,6 @@ int MPI_Add_error_class(int *errorclass);
 int MPI_Add_error_code(int errorclass, int *errorcode);
 int MPI_Add_error_string(int errorcode, const char *string);
 
-int MPI_Iallgather(const void *sendbuf, int sendcount,
-                            MPI_Datatype sendtype, void *recvbuf, int recvcount,
-                            MPI_Datatype recvtype, MPI_Comm comm,
-                            MPI_Request *request);
-int MPI_Iallgatherv(const void *sendbuf, int sendcount,
-                             MPI_Datatype sendtype, void *recvbuf,
-                             const int recvcounts[], const int displs[],
-                             MPI_Datatype recvtype, MPI_Comm comm,
-                             MPI_Request *request);
-int MPI_Iallreduce(const void *sendbuf, void *recvbuf, int count,
-                            MPI_Datatype datatype, MPI_Op op, MPI_Comm comm,
-                            MPI_Request *request);
-int MPI_Ialltoall(const void *sendbuf, int sendcount,
-                           MPI_Datatype sendtype, void *recvbuf, int recvcount,
-                           MPI_Datatype recvtype, MPI_Comm comm,
-                           MPI_Request *request);
-int MPI_Ialltoallv(const void *sendbuf, const int sendcounts[],
-                            const int sdispls[], MPI_Datatype sendtype,
-                            void *recvbuf, const int recvcounts[],
-                            const int rdispls[], MPI_Datatype recvtype,
-                            MPI_Comm comm, MPI_Request *request);
 int MPI_Alltoallw(const void *sendbuf, const int sendcounts[],
                            const int sdispls[], const MPI_Datatype sendtypes[],
                            void *recvbuf, const int recvcounts[],
@@ -119,8 +98,6 @@ int MPI_File_read_ordered_end(MPI_File fh, void *buf, MPI_Status *status);
 int MPI_File_write_ordered_begin(MPI_File fh, const void *buf, int count, MPI_Datatype datatype);
 int MPI_File_write_ordered_end(MPI_File fh, const void *buf, MPI_Status *status);
 int MPI_File_get_type_extent(MPI_File fh, MPI_Datatype datatype, MPI_Aint *extent);
-int MPI_Igather(const void *sendbuf, int sendcount, MPI_Datatype sendtype, void *recvbuf, int recvcount, MPI_Datatype recvtype, int root, MPI_Comm comm, MPI_Request *request);
-int MPI_Igatherv(const void *sendbuf, int sendcount, MPI_Datatype sendtype, void *recvbuf, const int recvcounts[], const int displs[], MPI_Datatype recvtype, int root, MPI_Comm comm, MPI_Request *request);
 int MPI_Get(void *origin_addr, int origin_count, MPI_Datatype origin_datatype, int target_rank, MPI_Aint target_disp, int target_count, MPI_Datatype target_datatype, MPI_Win win);
 int MPI_Get_accumulate(const void *origin_addr, int origin_count, MPI_Datatype origin_datatype, void *result_addr, int result_count, MPI_Datatype result_datatype, int target_rank, MPI_Aint target_disp, int target_count, MPI_Datatype target_datatype, MPI_Op op, MPI_Win win);
 int MPI_Get_version(int *version, int *subversion);
@@ -187,7 +164,6 @@ int MPI_Put(const void *origin_addr, int origin_count, MPI_Datatype origin_datat
 int MPI_Query_thread(int *provided);
 int MPI_Raccumulate(const void *origin_addr, int origin_count, MPI_Datatype origin_datatype, int target_rank, MPI_Aint target_disp, int target_count, MPI_Datatype target_datatype, MPI_Op op, MPI_Win win, MPI_Request *request);
 int MPI_Recv_init(void *buf, int count, MPI_Datatype datatype, int source, int tag, MPI_Comm comm, MPI_Request *request);
-int MPI_Ireduce_scatter(const void *sendbuf, void *recvbuf, const int recvcounts[], MPI_Datatype datatype, MPI_Op op, MPI_Comm comm, MPI_Request *request);
 int MPI_Reduce_scatter_block(const void *sendbuf, void *recvbuf, int recvcount, MPI_Datatype datatype, MPI_Op op, MPI_Comm comm);
 int MPI_Ireduce_scatter_block(const void *sendbuf, void *recvbuf, int recvcount, MPI_Datatype datatype, MPI_Op op, MPI_Comm comm, MPI_Request *request);
 int MPI_Register_datarep(const char *datarep, MPI_Datarep_conversion_function *read_conversion_fn, MPI_Datarep_conversion_function *write_conversion_fn, MPI_Datarep_extent_function *dtype_file_extent_fn, void *extra_state);
@@ -198,9 +174,6 @@ int MPI_Rget(void *origin_addr, int origin_count, MPI_Datatype origin_datatype, 
 int MPI_Rget_accumulate(const void *origin_addr, int origin_count, MPI_Datatype origin_datatype, void *result_addr, int result_count, MPI_Datatype result_datatype, int target_rank, MPI_Aint target_disp, int target_count, MPI_Datatype target_datatype, MPI_Op op, MPI_Win win, MPI_Request *request);
 int MPI_Rput(const void *origin_addr, int origin_count, MPI_Datatype origin_datatype, int target_rank, MPI_Aint target_disp, int target_cout, MPI_Datatype target_datatype, MPI_Win win, MPI_Request *request);
 int MPI_Rsend_init(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request);
-int MPI_Iscan(const void *sendbuf, void *recvbuf, int count, MPI_Datatype datatype, MPI_Op op, MPI_Comm comm, MPI_Request *request);
-int MPI_Iscatter(const void *sendbuf, int sendcount, MPI_Datatype sendtype, void *recvbuf, int recvcount, MPI_Datatype recvtype, int root, MPI_Comm comm, MPI_Request *request);
-int MPI_Iscatterv(const void *sendbuf, const int sendcounts[], const int displs[], MPI_Datatype sendtype, void *recvbuf, int recvcount, MPI_Datatype recvtype, int root, MPI_Comm comm, MPI_Request *request);
 int MPI_Send_init(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request);
 int MPI_Ssend_init(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request);
 int MPI_Ssend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm);
