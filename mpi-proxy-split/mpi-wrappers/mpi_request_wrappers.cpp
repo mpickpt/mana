@@ -34,10 +34,6 @@
 #include "mpi_plugin.h"
 #include "mpi_nextfunc.h"
 #include "virtual_id.h"
-// To support MANA_P2P_LOG and MANA_P2P_REPLAY:
-#include "p2p-deterministic.h"
-
-extern int p2p_deterministic_skip_save_request;
 
 extern "C" {
 
@@ -69,7 +65,6 @@ int PMPI_Test(MPI_Request* request, int* flag, MPI_Status* status)
     *flag = true;
     return MPI_SUCCESS;
   }
-  LOG_PRE_Test(status);
   DMTCP_PLUGIN_DISABLE_CKPT();
   MPI_Status statusBuffer;
   MPI_Status *statusPtr = status;
@@ -113,7 +108,6 @@ int PMPI_Test(MPI_Request* request, int* flag, MPI_Status* status)
 #endif
 #endif
   }
-  LOG_POST_Test(request, statusPtr);
   if (retval == MPI_SUCCESS && *flag && MPI_LOGGING()) {
     clearPendingRequestFromLog(*request);
     free_virt_id((mana_mpi_handle){.request = *request});
@@ -374,9 +368,6 @@ int PMPI_Wait(MPI_Request *request, MPI_Status *status)
 #endif
 #endif
     }
-    if (p2p_deterministic_skip_save_request == 0) {
-      if (flag) LOG_POST_Wait(request, statusPtr);
-    }
     if (flag && MPI_LOGGING()) {
       clearPendingRequestFromLog(*request); // Remove from g_nonblocking_calls
       free_virt_id((mana_mpi_handle){.request = *request}); // Remove from virtual id
@@ -404,14 +395,10 @@ int PMPI_Iprobe(int source, int tag, MPI_Comm comm, int *flag, MPI_Status *statu
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  // LOG_PRE_Iprobe(status);
-
   MPI_Comm realComm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Iprobe)(source, tag, realComm, flag, status);
   RETURN_TO_UPPER_HALF();
-  // LOG_POST_Iprobe(source,tag,comm,status);
-  // REPLAY_POST_Iprobe(source,tag,comm,status,flag);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }

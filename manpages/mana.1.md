@@ -113,23 +113,6 @@ MANA supports most features of DMTCP, including:
   mpi_collective_wrappers.cpp in the mpi-wrappers subdirectory; or
   block certain translations by adjusting `#ifdef/#ifndef MPI_COLLECTIVE_P2P` in those files.
 
-**`MANA_P2P_LOG`\"**
-
-: For debugging: Set this before mana_launch in order to log the
-  order of point-to-point calls (MPI_Send and family) for later
-  deterministic replay. See details at top of
-  `mpi-proxy-split/mpi-wrappers/p2p-deterministic.c`.
-
-  (IMPORTANT: If you checkpoint, continue running for a few minutes after that,
-  for final updating of the log files.)
-
-**`MANA_P2P_REPLAY`**
-
-: For debugging: If a checkpoint was created with `MANA_P2P_LOG`, then
-  execute `mana_p2p_update_logs` and set this variable before
-  `mana_restart`. (Currently, you need to set this before `mana_launch`,
-  but this may be fixed later.)
-
 **`INSPECTING MANA for DEBUGGING`**
 
 To see status of ranks (especially during checkpoint), try:
