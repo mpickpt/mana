@@ -3,6 +3,7 @@
 #include <elf.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -72,6 +73,7 @@ void create_heap_guard_page();
 void initialize_lh_info();
 void *lh_dlsym(enum MPI_Fncs fnc);
 void write_lh_info_addr(int restore_mode);
+void remove_dangling_env_entries(char **argv);
 
 // Restart Mode helper functions
 int parse_restore_flag(int *argc, char **argv);
@@ -138,6 +140,7 @@ int main(int argc, char *argv[], char *envp[]) {
   // Initialize MPI in advance
   int rank;
   MPI_Init(&argc, &argv);
+  remove_dangling_env_entries(argv);
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   
   // Initialize MPI Functions and Constants mapping table in lower-half
@@ -487,6 +490,41 @@ void write_lh_info_addr(int restore_mode)
     snprintf(lh_info_addr_str, 20, "%p", lh_info);
     setenv("MANA_LH_INFO_ADDR", lh_info_addr_str, 1);
   }
+}
+
+/**
+ * @brief Removes environment entries that point into dead stack memory.
+ *
+ * Some MPI libraries (e.g., Cray MPICH on multi-node runs) putenv() a local
+ *  buffer in MPI_Init().  putenv() doesn't copy the string, so the entry is
+ *  garbage after MPI_Init() returns.  The original environment strings are
+ *  above argv[], so any entry in the main thread's stack below argv[] is
+ *  such a buffer.
+ *
+ * @param argv  The argument vector of main().
+ */
+void remove_dangling_env_entries(char **argv)
+{
+  pthread_attr_t attr;
+  void *stack_addr;
+  size_t stack_size;
+  if (pthread_getattr_np(pthread_self(), &attr) != 0) {
+    return;
+  }
+  pthread_attr_getstack(&attr, &stack_addr, &stack_size);
+  pthread_attr_destroy(&attr);
+
+  int i, j = 0;
+  for (i = 0; __environ[i] != NULL; i++) {
+    char *entry = __environ[i];
+    if (entry >= (char *)stack_addr && entry < (char *)argv) {
+      DLOG(INFO, "Removing environment entry %d at %p: it points into dead"
+           " stack memory\n", i, entry);
+      continue;
+    }
+    __environ[j++] = entry;
+  }
+  __environ[j] = NULL;
 }
 
 
