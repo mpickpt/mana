@@ -61,8 +61,12 @@ mpi_unimplemented_wrappers.cpp: generate-mpi-unimplemented-wrappers.py \
 mana_p2p_update_logs: mana_p2p_update_logs.c
 	${MPICC} ${CFLAGS} -o $@ $<
 
-.cpp.o: ../virtual_id.h
+.cpp.o:
 	${MPICXX} ${CXXFLAGS} -c -o $@ $<
+
+# Make ignores prerequisites on suffix rules, so list header dependencies
+# explicitly.  virtual_id.h defines inline functions (get_real_id()).
+$(filter mpi_%,${LIBWRAPPER_OBJS}): ../virtual_id.h
 
 p2p-deterministic.h: p2p-deterministic.txt p2p-deterministic.py
 	./p2p-deterministic.py $< > $@

@@ -72,8 +72,12 @@ mpi_unimplemented_wrappers.cpp: generate-mpi-unimplemented-wrappers.py \
 .c.o:
 	${MPICC} ${CFLAGS} -c -o $@ $<
 
-.cpp.o: virtual-ids.h
+.cpp.o:
 	${MPICXX} ${CXXFLAGS} -c -o $@ $<
+
+# Make ignores prerequisites on suffix rules, so list header dependencies
+# explicitly.  virtual_id.h defines inline functions (get_real_id()).
+$(filter-out lower-half/%,${LIBOBJS}): virtual_id.h
 
 ${LOWER_HALF_SRCDIR}/procmapsutils.o: ${LOWER_HALF_SRCDIR}/procmapsutils.c
 	@make -C ${LOWER_HALF_SRCDIR} procmapsutils.o

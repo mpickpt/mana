@@ -3,6 +3,7 @@
 
 #include <mpi.h>
 #include <assert.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <map>
@@ -13,7 +14,26 @@
 #define MANA_OP_KIND 4
 #define MANA_REQUEST_KIND 5
 #define MANA_FILE_KIND 6
+#define MANA_NUM_KINDS 6
 #define MANA_VIRT_ID_KIND_SHIFT 28
+
+// A virtual handle is a 32-bit value laid out as
+//   bits 31..28  kind (MANA_*_KIND)
+//   bits 27..24  generation of the table slot
+//   bits 23..0   index of the slot in the virtual-ID table
+// Freed slots are reused.  The generation changes on every reuse, so that a
+// stale handle to a reused slot is detected instead of silently translated.
+// A new handle never equals an upper-half predefined constant (MPI_COMM_WORLD,
+// MPI_INT, ...): add_virt_id() skips such values.
+#define MANA_VIRT_ID_GEN_SHIFT 24
+#define MANA_VIRT_ID_GEN_MASK 0xf
+#define MANA_VIRT_ID_SLOT_MASK 0xffffff
+// The table is an array of fixed-size chunks that are never moved or freed,
+// so entries have stable addresses.
+#define MANA_VIRT_ID_CHUNK_SHIFT 12
+#define MANA_VIRT_ID_CHUNK_SIZE (1 << MANA_VIRT_ID_CHUNK_SHIFT)
+#define MANA_VIRT_ID_NUM_CHUNKS \
+  ((MANA_VIRT_ID_SLOT_MASK + 1) >> MANA_VIRT_ID_CHUNK_SHIFT)
 
 extern MPI_Group g_world_group;
 extern MPI_Comm g_world_comm;
@@ -68,10 +88,22 @@ typedef struct {
 typedef struct {
   mana_mpi_handle real_id;
   void *desc;
+  uint64_t seq;       // Creation order; restart reconstructs in this order
+  int virt;           // The virtual handle while in use; 0 if the slot is free
+  int next_free;      // Next slot in the free list, if the slot is free
+  unsigned int gen;   // Generation of the next handle that uses this slot
 } virt_id_entry;
 
-extern std::map<int, virt_id_entry*> virt_ids;
-typedef std::map<int, virt_id_entry*>::iterator virt_id_iterator;
+// Synchronization: the table lives in upper-half memory and is saved in the
+// checkpoint image.  Only application threads allocate and free slots
+// (add_virt_id/free_virt_id); MANA does not support MPI_THREAD_MULTIPLE, so
+// at most one does so at a time.  The checkpoint thread also translates
+// handles and calls update_virt_id() during PRESUSPEND (the P2P drain) and
+// at restart, possibly while an application thread is running.  Lookups are
+// therefore lock-free: a chunk is published only after it is initialized,
+// chunks never move, and an entry's 'virt' field is published after its
+// other fields.
+extern virt_id_entry *virt_id_chunks[MANA_VIRT_ID_NUM_CHUNKS];
 
 extern int g_world_rank;
 
@@ -86,12 +118,53 @@ MPI_File new_virt_file(MPI_File real_request);
 int is_predefined_id(mana_mpi_handle id);
 mana_mpi_handle add_virt_id(mana_mpi_handle real_id, void *desc, int kind);
 virt_id_entry* get_virt_id_entry(mana_mpi_handle virt_id);
-mana_mpi_handle get_real_id(mana_mpi_handle virt_id);
+mana_mpi_handle get_real_id_slow(mana_mpi_handle virt_id);
 void* get_virt_id_desc(mana_mpi_handle virt_id);
 void free_desc(void *desc, int kind);
 void free_virt_id(mana_mpi_handle virt_id);
 void update_virt_id(mana_mpi_handle virt_id, mana_mpi_handle real_id);
+size_t virt_id_live_count();
 
 void reconstruct_descriptors();
 void init_predefined_virt_ids();
+
+// Returns the table entry of a virtual handle that is in use, or NULL if
+// 'virt_id' is not one (a predefined constant, a freed or stale handle, or
+// garbage).  O(1), no locking.
+static inline virt_id_entry*
+lookup_virt_id_entry(mana_mpi_handle virt_id)
+{
+  unsigned int handle = (unsigned int)virt_id._handle;
+  unsigned int kind = handle >> MANA_VIRT_ID_KIND_SHIFT;
+  if (kind - 1 >= MANA_NUM_KINDS) {
+    return NULL;
+  }
+  unsigned int slot = handle & MANA_VIRT_ID_SLOT_MASK;
+  virt_id_entry *chunk =
+    __atomic_load_n(&virt_id_chunks[slot >> MANA_VIRT_ID_CHUNK_SHIFT],
+                    __ATOMIC_ACQUIRE);
+  if (chunk == NULL) {
+    return NULL;
+  }
+  virt_id_entry *entry = &chunk[slot & (MANA_VIRT_ID_CHUNK_SIZE - 1)];
+  if (__atomic_load_n(&entry->virt, __ATOMIC_ACQUIRE) != virt_id._handle) {
+    return NULL;
+  }
+  return entry;
+}
+
+// Translates a virtual handle, or an upper-half predefined constant, to the
+// real handle of the lower half.
+static inline mana_mpi_handle
+get_real_id(mana_mpi_handle virt_id)
+{
+  virt_id_entry *entry = lookup_virt_id_entry(virt_id);
+  if (entry != NULL) {
+    mana_mpi_handle real_id;
+    real_id._handle64 =
+      __atomic_load_n(&entry->real_id._handle64, __ATOMIC_RELAXED);
+    return real_id;
+  }
+  return get_real_id_slow(virt_id);
+}
 #endif // MANA_VIRTUAL_ID_H
