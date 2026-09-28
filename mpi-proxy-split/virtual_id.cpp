@@ -557,6 +557,7 @@ mana_mpi_handle add_virt_id(mana_mpi_handle real_id, void *desc, int kind) {
   entry->real_id = real_id;
   entry->desc = desc;
   entry->seq = ++virt_id_next_seq;
+  entry->call.type = UNKNOW_REQUEST;
   // Publish the handle last; see virtual_id.h.
   __atomic_store_n(&entry->virt, handle, __ATOMIC_RELEASE);
   virt_id_live++;
@@ -649,6 +650,8 @@ void free_virt_id(mana_mpi_handle virt_id) {
     fprintf(stderr, "Invalid MPI handle value: 0x%x\n", virt_id._handle);
     abort();
   }
+  // A pending call must be removed first (clearPendingRequestFromLog()).
+  assert(entry->call.type == UNKNOW_REQUEST);
   int kind = virt_id._handle >> MANA_VIRT_ID_KIND_SHIFT;
   free_desc(entry->desc, kind);  // free descriptor
   entry->desc = NULL;

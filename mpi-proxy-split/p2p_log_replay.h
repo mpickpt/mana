@@ -27,6 +27,7 @@
 #include <vector>
 #include "dmtcp.h"
 #include "dmtcpalloc.h"
+#include "virtual_id.h"
 
 #define REAL_REQUEST_LOG_LEVEL 7
 #define STACK_TRACK_LEVEL 7
@@ -34,32 +35,6 @@
 #ifdef DEBUG
 // #define USE_REQUEST_LOG
 #endif
-
-typedef enum __mpi_req
-{
-  UNKNOW_REQUEST,
-  ISEND_REQUEST,
-  IRECV_REQUEST,
-  IBCAST_REQUEST,
-  IREDUCE_REQUEST,
-  IBARRIER_REQUEST,
-} mpi_req_t;
-
-// Struct to store the metadata of an nonblocking MPI send/recv call
-typedef struct __mpi_nonblocking_call
-{
-  // control data
-  mpi_req_t type;  // See enum __mpi_req
-  // request parameters
-  const void *sendbuf;
-  void *recvbuf;
-  int count;        // Count of data items
-  MPI_Datatype datatype; // Data type
-  MPI_Comm comm;    // MPI communicator
-  int remote_node;  // Can be dest or source depending on the call type
-  int tag;          // MPI message tag
-  uint64_t seq;     // Posting order
-} mpi_nonblocking_call_t;
 
 // Struct to store and return the MPI message (data) during draining and
 // resuming, also used by p2p_drain_send_recv.h
@@ -98,23 +73,27 @@ extern void updateCkptDirByRank();
 // MPI_Isend and MPI_Irecv requests post restart
 extern void replayMpiP2pOnRestart();
 
-// Saves the nonblocking send/recv call of the given type and params to a global
-// map indexed by the MPI_Request 'req'
+// Saves the nonblocking send/recv call of the given type and params with the
+// (virtual) MPI_Request 'rq', in the request's virtual-ID table entry
 extern void addPendingRequestToLog(mpi_req_t , const void* , void* , int ,
                                    MPI_Datatype , int , int ,
                                    MPI_Comm, MPI_Request);
 
-// remove finished send/recv call from the global map
+// remove finished send/recv call from the pending calls
 extern void clearPendingRequestFromLog(MPI_Request req);
 
-// Returns the requests in the global map in the order they were posted.
-// MPI matches receives in posting order, so the drain and the restart replay
-// must follow it; the order of the (reused) virtual request handles doesn't.
+// Returns the pending requests in the order they were posted.  MPI matches
+// receives in posting order, so the drain and the restart replay must follow
+// it; the order of the (reused) virtual request handles doesn't.
 extern std::vector<MPI_Request> pendingRequestsInPostingOrder();
 
-// Returns the type of a request in the global map, or UNKNOW_REQUEST if the
-// request is not (or no longer) there.
+// Returns the type of a pending request, or UNKNOW_REQUEST if the request is
+// not (or no longer) pending.
 extern mpi_req_t pendingRequestType(MPI_Request req);
+
+// Copies the call of a pending request to *call.  Returns false if the
+// request is not (or no longer) pending.
+extern bool getPendingCall(MPI_Request req, mpi_nonblocking_call_t *call);
 
 // Log the creation or update of a virtual request
 extern void logRequestInfo(MPI_Request request, mpi_req_t req_type);
@@ -122,5 +101,4 @@ extern void logRequestInfo(MPI_Request request, mpi_req_t req_type);
 // Lookup a request's info in the request_log
 extern request_info_t* lookupRequestInfo(MPI_Request request);
 
-extern dmtcp::map<MPI_Request, mpi_nonblocking_call_t*> g_nonblocking_calls;
 #endif // ifndef _P2P_LOG_REPLAY_H

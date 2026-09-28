@@ -93,8 +93,7 @@ int PMPI_Test(MPI_Request* request, int* flag, MPI_Status* status)
   // FIXME: This if statement should be merged into
   // clearPendingRequestFromLog()
   if (*flag && *request != MPI_REQUEST_NULL
-      && g_nonblocking_calls.find(*request) != g_nonblocking_calls.end()
-      && g_nonblocking_calls[*request]->type == IRECV_REQUEST) {
+      && pendingRequestType(*request) == IRECV_REQUEST) {
     local_recv_messages++;
 #ifdef DEBUG_P2P
     int count = 0;
@@ -102,7 +101,9 @@ int PMPI_Test(MPI_Request* request, int* flag, MPI_Status* status)
     MPI_Get_count(statusPtr, MPI_BYTE, &count);
     MPI_Type_size(MPI_BYTE, &size);
     JASSERT(size == 1)(size);
-    MPI_Comm comm = g_nonblocking_calls[*request]->comm;
+    mpi_nonblocking_call_t call;
+    getPendingCall(*request, &call);
+    MPI_Comm comm = call.comm;
     int worldRank = localRankToGlobalRank(statusPtr->MPI_SOURCE, comm);
     g_recvBytesByRank[worldRank] += count * size;
     // For debugging
@@ -283,8 +284,7 @@ int PMPI_Waitany(int count, MPI_Request *array_of_requests,
       if (flag) {
         MPI_Request *request = &local_array_of_requests[i];
         if (*request != MPI_REQUEST_NULL
-          && g_nonblocking_calls.find(*request) != g_nonblocking_calls.end()
-          && g_nonblocking_calls[*request]->type == IRECV_REQUEST) {
+          && pendingRequestType(*request) == IRECV_REQUEST) {
           local_recv_messages++;
 #ifdef DEBUG_P2P
           int count = 0;
@@ -292,7 +292,9 @@ int PMPI_Waitany(int count, MPI_Request *array_of_requests,
           MPI_Get_count(local_status, MPI_BYTE, &count);
           MPI_Type_size(MPI_BYTE, &size);
           JASSERT(size == 1)(size);
-          MPI_Comm comm = g_nonblocking_calls[*request]->comm;
+          mpi_nonblocking_call_t call;
+          getPendingCall(*request, &call);
+          MPI_Comm comm = call.comm;
           int worldRank = localRankToGlobalRank(local_status->MPI_SOURCE, comm);
           g_recvBytesByRank[worldRank] += count * size;
 #endif
@@ -341,10 +343,9 @@ int PMPI_Wait(MPI_Request *request, MPI_Status *status)
       statusPtr == FORTRAN_MPI_STATUS_IGNORE) {
     statusPtr = &statusBuffer;
   }
-  // FIXME: We translate the virtual request in every iteration.
-  // We want to translate it only once, and update the real request
-  // after restart if we checkpoint in the while loop.
-  // Then MPI_Test_internal should use isRealRequest = true.
+  // We translate the virtual request on every pass: that is a table lookup,
+  // and the real request can change while we poll (a checkpoint's P2P drain
+  // completes it, and a restart rebinds it).
   while (!flag) {
     DMTCP_PLUGIN_DISABLE_CKPT();
     retval = MPI_Test_internal(request, &flag, statusPtr, false);
@@ -352,8 +353,7 @@ int PMPI_Wait(MPI_Request *request, MPI_Status *status)
     // FIXME: This if statement should be merged into
     // clearPendingRequestFromLog()
     if (flag && *request != MPI_REQUEST_NULL
-        && g_nonblocking_calls.find(*request) != g_nonblocking_calls.end()
-        && g_nonblocking_calls[*request]->type == IRECV_REQUEST) {
+        && pendingRequestType(*request) == IRECV_REQUEST) {
       local_recv_messages++;
 #ifdef DEBUG_P2P
       int count = 0;
@@ -361,7 +361,9 @@ int PMPI_Wait(MPI_Request *request, MPI_Status *status)
       MPI_Get_count(statusPtr, MPI_BYTE, &count);
       MPI_Type_size(MPI_BYTE, &size);
       JASSERT(size == 1)(size);
-      MPI_Comm comm = g_nonblocking_calls[*request]->comm;
+      mpi_nonblocking_call_t call;
+      getPendingCall(*request, &call);
+      MPI_Comm comm = call.comm;
       int worldRank = localRankToGlobalRank(statusPtr->MPI_SOURCE, comm);
       g_recvBytesByRank[worldRank] += count * size;
     // For debugging
@@ -375,7 +377,7 @@ int PMPI_Wait(MPI_Request *request, MPI_Status *status)
       if (flag) LOG_POST_Wait(request, statusPtr);
     }
     if (flag && MPI_LOGGING()) {
-      clearPendingRequestFromLog(*request); // Remove from g_nonblocking_calls
+      clearPendingRequestFromLog(*request);  // Remove from pending calls
       free_virt_id((mana_mpi_handle){.request = *request}); // Remove from virtual id
       LOG_REMOVE_REQUEST(*request); // Remove from record-replay log
       *request = MPI_REQUEST_NULL;
