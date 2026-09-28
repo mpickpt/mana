@@ -33,10 +33,6 @@
 #include "mpi_nextfunc.h"
 #include "virtual_id.h"
 #include "record-replay.h"
-// To support MANA_P2P_LOG and MANA_P2P_REPLAY:
-#include "p2p-deterministic.h"
-
-extern int p2p_deterministic_skip_save_request;
 
 extern "C" {
 
@@ -308,8 +304,6 @@ int PMPI_Irecv(void *buf, int count, MPI_Datatype datatype,
     DMTCP_PLUGIN_ENABLE_CKPT();
     return retval;
   }
-  LOG_PRE_Irecv(&status);
-  REPLAY_PRE_Irecv(count,datatype,source,tag,comm);
 
   MPI_Comm realComm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   MPI_Datatype realType = get_real_id((mana_mpi_handle){.datatype = datatype}).datatype;
@@ -325,7 +319,6 @@ int PMPI_Irecv(void *buf, int count, MPI_Datatype datatype,
     logRequestInfo(*request, IRECV_REQUEST);
 #endif
   }
-  LOG_POST_Irecv(source,tag,comm,&status,request,buf);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }

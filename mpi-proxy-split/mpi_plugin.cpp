@@ -383,30 +383,6 @@ dmtcp_skip_memory_region_ckpting(ProcMapsArea *area)
   return 1;
 }
 
-EXTERNC int
-dmtcp_skip_truncate_file_at_restart(const char* path)
-{
-  constexpr const char* P2P_LOG_MSG = "p2p_log_%d.txt";
-  constexpr const char* P2P_LOG_REQUEST = "p2p_log_request_%d.txt";
-  char p2p_log_name[100];
-  char p2p_log_request_name[100];
-  int rank;
-
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  snprintf(p2p_log_name, sizeof(p2p_log_name) - 1, P2P_LOG_MSG, rank);
-  snprintf(p2p_log_request_name, sizeof(p2p_log_request_name)-1,
-           P2P_LOG_REQUEST, rank);
-
-  if (strstr(path, p2p_log_name) ||
-      strstr(path, p2p_log_request_name)) {
-    // Do not truncate this file.
-    return 1;
-  }
-
-  // Defer to the next plugin.
-  return NEXT_FNC(dmtcp_skip_truncate_file_at_restart)(path);
-}
-
 // TODO(kapil): Replace with Jassert::PrintBackrace.
 string GetBacktrace()
 {

@@ -102,8 +102,6 @@ ${MANA_ROOT}/lib/dmtcp/libmana.so: libmana.so
 	cp -f $< $@
 ${MANA_ROOT}/lib/dmtcp/libmpistub.so:
 	+ make -C ${WRAPPERS_SRCDIR} install
-${MANA_ROOT}/bin/mana_p2p_update_logs: ${WRAPPERS_SRCDIR}/mana_p2p_update_logs.c
-	+ make -C ${WRAPPERS_SRCDIR} install
 ${MANA_ROOT}/bin/lower-half:
 	+ make -C ${LH_SRCDIR} install
 
@@ -115,7 +113,6 @@ install: ${MANA_COORD_OBJS}
 	+ make -C ${WRAPPERS_SRCDIR} libmpiwrappers.a
 	+ make ${MANA_ROOT}/lib/dmtcp/libmana.so
 	+ make ${MANA_ROOT}/lib/dmtcp/libmpistub.so
-	+ make ${MANA_ROOT}/bin/mana_p2p_update_logs
 	+ make ${MANA_ROOT}/bin/lower-half
 
 tidy:
