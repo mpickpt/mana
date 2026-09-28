@@ -177,18 +177,25 @@ int PMPI_Recv(void *buf, int count, MPI_Datatype datatype,
 
   int retval = MPI_SUCCESS;
   int flag = 0;
+  get_fortran_constants();  // For FORTRAN_MPI_STATUS_IGNORE
 
 retry:
   // Step 1: serve from the MANA-internal buffer if a matching message
   // was drained during a previous pre-suspend cycle.
+  // The buffer functions write a status, and 'status' may be
+  // MPI_STATUS_IGNORE: use a local one.
+  MPI_Status buffered_status;
   if (mana_state == RUNNING &&
-      existsMatchingMsgBuffer(source, tag, comm, &flag, status)) {
+      existsMatchingMsgBuffer(source, tag, comm, &flag, &buffered_status)) {
     int type_size;
     MPI_Type_size(datatype, &type_size);
     int msg_size = type_size * count;
     consumeMatchingMsgBuffer(buf, count, datatype, source, tag, comm,
-                             status, msg_size);
+                             &buffered_status, msg_size);
     local_recv_messages++;
+    if (status != MPI_STATUS_IGNORE && status != FORTRAN_MPI_STATUS_IGNORE) {
+      *status = buffered_status;
+    }
     return MPI_SUCCESS;
   }
 
@@ -240,7 +247,7 @@ retry:
   // Real message.
   local_recv_messages++;
   g_pending_recv.active = false;
-  if (status != MPI_STATUS_IGNORE) {
+  if (status != MPI_STATUS_IGNORE && status != FORTRAN_MPI_STATUS_IGNORE) {
     *status = local_status;
   }
   return retval;
