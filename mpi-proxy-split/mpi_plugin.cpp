@@ -924,6 +924,10 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 
     case DMTCP_EVENT_PRECHECKPOINT: {
       printEventToStderr("EVENT_PRECHECKPOINT (drain send/recv)");
+      // dmtcp_skip_memory_region_ckpting() saves only the regions in
+      // uh_mmaps and refetches it when empty.  A stale list would miss the
+      // regions mapped since the last checkpoint.
+      uh_mmaps.clear();
       recordMpiInitMaps();
       recordOpenFds();
       dmtcp_local_barrier("MPI:GetLocalRankInfo");
