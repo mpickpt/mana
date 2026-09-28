@@ -149,18 +149,6 @@ then execute \f[C]mana_p2p_update_logs\f[R] and set this variable before
 (Currently, you need to set this before \f[C]mana_launch\f[R], but this
 may be fixed later.)
 .PP
-\f[B]\f[CB]MANA_USE_ALLREDUCE_REPRODUCIBLE\f[B]\f[R]
-.PP
-When MPI_Allreduce specifies an associative/commutative operation, the
-MPI library must choose an ordering of the operation during reduce.
-The ordering may vary when calling MPI_Allreqduce after launch or after
-replay.
-By setting the environment variable MANA_USE_ALLREDUCE_REPRODUCIBLE at
-the time of launch, you can direct MANA to call the operations in a
-deterministic order, so that the output after checkpoint-restart will
-produce the same output as running after launch with no
-checkpoint-restart.
-.PP
 \f[B]\f[CB]INSPECTING MANA for DEBUGGING\f[B]\f[R]
 .PP
 To see status of ranks (especially during checkpoint), try:

@@ -130,17 +130,6 @@ MANA supports most features of DMTCP, including:
   `mana_restart`. (Currently, you need to set this before `mana_launch`,
   but this may be fixed later.)
 
-**`MANA_USE_ALLREDUCE_REPRODUCIBLE`**
-
-  When MPI_Allreduce specifies an associative/commutative operation,
-  the MPI library must choose an ordering of the operation during
-  reduce.  The ordering may vary when calling MPI_Allreqduce after
-  launch or after replay.  By setting the environment variable
-  MANA_USE_ALLREDUCE_REPRODUCIBLE at the time of launch,
-  you can direct MANA to call the operations in a deterministic order,
-  so that the output after checkpoint-restart will produce the same
-  output as running after launch with no checkpoint-restart.
-
 **`INSPECTING MANA for DEBUGGING`**
 
 To see status of ranks (especially during checkpoint), try:
