@@ -25,6 +25,7 @@
 #include "dmtcp.h"
 #include "util.h"
 #include "jassert.h"
+#include "lower_half_ckpt.h"
 #include "jfilesystem.h"
 #include "protectedfds.h"
 
@@ -65,7 +66,7 @@ int PMPI_Test(MPI_Request* request, int* flag, MPI_Status* status)
     *flag = true;
     return MPI_SUCCESS;
   }
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_Status statusBuffer;
   MPI_Status *statusPtr = status;
   if (statusPtr == MPI_STATUS_IGNORE ||
@@ -78,7 +79,7 @@ int PMPI_Test(MPI_Request* request, int* flag, MPI_Status* status)
     *flag = 1;
     free_virt_id((mana_mpi_handle){.request = *request});
     *request = MPI_REQUEST_NULL;
-    DMTCP_PLUGIN_ENABLE_CKPT();
+    LOWER_HALF_ENABLE_CKPT();
     // FIXME: We should also fill in the status
     return MPI_SUCCESS;
   }
@@ -113,7 +114,7 @@ int PMPI_Test(MPI_Request* request, int* flag, MPI_Status* status)
     free_virt_id((mana_mpi_handle){.request = *request});
     *request = MPI_REQUEST_NULL;
   }
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
 
@@ -201,7 +202,7 @@ int PMPI_Waitall(int count, MPI_Request *array_of_requests,
   // FIXME: Revisit this wrapper - call get_real_id on array
   int retval = MPI_SUCCESS;
 #if 0
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Waitall)(count, array_of_requests, array_of_statuses);
   RETURN_TO_UPPER_HALF();
@@ -210,7 +211,7 @@ int PMPI_Waitall(int count, MPI_Request *array_of_requests,
       clearPendingRequestFromLog(&array_of_requests[i]);
     }
   }
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
 #else
   // NOTE: See MPI_Testany above for the rationale for these variables.
   int local_count = count;
@@ -267,11 +268,11 @@ int PMPI_Waitany(int count, MPI_Request *array_of_requests,
         }
       }
       all_null = false;
-      DMTCP_PLUGIN_DISABLE_CKPT();
+      LOWER_HALF_DISABLE_CKPT();
       retval = MPI_Test_internal(&local_array_of_requests[i], &flag,
                                  local_status, false);
       if (retval != MPI_SUCCESS) {
-        DMTCP_PLUGIN_ENABLE_CKPT();
+        LOWER_HALF_ENABLE_CKPT();
         return retval;
       }
       if (flag) {
@@ -306,11 +307,11 @@ int PMPI_Waitany(int count, MPI_Request *array_of_requests,
 
         *local_index = i;
 
-        DMTCP_PLUGIN_ENABLE_CKPT();
+        LOWER_HALF_ENABLE_CKPT();
         return retval;
       }
 
-      DMTCP_PLUGIN_ENABLE_CKPT();
+      LOWER_HALF_ENABLE_CKPT();
     }
     if (all_null) {
       return retval;
@@ -341,7 +342,7 @@ int PMPI_Wait(MPI_Request *request, MPI_Status *status)
   // after restart if we checkpoint in the while loop.
   // Then MPI_Test_internal should use isRealRequest = true.
   while (!flag) {
-    DMTCP_PLUGIN_DISABLE_CKPT();
+    LOWER_HALF_DISABLE_CKPT();
     retval = MPI_Test_internal(request, &flag, statusPtr, false);
     // Updating global counter of recv bytes
     // FIXME: This if statement should be merged into
@@ -372,7 +373,7 @@ int PMPI_Wait(MPI_Request *request, MPI_Status *status)
       free_virt_id((mana_mpi_handle){.request = *request}); // Remove from virtual id
       *request = MPI_REQUEST_NULL;
     }
-    DMTCP_PLUGIN_ENABLE_CKPT();
+    LOWER_HALF_ENABLE_CKPT();
   }
   return retval;
 }
@@ -392,12 +393,12 @@ int PMPI_Probe(int source, int tag, MPI_Comm comm, MPI_Status *status)
 int PMPI_Iprobe(int source, int tag, MPI_Comm comm, int *flag, MPI_Status *status)
 {
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_Comm realComm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Iprobe)(source, tag, realComm, flag, status);
   RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
 
@@ -405,12 +406,12 @@ int PMPI_Iprobe(int source, int tag, MPI_Comm comm, int *flag, MPI_Status *statu
 int PMPI_Request_get_status(MPI_Request request, int *flag, MPI_Status *status)
 {
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_Request real_request = get_real_id((mana_mpi_handle){.request = request}).request;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Request_get_status)(real_request, flag, status);
   RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
 
@@ -419,11 +420,11 @@ int PMPI_Get_elements(const MPI_Status *status, MPI_Datatype datatype,
                      int *count)
 {
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Get_elements)(status, datatype, count);
   RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
 
@@ -432,11 +433,11 @@ int PMPI_Get_elements_x(const MPI_Status *status, MPI_Datatype datatype,
                        MPI_Count *count)
 {
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Get_elements_x)(status, datatype, count);
   RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
 

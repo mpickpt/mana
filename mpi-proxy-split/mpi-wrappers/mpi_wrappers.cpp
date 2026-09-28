@@ -26,6 +26,7 @@
 #include "dmtcp.h"
 #include "util.h"
 #include "jassert.h"
+#include "lower_half_ckpt.h"
 #include "jfilesystem.h"
 #include "protectedfds.h"
 #include "record-replay.h"
@@ -70,7 +71,7 @@ int PMPI_Init(int *argc, char ***argv) {
   if (isUsingCollectiveToP2p()) {
     fprintf(stderr, collective_p2p_string);
   }
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
 
   g_mana_header.init_flag = MPI_INIT_NO_THREAD;
 
@@ -91,7 +92,7 @@ int PMPI_Init(int *argc, char ***argv) {
   init_predefined_virt_ids();
   initialize_drain_send_recv();
   atexit(end_through_lower_half_exit);
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   g_libmpi_is_initialized = true;
   return retval;
 }
@@ -104,7 +105,7 @@ int PMPI_Init_thread(int *argc, char ***argv, int required, int *provided) {
   if (isUsingCollectiveToP2p()) {
     fprintf(stderr, collective_p2p_string);
   }
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   g_mana_header.init_flag = *provided;
 
   /*
@@ -124,7 +125,7 @@ int PMPI_Init_thread(int *argc, char ***argv, int required, int *provided) {
   init_predefined_virt_ids();
   initialize_drain_send_recv();
   atexit(end_through_lower_half_exit);
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   g_libmpi_is_initialized = true;
   if (required > MPI_THREAD_FUNNELED && g_world_rank == 0) {
     fprintf(stderr, "WARNING: MANA does not support MPI_THREAD_SERIALIZED "
@@ -140,11 +141,11 @@ int PMPI_Initialized(int *flag)
 {
   int retval;
   if (g_libmpi_is_initialized && g_libmana_is_initialized) {
-    DMTCP_PLUGIN_DISABLE_CKPT();
+    LOWER_HALF_DISABLE_CKPT();
     JUMP_TO_LOWER_HALF(lh_info->fsaddr);
     retval = NEXT_FUNC(Initialized)(flag);
     RETURN_TO_UPPER_HALF();
-    DMTCP_PLUGIN_ENABLE_CKPT();
+    LOWER_HALF_ENABLE_CKPT();
     return retval;
   }
   else {
@@ -157,11 +158,11 @@ int PMPI_Initialized(int *flag)
 int PMPI_Finalized(int *flag)
 {
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Finalized)(flag);
   RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
 
@@ -169,11 +170,11 @@ int PMPI_Finalized(int *flag)
 int PMPI_Get_processor_name(char *name, int *resultlen)
 {
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Get_processor_name)(name, resultlen);
   RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
 
@@ -202,7 +203,7 @@ int PMPI_Finalize(void)
    *      `rank = 0` process, `interval` based checkpointing can create 
    *      corrupt ckpt_images, which give segmentation fault on restart.
    */
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Finalize)();
   RETURN_TO_UPPER_HALF();
@@ -213,12 +214,12 @@ int PMPI_Finalize(void)
 int PMPI_Get_count(const MPI_Status *status, MPI_Datatype datatype, int *count)
 {
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_Datatype realType = get_real_id((mana_mpi_handle){.datatype = datatype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Get_count)(status, realType, count);
   RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
 
@@ -226,11 +227,11 @@ int PMPI_Get_count(const MPI_Status *status, MPI_Datatype datatype, int *count)
 int PMPI_Get_library_version(char *version, int *resultlen)
 {
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Get_library_version)(version, resultlen);
   RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
 
@@ -238,11 +239,11 @@ int PMPI_Get_library_version(char *version, int *resultlen)
 int PMPI_Get_address(const void *location, MPI_Aint *address)
 {
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Get_address)(location, address);
   RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
 
@@ -262,11 +263,11 @@ int PMPI_Get_address(const void *location, MPI_Aint *address)
 int MPI_MANA_Internal(char *dummy)
 {
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(MANA_Internal)(dummy);
   RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   if (retval != 0) {
     fprintf(stderr, "**** MPI_NANA_Internal returned: %d\n", retval);
     fflush(stdout);

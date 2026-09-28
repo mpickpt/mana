@@ -24,6 +24,7 @@
 #include "dmtcp.h"
 #include "util.h"
 #include "jassert.h"
+#include "lower_half_ckpt.h"
 #include "jfilesystem.h"
 #include "protectedfds.h"
 
@@ -45,12 +46,12 @@ extern "C" {
 int PMPI_Cart_coords(MPI_Comm comm, int rank, int maxdims, int *coords)
 {
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_Comm realComm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Cart_coords)(realComm, rank, maxdims, coords);
   RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
 
@@ -58,12 +59,12 @@ int PMPI_Cart_coords(MPI_Comm comm, int rank, int maxdims, int *coords)
 int PMPI_Cart_get(MPI_Comm comm, int maxdims, int *dims, int *periods, int *coords)
 {
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_Comm realComm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Cart_get)(realComm, maxdims, dims, periods, coords);
   RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
 
@@ -72,7 +73,7 @@ int PMPI_Cart_map(MPI_Comm comm, int ndims, const int *dims, const int *periods,
                  int  *newrank)
 {
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_Comm realComm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   // FIXME: Need to virtualize this newrank??
@@ -83,7 +84,7 @@ int PMPI_Cart_map(MPI_Comm comm, int ndims, const int *dims, const int *periods,
     FncArg ps = CREATE_LOG_BUF(periods, ndims  *sizeof(int));
     LOG_CALL(restoreCarts, Cart_map, comm, ndims, ds, ps, newrank);
   }
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
 
@@ -91,12 +92,12 @@ int PMPI_Cart_map(MPI_Comm comm, int ndims, const int *dims, const int *periods,
 int PMPI_Cart_rank(MPI_Comm comm, const int *coords, int *rank)
 {
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_Comm realComm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Cart_rank)(realComm, coords, rank);
   RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
 
@@ -105,7 +106,7 @@ int PMPI_Cart_shift(MPI_Comm comm, int direction, int disp, int *rank_source,
                    int *rank_dest)
 {
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_Comm realComm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Cart_shift)(realComm, direction,
@@ -115,7 +116,7 @@ int PMPI_Cart_shift(MPI_Comm comm, int direction, int disp, int *rank_source,
     LOG_CALL(restoreCarts, Cart_shift, comm, direction,
              disp, *rank_source, *rank_dest);
   }
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
 
@@ -124,7 +125,7 @@ int PMPI_Cart_sub(MPI_Comm comm, const int *remain_dims, MPI_Comm *new_comm)
 {
   int retval;
 
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_Comm realComm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Cart_sub)(realComm, remain_dims, new_comm);
@@ -134,7 +135,7 @@ int PMPI_Cart_sub(MPI_Comm comm, const int *remain_dims, MPI_Comm *new_comm)
     MPI_Cartdim_get(comm, &ndims);
     *new_comm = new_virt_comm(*new_comm);
   }
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
 
@@ -142,12 +143,12 @@ int PMPI_Cart_sub(MPI_Comm comm, const int *remain_dims, MPI_Comm *new_comm)
 int PMPI_Cartdim_get(MPI_Comm comm, int *ndims)
 {
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_Comm realComm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Cartdim_get)(realComm, ndims);
   RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
 
@@ -155,11 +156,11 @@ int PMPI_Cartdim_get(MPI_Comm comm, int *ndims)
 int PMPI_Dims_create(int nnodes, int ndims, int *dims)
 {
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Dims_create)(nnodes, ndims, dims);
   RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
 
@@ -182,7 +183,7 @@ int PMPI_Cart_create(MPI_Comm old_comm, int ndims,
 
   std::function<int()> realBarrierCb = [=]() {
     int retval;
-    DMTCP_PLUGIN_DISABLE_CKPT();
+    LOWER_HALF_DISABLE_CKPT();
     MPI_Comm realComm = get_real_id(old_comm).comm;
     JUMP_TO_LOWER_HALF(lh_info->fsaddr);
     retval = NEXT_FUNC(Cart_create)(realComm, ndims, dims, periods, reorder,
@@ -205,7 +206,7 @@ int PMPI_Cart_create(MPI_Comm old_comm, int ndims,
     if (retval == MPI_SUCCESS && MPI_LOGGING()) {
       *comm_cart = new_virt_comm(*comm_cart);
     }
-    DMTCP_PLUGIN_ENABLE_CKPT();
+    LOWER_HALF_ENABLE_CKPT();
     return retval;
   };
   return twoPhaseCommit(old_comm, realBarrierCb);
@@ -238,7 +239,7 @@ int PMPI_Cart_create(MPI_Comm old_comm, int ndims,
                                      "the current implementation does not "
                                      "support reordered ranks.");
   reorder = 0;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_Comm realComm = get_real_id((mana_mpi_handle){.comm = old_comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Cart_create)(realComm, ndims, dims,
@@ -247,7 +248,7 @@ int PMPI_Cart_create(MPI_Comm old_comm, int ndims,
   if (retval == MPI_SUCCESS && MPI_LOGGING()) {
     *comm_cart = new_virt_comm(*comm_cart);
   }
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
 

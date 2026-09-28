@@ -25,6 +25,7 @@
 #include "dmtcp.h"
 #include "util.h"
 #include "jassert.h"
+#include "lower_half_ckpt.h"
 #include "jfilesystem.h"
 #include "protectedfds.h"
 
@@ -47,7 +48,7 @@ int PMPI_File_open(MPI_Comm comm, const char *filename,
                   int amode, MPI_Info info, MPI_File *fh)
 {
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_Comm realComm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(File_open)(realComm, filename, amode, info, fh);
@@ -72,7 +73,7 @@ int PMPI_File_open(MPI_Comm comm, const char *filename,
     // Save this file handle to the global map
     g_params_map[virt_file] = params;
   }
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
 
@@ -80,12 +81,12 @@ int PMPI_File_open(MPI_Comm comm, const char *filename,
 int PMPI_File_get_atomicity(MPI_File fh, int *flag)
 {
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_File real_file = get_real_id((mana_mpi_handle){.file = fh}).file;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(File_get_atomicity)(real_file, flag);
   RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
 
@@ -93,12 +94,12 @@ int PMPI_File_get_atomicity(MPI_File fh, int *flag)
 int PMPI_File_set_atomicity(MPI_File fh, int flag)
 {
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_File real_file = get_real_id((mana_mpi_handle){.file = fh}).file;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(File_set_atomicity)(real_file, flag);
   RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
 
@@ -106,12 +107,12 @@ int PMPI_File_set_atomicity(MPI_File fh, int flag)
 int PMPI_File_set_size(MPI_File fh, MPI_Offset size)
 {
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_File real_file = get_real_id((mana_mpi_handle){.file = fh}).file;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(File_set_size)(real_file, size);
   RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
 
@@ -119,12 +120,12 @@ int PMPI_File_set_size(MPI_File fh, MPI_Offset size)
 int PMPI_File_get_size(MPI_File fh, MPI_Offset *size)
 {
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_File real_file = get_real_id((mana_mpi_handle){.file = fh}).file;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(File_get_size)(real_file, size);
   RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
 
@@ -134,7 +135,7 @@ int PMPI_File_set_view(MPI_File fh, MPI_Offset disp,
                       const char *datarep, MPI_Info info)
 {
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_File real_file = get_real_id((mana_mpi_handle){.file = fh}).file;
   MPI_Datatype realEtype = get_real_id((mana_mpi_handle){.datatype = etype}).datatype;
   MPI_Datatype realFtype = get_real_id((mana_mpi_handle){.datatype = filetype}).datatype;
@@ -154,7 +155,7 @@ int PMPI_File_set_view(MPI_File fh, MPI_Offset disp,
     g_params_map[fh]._viewSet = 1;
     g_params_map[fh]._viewInfo = info;
   }
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
 
@@ -166,7 +167,7 @@ int PMPI_File_get_view(MPI_File fh, MPI_Offset* disp,
 {
   int retval = MPI_SUCCESS;
   /*
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_File real_file = get_real_id((mana_mpi_handle){.file = fh}).file;
   MPI_Datatype realEtype;
   MPI_Datatype realFtype;
@@ -176,7 +177,7 @@ int PMPI_File_get_view(MPI_File fh, MPI_Offset* disp,
   RETURN_TO_UPPER_HALF();
   *etype = REAL_TO_VIRTUAL_TYPE(realEtype);
   *filetype = REAL_TO_VIRTUAL_TYPE(realFtype);
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   */
   return retval;
 }
@@ -186,13 +187,13 @@ int PMPI_File_read(MPI_File fh, void *buf, int count,
                   MPI_Datatype datatype, MPI_Status *status)
 {
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_File real_file = get_real_id((mana_mpi_handle){.file = fh}).file;
   MPI_Datatype real_datatype = get_real_id((mana_mpi_handle){.datatype = datatype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(File_read)(real_file, buf, count, real_datatype, status);
   RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
 
@@ -202,14 +203,14 @@ int PMPI_File_read_at(MPI_File fh, MPI_Offset offset,
                      MPI_Status *status)
 {
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_File real_file = get_real_id((mana_mpi_handle){.file = fh}).file;
   MPI_Datatype real_datatype = get_real_id((mana_mpi_handle){.datatype = datatype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(File_read_at)(real_file, offset, buf, count, real_datatype,
                                    status);
   RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
 
@@ -224,14 +225,14 @@ int PMPI_File_read_at_all(MPI_File fh, MPI_Offset offset,
   // requiring the trivial barrier. If the app begins to hang at this call,
   // add commit_begin() and commit_finish() to the start/end of this wrapper.
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_File real_file = get_real_id((mana_mpi_handle){.file = fh}).file;
   MPI_Datatype real_datatype = get_real_id((mana_mpi_handle){.datatype = datatype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(File_read_at_all)(real_file, offset, buf, count, real_datatype,
                                        status);
   RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
 
@@ -245,13 +246,13 @@ int PMPI_File_read_all(MPI_File fh, void *buf,
   // requiring the trivial barrier. If the app begins to hang at this call,
   // add commit_begin() and commit_finish() to the start/end of this wrapper.
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_File real_file = get_real_id((mana_mpi_handle){.file = fh}).file;
   MPI_Datatype real_datatype = get_real_id((mana_mpi_handle){.datatype = datatype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(File_read_all)(real_file, buf, count, real_datatype, status);
   RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
 
@@ -260,13 +261,13 @@ int PMPI_File_write(MPI_File fh, const void *buf,
                    int count, MPI_Datatype datatype, MPI_Status *status)
 {
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_File real_file = get_real_id((mana_mpi_handle){.file = fh}).file;
   MPI_Datatype real_datatype = get_real_id((mana_mpi_handle){.datatype = datatype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(File_write)(real_file, buf, count, real_datatype, status);
   RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
 
@@ -276,14 +277,14 @@ int PMPI_File_write_at(MPI_File fh, MPI_Offset offset,
                       MPI_Status *status)
 {
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_File real_file = get_real_id((mana_mpi_handle){.file = fh}).file;
   MPI_Datatype real_datatype = get_real_id((mana_mpi_handle){.datatype = datatype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(File_write_at)(real_file, offset, buf, count, real_datatype,
                                     status);
   RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
 
@@ -294,14 +295,14 @@ int PMPI_File_write_at_all(MPI_File fh, MPI_Offset offset,
 {
   // FIXME: See File_read_at_all (the same applies here)
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_File real_file = get_real_id((mana_mpi_handle){.file = fh}).file;
   MPI_Datatype real_datatype = get_real_id((mana_mpi_handle){.datatype = datatype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(File_write_at_all)(real_file, offset, buf, count,
                                         real_datatype, status);
   RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
 
@@ -311,13 +312,13 @@ int PMPI_File_write_all(MPI_File fh, const void *buf,
 {
   // FIXME: See File_read_all (the same applies here)
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_File real_file = get_real_id((mana_mpi_handle){.file = fh}).file;
   MPI_Datatype real_datatype = get_real_id((mana_mpi_handle){.datatype = datatype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(File_write_all)(real_file, buf, count, real_datatype, status);
   RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
 
@@ -325,12 +326,12 @@ int PMPI_File_write_all(MPI_File fh, const void *buf,
 int PMPI_File_sync(MPI_File fh)
 {
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_File real_file = get_real_id((mana_mpi_handle){.file = fh}).file;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(File_sync)(real_file);
   RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
 
@@ -338,12 +339,12 @@ int PMPI_File_sync(MPI_File fh)
 int PMPI_File_get_position(MPI_File fh, MPI_Offset* offset)
 {
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_File real_file = get_real_id((mana_mpi_handle){.file = fh}).file;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(File_get_position)(real_file, offset);
   RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
 
@@ -351,12 +352,12 @@ int PMPI_File_get_position(MPI_File fh, MPI_Offset* offset)
 int PMPI_File_seek(MPI_File fh, MPI_Offset offset, int whence)
 {
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_File real_file = get_real_id((mana_mpi_handle){.file = fh}).file;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(File_seek)(real_file, offset, whence);
   RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
 
@@ -364,7 +365,7 @@ int PMPI_File_seek(MPI_File fh, MPI_Offset offset, int whence)
 int PMPI_File_close(MPI_File *fh)
 {
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_File real_file = get_real_id((mana_mpi_handle){.file = *fh}).file;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(File_close)(&real_file);
@@ -377,7 +378,7 @@ int PMPI_File_close(MPI_File *fh)
   if (retval == MPI_SUCCESS) {
     g_params_map.erase(*fh);
   }
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
 
@@ -385,7 +386,7 @@ int PMPI_File_close(MPI_File *fh)
 int PMPI_File_delete(const char *filename, MPI_Info info)
 {
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(File_delete)(filename, info);
   RETURN_TO_UPPER_HALF();
@@ -398,7 +399,7 @@ int PMPI_File_delete(const char *filename, MPI_Info info)
 
   // FIXME: if there are stale entries in the g_params_map then one can use find
   // and erase the file handle key from the g_params_map here.
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
 
@@ -407,12 +408,12 @@ int PMPI_File_delete(const char *filename, MPI_Info info)
 int PMPI_File_set_errhandler(MPI_File file, MPI_Errhandler errhandler)
 {
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_File real_file = get_real_id((mana_mpi_handle){.file = file}).file;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(File_set_errhandler)(real_file, errhandler);
   RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
 
@@ -420,12 +421,12 @@ int PMPI_File_set_errhandler(MPI_File file, MPI_Errhandler errhandler)
 int PMPI_File_get_errhandler(MPI_File file, MPI_Errhandler *errhandler)
 {
   int retval;
-  DMTCP_PLUGIN_DISABLE_CKPT();
+  LOWER_HALF_DISABLE_CKPT();
   MPI_File real_file = get_real_id((mana_mpi_handle){.file = file}).file;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(File_get_errhandler)(real_file, errhandler);
   RETURN_TO_UPPER_HALF();
-  DMTCP_PLUGIN_ENABLE_CKPT();
+  LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
 
