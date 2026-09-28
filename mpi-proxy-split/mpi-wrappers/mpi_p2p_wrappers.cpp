@@ -74,6 +74,12 @@ int PMPI_Isend(const void *buf, int count, MPI_Datatype datatype,
               MPI_Comm comm, MPI_Request *request)
 {
   int retval;
+  // As in MPI_Send: don't start a send while the P2P drain runs.  The drain
+  // has already counted the messages sent; a message sent now would be in
+  // flight, and its request pending, in the checkpoint image.
+  while (mana_state == CKPT_P2P) {
+    usleep(100);
+  }
   DMTCP_PLUGIN_DISABLE_CKPT();
   local_sent_messages++;
   MPI_Comm realComm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
