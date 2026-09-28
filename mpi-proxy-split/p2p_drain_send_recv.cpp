@@ -98,6 +98,9 @@ registerLocalSendsAndRecvs()
   dmtcp_global_barrier("MPI:Register-p2p-send-recv");
   kvdb::get64(db, sent_counter_key, &global_sent_messages);
   kvdb::get64(db, recv_counter_key, &global_recv_messages);
+  // Don't let a rank reset the counters for the next round before every
+  // rank has read them: the ranks must agree on whether to drain again.
+  dmtcp_global_barrier("MPI:Read-p2p-send-recv");
 }
 
 // status was received by MPI_Iprobe
