@@ -39,8 +39,9 @@ extern int MPI_Alltoall_internal(const void *sendbuf, int sendcount,
                                  MPI_Datatype sendtype, void *recvbuf,
                                  int recvcount, MPI_Datatype recvtype,
                                  MPI_Comm comm);
-extern int MPI_Test_internal(MPI_Request *, int *flag, MPI_Status *status,
-                             bool isRealRequest);
+// Defined with C linkage in mpi-wrappers/mpi_request_wrappers.cpp.
+extern "C" int MPI_Test_internal(MPI_Request *, int *flag, MPI_Status *status,
+                                 bool isRealRequest);
 // FIXME: These three internal functions were added to avoid record and replay.
 // Since we no longer record MPI_Comm and MPI_Group related functions, these
 // internal functions can be removed.
