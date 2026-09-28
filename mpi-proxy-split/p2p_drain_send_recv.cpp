@@ -62,7 +62,7 @@ std::unordered_set<MPI_Comm> active_comms;
 dmtcp::vector<mpi_message_t*> g_message_queue;
 
 // See p2p_drain_send_recv.h for documentation of these globals.
-pending_recv_t g_pending_recv = { /*.active=*/ false };
+pending_recv_t g_pending_recv = { /*.state=*/ PENDING_RECV_IDLE };
 volatile bool p2p_dummy_phase = false;
 
 void
@@ -422,13 +422,20 @@ unblockPendingRecvs()
   // Phase A: publish this rank's pending_recv state to kvdb.  We always
   // publish all keys so that no stale value from a previous
   // checkpoint cycle can be observed.
-  int64_t my_active = g_pending_recv.active ? 1 : 0;
-  int64_t my_source = g_pending_recv.active ? g_pending_recv.source : 0;
-  int64_t my_tag    = g_pending_recv.active ? g_pending_recv.tag    : 0;
-  int64_t my_comm   = g_pending_recv.active ? (int64_t)g_pending_recv.comm : 0;
-  int64_t my_count  = g_pending_recv.active ? g_pending_recv.count : 0;
-  int64_t my_dtype  = g_pending_recv.active ?
-                        (int64_t)g_pending_recv.datatype : 0;
+  // Close the slot first: an MPI_Recv that starts from now on waits in the
+  // upper half, since no dummy would reach it in the lower half.  If the
+  // slot is PENDING_RECV_ACTIVE instead, that MPI_Recv gets a dummy.
+  int state = PENDING_RECV_IDLE;
+  __atomic_compare_exchange_n(&g_pending_recv.state, &state,
+                              PENDING_RECV_CLOSED, false,
+                              __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE);
+  bool blocked = (state == PENDING_RECV_ACTIVE);
+  int64_t my_active = blocked ? 1 : 0;
+  int64_t my_source = blocked ? g_pending_recv.source : 0;
+  int64_t my_tag    = blocked ? g_pending_recv.tag    : 0;
+  int64_t my_comm   = blocked ? (int64_t)g_pending_recv.comm : 0;
+  int64_t my_count  = blocked ? g_pending_recv.count : 0;
+  int64_t my_dtype  = blocked ? (int64_t)g_pending_recv.datatype : 0;
 
   snprintf(key, sizeof(key), "active_%d", g_world_rank);
   kvdb::set64(db, key, my_active);
@@ -590,9 +597,10 @@ resetDrainCounters()
   // p2p_dummy_phase is cleared on EVENT_RESUME and EVENT_RESTART
   // (where this function is called from mpi_plugin_event_hook).  This
   // releases any MPI_Recv wrappers that were parked in their
-  // wait-for-resume loop after consuming a dummy.
+  // wait-for-resume loop after consuming a dummy, and reopens the
+  // pending-Recv slot.
   p2p_dummy_phase = false;
-  g_pending_recv.active = false;
+  __atomic_store_n(&g_pending_recv.state, PENDING_RECV_IDLE, __ATOMIC_RELEASE);
 #ifdef DEBUG_P2P
   memset(g_sendBytesByRank, 0, g_world_size * sizeof(int));
   memset(g_rsendBytesByRank, 0, g_world_size * sizeof(int));
