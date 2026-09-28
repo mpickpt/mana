@@ -20,6 +20,9 @@ using dmtcp::kvdb::KVDBResponse;
 
 constexpr int MAX_DRAIN_ROUNDS = 200;
 
+extern "C" int MPI_Test_internal(MPI_Request *request, int *flag,
+                                 MPI_Status *status, bool isRealRequest);
+
 extern int g_world_rank;
 extern int g_world_size;
 // Global communicator for MANA internal use
@@ -304,5 +307,28 @@ drain_mpi_collective()
     sleep(1);
 
     attemptId++;
+  }
+}
+
+// Completes the non-blocking collectives that are still pending.  Called
+// after drain_mpi_collective(): by then every rank has initiated the same
+// collectives on each communicator (up to the Collective Clock's targets),
+// and commit_begin() keeps the ranks from initiating any more.  So each
+// pending non-blocking collective has been initiated by all the ranks of its
+// communicator, and MPI_Test completes it here.  None is then in flight in
+// the checkpoint image, whose lower half is discarded at restart, and none is
+// replayed.  The request is kept and maps to MPI_REQUEST_NULL: the
+// application's MPI_Wait/MPI_Test on it completes at once.
+void
+complete_pending_nonblocking_collectives()
+{
+  for (MPI_Request request : pending_collective_requests()) {
+    int flag = 0;
+    MPI_Status status;
+    while (!flag) {
+      MPI_Test_internal(&request, &flag, &status, false);
+    }
+    update_virt_id((mana_mpi_handle){.request = request},
+                   (mana_mpi_handle){.request = MPI_REQUEST_NULL});
   }
 }

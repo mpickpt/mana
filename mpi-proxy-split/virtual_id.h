@@ -130,6 +130,9 @@ typedef struct virt_id_entry {
   mpi_nonblocking_call_t call;
   struct virt_id_entry *pending_prev;
   struct virt_id_entry *pending_next;
+  // True for the request of a non-blocking collective, which a checkpoint
+  // completes first (see complete_pending_nonblocking_collectives()).
+  bool collective;
 } virt_id_entry;
 
 // Synchronization: the table lives in upper-half memory and is saved in the
@@ -151,6 +154,7 @@ MPI_Group new_virt_group(MPI_Group real_group);
 MPI_Op new_virt_op(MPI_Op real_op);
 MPI_Datatype new_virt_datatype(MPI_Datatype real_datatype);
 MPI_Request new_virt_request(MPI_Request real_request);
+MPI_Request new_virt_collective_request(MPI_Request real_request);
 MPI_File new_virt_file(MPI_File real_request);
 
 int is_predefined_id(mana_mpi_handle id);
@@ -165,6 +169,9 @@ size_t virt_id_live_count();
 // Returns the virtual communicators in use, in creation order.  The
 // checkpoint thread may call it while an application thread runs.
 std::vector<MPI_Comm> live_virt_comms();
+// Returns the requests of the non-blocking collectives that have not
+// completed yet, in creation order.
+std::vector<MPI_Request> pending_collective_requests();
 
 void reconstruct_descriptors();
 void init_predefined_virt_ids();

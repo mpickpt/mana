@@ -890,6 +890,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       // preSuspendBarrier() will send coord response and get worker state.
       // FIXME:  See commant at: dmtcpplugin.cpp:'case DMTCP_EVENT_PRESUSPEND'
       drain_mpi_collective();
+      complete_pending_nonblocking_collectives();  // seq_num.cpp
       dmtcp_global_barrier("MPI:Drain-Send-Recv");
       mana_state = CKPT_P2P;
       drainP2p(); // p2p_drain_send_recv.cpp
