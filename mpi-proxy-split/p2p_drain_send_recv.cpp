@@ -205,21 +205,36 @@ int
 drainRemainingP2pMsgs()
 {
   int bytesReceived = 0;
-  std::unordered_set<MPI_Comm>::iterator comm;
-  for (comm = active_comms.begin(); comm != active_comms.end(); comm++) {
+  // Probe every communicator the application may be sending on: the
+  // predefined ones in active_comms, and those in the virtual-ID table.
+  // (MANA's own g_world_comm carries the Collective Clock's messages,
+  // which are not counted as sent or received.)
+  std::vector<MPI_Comm> comms(active_comms.begin(), active_comms.end());
+  for (MPI_Comm virtComm : live_virt_comms()) {
+    if (virtComm != g_world_comm) {
+      comms.push_back(virtComm);
+    }
+  }
+  for (MPI_Comm comm : comms) {
     // If the communicator is MPI_COMM_NULL, skip it.
     // MPI_COMM_NULL can be returned from functions like MPI_Comm_split
     // if the color is specified on only one side of the intercommunicator, or
     // specified as MPI_UNDEFINED by the program. In this case, the MPI function
     // still returns MPI_SUCCESS. So the MPI_COMM_NULL can be added to the
     // active communicator set `active_comms'.
-    if (*comm == MPI_COMM_NULL) {
+    if (comm == MPI_COMM_NULL) {
+      continue;
+    }
+    // Skip a communicator that the application has freed since.
+    if (!is_predefined_id((mana_mpi_handle){.comm = comm}) &&
+        lookup_virt_id_entry((mana_mpi_handle){.comm = comm}) == NULL) {
       continue;
     }
     int flag = 1;
     while (flag) {
       MPI_Status status;
-      int retval = MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, *comm, &flag, &status);
+      int retval = MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, comm, &flag,
+                              &status);
       JASSERT(retval == MPI_SUCCESS);
       if (flag) {
         MPI_Request matched_request = MPI_REQUEST_NULL;
@@ -228,7 +243,7 @@ drainRemainingP2pMsgs()
         for (MPI_Request req : pendingRequestsInPostingOrder()) {
           mpi_nonblocking_call_t *call = g_nonblocking_calls[req];
           if (call->type == IRECV_REQUEST &&
-              call->comm == *comm &&
+              call->comm == comm &&
               (call->tag == status.MPI_TAG || call->tag == MPI_ANY_TAG) &&
               (call->remote_node == status.MPI_SOURCE ||
                call->remote_node == MPI_ANY_SOURCE)) {
@@ -256,7 +271,7 @@ drainRemainingP2pMsgs()
                          (mana_mpi_handle){.request = MPI_REQUEST_NULL});
           clearPendingRequestFromLog(matched_request);
         } else {
-          bytesReceived += recvMsgIntoInternalBuffer(status, *comm);
+          bytesReceived += recvMsgIntoInternalBuffer(status, comm);
         }
       }
     }

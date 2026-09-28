@@ -71,7 +71,10 @@ set_upper_to_lower(int64_t upper, int64_t lower)
 // synchronization it relies on.
 virt_id_entry *virt_id_chunks[MANA_VIRT_ID_NUM_CHUNKS];
 static int virt_id_free_head = -1;   // First slot of the free list, or -1
-static int virt_id_high_water = 0;   // Slots [0, high_water) have been used
+// Slots [0, high_water) have been used.  Written with release semantics
+// after the slot's chunk is published, so that a reader in another thread
+// (live_virt_comms()) that loads it with acquire semantics sees the chunk.
+static int virt_id_high_water = 0;
 static uint64_t virt_id_next_seq = 0;
 static size_t virt_id_live = 0;
 
@@ -522,7 +525,7 @@ alloc_slot()
     // Publish the chunk only after it is initialized; see virtual_id.h.
     __atomic_store_n(&virt_id_chunks[chunk], entries, __ATOMIC_RELEASE);
   }
-  virt_id_high_water++;
+  __atomic_store_n(&virt_id_high_water, slot + 1, __ATOMIC_RELEASE);
   return slot;
 }
 
@@ -670,4 +673,22 @@ void update_virt_id(mana_mpi_handle virt_id, mana_mpi_handle real_id) {
 
 size_t virt_id_live_count() {
   return virt_id_live;
+}
+
+std::vector<MPI_Comm> live_virt_comms() {
+  std::vector<std::pair<uint64_t, MPI_Comm> > comms;
+  int high_water = __atomic_load_n(&virt_id_high_water, __ATOMIC_ACQUIRE);
+  for (int slot = 0; slot < high_water; slot++) {
+    virt_id_entry *entry = slot_entry(slot);
+    int handle = __atomic_load_n(&entry->virt, __ATOMIC_ACQUIRE);
+    if (handle != 0 && handle >> MANA_VIRT_ID_KIND_SHIFT == MANA_COMM_KIND) {
+      comms.push_back(std::make_pair(entry->seq, (MPI_Comm)handle));
+    }
+  }
+  std::sort(comms.begin(), comms.end());
+  std::vector<MPI_Comm> result;
+  for (std::pair<uint64_t, MPI_Comm> comm : comms) {
+    result.push_back(comm.second);
+  }
+  return result;
 }
