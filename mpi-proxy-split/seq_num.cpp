@@ -103,6 +103,28 @@ void seq_num_broadcast(MPI_Comm comm, unsigned long new_target) {
   RETURN_TO_UPPER_HALF();
 }
 
+// Finds the Collective Clock state of 'comm' in its virtual-ID entry.
+// MPI_COMM_WORLD uses g_world_comm's entry; other predefined communicators,
+// which have no entry, use the maps.
+static inline void
+lookup_comm_clock(MPI_Comm comm, unsigned int *comm_gid,
+                  unsigned long **comm_seq, unsigned long **comm_target)
+{
+  MPI_Comm virt_comm = (comm == MPI_COMM_WORLD) ? g_world_comm : comm;
+  virt_id_entry *entry =
+    lookup_virt_id_entry((mana_mpi_handle){.comm = virt_comm});
+  if (entry != NULL) {
+    mana_comm_desc *desc = (mana_comm_desc*)entry->desc;
+    *comm_gid = desc->ggid;
+    *comm_seq = desc->seq_num;
+    *comm_target = desc->target;
+  } else {
+    *comm_gid = ggid_table[comm];
+    *comm_seq = &seq_num[*comm_gid];
+    *comm_target = &target[*comm_gid];
+  }
+}
+
 void commit_begin(MPI_Comm comm) {
   if (mana_state == RESTART_REPLAY || comm == MPI_COMM_NULL) {
     return;
@@ -133,14 +155,16 @@ void commit_begin(MPI_Comm comm) {
       }
     }
   }
+  unsigned int comm_gid;
+  unsigned long *comm_seq, *comm_target;
   pthread_mutex_lock(&seq_num_lock);
   current_phase = IN_CS;
-  unsigned int comm_gid = ggid_table[comm];
-  seq_num[comm_gid]++;
+  lookup_comm_clock(comm, &comm_gid, &comm_seq, &comm_target);
+  (*comm_seq)++;
   pthread_mutex_unlock(&seq_num_lock);
-  if (ckpt_pending && seq_num[comm_gid] > target[comm_gid]) {
-    target[comm_gid] = seq_num[comm_gid];
-    seq_num_broadcast(comm, seq_num[comm_gid]);
+  if (ckpt_pending && *comm_seq > *comm_target) {
+    *comm_target = *comm_seq;
+    seq_num_broadcast(comm, *comm_seq);
   }
 }
 

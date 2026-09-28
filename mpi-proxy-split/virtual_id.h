@@ -58,6 +58,11 @@ typedef struct {
   int size;
   int rank;
   int *global_ranks;
+  // Collective Clock state (see seq_num.cpp): the group's global id and its
+  // entries in seq_num and target, shared by all communicators of the group.
+  unsigned int ggid;
+  unsigned long *seq_num;
+  unsigned long *target;
   // A name for the communicator that all its members agree on, unlike the
   // virtual handle, which differs between processes.  For a blocked
   // MPI_Recv, the P2P drain publishes this name, and the rank that sends
