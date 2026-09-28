@@ -212,7 +212,8 @@ retry:
     int msg_size = type_size * count;
     consumeMatchingMsgBuffer(buf, count, datatype, source, tag, comm,
                              &buffered_status, msg_size);
-    local_recv_messages++;
+    // Don't count the message in local_recv_messages: the P2P drain counted
+    // it when it moved it to the buffer (recvMsgIntoInternalBuffer()).
     if (status != MPI_STATUS_IGNORE && status != FORTRAN_MPI_STATUS_IGNORE) {
       *status = buffered_status;
     }
