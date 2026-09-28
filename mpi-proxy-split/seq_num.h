@@ -18,6 +18,7 @@ void commit_begin(MPI_Comm comm);
 void commit_finish(MPI_Comm comm);
 
 void drain_mpi_collective();
+void complete_pending_nonblocking_collectives();
 void share_seq_nums();
 int check_seq_nums();
 void print_seq_nums();

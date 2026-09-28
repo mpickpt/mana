@@ -137,6 +137,8 @@ typedef struct virt_id_entry {
   mpi_nonblocking_call_t call;
   struct virt_id_entry *pending_prev;
   struct virt_id_entry *pending_next;
+  // True for a non-blocking collective's request.
+  bool collective;
   // Set by complete_virt_request(), with the receive's status.
   bool completed;
   MPI_Status status;
@@ -158,6 +160,7 @@ MPI_Group new_virt_group(MPI_Group real_group);
 MPI_Op new_virt_op(MPI_Op real_op);
 MPI_Datatype new_virt_datatype(MPI_Datatype real_datatype);
 MPI_Request new_virt_request(MPI_Request real_request);
+MPI_Request new_virt_collective_request(MPI_Request real_request);
 MPI_File new_virt_file(MPI_File real_request);
 
 int is_predefined_id(mana_mpi_handle id);
@@ -179,6 +182,8 @@ size_t virt_id_live_count();
 // Returns the communicators in use, in creation order.  Safe to call from
 // the checkpoint thread while an application thread runs.
 std::vector<MPI_Comm> live_virt_comms();
+// Returns the incomplete non-blocking collective requests, in creation order.
+std::vector<MPI_Request> pending_collective_requests();
 // Returns the communicator with this name (see mana_comm_desc), or
 // MPI_COMM_NULL.  Safe to call from the checkpoint thread while an
 // application thread runs.
