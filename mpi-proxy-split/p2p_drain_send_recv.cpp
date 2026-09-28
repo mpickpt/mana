@@ -223,12 +223,10 @@ drainRemainingP2pMsgs()
       JASSERT(retval == MPI_SUCCESS);
       if (flag) {
         MPI_Request matched_request = MPI_REQUEST_NULL;
-        std::map<MPI_Request, mpi_nonblocking_call_t*>::iterator it;
         // Check if there are pending MPI_Irecv's that matches the envelope of the
-        // probed message.
-        for (it = g_nonblocking_calls.begin(); it != g_nonblocking_calls.end(); it++) {
-          MPI_Request req = it->first;
-          mpi_nonblocking_call_t *call = it->second;
+        // probed message.  MPI matches the earliest posted one.
+        for (MPI_Request req : pendingRequestsInPostingOrder()) {
+          mpi_nonblocking_call_t *call = g_nonblocking_calls[req];
           if (call->type == IRECV_REQUEST &&
               call->comm == *comm &&
               (call->tag == status.MPI_TAG || call->tag == MPI_ANY_TAG) &&

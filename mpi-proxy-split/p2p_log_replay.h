@@ -23,6 +23,8 @@
 #define _P2P_COMM_H
 
 #include <mpi.h>
+#include <stdint.h>
+#include <vector>
 #include "dmtcp.h"
 #include "dmtcpalloc.h"
 
@@ -56,6 +58,7 @@ typedef struct __mpi_nonblocking_call
   MPI_Comm comm;    // MPI communicator
   int remote_node;  // Can be dest or source depending on the call type
   int tag;          // MPI message tag
+  uint64_t seq;     // Posting order
 } mpi_nonblocking_call_t;
 
 // Struct to store and return the MPI message (data) during draining and
@@ -103,6 +106,11 @@ extern void addPendingRequestToLog(mpi_req_t , const void* , void* , int ,
 
 // remove finished send/recv call from the global map
 extern void clearPendingRequestFromLog(MPI_Request req);
+
+// Returns the requests in the global map in the order they were posted.
+// MPI matches receives in posting order, so the drain and the restart replay
+// must follow it; the order of the (reused) virtual request handles doesn't.
+extern std::vector<MPI_Request> pendingRequestsInPostingOrder();
 
 // Log the creation or update of a virtual request
 extern void logRequestInfo(MPI_Request request, mpi_req_t req_type);
