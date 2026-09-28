@@ -181,6 +181,10 @@ MPI_Comm new_virt_comm(MPI_Comm real_comm) {
                                     desc->size);
   seq_num[ggid] = 0;
   target[ggid] = 0;
+  // The maps never erase entries, so these pointers stay valid.
+  desc->ggid = ggid;
+  desc->seq_num = &seq_num[ggid];
+  desc->target = &target[ggid];
   desc->ranks_hash = hash_ranks(desc->global_ranks, desc->size);
   desc->instance = comm_instances[desc->ranks_hash]++;
   mana_mpi_handle virt_id;
