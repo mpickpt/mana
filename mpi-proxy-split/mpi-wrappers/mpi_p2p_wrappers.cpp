@@ -68,7 +68,8 @@ int PMPI_Send(const void *buf, int count, MPI_Datatype datatype,
   return retval;
 }
 
-// The body of MPI_Isend.  The caller has called LOWER_HALF_DISABLE_CKPT().
+// The body of MPI_Isend.  The caller has waited out the P2P drain (see
+// MPI_Isend) and called LOWER_HALF_DISABLE_CKPT().
 static int
 MPI_Isend_internal(const void *buf, int count, MPI_Datatype datatype,
                    int dest, int tag, MPI_Comm comm, MPI_Request *request)
@@ -109,6 +110,11 @@ int PMPI_Isend(const void *buf, int count, MPI_Datatype datatype,
               MPI_Comm comm, MPI_Request *request)
 {
   int retval;
+  // As in MPI_Send: don't start a send while the P2P drain runs; the drain
+  // might not count it, and it would be in flight in the checkpoint image.
+  while (mana_state == CKPT_P2P) {
+    usleep(100);
+  }
   LOWER_HALF_DISABLE_CKPT();
   retval = MPI_Isend_internal(buf, count, datatype, dest, tag, comm, request);
   LOWER_HALF_ENABLE_CKPT();
@@ -369,6 +375,10 @@ int PMPI_Sendrecv(const void *sendbuf, int sendcount,
   get_fortran_constants();
   MPI_Request reqs[2];
   MPI_Status sts[2];
+  // As in MPI_Isend, don't start the send while the P2P drain runs.
+  while (mana_state == CKPT_P2P) {
+    usleep(100);
+  }
   // FIXME: The send and receive need to be atomic
   // Post both requests under one LOWER_HALF_DISABLE_CKPT().
   LOWER_HALF_DISABLE_CKPT();
@@ -409,8 +419,11 @@ int PMPI_Sendrecv_replace(void *buf, int count,
   MPI_Type_size(datatype, &type_size);
   void* tmpbuf = (void*) malloc(count * type_size);
 
-  // As in MPI_Sendrecv: post both requests under one
-  // LOWER_HALF_DISABLE_CKPT().
+  // As in MPI_Sendrecv: wait out the P2P drain, then post both requests
+  // under one LOWER_HALF_DISABLE_CKPT().
+  while (mana_state == CKPT_P2P) {
+    usleep(100);
+  }
   LOWER_HALF_DISABLE_CKPT();
   // Recv into temp buffer to avoid overwriting
   retval = MPI_Irecv_internal(tmpbuf, count, datatype, source, recvtag, comm,
