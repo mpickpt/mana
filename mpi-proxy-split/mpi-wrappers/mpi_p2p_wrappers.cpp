@@ -64,19 +64,13 @@ int PMPI_Send(const void *buf, int count, MPI_Datatype datatype,
   return retval;
 }
 
-#pragma weak MPI_Isend = PMPI_Isend
-int PMPI_Isend(const void *buf, int count, MPI_Datatype datatype,
-              int dest, int tag,
-              MPI_Comm comm, MPI_Request *request)
+// The body of MPI_Isend.  The caller has waited out the P2P drain (see
+// MPI_Isend) and called DMTCP_PLUGIN_DISABLE_CKPT().
+static int
+MPI_Isend_internal(const void *buf, int count, MPI_Datatype datatype,
+                   int dest, int tag, MPI_Comm comm, MPI_Request *request)
 {
   int retval;
-  // As in MPI_Send: don't start a send while the P2P drain runs.  The drain
-  // has already counted the messages sent; a message sent now would be in
-  // flight, and its request pending, in the checkpoint image.
-  while (mana_state == CKPT_P2P) {
-    usleep(100);
-  }
-  DMTCP_PLUGIN_DISABLE_CKPT();
   local_sent_messages++;
   MPI_Comm realComm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   MPI_Datatype realType = get_real_id((mana_mpi_handle){.datatype = datatype}).datatype;
@@ -101,6 +95,23 @@ int PMPI_Isend(const void *buf, int count, MPI_Datatype datatype,
     logRequestInfo(*request, ISEND_REQUEST);
 #endif
   }
+  return retval;
+}
+
+#pragma weak MPI_Isend = PMPI_Isend
+int PMPI_Isend(const void *buf, int count, MPI_Datatype datatype,
+              int dest, int tag,
+              MPI_Comm comm, MPI_Request *request)
+{
+  int retval;
+  // As in MPI_Send: don't start a send while the P2P drain runs.  The drain
+  // has already counted the messages sent; a message sent now would be in
+  // flight, and its request pending, in the checkpoint image.
+  while (mana_state == CKPT_P2P) {
+    usleep(100);
+  }
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  retval = MPI_Isend_internal(buf, count, datatype, dest, tag, comm, request);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -254,15 +265,15 @@ retry:
   return retval;
 }
 
-#pragma weak MPI_Irecv = PMPI_Irecv
-int PMPI_Irecv(void *buf, int count, MPI_Datatype datatype,
-              int source, int tag, MPI_Comm comm, MPI_Request *request)
+// The body of MPI_Irecv.  The caller has called DMTCP_PLUGIN_DISABLE_CKPT().
+static int
+MPI_Irecv_internal(void *buf, int count, MPI_Datatype datatype,
+                   int source, int tag, MPI_Comm comm, MPI_Request *request)
 {
   int retval;
   int flag = 0;
   MPI_Status status;
 
-  DMTCP_PLUGIN_DISABLE_CKPT();
   if (mana_state == RUNNING &&
       existsMatchingMsgBuffer(source, tag, comm, &flag, &status)) {
     int type_size;
@@ -301,7 +312,6 @@ int PMPI_Irecv(void *buf, int count, MPI_Datatype datatype,
     update_virt_id((mana_mpi_handle){.request = virtRequest}, real_request_null);
     *request = virtRequest;
     retval = MPI_SUCCESS;
-    DMTCP_PLUGIN_ENABLE_CKPT();
     return retval;
   }
 
@@ -319,6 +329,17 @@ int PMPI_Irecv(void *buf, int count, MPI_Datatype datatype,
     logRequestInfo(*request, IRECV_REQUEST);
 #endif
   }
+  return retval;
+}
+
+#pragma weak MPI_Irecv = PMPI_Irecv
+int PMPI_Irecv(void *buf, int count, MPI_Datatype datatype,
+              int source, int tag, MPI_Comm comm, MPI_Request *request)
+{
+  int retval;
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  retval = MPI_Irecv_internal(buf, count, datatype, source, tag, comm,
+                              request);
   DMTCP_PLUGIN_ENABLE_CKPT();
   return retval;
 }
@@ -344,14 +365,21 @@ int PMPI_Sendrecv(const void *sendbuf, int sendcount,
   get_fortran_constants();
   MPI_Request reqs[2];
   MPI_Status sts[2];
-  // FIXME: The send and receive need to be atomic
-  retval = MPI_Isend(sendbuf, sendcount, sendtype, dest,
-      sendtag, comm, &reqs[0]);
-  if (retval != MPI_SUCCESS) {
-    return retval;
+  // As in MPI_Isend, don't start the send while the P2P drain runs.
+  while (mana_state == CKPT_P2P) {
+    usleep(100);
   }
-  retval = MPI_Irecv(recvbuf, recvcount, recvtype, source,
-                     recvtag, comm, &reqs[1]);
+  // FIXME: The send and receive need to be atomic
+  // Post both requests under one DMTCP_PLUGIN_DISABLE_CKPT(), rather than
+  // taking the wrapper lock once in each of MPI_Isend and MPI_Irecv.
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  retval = MPI_Isend_internal(sendbuf, sendcount, sendtype, dest,
+                              sendtag, comm, &reqs[0]);
+  if (retval == MPI_SUCCESS) {
+    retval = MPI_Irecv_internal(recvbuf, recvcount, recvtype, source,
+                                recvtag, comm, &reqs[1]);
+  }
+  DMTCP_PLUGIN_ENABLE_CKPT();
   if (retval != MPI_SUCCESS) {
     return retval;
   }
@@ -382,15 +410,21 @@ int PMPI_Sendrecv_replace(void *buf, int count,
   MPI_Type_size(datatype, &type_size);
   void* tmpbuf = (void*) malloc(count * type_size);
 
-  // Recv into temp buffer to avoid overwriting
-  retval = MPI_Irecv(tmpbuf, count, datatype, source, recvtag, comm, &reqs[0]);
-  if (retval != MPI_SUCCESS) {
-    free(tmpbuf);
-    return retval;
+  // As in MPI_Sendrecv: wait out the P2P drain, then post both requests
+  // under one DMTCP_PLUGIN_DISABLE_CKPT().
+  while (mana_state == CKPT_P2P) {
+    usleep(100);
   }
-
-  // Send from original buffer
-  retval = MPI_Isend(buf, count, datatype, dest, sendtag, comm, &reqs[1]);
+  DMTCP_PLUGIN_DISABLE_CKPT();
+  // Recv into temp buffer to avoid overwriting
+  retval = MPI_Irecv_internal(tmpbuf, count, datatype, source, recvtag, comm,
+                              &reqs[0]);
+  if (retval == MPI_SUCCESS) {
+    // Send from original buffer
+    retval = MPI_Isend_internal(buf, count, datatype, dest, sendtag, comm,
+                                &reqs[1]);
+  }
+  DMTCP_PLUGIN_ENABLE_CKPT();
   if (retval != MPI_SUCCESS) {
     free(tmpbuf);
     return retval;
