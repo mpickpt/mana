@@ -91,7 +91,6 @@ MPI_Group new_virt_group(MPI_Group real_group) {
 }
 
 MPI_Request new_virt_request(MPI_Request real_request) {
-  mana_request_desc *desc = (mana_request_desc*)malloc(sizeof(mana_request_desc));
   // See comment in request_desc definition.
   mana_mpi_handle virt_id;
   virt_id = add_virt_id((mana_mpi_handle){.request = real_request}, NULL, MANA_REQUEST_KIND);
@@ -424,7 +423,7 @@ mana_mpi_handle add_virt_id(mana_mpi_handle real_id, void *desc, int kind) {
     next_id++;
   } while (is_predefined_id({._handle = new_virt_id._handle}));
 
-  virt_id_entry *entry = (virt_id_entry*)malloc(sizeof(entry));
+  virt_id_entry *entry = (virt_id_entry*)malloc(sizeof(virt_id_entry));
   entry->real_id = real_id;
   entry->desc = desc;
   virt_ids[new_virt_id._handle] = entry;
