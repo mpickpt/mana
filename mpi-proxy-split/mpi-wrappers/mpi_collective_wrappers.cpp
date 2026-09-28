@@ -568,6 +568,346 @@ int PMPI_Scan(const void *sendbuf, void *recvbuf,
 }
 #endif // #ifndef MPI_COLLECTIVE_P2P
 
+// Non-blocking collectives.  Like MPI_Ibcast, MPI_Ireduce and MPI_Ibarrier,
+// they tick the Collective Clock and mark their request so that a checkpoint
+// completes them first.  MPI_COLLECTIVE_P2P has no version of them.
+#pragma weak MPI_Iallreduce = PMPI_Iallreduce
+int PMPI_Iallreduce(const void *sendbuf, void *recvbuf, int count,
+                    MPI_Datatype datatype, MPI_Op op, MPI_Comm comm,
+                    MPI_Request *request)
+{
+  int retval;
+  commit_begin(comm);
+  LOWER_HALF_DISABLE_CKPT();
+  MPI_Comm real_comm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
+  MPI_Datatype real_datatype =
+    get_real_id((mana_mpi_handle){.datatype = datatype}).datatype;
+  MPI_Op real_op = get_real_id((mana_mpi_handle){.op = op}).op;
+  // FIXME: Ideally, check FORTRAN_MPI_IN_PLACE only in the Fortran wrapper.
+  get_fortran_constants();
+  if (sendbuf == FORTRAN_MPI_IN_PLACE) {
+    sendbuf = MPI_IN_PLACE;
+  }
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
+  retval = NEXT_FUNC(Iallreduce)(sendbuf, recvbuf, count, real_datatype,
+                                 real_op, real_comm, request);
+  RETURN_TO_UPPER_HALF();
+  if (retval == MPI_SUCCESS) {
+    *request = new_virt_collective_request(*request);
+  }
+  LOWER_HALF_ENABLE_CKPT();
+  commit_finish(comm);
+  return retval;
+}
+
+#pragma weak MPI_Ireduce_scatter = PMPI_Ireduce_scatter
+int PMPI_Ireduce_scatter(const void *sendbuf, void *recvbuf,
+                         const int recvcounts[], MPI_Datatype datatype,
+                         MPI_Op op, MPI_Comm comm, MPI_Request *request)
+{
+  int retval;
+  commit_begin(comm);
+  LOWER_HALF_DISABLE_CKPT();
+  MPI_Comm real_comm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
+  MPI_Datatype real_datatype =
+    get_real_id((mana_mpi_handle){.datatype = datatype}).datatype;
+  MPI_Op real_op = get_real_id((mana_mpi_handle){.op = op}).op;
+  // FIXME: Ideally, check FORTRAN_MPI_IN_PLACE only in the Fortran wrapper.
+  get_fortran_constants();
+  if (sendbuf == FORTRAN_MPI_IN_PLACE) {
+    sendbuf = MPI_IN_PLACE;
+  }
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
+  retval = NEXT_FUNC(Ireduce_scatter)(sendbuf, recvbuf, recvcounts,
+                                      real_datatype, real_op, real_comm,
+                                      request);
+  RETURN_TO_UPPER_HALF();
+  if (retval == MPI_SUCCESS) {
+    *request = new_virt_collective_request(*request);
+  }
+  LOWER_HALF_ENABLE_CKPT();
+  commit_finish(comm);
+  return retval;
+}
+
+#pragma weak MPI_Iscan = PMPI_Iscan
+int PMPI_Iscan(const void *sendbuf, void *recvbuf, int count,
+               MPI_Datatype datatype, MPI_Op op, MPI_Comm comm,
+               MPI_Request *request)
+{
+  int retval;
+  commit_begin(comm);
+  LOWER_HALF_DISABLE_CKPT();
+  MPI_Comm real_comm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
+  MPI_Datatype real_datatype =
+    get_real_id((mana_mpi_handle){.datatype = datatype}).datatype;
+  MPI_Op real_op = get_real_id((mana_mpi_handle){.op = op}).op;
+  // FIXME: Ideally, check FORTRAN_MPI_IN_PLACE only in the Fortran wrapper.
+  get_fortran_constants();
+  if (sendbuf == FORTRAN_MPI_IN_PLACE) {
+    sendbuf = MPI_IN_PLACE;
+  }
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
+  retval = NEXT_FUNC(Iscan)(sendbuf, recvbuf, count, real_datatype, real_op,
+                            real_comm, request);
+  RETURN_TO_UPPER_HALF();
+  if (retval == MPI_SUCCESS) {
+    *request = new_virt_collective_request(*request);
+  }
+  LOWER_HALF_ENABLE_CKPT();
+  commit_finish(comm);
+  return retval;
+}
+
+#pragma weak MPI_Ialltoall = PMPI_Ialltoall
+int PMPI_Ialltoall(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
+                   void *recvbuf, int recvcount, MPI_Datatype recvtype,
+                   MPI_Comm comm, MPI_Request *request)
+{
+  int retval;
+  commit_begin(comm);
+  LOWER_HALF_DISABLE_CKPT();
+  MPI_Comm real_comm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
+  MPI_Datatype realSendType =
+    get_real_id((mana_mpi_handle){.datatype = sendtype}).datatype;
+  MPI_Datatype realRecvType =
+    get_real_id((mana_mpi_handle){.datatype = recvtype}).datatype;
+  // FIXME: Ideally, check FORTRAN_MPI_IN_PLACE only in the Fortran wrapper.
+  get_fortran_constants();
+  if (sendbuf == FORTRAN_MPI_IN_PLACE) {
+    sendbuf = MPI_IN_PLACE;
+  }
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
+  retval = NEXT_FUNC(Ialltoall)(sendbuf, sendcount, realSendType, recvbuf,
+                                recvcount, realRecvType, real_comm, request);
+  RETURN_TO_UPPER_HALF();
+  if (retval == MPI_SUCCESS) {
+    *request = new_virt_collective_request(*request);
+  }
+  LOWER_HALF_ENABLE_CKPT();
+  commit_finish(comm);
+  return retval;
+}
+
+#pragma weak MPI_Ialltoallv = PMPI_Ialltoallv
+int PMPI_Ialltoallv(const void *sendbuf, const int sendcounts[],
+                    const int sdispls[], MPI_Datatype sendtype, void *recvbuf,
+                    const int recvcounts[], const int rdispls[],
+                    MPI_Datatype recvtype, MPI_Comm comm, MPI_Request *request)
+{
+  int retval;
+  commit_begin(comm);
+  LOWER_HALF_DISABLE_CKPT();
+  MPI_Comm real_comm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
+  MPI_Datatype realSendType =
+    get_real_id((mana_mpi_handle){.datatype = sendtype}).datatype;
+  MPI_Datatype realRecvType =
+    get_real_id((mana_mpi_handle){.datatype = recvtype}).datatype;
+  // FIXME: Ideally, check FORTRAN_MPI_IN_PLACE only in the Fortran wrapper.
+  get_fortran_constants();
+  if (sendbuf == FORTRAN_MPI_IN_PLACE) {
+    sendbuf = MPI_IN_PLACE;
+  }
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
+  retval = NEXT_FUNC(Ialltoallv)(sendbuf, sendcounts, sdispls, realSendType,
+                                 recvbuf, recvcounts, rdispls, realRecvType,
+                                 real_comm, request);
+  RETURN_TO_UPPER_HALF();
+  if (retval == MPI_SUCCESS) {
+    *request = new_virt_collective_request(*request);
+  }
+  LOWER_HALF_ENABLE_CKPT();
+  commit_finish(comm);
+  return retval;
+}
+
+#pragma weak MPI_Iallgather = PMPI_Iallgather
+int PMPI_Iallgather(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
+                    void *recvbuf, int recvcount, MPI_Datatype recvtype,
+                    MPI_Comm comm, MPI_Request *request)
+{
+  int retval;
+  commit_begin(comm);
+  LOWER_HALF_DISABLE_CKPT();
+  MPI_Comm real_comm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
+  MPI_Datatype realSendType =
+    get_real_id((mana_mpi_handle){.datatype = sendtype}).datatype;
+  MPI_Datatype realRecvType =
+    get_real_id((mana_mpi_handle){.datatype = recvtype}).datatype;
+  // FIXME: Ideally, check FORTRAN_MPI_IN_PLACE only in the Fortran wrapper.
+  get_fortran_constants();
+  if (sendbuf == FORTRAN_MPI_IN_PLACE) {
+    sendbuf = MPI_IN_PLACE;
+  }
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
+  retval = NEXT_FUNC(Iallgather)(sendbuf, sendcount, realSendType, recvbuf,
+                                 recvcount, realRecvType, real_comm, request);
+  RETURN_TO_UPPER_HALF();
+  if (retval == MPI_SUCCESS) {
+    *request = new_virt_collective_request(*request);
+  }
+  LOWER_HALF_ENABLE_CKPT();
+  commit_finish(comm);
+  return retval;
+}
+
+#pragma weak MPI_Iallgatherv = PMPI_Iallgatherv
+int PMPI_Iallgatherv(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
+                     void *recvbuf, const int recvcounts[], const int displs[],
+                     MPI_Datatype recvtype, MPI_Comm comm, MPI_Request *request)
+{
+  int retval;
+  commit_begin(comm);
+  LOWER_HALF_DISABLE_CKPT();
+  MPI_Comm real_comm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
+  MPI_Datatype realSendType =
+    get_real_id((mana_mpi_handle){.datatype = sendtype}).datatype;
+  MPI_Datatype realRecvType =
+    get_real_id((mana_mpi_handle){.datatype = recvtype}).datatype;
+  // FIXME: Ideally, check FORTRAN_MPI_IN_PLACE only in the Fortran wrapper.
+  get_fortran_constants();
+  if (sendbuf == FORTRAN_MPI_IN_PLACE) {
+    sendbuf = MPI_IN_PLACE;
+  }
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
+  retval = NEXT_FUNC(Iallgatherv)(sendbuf, sendcount, realSendType, recvbuf,
+                                  recvcounts, displs, realRecvType, real_comm,
+                                  request);
+  RETURN_TO_UPPER_HALF();
+  if (retval == MPI_SUCCESS) {
+    *request = new_virt_collective_request(*request);
+  }
+  LOWER_HALF_ENABLE_CKPT();
+  commit_finish(comm);
+  return retval;
+}
+
+#pragma weak MPI_Igather = PMPI_Igather
+int PMPI_Igather(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
+                 void *recvbuf, int recvcount, MPI_Datatype recvtype, int root,
+                 MPI_Comm comm, MPI_Request *request)
+{
+  int retval;
+  commit_begin(comm);
+  LOWER_HALF_DISABLE_CKPT();
+  MPI_Comm real_comm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
+  MPI_Datatype realSendType =
+    get_real_id((mana_mpi_handle){.datatype = sendtype}).datatype;
+  MPI_Datatype realRecvType =
+    get_real_id((mana_mpi_handle){.datatype = recvtype}).datatype;
+  // FIXME: Ideally, check FORTRAN_MPI_IN_PLACE only in the Fortran wrapper.
+  get_fortran_constants();
+  if (sendbuf == FORTRAN_MPI_IN_PLACE) {
+    sendbuf = MPI_IN_PLACE;
+  }
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
+  retval = NEXT_FUNC(Igather)(sendbuf, sendcount, realSendType, recvbuf,
+                              recvcount, realRecvType, root, real_comm,
+                              request);
+  RETURN_TO_UPPER_HALF();
+  if (retval == MPI_SUCCESS) {
+    *request = new_virt_collective_request(*request);
+  }
+  LOWER_HALF_ENABLE_CKPT();
+  commit_finish(comm);
+  return retval;
+}
+
+#pragma weak MPI_Igatherv = PMPI_Igatherv
+int PMPI_Igatherv(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
+                  void *recvbuf, const int recvcounts[], const int displs[],
+                  MPI_Datatype recvtype, int root, MPI_Comm comm,
+                  MPI_Request *request)
+{
+  int retval;
+  commit_begin(comm);
+  LOWER_HALF_DISABLE_CKPT();
+  MPI_Comm real_comm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
+  MPI_Datatype realSendType =
+    get_real_id((mana_mpi_handle){.datatype = sendtype}).datatype;
+  MPI_Datatype realRecvType =
+    get_real_id((mana_mpi_handle){.datatype = recvtype}).datatype;
+  // FIXME: Ideally, check FORTRAN_MPI_IN_PLACE only in the Fortran wrapper.
+  get_fortran_constants();
+  if (sendbuf == FORTRAN_MPI_IN_PLACE) {
+    sendbuf = MPI_IN_PLACE;
+  }
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
+  retval = NEXT_FUNC(Igatherv)(sendbuf, sendcount, realSendType, recvbuf,
+                               recvcounts, displs, realRecvType, root,
+                               real_comm, request);
+  RETURN_TO_UPPER_HALF();
+  if (retval == MPI_SUCCESS) {
+    *request = new_virt_collective_request(*request);
+  }
+  LOWER_HALF_ENABLE_CKPT();
+  commit_finish(comm);
+  return retval;
+}
+
+#pragma weak MPI_Iscatter = PMPI_Iscatter
+int PMPI_Iscatter(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
+                  void *recvbuf, int recvcount, MPI_Datatype recvtype, int root,
+                  MPI_Comm comm, MPI_Request *request)
+{
+  int retval;
+  commit_begin(comm);
+  LOWER_HALF_DISABLE_CKPT();
+  MPI_Comm real_comm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
+  MPI_Datatype realSendType =
+    get_real_id((mana_mpi_handle){.datatype = sendtype}).datatype;
+  MPI_Datatype realRecvType =
+    get_real_id((mana_mpi_handle){.datatype = recvtype}).datatype;
+  // FIXME: Ideally, check FORTRAN_MPI_IN_PLACE only in the Fortran wrapper.
+  get_fortran_constants();
+  if (recvbuf == FORTRAN_MPI_IN_PLACE) {
+    recvbuf = MPI_IN_PLACE;
+  }
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
+  retval = NEXT_FUNC(Iscatter)(sendbuf, sendcount, realSendType, recvbuf,
+                               recvcount, realRecvType, root, real_comm,
+                               request);
+  RETURN_TO_UPPER_HALF();
+  if (retval == MPI_SUCCESS) {
+    *request = new_virt_collective_request(*request);
+  }
+  LOWER_HALF_ENABLE_CKPT();
+  commit_finish(comm);
+  return retval;
+}
+
+#pragma weak MPI_Iscatterv = PMPI_Iscatterv
+int PMPI_Iscatterv(const void *sendbuf, const int sendcounts[],
+                   const int displs[], MPI_Datatype sendtype, void *recvbuf,
+                   int recvcount, MPI_Datatype recvtype, int root,
+                   MPI_Comm comm, MPI_Request *request)
+{
+  int retval;
+  commit_begin(comm);
+  LOWER_HALF_DISABLE_CKPT();
+  MPI_Comm real_comm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
+  MPI_Datatype realSendType =
+    get_real_id((mana_mpi_handle){.datatype = sendtype}).datatype;
+  MPI_Datatype realRecvType =
+    get_real_id((mana_mpi_handle){.datatype = recvtype}).datatype;
+  // FIXME: Ideally, check FORTRAN_MPI_IN_PLACE only in the Fortran wrapper.
+  get_fortran_constants();
+  if (recvbuf == FORTRAN_MPI_IN_PLACE) {
+    recvbuf = MPI_IN_PLACE;
+  }
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
+  retval = NEXT_FUNC(Iscatterv)(sendbuf, sendcounts, displs, realSendType,
+                                recvbuf, recvcount, realRecvType, root,
+                                real_comm, request);
+  RETURN_TO_UPPER_HALF();
+  if (retval == MPI_SUCCESS) {
+    *request = new_virt_collective_request(*request);
+  }
+  LOWER_HALF_ENABLE_CKPT();
+  commit_finish(comm);
+  return retval;
+}
+
 // FIXME: Also check the MPI_Cart family, if they use collective communications.
 #pragma weak MPI_Comm_split = PMPI_Comm_split
 int PMPI_Comm_split(MPI_Comm comm, int color, int key, MPI_Comm *newcomm)
