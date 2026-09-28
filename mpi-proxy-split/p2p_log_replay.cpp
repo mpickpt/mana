@@ -24,7 +24,6 @@
 #include <sys/stat.h>
 #include <mpi.h>
 #include <pthread.h>
-#include <algorithm>
 #include <map>
 #include <unordered_map>
 #include <utility>
@@ -44,14 +43,35 @@
 
 using namespace dmtcp;
 
-dmtcp::map<MPI_Request, mpi_nonblocking_call_t*> g_nonblocking_calls;
 std::unordered_map<MPI_Request, request_info_t*> request_log;
 int g_world_rank = -1; // Global rank of the current process
 int g_world_size = -1; // Total number of ranks in the current computation
-// Mutex protecting g_nonblocking_calls
+// Mutex protecting request_log
 static pthread_mutex_t logMutex = PTHREAD_MUTEX_INITIALIZER;
-// Posting order of the calls in g_nonblocking_calls
-static uint64_t nextPendingSeq = 0;
+
+// The pending MPI_Isend/MPI_Irecv calls, stored in their requests'
+// virtual-ID entries and linked in posting order.  Application threads and
+// the checkpoint thread (P2P drain, restart) both change the list.  The
+// spinlock pendingLock guards the links and call types; never hold it across
+// an MPI call.
+static virt_id_entry *pendingHead = NULL;
+static virt_id_entry *pendingTail = NULL;
+static int pendingLock = 0;
+
+static inline void
+lockPending()
+{
+  while (__atomic_exchange_n(&pendingLock, 1, __ATOMIC_ACQUIRE)) {
+    while (__atomic_load_n(&pendingLock, __ATOMIC_RELAXED)) {
+    }
+  }
+}
+
+static inline void
+unlockPending()
+{
+  __atomic_store_n(&pendingLock, 0, __ATOMIC_RELEASE);
+}
 
 void
 getLocalRankInfo()
@@ -143,10 +163,8 @@ addPendingRequestToLog(mpi_req_t req, const void* sbuf, void* rbuf, int cnt,
                        MPI_Datatype type, int remote, int tag,
                        MPI_Comm comm, MPI_Request rq)
 {
-  mpi_nonblocking_call_t *call =
-        (mpi_nonblocking_call_t*)
-        JALLOC_HELPER_MALLOC(sizeof(mpi_nonblocking_call_t));
-  call->type = req;
+  virt_id_entry *entry = get_virt_id_entry((mana_mpi_handle){.request = rq});
+  mpi_nonblocking_call_t *call = &entry->call;
   call->sendbuf = sbuf;
   call->recvbuf = rbuf;
   call->count = cnt;
@@ -154,70 +172,104 @@ addPendingRequestToLog(mpi_req_t req, const void* sbuf, void* rbuf, int cnt,
   call->remote_node = remote;
   call->tag = tag;
   call->comm = comm;
-  pthread_mutex_lock(&logMutex);
-  call->seq = ++nextPendingSeq;
-  g_nonblocking_calls[rq] = call;
-  pthread_mutex_unlock(&logMutex);
+  lockPending();
+  call->type = req;
+  entry->pending_prev = pendingTail;
+  entry->pending_next = NULL;
+  if (pendingTail != NULL) {
+    pendingTail->pending_next = entry;
+  } else {
+    pendingHead = entry;
+  }
+  pendingTail = entry;
+  unlockPending();
 }
 
 void
 clearPendingRequestFromLog(MPI_Request req)
 {
-  pthread_mutex_lock(&logMutex);
-  if (g_nonblocking_calls.find(req) != g_nonblocking_calls.end()) {
-    mpi_nonblocking_call_t *call = g_nonblocking_calls[req];
-    if (call) {
-      JALLOC_HELPER_FREE(call);
-    }
-    g_nonblocking_calls.erase(req);
+  // Look the request up under the lock: while the P2P drain clears it, the
+  // application may free it and a new request may take its slot.
+  lockPending();
+  virt_id_entry *entry =
+    lookup_virt_id_entry((mana_mpi_handle){.request = req});
+  if (entry == NULL) {
+    unlockPending();
+    return;
   }
-  pthread_mutex_unlock(&logMutex);
+  if (entry->call.type != UNKNOW_REQUEST) {
+    if (entry->pending_prev != NULL) {
+      entry->pending_prev->pending_next = entry->pending_next;
+    } else {
+      pendingHead = entry->pending_next;
+    }
+    if (entry->pending_next != NULL) {
+      entry->pending_next->pending_prev = entry->pending_prev;
+    } else {
+      pendingTail = entry->pending_prev;
+    }
+    entry->pending_prev = NULL;
+    entry->pending_next = NULL;
+    entry->call.type = UNKNOW_REQUEST;
+  }
+  unlockPending();
 }
 
 std::vector<MPI_Request>
 pendingRequestsInPostingOrder()
 {
-  std::vector<std::pair<uint64_t, MPI_Request> > calls;
-  pthread_mutex_lock(&logMutex);
-  for (std::pair<MPI_Request, mpi_nonblocking_call_t*> it :
-       g_nonblocking_calls) {
-    calls.push_back(std::make_pair(it.second->seq, it.first));
-  }
-  pthread_mutex_unlock(&logMutex);
-  std::sort(calls.begin(), calls.end());
   std::vector<MPI_Request> requests;
-  for (std::pair<uint64_t, MPI_Request> call : calls) {
-    requests.push_back(call.second);
+  lockPending();
+  for (virt_id_entry *entry = pendingHead; entry != NULL;
+       entry = entry->pending_next) {
+    requests.push_back((MPI_Request)entry->virt);
   }
+  unlockPending();
   return requests;
 }
 
 mpi_req_t
 pendingRequestType(MPI_Request req)
 {
-  mpi_req_t type = UNKNOW_REQUEST;
-  pthread_mutex_lock(&logMutex);
-  dmtcp::map<MPI_Request, mpi_nonblocking_call_t*>::iterator it =
-    g_nonblocking_calls.find(req);
-  if (it != g_nonblocking_calls.end()) {
-    type = it->second->type;
+  virt_id_entry *entry =
+    lookup_virt_id_entry((mana_mpi_handle){.request = req});
+  if (entry == NULL) {
+    return UNKNOW_REQUEST;
   }
-  pthread_mutex_unlock(&logMutex);
-  return type;
+  return __atomic_load_n(&entry->call.type, __ATOMIC_RELAXED);
+}
+
+bool
+getPendingCall(MPI_Request req, mpi_nonblocking_call_t *call)
+{
+  virt_id_entry *entry =
+    lookup_virt_id_entry((mana_mpi_handle){.request = req});
+  if (entry == NULL) {
+    return false;
+  }
+  lockPending();
+  *call = entry->call;
+  unlockPending();
+  return call->type != UNKNOW_REQUEST;
 }
 
 void
 replayMpiP2pOnRestart()
 {
   MPI_Request request;
-  mpi_nonblocking_call_t *call = NULL;
+  mpi_nonblocking_call_t pendingCall;
+  mpi_nonblocking_call_t *call = &pendingCall;
   JTRACE("Replaying unserviced isend/irecv calls");
 
+  // No other thread runs at restart; a lock saved in the image is stale.
+  pendingLock = 0;
   // Re-post the receives in the order they were posted.
   for (MPI_Request pending : pendingRequestsInPostingOrder()) {
     int retval = 0;
     request = pending;
-    call = g_nonblocking_calls[request];
+    if (!getPendingCall(request, call)) {
+      continue;
+    }
     MPI_Comm realComm = get_real_id((mana_mpi_handle){.comm = call->comm}).comm;
     MPI_Datatype realType = get_real_id((mana_mpi_handle){.datatype = call->datatype}).datatype;
     MPI_Request realRequest;
