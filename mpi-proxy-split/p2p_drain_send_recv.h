@@ -44,14 +44,25 @@ extern dmtcp::vector<mpi_message_t*> g_message_queue;
 // MPI_Recv can be in flight per process at any time, and a single
 // global slot suffices to record its parameters.  If MPI_THREAD_MULTIPLE
 // support is ever added, this slot will need to become per-thread, and
-// the kvdb publish in unblockPendingRecvs() will need to publish a
+// the kvdb publish in unblockPendingRecvs() will need to publish a list.
+//
+// 'state' is changed by the MPI_Recv wrapper and by unblockPendingRecvs(),
+// which runs in the DMTCP checkpoint thread during pre-suspend:
+//   PENDING_RECV_IDLE:   no MPI_Recv is in the lower half.
+//   PENDING_RECV_ACTIVE: an MPI_Recv is in, or entering, the lower half, and
+//                        the fields below describe it.
+//   PENDING_RECV_CLOSED: unblockPendingRecvs() has taken its snapshot (or a
+//                        dummy has completed the MPI_Recv).  No MPI_Recv may
+//                        enter the lower half until resume or restart
+//                        (resetDrainCounters()) sets PENDING_RECV_IDLE.
+// Both leave PENDING_RECV_IDLE by compare-and-swap, so that exactly one
+// wins: either the MPI_Recv enters the lower half and gets a dummy, or it
+// waits in the upper half until the checkpoint is over.
+enum { PENDING_RECV_IDLE, PENDING_RECV_ACTIVE, PENDING_RECV_CLOSED };
 
-  // It is read by unblockPendingRecvs() running in the DMTCP coordinator
-// thread during pre-suspend.  Declared volatile for cross-thread
-// visibility.
 typedef struct {
-  volatile bool active;
-  // The following fields are valid only when active is true.
+  int state;
+  // The following fields are valid only when state is PENDING_RECV_ACTIVE.
   int source;     // user-provided value; may be MPI_ANY_SOURCE
   int tag;        // user-provided value; may be MPI_ANY_TAG
   MPI_Comm comm;  // virtual communicator
