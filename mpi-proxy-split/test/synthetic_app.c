@@ -39,6 +39,14 @@
              coordinates/forces with their PME rank.  PME ranks do an
              Alltoall among themselves.  An energy Allreduce on world runs
              every --energy-every iterations.
+    eddiag   Large-buffer, memory-bound (VASP's subspace diagonalization
+             without ScaLAPACK): each rank fills a complex --nbands x
+             --nbands matrix (by default a new array every iteration), sums
+             it over world with one Allreduce per --sum-chunk doubles into a
+             work buffer (like VASP's M_sum), checks it, and makes
+             --diag-passes memory-bound passes over it (standing in for the
+             diagonalization that every rank repeats).  With the defaults,
+             one iteration moves 64 MiB per rank; use tens of iterations.
 
   Every message and reduction carries values derived from (rank, iteration),
   which each rank checks and folds into a checksum in a fixed order.  The
@@ -47,7 +55,7 @@
   checkpoint/restart.
 
   Options:
-    --profile=halo|vasp|gromacs   (default halo)
+    --profile=halo|vasp|gromacs|eddiag   (default halo)
     --iters=N                     main-loop iterations (default 1000)
     --compute-us=X                compute step per iteration (default 0)
     --msg=BYTES                   halo message size (default 4096)
@@ -55,12 +63,18 @@
     --allreduce-count=N           vasp Allreduces per iteration (default 30)
     --a2a-bytes=BYTES             vasp Alltoallv bytes per peer (default 4096)
     --energy-every=N              gromacs energy Allreduce period (default 10)
+    --nbands=N                    eddiag matrix order (default 2048)
+    --sum-chunk=N                 eddiag doubles per Allreduce (default 8000)
+    --diag-passes=N               eddiag passes over the matrix (default 8)
+    --realloc=0|1                 eddiag: allocate the matrix every iteration
+                                  (default 1) or once
     --churn[=K]                   every K iterations (default 10) create and
                                   free a communicator and a datatype
 
-  Output (rank 0): wall time of the main loop (max over ranks), iterations
-  per second, the checksum, PASS or FAIL, and the number of calls per
-  second each rank made to each MPI function (average and max over ranks).
+  Output (rank 0): main-loop wall time (max over ranks), iterations per
+  second, the checksum, PASS or FAIL, and each MPI function's calls per
+  second per rank (average and max).  eddiag also prints each phase's time
+  per iteration (min, average and max over ranks).
 */
 
 #include <mpi.h>
@@ -74,8 +88,8 @@
 /************************************************************
  * Parameters and global state
  ************************************************************/
-enum { HALO, VASP, GROMACS };
-static const char *profile_names[] = { "halo", "vasp", "gromacs" };
+enum { HALO, VASP, GROMACS, EDDIAG };
+static const char *profile_names[] = { "halo", "vasp", "gromacs", "eddiag" };
 
 static int profile = HALO;
 static long iters = 1000;
@@ -85,6 +99,10 @@ static int neighbors = 6;
 static int allreduce_count = 30;
 static int a2a_bytes = 4096;
 static int energy_every = 10;
+static int nbands = 2048;
+static int sum_chunk = 8000;
+static int diag_passes = 8;
+static int realloc_matrix = 1;
 static int churn = 0;
 
 static int rank, size;
@@ -868,6 +886,149 @@ gromacs_teardown(void)
 }
 
 /************************************************************
+ * Profile: eddiag
+ ************************************************************/
+enum { E_FILL, E_SUM, E_CHECK, E_DIAG, E_COMPUTE, E_NPHASES };
+static const char *eddiag_phase_names[] = {
+  "fill", "sum", "check", "diag", "compute"
+};
+static double eddiag_time[E_NPHASES];  // seconds, summed over iterations
+static double *eddiag_matrix;          // with --realloc=0
+static double *eddiag_work;            // Allreduce target for one chunk
+
+// This rank's contribution to element j.  The sum over ranks has a closed
+// form (eddiag_sum), so every element can be checked cheaply; all values are
+// integers well below 2^53, so the sums are exact in any order.
+static inline double
+eddiag_part(int r, long it, size_t j)
+{
+  uint64_t a = ((uint64_t)j * 131u + (uint64_t)it * 7919u) & 1023u;
+  return (double)(a + (uint64_t)r * (1 + (j & 7)));
+}
+
+static inline double
+eddiag_sum(long it, size_t j)
+{
+  uint64_t a = ((uint64_t)j * 131u + (uint64_t)it * 7919u) & 1023u;
+  return (double)(a * size + (1 + (j & 7)) * ((uint64_t)size * (size - 1) / 2));
+}
+
+static void
+eddiag_setup(void)
+{
+  size_t n = 2 * (size_t)nbands * nbands;
+  if (!realloc_matrix) {
+    eddiag_matrix = malloc(sizeof(double) * n);
+  }
+  eddiag_work = malloc(sizeof(double) * sum_chunk);
+}
+
+#define EDDIAG_PHASE(p) (t1 = now_s(), eddiag_time[p] += t1 - t0, t0 = t1)
+
+static void
+eddiag_iteration(long it)
+{
+  size_t row = 2 * (size_t)nbands;  // a complex nbands x nbands matrix
+  size_t n = row * nbands;
+  double t0 = now_s(), t1;
+
+  // 1. This rank's contribution, in a new array unless --realloc=0.
+  double *h = realloc_matrix ? malloc(sizeof(double) * n) : eddiag_matrix;
+  for (size_t j = 0; j < n; j++) {
+    h[j] = eddiag_part(rank, it, j);
+  }
+  EDDIAG_PHASE(E_FILL);
+
+  // 2. Sum it over world one chunk at a time: an Allreduce into a work
+  //    buffer, then a copy back.
+  for (size_t off = 0; off < n; off += sum_chunk) {
+    int count = n - off < (size_t)sum_chunk ? (int)(n - off) : sum_chunk;
+    COUNT(C_ALLREDUCE);
+    MPI_Allreduce(h + off, eddiag_work, count, MPI_DOUBLE, MPI_SUM,
+                  MPI_COMM_WORLD);
+    memcpy(h + off, eddiag_work, sizeof(double) * count);
+  }
+  EDDIAG_PHASE(E_SUM);
+
+  // 3. Check every element; fold the total into the checksum.
+  uint64_t bad = 0;
+  double total = 0, expected_total = 0;
+  for (size_t j = 0; j < n; j++) {
+    double expected = eddiag_sum(it, j);
+    bad += h[j] != expected;
+    total += h[j];
+    expected_total += expected;
+  }
+  errors += bad;
+  check(total, expected_total);
+  EDDIAG_PHASE(E_CHECK);
+
+  // 4. Matrix-vector passes, standing in for the diagonalization that
+  //    every rank repeats.  Four accumulators keep the loop bound by memory
+  //    bandwidth, not by the latency of one chain of additions.
+  for (int p = 0; p < diag_passes; p++) {
+    double x[4];
+    for (int q = 0; q < 4; q++) {
+      x[q] = 1 + ((q + p) & 3);
+    }
+    double s = 0;
+    for (int i = 0; i < nbands; i++) {
+      const double *hi = h + i * row;
+      double y0 = 0, y1 = 0, y2 = 0, y3 = 0;
+      size_t k = 0;
+      for (; k + 4 <= row; k += 4) {
+        y0 += hi[k] * x[0];
+        y1 += hi[k + 1] * x[1];
+        y2 += hi[k + 2] * x[2];
+        y3 += hi[k + 3] * x[3];
+      }
+      for (; k < row; k++) {
+        y0 += hi[k] * x[k & 3];
+      }
+      s += (y0 + y1) + (y2 + y3);
+    }
+    check(s, s);
+  }
+  EDDIAG_PHASE(E_DIAG);
+
+  compute(compute_iters_per_step);
+  if (realloc_matrix) {
+    free(h);
+  }
+  EDDIAG_PHASE(E_COMPUTE);
+}
+
+// Prints each phase's time per iteration: minimum, average and maximum over
+// ranks.  Collective.
+static void
+eddiag_report(void)
+{
+  double tmin[E_NPHASES], tmax[E_NPHASES], tsum[E_NPHASES];
+  MPI_Reduce(eddiag_time, tmin, E_NPHASES, MPI_DOUBLE, MPI_MIN, 0,
+             MPI_COMM_WORLD);
+  MPI_Reduce(eddiag_time, tmax, E_NPHASES, MPI_DOUBLE, MPI_MAX, 0,
+             MPI_COMM_WORLD);
+  MPI_Reduce(eddiag_time, tsum, E_NPHASES, MPI_DOUBLE, MPI_SUM, 0,
+             MPI_COMM_WORLD);
+  if (rank == 0) {
+    printf("phase_ms_per_iter,phase,min,avg,max\n");
+    for (int p = 0; p < E_NPHASES; p++) {
+      printf("phase_ms_per_iter,%s,%.3f,%.3f,%.3f\n", eddiag_phase_names[p],
+             tmin[p] / iters * 1e3, tsum[p] / size / iters * 1e3,
+             tmax[p] / iters * 1e3);
+    }
+    fflush(stdout);
+  }
+}
+
+static void
+eddiag_teardown(void)
+{
+  free(eddiag_matrix);
+  free(eddiag_work);
+}
+
+/************************************************************
  * Main
  ************************************************************/
 static void
@@ -882,6 +1043,8 @@ parse_args(int argc, char **argv)
         profile = VASP;
       } else if (strcmp(a + 10, "gromacs") == 0) {
         profile = GROMACS;
+      } else if (strcmp(a + 10, "eddiag") == 0) {
+        profile = EDDIAG;
       } else {
         fprintf(stderr, "Unknown profile: %s\n", a + 10);
         exit(1);
@@ -900,6 +1063,14 @@ parse_args(int argc, char **argv)
       a2a_bytes = atoi(a + 12);
     } else if (strncmp(a, "--energy-every=", 15) == 0) {
       energy_every = atoi(a + 15);
+    } else if (strncmp(a, "--nbands=", 9) == 0) {
+      nbands = atoi(a + 9);
+    } else if (strncmp(a, "--sum-chunk=", 12) == 0) {
+      sum_chunk = atoi(a + 12);
+    } else if (strncmp(a, "--diag-passes=", 14) == 0) {
+      diag_passes = atoi(a + 14);
+    } else if (strncmp(a, "--realloc=", 10) == 0) {
+      realloc_matrix = atoi(a + 10) != 0;
     } else if (strcmp(a, "--churn") == 0) {
       churn = 10;
     } else if (strncmp(a, "--churn=", 8) == 0) {
@@ -918,6 +1089,15 @@ parse_args(int argc, char **argv)
   if (msg_bytes < 16) {
     msg_bytes = 16;
   }
+  if (nbands < 1) {
+    nbands = 1;
+  }
+  if (sum_chunk < 1) {
+    sum_chunk = 1;
+  }
+  if (diag_passes < 0) {
+    diag_passes = 0;
+  }
 }
 
 int
@@ -934,6 +1114,7 @@ main(int argc, char **argv)
     case HALO: halo_setup(); break;
     case VASP: vasp_setup(); break;
     case GROMACS: gromacs_setup(); break;
+    case EDDIAG: eddiag_setup(); break;
   }
   memset(calls, 0, sizeof(calls));
 
@@ -944,6 +1125,7 @@ main(int argc, char **argv)
       case HALO: halo_iteration(it); break;
       case VASP: vasp_iteration(it); break;
       case GROMACS: gromacs_iteration(it); break;
+      case EDDIAG: eddiag_iteration(it); break;
     }
     if (churn > 0 && it % churn == churn - 1) {
       do_churn(it);
@@ -987,6 +1169,10 @@ main(int argc, char **argv)
     fflush(stdout);
   }
 
+  if (profile == EDDIAG) {
+    eddiag_report();
+    eddiag_teardown();
+  }
   if (profile == GROMACS) {
     gromacs_teardown();
   }
