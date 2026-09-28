@@ -3,6 +3,9 @@
 #include <elf.h>
 #include <errno.h>
 #include <fcntl.h>
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
