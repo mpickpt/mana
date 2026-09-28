@@ -224,6 +224,14 @@ MPI_Request new_virt_request(MPI_Request real_request) {
   return virt_id.request;
 }
 
+// Setting 'collective' after the entry is published is safe: the checkpoint
+// thread looks for these requests only after drain_mpi_collective().
+MPI_Request new_virt_collective_request(MPI_Request real_request) {
+  MPI_Request request = new_virt_request(real_request);
+  get_virt_id_entry((mana_mpi_handle){.request = request})->collective = true;
+  return request;
+}
+
 MPI_Op new_virt_op(MPI_Op real_op) {
   mana_op_desc *desc = (mana_op_desc*)malloc(sizeof(mana_op_desc));
   // MPI_User_function and commute are available at create time.
@@ -633,6 +641,7 @@ mana_mpi_handle add_virt_id(mana_mpi_handle real_id, void *desc, int kind) {
   entry->desc = desc;
   entry->seq = ++virt_id_next_seq;
   entry->call.type = UNKNOW_REQUEST;
+  entry->collective = false;
   entry->completed = false;
   // Publish the handle last; see virtual_id.h.
   __atomic_store_n(&entry->virt, handle, __ATOMIC_RELEASE);
@@ -827,4 +836,24 @@ MPI_Comm find_virt_comm(uint64_t ranks_hash, unsigned int instance) {
   }
   pthread_mutex_unlock(&comm_desc_lock);
   return found;
+}
+
+std::vector<MPI_Request> pending_collective_requests() {
+  std::vector<std::pair<uint64_t, MPI_Request> > requests;
+  int high_water = __atomic_load_n(&virt_id_high_water, __ATOMIC_ACQUIRE);
+  for (int slot = 0; slot < high_water; slot++) {
+    virt_id_entry *entry = slot_entry(slot);
+    int handle = __atomic_load_n(&entry->virt, __ATOMIC_ACQUIRE);
+    if (handle != 0 && handle >> MANA_VIRT_ID_KIND_SHIFT == MANA_REQUEST_KIND &&
+        entry->collective &&
+        entry->real_id.request != MPI_REQUEST_NULL) {
+      requests.push_back(std::make_pair(entry->seq, (MPI_Request)handle));
+    }
+  }
+  std::sort(requests.begin(), requests.end());
+  std::vector<MPI_Request> result;
+  for (std::pair<uint64_t, MPI_Request> request : requests) {
+    result.push_back(request.second);
+  }
+  return result;
 }

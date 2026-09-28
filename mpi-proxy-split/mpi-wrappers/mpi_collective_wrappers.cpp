@@ -87,7 +87,9 @@ int PMPI_Ibcast(void *buffer, int count, MPI_Datatype datatype,
       root, real_comm, request);
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS) {
-    MPI_Request virtRequest = new_virt_request(*request);
+    // A checkpoint completes it first (see
+    // complete_pending_nonblocking_collectives() in seq_num.cpp).
+    MPI_Request virtRequest = new_virt_collective_request(*request);
     *request = virtRequest;
 #ifdef USE_REQUEST_LOG
     logRequestInfo(*request, IBCAST_REQUEST);
@@ -117,19 +119,21 @@ int PMPI_Barrier(MPI_Comm comm)
 int PMPI_Ibarrier(MPI_Comm comm, MPI_Request *request)
 {
   int retval;
+  commit_begin(comm);
   LOWER_HALF_DISABLE_CKPT();
   MPI_Comm real_comm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Ibarrier)(real_comm, request);
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS) {
-    MPI_Request virtRequest = new_virt_request(*request);
+    MPI_Request virtRequest = new_virt_collective_request(*request);
     *request = virtRequest;
 #ifdef USE_REQUEST_LOG
     logRequestInfo(*request, IBARRIER_REQUEST);
 #endif
   }
   LOWER_HALF_ENABLE_CKPT();
+  commit_finish(comm);
   return retval;
 }
 
@@ -188,6 +192,7 @@ int PMPI_Ireduce(const void *sendbuf, void *recvbuf, int count,
                 int root, MPI_Comm comm, MPI_Request *request)
 {
   int retval;
+  commit_begin(comm);
   LOWER_HALF_DISABLE_CKPT();
   MPI_Comm real_comm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   MPI_Datatype real_datatype = get_real_id((mana_mpi_handle){.datatype = datatype}).datatype;
@@ -201,13 +206,14 @@ int PMPI_Ireduce(const void *sendbuf, void *recvbuf, int count,
       real_datatype, real_op, root, real_comm, request);
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS) {
-    MPI_Request virtRequest = new_virt_request(*request);
+    MPI_Request virtRequest = new_virt_collective_request(*request);
     *request = virtRequest;
 #ifdef USE_REQUEST_LOG
     logRequestInfo(*request, IREDUCE_REQUEST);
 #endif
   }
   LOWER_HALF_ENABLE_CKPT();
+  commit_finish(comm);
   return retval;
 }
 

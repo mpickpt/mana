@@ -920,6 +920,10 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       if (g_p2p_wait == P2P_WAIT_BLOCKING) {
         close_lower_half();
       }
+      // The lower half is closed now in both modes.
+      uint64_t t_nbc = drainStatsNow();
+      complete_pending_nonblocking_collectives();  // seq_num.cpp
+      g_drain_stats.t_collective += drainStatsNow() - t_nbc;
       reportDrainStats();  // With MANA_DRAIN_STATS set
       printEventToStderr("EVENT_PRESUSPEND (done)");
       break;
