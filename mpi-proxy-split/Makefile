@@ -76,8 +76,9 @@ mpi_unimplemented_wrappers.cpp: generate-mpi-unimplemented-wrappers.py \
 	${MPICXX} ${CXXFLAGS} -c -o $@ $<
 
 # Make ignores prerequisites on suffix rules, so list header dependencies
-# explicitly.  virtual_id.h defines inline functions (get_real_id()).
-$(filter-out lower-half/%,${LIBOBJS}): virtual_id.h
+# explicitly.  virtual_id.h defines inline functions (get_real_id()), and
+# record-replay.h defines the MpiRecordReplay class inline.
+$(filter-out lower-half/%,${LIBOBJS}): virtual_id.h record-replay.h
 
 ${LOWER_HALF_SRCDIR}/procmapsutils.o: ${LOWER_HALF_SRCDIR}/procmapsutils.c
 	@make -C ${LOWER_HALF_SRCDIR} procmapsutils.o
