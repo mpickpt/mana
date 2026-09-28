@@ -1,4 +1,6 @@
 #include <mpi.h>
+#include <algorithm>
+#include <vector>
 
 #include "virtual_id.h"
 #include "switch-context.h"
@@ -7,9 +9,23 @@
 #include <iostream>
 
 MPI_Group g_world_group;
-std::map<int, virt_id_entry*> virt_ids;
 std::map<int64_t, int64_t> upper_to_lower_constants;
 std::map<int64_t, int64_t> lower_to_upper_constants;
+
+// The virtual-ID table.  See virtual_id.h for the handle layout and for the
+// synchronization it relies on.
+virt_id_entry *virt_id_chunks[MANA_VIRT_ID_NUM_CHUNKS];
+static int virt_id_free_head = -1;   // First slot of the free list, or -1
+static int virt_id_high_water = 0;   // Slots [0, high_water) have been used
+static uint64_t virt_id_next_seq = 0;
+static size_t virt_id_live = 0;
+
+static inline virt_id_entry*
+slot_entry(int slot)
+{
+  return &virt_id_chunks[slot >> MANA_VIRT_ID_CHUNK_SHIFT]
+                        [slot & (MANA_VIRT_ID_CHUNK_SIZE - 1)];
+}
 
 // Hash function on integers. Consult https://stackoverflow.com/questions/664014/.
 // Returns a hash.
@@ -149,13 +165,25 @@ void reconstruct_op_desc(virt_id_entry *entry) {
 }
 
 void reconstruct_descriptors() {
-  for (virt_id_iterator it = virt_ids.begin(); it != virt_ids.end(); it++) {
-    // Don't reconstruct predefiend objects.
-    if (is_predefined_id({._handle = it->first})) {
-      continue;
+  // Reconstruct by kind, then in creation order (not slot order: slots are
+  // reused).  MPI_Comm_create_group is collective, so all ranks must
+  // reconstruct their communicators in the same order.
+  std::vector<virt_id_entry*> entries;
+  for (int slot = 0; slot < virt_id_high_water; slot++) {
+    virt_id_entry *entry = slot_entry(slot);
+    if (entry->virt != 0) {
+      entries.push_back(entry);
     }
-    int kind = it->first >> MANA_VIRT_ID_KIND_SHIFT;
-    virt_id_entry *entry = it->second;
+  }
+  std::sort(entries.begin(), entries.end(),
+            [](const virt_id_entry *a, const virt_id_entry *b) {
+              int kind_a = a->virt >> MANA_VIRT_ID_KIND_SHIFT;
+              int kind_b = b->virt >> MANA_VIRT_ID_KIND_SHIFT;
+              return kind_a != kind_b ? kind_a < kind_b : a->seq < b->seq;
+            });
+  for (virt_id_entry *entry : entries) {
+    // Predefined objects are never in the table.
+    int kind = entry->virt >> MANA_VIRT_ID_KIND_SHIFT;
     switch (kind) {
       case MANA_COMM_KIND:
         reconstruct_comm_desc(entry);
@@ -414,32 +442,76 @@ void init_predefined_virt_ids() {
   target[ggid] = 0;
 }
 
-mana_mpi_handle add_virt_id(mana_mpi_handle real_id, void *desc, int kind) {
-  static int next_id = 0;
-  mana_mpi_handle new_virt_id;
-  do {
-    new_virt_id._handle = kind << MANA_VIRT_ID_KIND_SHIFT;
-    new_virt_id._handle = new_virt_id._handle | next_id;
-    next_id++;
-  } while (is_predefined_id({._handle = new_virt_id._handle}));
+// Takes a slot from the free list, or else the next unused, unreserved slot.
+static int
+alloc_slot()
+{
+  if (virt_id_free_head >= 0) {
+    int slot = virt_id_free_head;
+    virt_id_free_head = slot_entry(slot)->next_free;
+    return slot;
+  }
+  int slot = virt_id_high_water;
+  if (slot > MANA_VIRT_ID_SLOT_MASK) {
+    fprintf(stderr, "MANA: too many MPI handles in use (%d)\n", slot);
+    abort();
+  }
+  int chunk = slot >> MANA_VIRT_ID_CHUNK_SHIFT;
+  if (virt_id_chunks[chunk] == NULL) {
+    virt_id_entry *entries =
+      (virt_id_entry*)calloc(MANA_VIRT_ID_CHUNK_SIZE, sizeof(virt_id_entry));
+    if (entries == NULL) {
+      fprintf(stderr, "MANA: out of memory for the virtual-ID table\n");
+      abort();
+    }
+    // Publish the chunk only after it is initialized; see virtual_id.h.
+    __atomic_store_n(&virt_id_chunks[chunk], entries, __ATOMIC_RELEASE);
+  }
+  virt_id_high_water++;
+  return slot;
+}
 
-  virt_id_entry *entry = (virt_id_entry*)malloc(sizeof(virt_id_entry));
+mana_mpi_handle add_virt_id(mana_mpi_handle real_id, void *desc, int kind) {
+  mana_mpi_handle new_virt_id;
+  new_virt_id._handle64 = 0;
+  virt_id_entry *entry;
+  int handle;
+  while (true) {
+    int slot = alloc_slot();
+    entry = slot_entry(slot);
+    // A new handle must never equal a predefined constant: skip the
+    // generations of this slot that would produce one.
+    int tries;
+    for (tries = 0; tries <= MANA_VIRT_ID_GEN_MASK; tries++) {
+      handle = kind << MANA_VIRT_ID_KIND_SHIFT |
+               (entry->gen & MANA_VIRT_ID_GEN_MASK) << MANA_VIRT_ID_GEN_SHIFT |
+               slot;
+      if (!is_predefined_id({._handle64 = handle})) {
+        break;
+      }
+      entry->gen++;
+    }
+    if (tries <= MANA_VIRT_ID_GEN_MASK) {
+      break;
+    }
+    // Every generation of this slot collides; leave the slot unused.
+  }
   entry->real_id = real_id;
   entry->desc = desc;
-  virt_ids[new_virt_id._handle] = entry;
-
+  entry->seq = ++virt_id_next_seq;
+  // Publish the handle last; see virtual_id.h.
+  __atomic_store_n(&entry->virt, handle, __ATOMIC_RELEASE);
+  virt_id_live++;
+  new_virt_id._handle = handle;
   return new_virt_id;
 }
 
 #define DEBUG_VIRTID
 virt_id_entry* get_virt_id_entry(mana_mpi_handle virt_id) {
-  // virt_id is a 64 bit union: _handle is a int32_t 
-  // FIXME: this assumes a little-endian CPU
-  virt_id_iterator it = virt_ids.find(virt_id._handle);
+  virt_id_entry *entry = lookup_virt_id_entry(virt_id);
   // Should we abort or return an error code?
-  if (it == virt_ids.end()) {
-    // If it's not in the virt_id, table, check if it's a predefined
-    // handle (MPI constant).
+  if (entry == NULL) {
+    // A predefined constant, a freed or stale handle, or garbage.
     fprintf(stderr, "Invalid MPI handle value: 0x%x\n", virt_id._handle);
 
 #ifdef DEBUG_VIRTID
@@ -449,10 +521,12 @@ virt_id_entry* get_virt_id_entry(mana_mpi_handle virt_id) {
     abort();
 #endif
   }
-  return it->second;
+  return entry;
 }
 
-mana_mpi_handle get_real_id(mana_mpi_handle virt_id) {
+// The translation of anything that is not a virtual handle in use:
+// get_real_id() calls this for predefined constants and invalid handles.
+mana_mpi_handle get_real_id_slow(mana_mpi_handle virt_id) {
   std::map<int64_t, int64_t>::iterator it;
   
   /*
@@ -481,11 +555,16 @@ mana_mpi_handle get_real_id(mana_mpi_handle virt_id) {
   if (it != upper_to_lower_constants.end()) {
     return {._handle64 = it->second};
   } else {
+    // Reports the invalid handle.
     return get_virt_id_entry(virt_id)->real_id;
   }
 }
 
 void* get_virt_id_desc(mana_mpi_handle virt_id) {
+  virt_id_entry *entry = lookup_virt_id_entry(virt_id);
+  if (entry != NULL) {
+    return entry->desc;
+  }
   std::map<int64_t, int64_t>::iterator it;
   it = upper_to_lower_constants.find(virt_id._handle64);
   if (it != upper_to_lower_constants.end()) {
@@ -507,26 +586,34 @@ void free_desc(void *desc, int kind) {
 }
 
 void free_virt_id(mana_mpi_handle virt_id) {
-  virt_id_iterator it = virt_ids.find(virt_id._handle);
+  virt_id_entry *entry = lookup_virt_id_entry(virt_id);
   // Should we abort or return an error code?
-  if (it == virt_ids.end()) {
+  if (entry == NULL) {
     fprintf(stderr, "Invalid MPI handle value: 0x%x\n", virt_id._handle);
     abort();
   }
   int kind = virt_id._handle >> MANA_VIRT_ID_KIND_SHIFT;
-  free_desc(it->second->desc, kind); // free descriptor
-  free(it->second); // free virt_id_entry
-  virt_ids.erase(it);
+  free_desc(entry->desc, kind);  // free descriptor
+  entry->desc = NULL;
+  // The next handle that uses this slot gets a new generation.
+  entry->gen++;
+  __atomic_store_n(&entry->virt, 0, __ATOMIC_RELEASE);
+  entry->next_free = virt_id_free_head;
+  virt_id_free_head = virt_id._handle & MANA_VIRT_ID_SLOT_MASK;
+  virt_id_live--;
 }
 
 void update_virt_id(mana_mpi_handle virt_id, mana_mpi_handle real_id) {
-  virt_id_iterator it = virt_ids.find(virt_id._handle);
+  virt_id_entry *entry = lookup_virt_id_entry(virt_id);
   // Should we abort or return an error code?
-  if (it == virt_ids.end()) {
+  if (entry == NULL) {
     fprintf(stderr, "Invalid MPI handle value: 0x%x\n", virt_id._handle);
     abort();
   }
-  virt_id_entry *entry = it->second;
-  entry->real_id = real_id;
+  __atomic_store_n(&entry->real_id._handle64, real_id._handle64,
+                   __ATOMIC_RELAXED);
 }
 
+size_t virt_id_live_count() {
+  return virt_id_live;
+}
