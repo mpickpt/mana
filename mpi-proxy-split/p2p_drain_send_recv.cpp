@@ -344,7 +344,6 @@ consumeMatchingMsgBuffer(void *buf, int count, MPI_Datatype datatype,
                          int source, int tag, MPI_Comm comm,
                          MPI_Status *mpi_status, int size)
 {
-  int cpysize;
   mpi_message_t *foundMsg = NULL;
   dmtcp::vector<mpi_message_t*>::iterator req =
     std::find_if(g_message_queue.begin(), g_message_queue.end(),
@@ -361,8 +360,27 @@ consumeMatchingMsgBuffer(void *buf, int count, MPI_Datatype datatype,
                " attributes.");
   foundMsg = *req;
 
-  cpysize = (size < foundMsg->size) ? size: foundMsg->size;
-  memcpy(buf, foundMsg->buf, cpysize);
+  // The message was drained as packed MPI_BYTEs.  Unpack only the whole
+  // elements it holds; a raw copy would break non-contiguous datatypes.
+  int type_size = (count > 0) ? size / count : 0;
+  int elements = (type_size > 0) ? foundMsg->size / type_size : 0;
+  if (elements > count) {
+    elements = count;
+  }
+  if (elements > 0) {
+    int position = 0;
+    MPI_Datatype realType =
+      get_real_id((mana_mpi_handle){.datatype = datatype}).datatype;
+    // Any communicator will do for unpacking; the message's may be freed.
+    MPI_Comm realComm =
+      get_real_id((mana_mpi_handle){.comm = MPI_COMM_SELF}).comm;
+    int retval;
+    JUMP_TO_LOWER_HALF(lh_info->fsaddr);
+    retval = NEXT_FUNC(Unpack)(foundMsg->buf, foundMsg->size, &position,
+                               buf, elements, realType, realComm);
+    RETURN_TO_UPPER_HALF();
+    JASSERT(retval == MPI_SUCCESS)(retval);
+  }
   *mpi_status = foundMsg->status;
   g_message_queue.erase(req);
   JALLOC_HELPER_FREE(foundMsg->buf);
