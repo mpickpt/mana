@@ -53,7 +53,8 @@ main(int argc, char **argv)
     int ret = MPI_Comm_split(MPI_COMM_WORLD, color, world_rank, &row_comm);
     assert(ret == MPI_SUCCESS);
 
-    sleep(SLEEP_PER_ITERATION);
+    // sleep() takes whole seconds: sleep(0.5) doesn't sleep.
+    usleep(SLEEP_PER_ITERATION * 1000000);
 
     int row_rank, row_size;
     MPI_Comm_rank(row_comm, &row_rank);
