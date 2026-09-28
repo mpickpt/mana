@@ -84,13 +84,44 @@ typedef struct {
   // Migarate codes to here later.
 } mana_file_desc;
 
-typedef struct {
+typedef enum __mpi_req
+{
+  UNKNOW_REQUEST,
+  ISEND_REQUEST,
+  IRECV_REQUEST,
+  IBCAST_REQUEST,
+  IREDUCE_REQUEST,
+  IBARRIER_REQUEST,
+} mpi_req_t;
+
+// Struct to store the metadata of an nonblocking MPI send/recv call
+typedef struct __mpi_nonblocking_call
+{
+  // control data
+  mpi_req_t type;  // See enum __mpi_req
+  // request parameters
+  const void *sendbuf;
+  void *recvbuf;
+  int count;        // Count of data items
+  MPI_Datatype datatype;  // Data type
+  MPI_Comm comm;    // MPI communicator
+  int remote_node;  // Can be dest or source depending on the call type
+  int tag;          // MPI message tag
+} mpi_nonblocking_call_t;
+
+typedef struct virt_id_entry {
   mana_mpi_handle real_id;
   void *desc;
   uint64_t seq;       // Creation order; restart reconstructs in this order
   int virt;           // The virtual handle while in use; 0 if the slot is free
   int next_free;      // Next slot in the free list, if the slot is free
   unsigned int gen;   // Generation of the next handle that uses this slot
+  // For a request of a pending MPI_Isend/MPI_Irecv: the call, linked in
+  // posting order with the other pending calls (see p2p_log_replay.cpp).
+  // Otherwise, call.type is UNKNOW_REQUEST.
+  mpi_nonblocking_call_t call;
+  struct virt_id_entry *pending_prev;
+  struct virt_id_entry *pending_next;
 } virt_id_entry;
 
 // Synchronization: the table lives in upper-half memory and is saved in the

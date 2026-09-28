@@ -147,16 +147,17 @@ recvMsgIntoInternalBuffer(MPI_Status status, MPI_Comm comm)
   return count;
 }
 
-// Go through each MPI_Irecv in the g_nonblocking_calls map and try to complete
-// the MPI_Irecv and MPI_Isend before checkpointing.
+// Go through each pending MPI_Irecv (and MPI_Isend) and try to complete
+// them before checkpointing.
 int
 completePendingP2pRequests()
 {
   int bytesReceived = 0;
-  dmtcp::map<MPI_Request, mpi_nonblocking_call_t*>::iterator it;
-  for (it = g_nonblocking_calls.begin(); it != g_nonblocking_calls.end();) {
-    MPI_Request request = it->first;
-    mpi_nonblocking_call_t *call = it->second;
+  for (MPI_Request request : pendingRequestsInPostingOrder()) {
+    mpi_nonblocking_call_t call;
+    if (!getPendingCall(request, &call)) {
+      continue;  // The application completed it meanwhile.
+    }
     int flag = 0;
     MPI_Status status;
     // This is needed if an MPI_Isend was called earlier.  Without this,
@@ -166,20 +167,20 @@ completePendingP2pRequests()
     // we force the sending of data via MPI_Test.
     MPI_Test_internal(&request, &flag, &status, false);
     if (flag) {
-      if (call->type == IRECV_REQUEST) {
+      if (call.type == IRECV_REQUEST) {
         int size = 0;
-        MPI_Type_size(call->datatype, &size);
+        MPI_Type_size(call.datatype, &size);
         int worldRank = localRankToGlobalRank(status.MPI_SOURCE,
-                                              call->comm);
+                                              call.comm);
 #ifdef DEBUG_P2P
-        g_recvBytesByRank[worldRank] += call->count * size;
+        g_recvBytesByRank[worldRank] += call.count * size;
 #endif
         local_recv_messages++;
       }
       update_virt_id((mana_mpi_handle){.request = request},(mana_mpi_handle){.request = MPI_REQUEST_NULL});
-      it = g_nonblocking_calls.erase(it);
+      clearPendingRequestFromLog(request);
     } else {
-      /*  We update the iterator even if the MPI_Test fails.
+      /*  We go on to the next request even if the MPI_Test fails.
        * Otherwise, the message we are waiting for will be sent
        * after the checkpoint. This can result in an infinite loop.
        *
@@ -195,7 +196,6 @@ completePendingP2pRequests()
        *                Recv from Rank 2                     |
        * Send to Rank 1                                      V
        */
-      it++;
     }
   }
   return bytesReceived;
@@ -240,12 +240,13 @@ drainRemainingP2pMsgs()
         // Check if there are pending MPI_Irecv's that matches the envelope of the
         // probed message.  MPI matches the earliest posted one.
         for (MPI_Request req : pendingRequestsInPostingOrder()) {
-          mpi_nonblocking_call_t *call = g_nonblocking_calls[req];
-          if (call->type == IRECV_REQUEST &&
-              call->comm == comm &&
-              (call->tag == status.MPI_TAG || call->tag == MPI_ANY_TAG) &&
-              (call->remote_node == status.MPI_SOURCE ||
-               call->remote_node == MPI_ANY_SOURCE)) {
+          mpi_nonblocking_call_t call;
+          if (getPendingCall(req, &call) &&
+              call.type == IRECV_REQUEST &&
+              call.comm == comm &&
+              (call.tag == status.MPI_TAG || call.tag == MPI_ANY_TAG) &&
+              (call.remote_node == status.MPI_SOURCE ||
+               call.remote_node == MPI_ANY_SOURCE)) {
             matched_request = req;
             break;
           }
@@ -276,12 +277,9 @@ drainRemainingP2pMsgs()
   return bytesReceived;
 }
 
-// Once every message that was sent has been received, an MPI_Isend that
-// the application hasn't waited for yet is complete, but its request is
-// still in g_nonblocking_calls, and restart can't replay a send (see
-// replayMpiP2pOnRestart()).  Complete such requests the way
-// completePendingP2pRequests() does: the application's MPI_Wait/MPI_Test
-// then sees the real request MPI_REQUEST_NULL.
+// Completes the pending MPI_Isends, whose messages the drain has seen
+// received, since restart cannot replay a send.  The application's
+// MPI_Wait/MPI_Test then sees the real request MPI_REQUEST_NULL.
 static void
 completePendingIsends()
 {
