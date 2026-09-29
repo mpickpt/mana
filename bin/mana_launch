@@ -128,7 +128,7 @@ rc_file = open(rc_filename)
 for line in rc_file:
   line = line.split()
   if not line:
-    break
+    continue
   if line[0] == "Host:":
     host_flag = " -h " + line[1] + " "
   elif line[0] == "Port:":
@@ -166,7 +166,11 @@ while index < len(dmtcp_flags):
 dmtcp_flags = filtered_flags
 
 mana_plugin = mana_root_path + "lib/dmtcp/libmana.so"
-plugin_list = ":".join([mana_plugin] + user_plugins)
+# Libraries in MANA_PRELOAD (colon-separated) are loaded ahead of the mana
+# plugin, so that they can intercept MPI calls before MANA's wrappers do,
+# e.g. a PMPI profiler.  (A library in LD_PRELOAD comes after them.)
+pre_plugins = [p for p in os.environ.get("MANA_PRELOAD", "").split(":") if p]
+plugin_list = ":".join(pre_plugins + [mana_plugin] + user_plugins)
 
 # Build the command line to be executed
 if not verbose:
