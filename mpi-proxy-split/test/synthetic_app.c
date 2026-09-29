@@ -47,6 +47,12 @@
              --diag-passes memory-bound passes over it (standing in for the
              diagonalization that every rank repeats).  With the defaults,
              one iteration moves 64 MiB per rank; use tens of iterations.
+    sumbcast Sums over small communicators by hand (VASP's pattern on its
+             16- and 32-rank communicators): world is split into
+             communicators of --group ranks, consecutive or strided
+             (--layout).  In each iteration every member takes a turn as
+             root: the others MPI_Send it --msg bytes, it MPI_Recv's them in
+             member order and adds them up, and MPI_Bcast's the sum.
 
   Every message and reduction carries values derived from (rank, iteration),
   which each rank checks and folds into a checksum in a fixed order.  The
@@ -55,10 +61,10 @@
   checkpoint/restart.
 
   Options:
-    --profile=halo|vasp|gromacs|eddiag   (default halo)
+    --profile=halo|vasp|gromacs|eddiag|sumbcast   (default halo)
     --iters=N                     main-loop iterations (default 1000)
     --compute-us=X                compute step per iteration (default 0)
-    --msg=BYTES                   halo message size (default 4096)
+    --msg=BYTES                   halo and sumbcast message size (default 4096)
     --neighbors=K                 halo neighbours: 2, 4 or 6 (default 6)
     --allreduce-count=N           vasp Allreduces per iteration (default 30)
     --a2a-bytes=BYTES             vasp Alltoallv bytes per peer (default 4096)
@@ -69,6 +75,9 @@
     --diag-passes=N               eddiag passes over the matrix (default 8)
     --realloc=0|1                 eddiag: allocate the matrix every iteration
                                   (default 1) or once
+    --group=N                     sumbcast communicator size (default 32)
+    --layout=contig|strided       sumbcast members: consecutive world ranks,
+                                  or every (size/N)-th rank (default contig)
     --churn[=K]                   every K iterations (default 10) create and
                                   free a communicator and a datatype
 
@@ -90,8 +99,9 @@
 /************************************************************
  * Parameters and global state
  ************************************************************/
-enum { HALO, VASP, GROMACS, EDDIAG };
-static const char *profile_names[] = { "halo", "vasp", "gromacs", "eddiag" };
+enum { HALO, VASP, GROMACS, EDDIAG, SUMBCAST };
+static const char *profile_names[] = { "halo", "vasp", "gromacs", "eddiag",
+                                       "sumbcast" };
 
 static int profile = HALO;
 static long iters = 1000;
@@ -105,6 +115,8 @@ static int nbands = 2048;
 static int sum_chunk = 8000;
 static int diag_passes = 8;
 static int realloc_matrix = 1;
+static int group_size = 32;
+static int group_strided = 0;
 static int churn = 0;
 
 static int rank, size;
@@ -133,13 +145,14 @@ typedef struct {
 enum {
   C_ALLREDUCE, C_BCAST, C_ALLTOALL, C_ALLTOALLV, C_ALLGATHERV, C_SENDRECV,
   C_ISEND, C_IRECV, C_WAITALL, C_WAIT, C_IBCAST, C_IREDUCE,
-  C_COMM_SPLIT, C_COMM_FREE, C_TYPE_CREATE, C_TYPE_FREE, C_NCALLS
+  C_COMM_SPLIT, C_COMM_FREE, C_TYPE_CREATE, C_TYPE_FREE, C_SEND, C_RECV,
+  C_NCALLS
 };
 static const char *call_names[] = {
   "MPI_Allreduce", "MPI_Bcast", "MPI_Alltoall", "MPI_Alltoallv",
   "MPI_Allgatherv", "MPI_Sendrecv", "MPI_Isend", "MPI_Irecv", "MPI_Waitall",
   "MPI_Wait", "MPI_Ibcast", "MPI_Ireduce", "MPI_Comm_split", "MPI_Comm_free",
-  "MPI_Type_create", "MPI_Type_free"
+  "MPI_Type_create", "MPI_Type_free", "MPI_Send", "MPI_Recv"
 };
 static long calls[C_NCALLS];
 #define COUNT(c) (calls[(c)]++)
@@ -1034,6 +1047,98 @@ eddiag_teardown(void)
 }
 
 /************************************************************
+ * Profile: sumbcast
+ ************************************************************/
+static MPI_Comm sb_comm;
+static int sb_size, sb_rank;
+static int *sb_members;               // world ranks, in comm order
+static double *sb_buf, *sb_tmp, *sb_sum;
+
+static int
+sb_count(void)
+{
+  int n = msg_bytes / (int)sizeof(double);
+  return n > 0 ? n : 1;
+}
+
+static void
+sumbcast_setup(void)
+{
+  int ngroups = size / group_size > 0 ? size / group_size : 1;
+  int color = group_strided ? rank % ngroups : rank / group_size;
+  COUNT(C_COMM_SPLIT);
+  MPI_Comm_split(MPI_COMM_WORLD, color, rank, &sb_comm);
+  MPI_Comm_size(sb_comm, &sb_size);
+  MPI_Comm_rank(sb_comm, &sb_rank);
+  sb_members = malloc(sizeof(int) * sb_size);
+  MPI_Allgather(&rank, 1, MPI_INT, sb_members, 1, MPI_INT, sb_comm);
+  int n = sb_count();
+  sb_buf = malloc(sizeof(double) * n);
+  sb_tmp = malloc(sizeof(double) * n);
+  sb_sum = malloc(sizeof(double) * n);
+}
+
+static void
+sumbcast_iteration(long it)
+{
+  int n = sb_count();
+  for (int root = 0; root < sb_size; root++) {
+    int salt = 9000 + root;
+    if (sb_rank != root) {
+      for (int j = 0; j < n; j++) {
+        sb_buf[j] = val(rank, it, j, salt);
+      }
+      COUNT(C_SEND);
+      MPI_Send(sb_buf, n, MPI_DOUBLE, root, 900, sb_comm);
+    } else {
+      for (int j = 0; j < n; j++) {
+        sb_sum[j] = val(rank, it, j, salt);
+      }
+      for (int src = 0; src < sb_size; src++) {
+        if (src == root) {
+          continue;
+        }
+        COUNT(C_RECV);
+        MPI_Recv(sb_tmp, n, MPI_DOUBLE, src, 900, sb_comm, MPI_STATUS_IGNORE);
+        for (int j = 0; j < n; j++) {
+          sb_sum[j] += sb_tmp[j];
+        }
+      }
+    }
+    COUNT(C_BCAST);
+    MPI_Bcast(sb_sum, n, MPI_DOUBLE, root, sb_comm);
+    // Check the first, middle and last elements; fold the total.
+    int js[3] = { 0, n / 2, n - 1 };
+    for (int k = 0; k < 3; k++) {
+      double expected = 0;
+      for (int m = 0; m < sb_size; m++) {
+        expected += val(sb_members[m], it, js[k], salt);
+      }
+      if (sb_sum[js[k]] != expected) {
+        errors++;
+      }
+    }
+    double total = 0;
+    for (int j = 0; j < n; j++) {
+      total += sb_sum[j];
+    }
+    check(total, total);
+  }
+  compute(compute_iters_per_step);
+}
+
+static void
+sumbcast_teardown(void)
+{
+  COUNT(C_COMM_FREE);
+  MPI_Comm_free(&sb_comm);
+  free(sb_members);
+  free(sb_buf);
+  free(sb_tmp);
+  free(sb_sum);
+}
+
+/************************************************************
  * Main
  ************************************************************/
 static void
@@ -1050,6 +1155,8 @@ parse_args(int argc, char **argv)
         profile = GROMACS;
       } else if (strcmp(a + 10, "eddiag") == 0) {
         profile = EDDIAG;
+      } else if (strcmp(a + 10, "sumbcast") == 0) {
+        profile = SUMBCAST;
       } else {
         fprintf(stderr, "Unknown profile: %s\n", a + 10);
         exit(1);
@@ -1076,6 +1183,12 @@ parse_args(int argc, char **argv)
       diag_passes = atoi(a + 14);
     } else if (strncmp(a, "--realloc=", 10) == 0) {
       realloc_matrix = atoi(a + 10) != 0;
+    } else if (strncmp(a, "--group=", 8) == 0) {
+      group_size = atoi(a + 8);
+    } else if (strcmp(a, "--layout=contig") == 0) {
+      group_strided = 0;
+    } else if (strcmp(a, "--layout=strided") == 0) {
+      group_strided = 1;
     } else if (strcmp(a, "--churn") == 0) {
       churn = 10;
     } else if (strncmp(a, "--churn=", 8) == 0) {
@@ -1103,6 +1216,9 @@ parse_args(int argc, char **argv)
   if (diag_passes < 0) {
     diag_passes = 0;
   }
+  if (group_size < 1) {
+    group_size = 1;
+  }
 }
 
 int
@@ -1120,6 +1236,7 @@ main(int argc, char **argv)
     case VASP: vasp_setup(); break;
     case GROMACS: gromacs_setup(); break;
     case EDDIAG: eddiag_setup(); break;
+    case SUMBCAST: sumbcast_setup(); break;
   }
   memset(calls, 0, sizeof(calls));
 
@@ -1131,6 +1248,7 @@ main(int argc, char **argv)
       case VASP: vasp_iteration(it); break;
       case GROMACS: gromacs_iteration(it); break;
       case EDDIAG: eddiag_iteration(it); break;
+      case SUMBCAST: sumbcast_iteration(it); break;
     }
     if (churn > 0 && it % churn == churn - 1) {
       do_churn(it);
@@ -1180,6 +1298,9 @@ main(int argc, char **argv)
   }
   if (profile == GROMACS) {
     gromacs_teardown();
+  }
+  if (profile == SUMBCAST) {
+    sumbcast_teardown();
   }
   common_teardown();
   MPI_Finalize();
