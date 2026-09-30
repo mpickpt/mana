@@ -20,6 +20,8 @@
  ****************************************************************************/
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
 #include <mpi.h>
 #include <map>
 #include <algorithm>
@@ -65,6 +67,51 @@ dmtcp::vector<mpi_message_t*> g_message_queue;
 pending_recv_t g_pending_recv = { /*.state=*/ PENDING_RECV_IDLE };
 volatile bool p2p_dummy_phase = false;
 
+DrainStats g_drain_stats;
+
+uint64_t
+drainStatsNow()
+{
+  struct timespec ts;
+  clock_gettime(CLOCK_MONOTONIC, &ts);
+  return (uint64_t)ts.tv_sec * 1000000 + ts.tv_nsec / 1000;
+}
+
+void
+resetDrainStats()
+{
+  memset(&g_drain_stats, 0, sizeof(g_drain_stats));
+}
+
+// The drain's requests to the coordinator, counted in g_drain_stats.
+static inline void
+kvSet(const char *db, const char *key, int64_t val)
+{
+  g_drain_stats.kvdb_requests++;
+  kvdb::set64(db, key, val);
+}
+
+static inline void
+kvGet(const char *db, const char *key, int64_t *val)
+{
+  g_drain_stats.kvdb_requests++;
+  kvdb::get64(db, key, val);
+}
+
+static inline void
+kvIncr(const char *db, const char *key, int64_t val)
+{
+  g_drain_stats.kvdb_requests++;
+  kvdb::request64(KVDBRequest::INCRBY, db, key, val);
+}
+
+static inline void
+globalBarrier(const char *name)
+{
+  g_drain_stats.barriers++;
+  dmtcp_global_barrier(name);
+}
+
 void
 initialize_drain_send_recv()
 {
@@ -90,17 +137,19 @@ registerLocalSendsAndRecvs()
   const char *db = "/plugin/MANA";
   const char *sent_counter_key = "sent_counter";
   const char *recv_counter_key = "recv_counter";
-  kvdb::set64(db, sent_counter_key, 0);
-  kvdb::set64(db, recv_counter_key, 0);
-  dmtcp_global_barrier("MPI:Reset-p2p-send-recv");
-  kvdb::request64(KVDBRequest::INCRBY, db, sent_counter_key, local_sent_messages);
-  kvdb::request64(KVDBRequest::INCRBY, db, recv_counter_key, local_recv_messages);
-  dmtcp_global_barrier("MPI:Register-p2p-send-recv");
-  kvdb::get64(db, sent_counter_key, &global_sent_messages);
-  kvdb::get64(db, recv_counter_key, &global_recv_messages);
+  uint64_t t0 = drainStatsNow();
+  kvSet(db, sent_counter_key, 0);
+  kvSet(db, recv_counter_key, 0);
+  globalBarrier("MPI:Reset-p2p-send-recv");
+  kvIncr(db, sent_counter_key, local_sent_messages);
+  kvIncr(db, recv_counter_key, local_recv_messages);
+  globalBarrier("MPI:Register-p2p-send-recv");
+  kvGet(db, sent_counter_key, &global_sent_messages);
+  kvGet(db, recv_counter_key, &global_recv_messages);
   // Don't let a rank reset the counters for the next round before every
   // rank has read them: the ranks must agree on whether to drain again.
-  dmtcp_global_barrier("MPI:Read-p2p-send-recv");
+  globalBarrier("MPI:Read-p2p-send-recv");
+  g_drain_stats.t_register += drainStatsNow() - t0;
 }
 
 // status was received by MPI_Iprobe
@@ -176,6 +225,9 @@ completePendingP2pRequests()
         g_recvBytesByRank[worldRank] += call.count * size;
 #endif
         local_recv_messages++;
+        g_drain_stats.irecvs_completed++;
+      } else if (call.type == ISEND_REQUEST) {
+        g_drain_stats.isends_completed++;
       }
       update_virt_id((mana_mpi_handle){.request = request},(mana_mpi_handle){.request = MPI_REQUEST_NULL});
       clearPendingRequestFromLog(request);
@@ -230,9 +282,11 @@ drainRemainingP2pMsgs()
         lookup_virt_id_entry((mana_mpi_handle){.comm = comm}) == NULL) {
       continue;
     }
+    g_drain_stats.comms_probed++;
     int flag = 1;
     while (flag) {
       MPI_Status status;
+      g_drain_stats.iprobes++;
       int retval = MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, comm, &flag,
                               &status);
       JASSERT(retval == MPI_SUCCESS);
@@ -268,11 +322,15 @@ drainRemainingP2pMsgs()
             MPI_Test_internal(&matched_request, &done, &recv_status, false);
           }
           local_recv_messages++;
+          g_drain_stats.irecvs_completed++;
           update_virt_id((mana_mpi_handle){.request = matched_request},
                          (mana_mpi_handle){.request = MPI_REQUEST_NULL});
           clearPendingRequestFromLog(matched_request);
         } else {
-          bytesReceived += recvMsgIntoInternalBuffer(status, comm);
+          int bytes = recvMsgIntoInternalBuffer(status, comm);
+          bytesReceived += bytes;
+          g_drain_stats.drained_msgs++;
+          g_drain_stats.drained_bytes += bytes;
         }
       }
     }
@@ -301,22 +359,32 @@ completePendingIsends()
     update_virt_id((mana_mpi_handle){.request = request},
                    (mana_mpi_handle){.request = MPI_REQUEST_NULL});
     clearPendingRequestFromLog(request);
+    g_drain_stats.isends_completed++;
   }
 }
 
 void
 drainInFlightP2p()
 {
+  uint64_t t0 = drainStatsNow();
   registerLocalSendsAndRecvs();
   while (global_sent_messages > global_recv_messages) {
+    g_drain_stats.iterations++;
     // If pending MPI_Irecv or MPI_Isend, use MPI_Test to try to complete it.
+    uint64_t t = drainStatsNow();
     completePendingP2pRequests();
+    g_drain_stats.t_complete += drainStatsNow() - t;
     // If MPI_Irecv not posted but msg was sent, use MPI_Iprobe to drain msg.
+    t = drainStatsNow();
     drainRemainingP2pMsgs();
+    g_drain_stats.t_probe += drainStatsNow() - t;
     // Update global recv coutner.
     registerLocalSendsAndRecvs();
   }
+  uint64_t t = drainStatsNow();
   completePendingIsends();
+  g_drain_stats.t_isends += drainStatsNow() - t;
+  g_drain_stats.t_inflight = drainStatsNow() - t0;
 }
 
 // FIXME: existsMatchingMsgBuffer and consumeMatchingMsgBuffer both search
@@ -431,6 +499,7 @@ unblockPendingRecvs()
 {
   const char *db = "/plugin/MANA/p2p-pending-recv";
   char key[64];
+  uint64_t t0 = drainStatsNow();
 
   // Phase A: publish this rank's pending_recv state to kvdb.  We always
   // publish all keys so that no stale value from a previous
@@ -475,21 +544,26 @@ unblockPendingRecvs()
   }
 
   snprintf(key, sizeof(key), "active_%d", g_world_rank);
-  kvdb::set64(db, key, my_active);
+  kvSet(db, key, my_active);
   snprintf(key, sizeof(key), "source_%d", g_world_rank);
-  kvdb::set64(db, key, my_source);
+  kvSet(db, key, my_source);
   snprintf(key, sizeof(key), "tag_%d", g_world_rank);
-  kvdb::set64(db, key, my_tag);
+  kvSet(db, key, my_tag);
   snprintf(key, sizeof(key), "commhash_%d", g_world_rank);
-  kvdb::set64(db, key, my_comm_hash);
+  kvSet(db, key, my_comm_hash);
   snprintf(key, sizeof(key), "comminst_%d", g_world_rank);
-  kvdb::set64(db, key, my_comm_instance);
+  kvSet(db, key, my_comm_instance);
   snprintf(key, sizeof(key), "bytes_%d", g_world_rank);
-  kvdb::set64(db, key, my_bytes);
+  kvSet(db, key, my_bytes);
 
   p2p_dummy_phase = true;
+  g_drain_stats.blocked = my_active;
+  uint64_t t1 = drainStatsNow();
+  g_drain_stats.t_publish = t1 - t0;
 
-  dmtcp_global_barrier("MPI:P2P-Pending-Recv-Published");
+  globalBarrier("MPI:P2P-Pending-Recv-Published");
+  uint64_t t2 = drainStatsNow();
+  g_drain_stats.t_published = t2 - t1;
 
   // Phase B: read all ranks' pending_recv state.  After the barrier,
   // every rank's publish is visible.
@@ -501,19 +575,21 @@ unblockPendingRecvs()
   std::vector<int64_t> bytes(g_world_size);
   for (int r = 0; r < g_world_size; r++) {
     snprintf(key, sizeof(key), "active_%d", r);
-    kvdb::get64(db, key, &active[r]);
+    kvGet(db, key, &active[r]);
     if (!active[r]) { continue; }
     snprintf(key, sizeof(key), "source_%d", r);
-    kvdb::get64(db, key, &source[r]);
+    kvGet(db, key, &source[r]);
     snprintf(key, sizeof(key), "tag_%d", r);
-    kvdb::get64(db, key, &tag[r]);
+    kvGet(db, key, &tag[r]);
     snprintf(key, sizeof(key), "commhash_%d", r);
-    kvdb::get64(db, key, &comm_hash[r]);
+    kvGet(db, key, &comm_hash[r]);
     snprintf(key, sizeof(key), "comminst_%d", r);
-    kvdb::get64(db, key, &comm_instance[r]);
+    kvGet(db, key, &comm_instance[r]);
     snprintf(key, sizeof(key), "bytes_%d", r);
-    kvdb::get64(db, key, &bytes[r]);
+    kvGet(db, key, &bytes[r]);
   }
+  uint64_t t3 = drainStatsNow();
+  g_drain_stats.t_read = t3 - t2;
 
   // Phase C: dispatch dummies.
   // For each blocked rank j, every member of j's communicator
@@ -614,12 +690,17 @@ unblockPendingRecvs()
                              j_local_rank_in_comm, dummy_tag, realComm);
     JASSERT(rc == MPI_SUCCESS)(rc)(j)(dummy_tag);
     RETURN_TO_UPPER_HALF();
+    g_drain_stats.dummies++;
     free(dummy_buf);
     free(global_ranks);
   }
+  uint64_t t4 = drainStatsNow();
+  g_drain_stats.t_dispatch = t4 - t3;
 
   // Phase D: wait for all dummies to have been issued globally.
-  dmtcp_global_barrier("MPI:P2P-Pending-Recv-Dummies-Sent");
+  globalBarrier("MPI:P2P-Pending-Recv-Dummies-Sent");
+  g_drain_stats.t_dispatched = drainStatsNow() - t4;
+  g_drain_stats.t_unblock = drainStatsNow() - t0;
 }
 
 void
@@ -664,4 +745,75 @@ localRankToGlobalRank(int localRank, MPI_Comm localComm)
   NEXT_FUNC(Group_free)(&localGroup);
   RETURN_TO_UPPER_HALF();
   return worldRank;
+}
+
+// With MANA_DRAIN_STATS set, rank 0 prints what the drain of this
+// checkpoint did: the maximum times and the total counts over all ranks.
+// (This adds requests to the coordinator and a barrier; without the
+// variable, nothing.)
+void
+reportDrainStats()
+{
+  if (getenv("MANA_DRAIN_STATS") == NULL) {
+    return;
+  }
+  static int checkpoint = 0;
+  char db[64];
+  snprintf(db, sizeof(db), "/plugin/MANA/drain-stats-%d", ++checkpoint);
+  const DrainStats &d = g_drain_stats;
+  struct { const char *name; int64_t value; bool is_time; } metrics[] = {
+    {"collective", (int64_t)d.t_collective, true},
+    {"inflight", (int64_t)d.t_inflight, true},
+    {"register", (int64_t)d.t_register, true},
+    {"complete", (int64_t)d.t_complete, true},
+    {"probe", (int64_t)d.t_probe, true},
+    {"isends", (int64_t)d.t_isends, true},
+    {"unblock", (int64_t)d.t_unblock, true},
+    {"publish", (int64_t)d.t_publish, true},
+    {"published", (int64_t)d.t_published, true},
+    {"read", (int64_t)d.t_read, true},
+    {"dispatch", (int64_t)d.t_dispatch, true},
+    {"dispatched", (int64_t)d.t_dispatched, true},
+    {"wait_lower_half", (int64_t)d.t_wait_lower_half, true},
+    {"iterations", d.iterations, true},  // The same on every rank
+    {"comms_probed", d.comms_probed, false},
+    {"iprobes", d.iprobes, false},
+    {"drained_msgs", d.drained_msgs, false},
+    {"drained_bytes", d.drained_bytes, false},
+    {"irecvs_completed", d.irecvs_completed, false},
+    {"isends_completed", d.isends_completed, false},
+    {"blocked", d.blocked, false},
+    {"dummies", d.dummies, false},
+    {"kvdb_requests", d.kvdb_requests, false},
+    {"barriers", d.barriers, true},      // The same on every rank
+  };
+  const int n = sizeof(metrics) / sizeof(metrics[0]);
+  for (int i = 0; i < n; i++) {
+    kvdb::request64(metrics[i].is_time ? KVDBRequest::MAX : KVDBRequest::INCRBY,
+                    db, metrics[i].name, metrics[i].value);
+  }
+  dmtcp_global_barrier("MPI:Drain-Stats");
+  if (g_world_rank != 0) {
+    return;
+  }
+  int64_t v[n];
+  for (int i = 0; i < n; i++) {
+    v[i] = 0;
+    kvdb::get64(db, metrics[i].name, &v[i]);
+  }
+  fprintf(stderr,
+          "MANA drain stats, checkpoint %d, %d ranks (us: max over ranks):\n"
+          "  collective %ld | in-flight %ld (register %ld, complete %ld, "
+          "probe %ld, isends %ld) | unblock %ld (publish %ld, barrier %ld, "
+          "read %ld, dispatch %ld, barrier %ld) | wait-lower-half %ld\n"
+          "  iterations %ld, barriers %ld; totals: comms probed %ld, "
+          "iprobes %ld, drained %ld msgs %ld bytes, irecvs completed %ld, "
+          "isends completed %ld, blocked %ld, dummies %ld, "
+          "kvdb requests %ld\n",
+          checkpoint, g_world_size, (long)v[0], (long)v[1], (long)v[2],
+          (long)v[3], (long)v[4], (long)v[5], (long)v[6], (long)v[7],
+          (long)v[8], (long)v[9], (long)v[10], (long)v[11], (long)v[12],
+          (long)v[13], (long)v[23], (long)v[14], (long)v[15], (long)v[16],
+          (long)v[17], (long)v[18], (long)v[19], (long)v[20], (long)v[21],
+          (long)v[22]);
 }

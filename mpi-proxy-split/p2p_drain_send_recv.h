@@ -119,6 +119,41 @@ void unblockPendingRecvs();
 // checkpoint: drains in-flight messages, then unblocks pending recvs.
 void drainP2p();
 
+// What the drain did at one checkpoint on this rank, for measuring it.
+// Times are in microseconds.  With MANA_DRAIN_STATS set, rank 0 prints the
+// maximum times and the total counts over all ranks at every checkpoint
+// (reportDrainStats()).
+struct DrainStats {
+  uint64_t t_collective;     // Collective Clock drain, NBCs, barrier
+  uint64_t t_inflight;       // drainInFlightP2p()
+  uint64_t t_register;       //   exchanging the send/recv counters
+  uint64_t t_complete;       //   completing pending MPI_Isend/MPI_Irecv
+  uint64_t t_probe;          //   probing communicators, buffering messages
+  uint64_t t_isends;         //   completing the remaining MPI_Isends
+  uint64_t t_unblock;        // unblockPendingRecvs()
+  uint64_t t_publish;        //   publishing the pending MPI_Recv
+  uint64_t t_published;      //   barrier after publishing
+  uint64_t t_read;           //   reading the other ranks' pending MPI_Recvs
+  uint64_t t_dispatch;       //   sending dummies
+  uint64_t t_dispatched;     //   barrier after sending
+  uint64_t t_wait_lower_half;  // wait_for_threads_to_leave_lower_half()
+  int64_t iterations;        // rounds of the in-flight drain
+  int64_t comms_probed;
+  int64_t iprobes;
+  int64_t drained_msgs;      // moved to MANA's buffer
+  int64_t drained_bytes;
+  int64_t irecvs_completed;  // pending MPI_Irecvs that received a message
+  int64_t isends_completed;
+  int64_t blocked;           // ranks blocked in MPI_Recv
+  int64_t dummies;           // dummy messages sent
+  int64_t kvdb_requests;     // requests to the coordinator's database
+  int64_t barriers;          // global barriers
+};
+extern DrainStats g_drain_stats;
+uint64_t drainStatsNow();   // microseconds
+void resetDrainStats();
+void reportDrainStats();
+
 int drainRemainingP2pMsgs(int source);
 int recvMsgIntoInternalBuffer(MPI_Status status);
 bool existsMatchingMsgBuffer(int source, int tag, MPI_Comm comm, int *flag,
