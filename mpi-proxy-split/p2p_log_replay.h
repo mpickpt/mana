@@ -93,6 +93,9 @@ extern mpi_req_t pendingRequestType(MPI_Request req);
 // request is not (or no longer) pending.
 extern bool getPendingCall(MPI_Request req, mpi_nonblocking_call_t *call);
 
+// Returns true if a pending MPI_Isend/MPI_Irecv uses the datatype.
+extern bool pendingCallUsesDatatype(MPI_Datatype type);
+
 // Log the creation or update of a virtual request
 extern void logRequestInfo(MPI_Request request, mpi_req_t req_type);
 
