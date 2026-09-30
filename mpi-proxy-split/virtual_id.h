@@ -90,6 +90,7 @@ enum {
   MANA_TYPE_VECTOR,
   MANA_TYPE_HVECTOR,
   MANA_TYPE_INDEXED,
+  MANA_TYPE_HINDEXED,
   MANA_TYPE_STRUCT,
   MANA_TYPE_DUP,
   MANA_TYPE_RESIZED
@@ -110,9 +111,9 @@ typedef struct mana_datatype_desc {
   MPI_Aint lb;                  // resized
   MPI_Aint extent;              // resized
   MPI_Datatype oldtype;         // all but struct
-  int *blocklengths;            // indexed, struct: 'count' entries
+  int *blocklengths;            // indexed, hindexed, struct: 'count'
   int *displacements;           // indexed
-  MPI_Aint *hdisplacements;     // struct
+  MPI_Aint *hdisplacements;     // hindexed, struct
   MPI_Datatype *oldtypes;       // struct
   bool committed;
   // One reference from the application until it frees the datatype, and

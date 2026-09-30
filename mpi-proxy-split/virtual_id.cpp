@@ -385,6 +385,10 @@ void reconstruct_datatype_desc(virt_id_entry *entry) {
       rc = NEXT_FUNC(Type_indexed)(desc->count, desc->blocklengths,
                                    desc->displacements, old, &type);
       break;
+    case MANA_TYPE_HINDEXED:
+      rc = NEXT_FUNC(Type_create_hindexed)(desc->count, desc->blocklengths,
+                                           desc->hdisplacements, old, &type);
+      break;
     case MANA_TYPE_STRUCT:
       rc = NEXT_FUNC(Type_create_struct)(desc->count, desc->blocklengths,
                                          desc->hdisplacements, olds.data(),

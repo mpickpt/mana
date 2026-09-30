@@ -224,32 +224,30 @@ int PMPI_Type_create_hindexed(int count, const int *array_of_blocklengths,
                              const MPI_Aint *array_of_displacements,
                              MPI_Datatype oldtype, MPI_Datatype *newtype)
 {
-#ifdef MPICH_NUMVERSION
-#if MPICH_NUMVERSION < MPICH_CALC_VERSION(3,4,0,0,2) && defined(CRAY_MPICH_VERSION)
-  return MPI_Type_create_hindexed(count, array_of_blocklengths, array_of_displacements,
-                           oldtype, newtype);
-#else
-  int *non_const_bl_arr = (int*)malloc(count * sizeof(int));
-  MPI_Aint* non_const_disp_arr = (MPI_Aint*) malloc(count * sizeof(MPI_Aint));
-  memcpy(non_const_bl_arr, array_of_blocklengths, count * sizeof(int));
-  memcpy(non_const_disp_arr, array_of_displacements, count * sizeof(MPI_Aint));
-  int ret = MPI_Type_create_hindexed(count, non_const_bl_arr, non_const_disp_arr,
-                              oldtype, newtype);
-  free(non_const_bl_arr);
-  free(non_const_disp_arr);
-  return ret;
-#endif
-#else
-  int *non_const_bl_arr = (int*)malloc(count * sizeof(int));
-  MPI_Aint* non_const_disp_arr = (MPI_Aint*) malloc(count * sizeof(MPI_Aint));
-  memcpy(non_const_bl_arr, array_of_blocklengths, count * sizeof(int));
-  memcpy(non_const_disp_arr, array_of_displacements, count * sizeof(MPI_Aint));
-  int ret = MPI_Type_create_hindexed(count, non_const_bl_arr, non_const_disp_arr,
-                              oldtype, newtype);
-  free(non_const_bl_arr);
-  free(non_const_disp_arr);
-  return ret;
-#endif
+  int retval;
+  LOWER_HALF_DISABLE_CKPT();
+  MPI_Datatype real_datatype =
+    get_real_id((mana_mpi_handle){.datatype = oldtype}).datatype;
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
+  // Older Cray MPICHs declare the arrays without 'const'.
+  retval = NEXT_FUNC(Type_create_hindexed)(count, (int*)array_of_blocklengths,
+                                           (MPI_Aint*)array_of_displacements,
+                                           real_datatype, newtype);
+  RETURN_TO_UPPER_HALF();
+  if (retval == MPI_SUCCESS) {
+    mana_datatype_desc *desc = alloc_datatype_desc();
+    desc->constructor = MANA_TYPE_HINDEXED;
+    desc->count = count;
+    desc->blocklengths = (int*)malloc(count * sizeof(int));
+    desc->hdisplacements = (MPI_Aint*)malloc(count * sizeof(MPI_Aint));
+    memcpy(desc->blocklengths, array_of_blocklengths, count * sizeof(int));
+    memcpy(desc->hdisplacements, array_of_displacements,
+           count * sizeof(MPI_Aint));
+    desc->oldtype = oldtype;
+    *newtype = new_virt_datatype(*newtype, desc);
+  }
+  LOWER_HALF_ENABLE_CKPT();
+  return retval;
 }
 
 #pragma weak MPI_Type_create_hindexed_block = PMPI_Type_create_hindexed_block
@@ -257,30 +255,14 @@ int PMPI_Type_create_hindexed_block(int count, int blocklength,
                                    const MPI_Aint *array_of_displacements,
                                    MPI_Datatype oldtype, MPI_Datatype *newtype)
 {
+  // The same datatype as MPI_Type_create_hindexed() with equal block
+  // lengths, which is how restart makes it again.
   int array_of_blocklengths[count];
   for (int i = 0; i < count; i++) {
     array_of_blocklengths[i] = blocklength;
   }
-#ifdef MPICH_NUMVERSION
-#if MPICH_NUMVERSION < MPICH_CALC_VERSION(3,4,0,0,2) && defined(CRAY_MPICH_VERSION)
-  return MPI_Type_create_hindexed(count, array_of_blocklengths, array_of_displacements,
-                           oldtype, newtype);
-#else
-  MPI_Aint* non_const_disp_arr = (MPI_Aint*) malloc(count * sizeof(MPI_Aint));
-  memcpy(non_const_disp_arr, array_of_displacements, count * sizeof(MPI_Aint));
-  int ret =  MPI_Type_create_hindexed(count, array_of_blocklengths, non_const_disp_arr,
-                           oldtype, newtype);
-  free(non_const_disp_arr);
-  return ret;
-#endif
-#else
-  MPI_Aint* non_const_disp_arr = (MPI_Aint*) malloc(count * sizeof(MPI_Aint));
-  memcpy(non_const_disp_arr, array_of_displacements, count * sizeof(MPI_Aint));
-  int ret =  MPI_Type_create_hindexed(count, array_of_blocklengths, non_const_disp_arr,
-                           oldtype, newtype);
-  free(non_const_disp_arr);
-  return ret;
-#endif
+  return PMPI_Type_create_hindexed(count, array_of_blocklengths,
+                                   array_of_displacements, oldtype, newtype);
 }
 
 #pragma weak MPI_Type_hindexed_block = PMPI_Type_hindexed_block
