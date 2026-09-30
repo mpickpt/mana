@@ -78,7 +78,7 @@ rc_file = open(rc_filename)
 for line in rc_file:
   line = line.split()
   if not line:
-    break
+    continue
   if line[0] == "Host:":
     host_flag = " -h " + line[1] + " "
   elif line[0] == "Port:":
