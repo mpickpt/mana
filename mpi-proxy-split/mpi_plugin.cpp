@@ -889,16 +889,22 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 
     case DMTCP_EVENT_PRESUSPEND: {
       printEventToStderr("EVENT_PRESUSPEND (finish collective op's)");
+      resetDrainStats();  // p2p_drain_send_recv.cpp
+      uint64_t t0 = drainStatsNow();
       mana_state = CKPT_COLLECTIVE;
       // preSuspendBarrier() will send coord response and get worker state.
       // FIXME:  See commant at: dmtcpplugin.cpp:'case DMTCP_EVENT_PRESUSPEND'
       drain_mpi_collective();
       dmtcp_global_barrier("MPI:Drain-Send-Recv");
+      g_drain_stats.t_collective = drainStatsNow() - t0;
       mana_state = CKPT_P2P;
       drainP2p(); // p2p_drain_send_recv.cpp
       openCkptFileFds();
       // No thread may be in the lower half when DMTCP suspends the threads.
+      uint64_t t1 = drainStatsNow();
       wait_for_threads_to_leave_lower_half();  // lower_half_ckpt.cpp
+      g_drain_stats.t_wait_lower_half = drainStatsNow() - t1;
+      reportDrainStats();  // With MANA_DRAIN_STATS set
       printEventToStderr("EVENT_PRESUSPEND (done)");
       break;
     }
