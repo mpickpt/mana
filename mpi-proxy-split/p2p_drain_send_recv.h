@@ -131,10 +131,11 @@ struct DrainStats {
   uint64_t t_probe;          //   probing communicators, buffering messages
   uint64_t t_isends;         //   completing the remaining MPI_Isends
   uint64_t t_unblock;        // unblockPendingRecvs()
-  uint64_t t_publish;        //   publishing the pending MPI_Recv
+  uint64_t t_publish;        //   publishing whether blocked in MPI_Recv
   uint64_t t_published;      //   barrier after publishing
-  uint64_t t_read;           //   reading the other ranks' pending MPI_Recvs
-  uint64_t t_dispatch;       //   sending dummies
+  uint64_t t_post;           //   posting the dummy to its sender
+  uint64_t t_posted;         //   barrier after posting
+  uint64_t t_dispatch;       //   sending the dummies posted to this rank
   uint64_t t_dispatched;     //   barrier after sending
   uint64_t t_wait_lower_half;  // wait_for_threads_to_leave_lower_half()
   int64_t iterations;        // rounds of the in-flight drain
