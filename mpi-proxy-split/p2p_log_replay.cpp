@@ -253,6 +253,22 @@ getPendingCall(MPI_Request req, mpi_nonblocking_call_t *call)
   return call->type != UNKNOW_REQUEST;
 }
 
+bool
+pendingCallUsesDatatype(MPI_Datatype type)
+{
+  bool found = false;
+  lockPending();
+  for (virt_id_entry *entry = pendingHead; entry != NULL;
+       entry = entry->pending_next) {
+    if (entry->call.datatype == type) {
+      found = true;
+      break;
+    }
+  }
+  unlockPending();
+  return found;
+}
+
 void
 replayMpiP2pOnRestart()
 {

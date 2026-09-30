@@ -109,6 +109,7 @@ int PMPI_Test(MPI_Request* request, int* flag, MPI_Status* status)
     completed_request_status(*request, status_or_null(status));
     // The P2P drain unlinks the request after it completes it.
     clearPendingRequestFromLog(*request);
+    release_freed_datatypes();
     free_virt_id((mana_mpi_handle){.request = *request});
     *request = MPI_REQUEST_NULL;
     LOWER_HALF_ENABLE_CKPT();
@@ -142,6 +143,7 @@ int PMPI_Test(MPI_Request* request, int* flag, MPI_Status* status)
   }
   if (retval == MPI_SUCCESS && *flag && MPI_LOGGING()) {
     clearPendingRequestFromLog(*request);
+    release_freed_datatypes();
     free_virt_id((mana_mpi_handle){.request = *request});
     *request = MPI_REQUEST_NULL;
   }
@@ -332,6 +334,7 @@ int PMPI_Waitany(int count, MPI_Request *array_of_requests,
 
         if (MPI_LOGGING()) {
           clearPendingRequestFromLog(local_array_of_requests[i]);
+          release_freed_datatypes();
           free_virt_id((mana_mpi_handle){.request = local_array_of_requests[i]});
           local_array_of_requests[i] = MPI_REQUEST_NULL;
         }
@@ -399,6 +402,7 @@ int PMPI_Wait(MPI_Request *request, MPI_Status *status)
     }
     if (flag && MPI_LOGGING()) {
       clearPendingRequestFromLog(*request);  // Remove from pending calls
+      release_freed_datatypes();
       free_virt_id((mana_mpi_handle){.request = *request}); // Remove from virtual id
       *request = MPI_REQUEST_NULL;
     }
