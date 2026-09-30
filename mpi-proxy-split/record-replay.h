@@ -62,6 +62,9 @@
 #define CLEAR_COMM_LOGS(comm) \
   dmtcp_mpi::MpiRecordReplay::instance().clearCommLogs(comm)
 
+#define FREE_TYPE_LOGS(type) \
+  dmtcp_mpi::MpiRecordReplay::instance().freeType(type)
+
 // Returns true if we are currently replaying the MPI calls from the saved MPI
 // calls log; false, otherwise. Normally, this would be true while restoring
 // the MPI state at restart time. All other times, this would return false.
@@ -109,10 +112,11 @@ namespace dmtcp_mpi
   struct FncArg
   {
     void *_data;
+    size_t _len;
     enum TYPE _type;
 
     FncArg(const void *data, size_t len, dmtcp_mpi::TYPE type)
-      : _data(JALLOC_HELPER_MALLOC(len))
+      : _data(JALLOC_HELPER_MALLOC(len)), _len(len)
     {
       _type = type;
       if (_data && data) {
@@ -122,7 +126,7 @@ namespace dmtcp_mpi
 
     // This constructor is only used by CREATE_LOG_BUF
     FncArg(const void *data, size_t len)
-      : _data(JALLOC_HELPER_MALLOC(len))
+      : _data(JALLOC_HELPER_MALLOC(len)), _len(len)
     {
       // Default _type set to TYPE_INT_ARRAY because this constructor is used
       // by CREATE_LOG_BUF in MPI_Cart functions.
@@ -132,9 +136,24 @@ namespace dmtcp_mpi
       }
     }
 
+    // Each FncArg owns its copy of the data, which its destructor frees
+    // when the record holding it is deleted.
+    FncArg(const FncArg &arg)
+      : FncArg(arg._data, arg._len, arg._type)
+    {
+    }
+
+    FncArg(FncArg &&arg) noexcept
+      : _data(arg._data), _len(arg._len), _type(arg._type)
+    {
+      arg._data = NULL;
+    }
+
+    FncArg& operator=(const FncArg &arg) = delete;
+
     ~FncArg()
     {
-      if (!_data) {
+      if (_data) {
         JALLOC_HELPER_FREE(_data);
       }
     }
@@ -421,49 +440,30 @@ namespace dmtcp_mpi
         MpiRecord *rec = new MpiRecord(cb, type, (void*)fPtr);
         if (rec) {
           rec->addArgs(args...);
-	  switch (type) {
-	    case GENERATE_ENUM(Type_create_hvector):
-	    {
-              MPI_Datatype newtype = (MPI_Datatype)(int)rec->args(4);
-	      MPI_Datatype oldtype = (MPI_Datatype)(int)rec->args(3);
-	      datatype_create(newtype);
-	      datatype_incRef(1, &oldtype);
-	      break;
-            }
-	    case GENERATE_ENUM(Type_create_struct):
-	    {
-              MPI_Datatype newtype = (MPI_Datatype)(int)rec->args(4);
-              int count = rec->args(0);
-              MPI_Datatype *oldtypes = (MPI_Datatype*)rec->args(3);
-              datatype_create(newtype);
-              datatype_incRef(count, oldtypes);
+          switch (type) {
+            case GENERATE_ENUM(Type_contiguous):
+            case GENERATE_ENUM(Type_create_hvector):
+            case GENERATE_ENUM(Type_indexed):
+            case GENERATE_ENUM(Type_create_struct):
+            case GENERATE_ENUM(Type_dup):
+            case GENERATE_ENUM(Type_create_resized):
+              datatypeCreated(rec);
               break;
-	    }
-	    case GENERATE_ENUM(Type_indexed):
-	    {
-              MPI_Datatype newtype = (MPI_Datatype)(int)rec->args(4);
-	      MPI_Datatype oldtype = (MPI_Datatype)(int)rec->args(3);
-	      datatype_create(newtype);
-	      datatype_incRef(1, &oldtype);
-	      break;
-            }
-	    case GENERATE_ENUM(Type_commit):
-	      // No need to increase ref count so Type_free can
-	      // free the MPI_Type_ records that creates the new type
-	      break;
-	    case GENERATE_ENUM(Type_free):
-	    {
-              MPI_Datatype type = (MPI_Datatype)(int)rec->args(0);
-	      delete rec;
-	      return NULL;
-            }
-	    default:
-	      // The 'default' cases include record types like
+            case GENERATE_ENUM(Type_commit):
+              // No reference: freeType() removes the commit records of a
+              // type together with the record that created it.
+              break;
+            case GENERATE_ENUM(Type_free):
+              // Not logged; see freeType().
+              delete rec;
+              return NULL;
+            default:
+              // The 'default' cases include record types like
               //     comm_create, comm_group, group_incl, etc.
-	      // Those known types only need to be recorded.  So they don't
+              // Those known types only need to be recorded.  So they don't
               //     have any case label to pre-process their record info
               //     before they are recorded.
-	      break;
+              break;
           }
 	  {
             lock_t lock(_mutex);
@@ -508,6 +508,15 @@ namespace dmtcp_mpi
       }
 
       void printRecords(bool print);
+
+      // Called by the MPI_Type_free wrapper.  Once no logged datatype was
+      // built from 'type' and no pending MPI_Isend/MPI_Irecv uses it,
+      // removes the records that created and committed it and releases its
+      // virtual id; then does the same for the freed datatypes it was built
+      // from.  Without this, a program that creates and frees a datatype
+      // for every message (as BLACS does for every broadcast) grows the log
+      // and the virtual-id table without bound, which slows it down.
+      void freeType(MPI_Datatype type);
     private:
       // Pvt. constructor
       MpiRecordReplay()
@@ -517,41 +526,24 @@ namespace dmtcp_mpi
       {
       }
 
-      void datatype_create(MPI_Datatype datatype)
-      {
-        _datatypeMap[datatype] = 1;
-      }
+      // Registers the datatype that a type-constructor record creates, and
+      // adds a reference to each logged datatype it was built from.
+      void datatypeCreated(const MpiRecord *rec);
 
-      void datatype_incRef(int count, MPI_Datatype *datatypes)
-      {
-        MPI_Datatype type;
-        lock_t lock(_mutex);
-	if (count == 1) {
-	  type = *datatypes;
-	  if (_datatypeMap.find(type) != _datatypeMap.end()) {
-            _datatypeMap[type]++;
-	  }
-	} else {
-	  for (int i = 0; i < count; i++) {
-            type = datatypes[i];
-	    if (_datatypeMap.find(type) != _datatypeMap.end()) {
-	      _datatypeMap[type]++;
-	    }
-	  }
-	}
-      }
-
-      int datatype_decRef(MPI_Datatype datatype) {
-	if (_datatypeMap.find(datatype) == _datatypeMap.end()) {
-          return -1;
-	} else {
-          return --_datatypeMap[datatype];
-	}
-      }
+      // Drops a reference to a logged datatype.  When none is left, removes
+      // its records, releases its virtual id, and drops the references it
+      // held to the datatypes it was built from.  Requires _mutex.
+      void releaseType(MPI_Datatype type);
 
       // Virtual Ids Table
       dmtcp::vector<MpiRecord*> _records;
-      std::unordered_map<MPI_Datatype, int> _datatypeMap; //map<key=datatype, val=ref_cnt_from_creating_newtype>
+      // Logged datatypes and their references: one from the application
+      // until it calls MPI_Type_free, and one from each logged datatype
+      // built from it.
+      std::unordered_map<MPI_Datatype, int> _datatypeMap;
+      // Datatypes freed while a pending MPI_Isend/MPI_Irecv used them.
+      // freeType() releases them once the calls have completed.
+      dmtcp::vector<MPI_Datatype> _typesFreedWhilePending;
       // True on restart, false otherwise
       bool _replayOn;
       // Lock on list

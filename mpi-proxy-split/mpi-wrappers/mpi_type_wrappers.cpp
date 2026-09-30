@@ -58,7 +58,8 @@ int PMPI_Type_free(MPI_Datatype *type)
   retval = NEXT_FUNC(Type_free)(&real_datatype);
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS && MPI_LOGGING()) {
-    LOG_CALL(restoreTypes, Type_free, *type);
+    FREE_TYPE_LOGS(*type);
+    *type = MPI_DATATYPE_NULL;
   }
   LOWER_HALF_ENABLE_CKPT();
   return retval;

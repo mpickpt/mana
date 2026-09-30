@@ -261,6 +261,121 @@ void MpiRecordReplay::printRecords(bool print)
   }
 }
 
+// Returns the datatype that a type-constructor record creates, and sets
+// *oldtypes to the datatypes it was built from.  Returns MPI_DATATYPE_NULL
+// for other records.
+static MPI_Datatype
+constructedType(const MpiRecord *rec, dmtcp::vector<MPI_Datatype> *oldtypes)
+{
+  int newArg;
+  oldtypes->clear();
+  switch (rec->getType()) {
+    case GENERATE_ENUM(Type_contiguous):
+      oldtypes->push_back((MPI_Datatype)(int)rec->args(1));
+      newArg = 2;
+      break;
+    case GENERATE_ENUM(Type_create_hvector):
+    case GENERATE_ENUM(Type_indexed):
+      oldtypes->push_back((MPI_Datatype)(int)rec->args(3));
+      newArg = 4;
+      break;
+    case GENERATE_ENUM(Type_create_struct):
+    {
+      int count = rec->args(0);
+      MPI_Datatype *types = (MPI_Datatype*)rec->args(3);
+      oldtypes->assign(types, types + count);
+      newArg = 4;
+      break;
+    }
+    case GENERATE_ENUM(Type_dup):
+      oldtypes->push_back((MPI_Datatype)(int)rec->args(0));
+      newArg = 1;
+      break;
+    case GENERATE_ENUM(Type_create_resized):
+      oldtypes->push_back((MPI_Datatype)(int)rec->args(0));
+      newArg = 3;
+      break;
+    default:
+      return MPI_DATATYPE_NULL;
+  }
+  return (MPI_Datatype)(int)rec->args(newArg);
+}
+
+void MpiRecordReplay::datatypeCreated(const MpiRecord *rec)
+{
+  dmtcp::vector<MPI_Datatype> oldtypes;
+  MPI_Datatype newtype = constructedType(rec, &oldtypes);
+  lock_t lock(_mutex);
+  _datatypeMap[newtype] = 1;
+  for (MPI_Datatype oldtype : oldtypes) {
+    auto it = _datatypeMap.find(oldtype);
+    if (it != _datatypeMap.end()) {
+      it->second++;
+    }
+  }
+}
+
+void MpiRecordReplay::releaseType(MPI_Datatype type)
+{
+  auto it = _datatypeMap.find(type);
+  if (it == _datatypeMap.end() || --it->second > 0) {
+    return;
+  }
+  _datatypeMap.erase(it);
+  // The records of a type are its constructor followed by its commits.
+  // Search from the end: a program that frees a type soon after creating
+  // it finds them there.
+  dmtcp::vector<MPI_Datatype> oldtypes;
+  dmtcp::vector<MPI_Datatype> olds;
+  for (size_t i = _records.size(); i-- > 0;) {
+    MpiRecord *rec = _records[i];
+    bool created = false;
+    if (rec->getType() == GENERATE_ENUM(Type_commit)) {
+      if ((MPI_Datatype)(int)rec->args(0) != type) {
+        continue;
+      }
+    } else if (constructedType(rec, &olds) == type) {
+      oldtypes = olds;
+      created = true;
+    } else {
+      continue;
+    }
+    _records.erase(_records.begin() + i);
+    delete rec;
+    if (created) {
+      break;
+    }
+  }
+  free_virt_id((mana_mpi_handle){.datatype = type});
+  for (MPI_Datatype oldtype : oldtypes) {
+    releaseType(oldtype);
+  }
+}
+
+void MpiRecordReplay::freeType(MPI_Datatype type)
+{
+  lock_t lock(_mutex);
+  if (_datatypeMap.find(type) == _datatypeMap.end()) {
+    return;
+  }
+  // Release the types freed earlier whose pending calls have completed.
+  for (size_t i = 0; i < _typesFreedWhilePending.size();) {
+    MPI_Datatype freed = _typesFreedWhilePending[i];
+    if (pendingCallUsesDatatype(freed)) {
+      i++;
+    } else {
+      _typesFreedWhilePending.erase(_typesFreedWhilePending.begin() + i);
+      releaseType(freed);
+    }
+  }
+  // A pending call needs the type at checkpoint and restart.
+  if (pendingCallUsesDatatype(type)) {
+    _typesFreedWhilePending.push_back(type);
+  } else {
+    releaseType(type);
+  }
+}
+
 static int
 restoreTypeIndexed(MpiRecord& rec)
 {
