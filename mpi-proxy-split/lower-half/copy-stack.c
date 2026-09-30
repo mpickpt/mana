@@ -58,12 +58,22 @@ char *deepCopyStack(int argc, char **argv, char *argc_ptr, char *argv_ptr,
 
   // Allocate storage for dest_stack
   // ... Figure out env strings size for current __environ.
-  int env_strings_size = 0;
+  // Snapshot the environment: it may change before the copy below
+  //   (e.g., MPI_Init() may putenv() a local buffer that is later reused).
   int env_strings_count = 0;
-  for (i = 0; __environ[i] != NULL; i++) {
-    env_strings_size += strlen(__environ[i]) + 1;
-    env_strings_count += 1;
+  while (__environ[env_strings_count] != NULL) {
+    env_strings_count++;
   }
+  char **env_strings = (char **)malloc(env_strings_count * sizeof(char *));
+  size_t *env_strings_len =
+    (size_t *)malloc(env_strings_count * sizeof(size_t));
+  int env_strings_size = 0;
+  for (i = 0; i < env_strings_count && __environ[i] != NULL; i++) {
+    env_strings[i] = __environ[i];
+    env_strings_len[i] = strlen(__environ[i]);
+    env_strings_size += env_strings_len[i] + 1;
+  }
+  env_strings_count = i;
   int env_ptr_size = (env_strings_count + 1) * sizeof(__environ[0]);
   char *env_ptr_addr = (char *)&__environ[0];
   char **new_env_ptrs = (char**)malloc(env_ptr_size);
@@ -170,17 +180,20 @@ dbg_end_marker_addr = dest_curr_stack;
   * environment strings
   *****************************/
   dest_curr_stack -= env_strings_size;
-  for (i = 0; __environ[i] != NULL; i++) {
-    strcpy( dest_curr_stack, __environ[i] );
+  for (i = 0; i < env_strings_count; i++) {
+    memcpy(dest_curr_stack, env_strings[i], env_strings_len[i]);
+    dest_curr_stack[env_strings_len[i]] = '\0';
     // Change UH_PRELOAD to LD_PRELOAD
     if (strstr(dest_curr_stack, "UH_PRELOAD")) {
       dest_curr_stack[0] = 'L';
       dest_curr_stack[1] = 'D';
     }
     new_env_ptrs[i] = dest_curr_stack;
-    dest_curr_stack += strlen(dest_curr_stack) + 1;
+    dest_curr_stack += env_strings_len[i] + 1;
   }
-  assert(__environ[i] == NULL);
+  assert(dest_curr_stack == dest_stack_bottom - sizeof(NULL));
+  free(env_strings);
+  free(env_strings_len);
   dest_curr_stack -= env_strings_size;
   environ = __environ = (char **)dest_curr_stack;
   // ld.so will probably reset environ and __environ anyway
@@ -228,8 +241,7 @@ dbg_auxv_ptr_addr = dest_curr_stack;
   // env_ptr_addr is an array of pointers to the _old_ stack.  We need
   // new_env_ptrs, an array pointing to the _new_ stack.
   memcpy(dest_curr_stack, new_env_ptrs, env_ptr_size);
-  assert( *(char **)((char *)env_ptr_addr+env_ptr_size - sizeof(__environ[0]))
-                     == NULL );
+  assert( ((char **)dest_curr_stack)[env_strings_count] == NULL );
   free(new_env_ptrs);
 dbg_env_ptr_addr = dest_curr_stack;
 
