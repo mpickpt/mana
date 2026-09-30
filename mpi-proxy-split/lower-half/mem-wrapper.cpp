@@ -25,7 +25,9 @@
 #include <errno.h>
 #include <stddef.h>
 #include <assert.h>
+#include <string.h>
 #include <sys/mman.h>
+#include <sys/syscall.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -54,6 +56,7 @@ static char *arena_base = NULL;
 
 static void* __mmap_wrapper(void * , size_t , int , int , int , off_t);
 static void patchLibc(int , char * , char *);
+static void patchSbrk(char *, char *, size_t);
 static void addRegionTommaps(char *, size_t);
 static int __munmap_wrapper(void *, size_t);
 static void updateMmaps(char *, size_t);
@@ -257,6 +260,107 @@ void block_if_contains(void *target, void *addr, size_t length) {
   }
 }
 
+// The upper half's heap.  create_heap_guard_page() keeps the upper half's
+// glibc from growing its main malloc arena with brk, which belongs to the
+// lower half.  glibc then grows the arena with mmap'ed chunks that it never
+// gives back to the kernel, and that is slow: a native program shrinks its
+// heap, and gets the memory back from the kernel freshly zeroed and still in
+// cache.  (On a ScaLAPACK eigensolver, the application ran 11% slower.)  So
+// the upper half's malloc gets a brk of its own: its libc's sbrk() jumps to
+// uhSbrk(), which moves a break in a reserved region, making pages
+// accessible as the heap grows and releasing them as it shrinks, as the
+// kernel's brk does.  Other callers of sbrk() (DMTCP, MANA, the application)
+// still see the kernel's break: DMTCP places and restores memory around it.
+#define UH_BRK_RESERVE (1UL << 36)  // 64 GB of address space
+
+// In the first page of the reserved region, so that it is saved and
+// restored with the upper half.
+typedef struct {
+  char *brk;
+  char *base;            // [base, end): the heap's pages
+  char *end;
+  char *libc_text;       // [libc_text, libc_text_end): the upper half's
+  char *libc_text_end;   //   libc's code, where malloc calls sbrk()
+} UhBrk;
+
+// The upper half's sbrk(); patchSbrk() passes the heap's state in 'h'.
+static void*
+uhSbrk(intptr_t increment, UhBrk *h)
+{
+  char *caller = (char*)__builtin_return_address(0);
+  void *ret = (void*)-1;
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
+  if (caller < h->libc_text || caller >= h->libc_text_end) {
+    // Not malloc: the kernel's break, which the upper half cannot move.
+    if (increment == 0) {
+      ret = (void*)syscall(SYS_brk, 0);
+    }
+  } else {
+    char *old = h->brk;
+    char *brk = old + increment;
+    if (brk >= h->base && brk <= h->end) {
+      char *from = (char*)ROUND_UP(old, PAGE_SIZE);
+      char *to = (char*)ROUND_UP(brk, PAGE_SIZE);
+      int rc = 0;
+      if (to > from) {
+        rc = mprotect(from, to - from, PROT_READ | PROT_WRITE);
+      } else if (to < from) {
+        // Released pages read as zeros when the heap grows again.
+        rc = madvise(to, from - to, MADV_DONTNEED);
+        if (rc == 0) {
+          rc = mprotect(to, from - to, PROT_NONE);
+        }
+      }
+      if (rc == 0) {
+        h->brk = brk;
+        ret = old;
+      }
+    }
+  }
+  RETURN_TO_UPPER_HALF();
+  return ret;
+}
+
+// Makes the upper half's sbrk() jump to uhSbrk() with the heap's state, in
+// a region reserved for the heap.  [libc_text, libc_text + len) is the
+// upper half's libc's code.
+static void
+patchSbrk(char *sbrk, char *libc_text, size_t len)
+{
+#if defined(__x86_64__)
+  char *r = (char*)__mmap_wrapper(NULL, UH_BRK_RESERVE, PROT_NONE,
+                                  MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE,
+                                  -1, 0);
+  if (r == MAP_FAILED || mprotect(r, PAGE_SIZE, PROT_READ | PROT_WRITE) != 0) {
+    DLOG(ERROR, "No heap for the upper half: %s\n", strerror(errno));
+    return;
+  }
+  UhBrk *h = (UhBrk*)r;
+  h->base = h->brk = r + PAGE_SIZE;
+  h->end = r + UH_BRK_RESERVE;
+  h->libc_text = libc_text;
+  h->libc_text_end = libc_text + len;
+
+  unsigned char stub[] = {
+    0x48, 0xbe, 0, 0, 0, 0, 0, 0, 0, 0,  // movabs $h, %rsi
+    0x48, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0,  // movabs $uhSbrk, %rax
+    0xff, 0xe0                           // jmp *%rax
+  };
+  void *target = (void*)&uhSbrk;
+  memcpy(stub + 2, &h, sizeof(h));
+  memcpy(stub + 12, &target, sizeof(target));
+  char *page = (char*)((unsigned long)sbrk & ~(PAGE_SIZE - 1));
+  size_t page_len =
+    ROUND_UP(sbrk + sizeof(stub), PAGE_SIZE) - (unsigned long)page;
+  if (mprotect(page, page_len, PROT_READ | PROT_WRITE | PROT_EXEC) != 0) {
+    DLOG(ERROR, "Cannot patch sbrk: %s\n", strerror(errno));
+    return;
+  }
+  memcpy(sbrk, stub, sizeof(stub));
+  mprotect(page, page_len, PROT_READ | PROT_EXEC);
+#endif
+}
+
 // This is a mmap wrapper only for restoring memory after restart.
 void* restore_mmap(void *addr, size_t length, int prot,
                    int flags, int fd, off_t offset) {
@@ -330,6 +434,10 @@ static void* __mmap_wrapper(void *addr, size_t length, int prot,
             return NULL;
           }
           patchLibc(fd, libc_base_addr, glibcFullPath);
+          off_t sbrk_offset = get_symbol_offset(glibcFullPath, "__sbrk");
+          if (sbrk_offset) {
+            patchSbrk(libc_base_addr + sbrk_offset, (char*)ret, length);
+          }
           rc = mprotect(ret, length, prot);
           if (rc < 0) {
             DLOG(ERROR, "Failed to restore perms for memory region at: %p "
