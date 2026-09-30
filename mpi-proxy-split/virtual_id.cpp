@@ -828,12 +828,19 @@ void* get_virt_id_desc(mana_mpi_handle virt_id) {
 }
 
 void free_desc(void *desc, int kind) {
+  // free() goes through DMTCP's malloc wrapper, which takes a lock even for
+  // NULL (requests have no descriptor, most datatypes no arrays).
+  if (desc == NULL) {
+    return;
+  }
   if (kind == MANA_DATATYPE_KIND) {
     mana_datatype_desc *type_desc = (mana_datatype_desc*)desc;
-    free(type_desc->blocklengths);
-    free(type_desc->displacements);
-    free(type_desc->hdisplacements);
-    free(type_desc->oldtypes);
+    if (type_desc->blocklengths != NULL) {
+      free(type_desc->blocklengths);
+      free(type_desc->displacements);
+      free(type_desc->hdisplacements);
+      free(type_desc->oldtypes);
+    }
     type_desc->next_free = datatype_desc_pool;
     datatype_desc_pool = type_desc;
     return;
