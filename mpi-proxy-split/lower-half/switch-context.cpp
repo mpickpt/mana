@@ -112,23 +112,3 @@ void setFS(unsigned long fsbase)
     syscall(SYS_arch_prctl, ARCH_SET_FS, fsbase);
   }
 }
-
-
-SwitchContext::SwitchContext(unsigned long lowerHalfFs)
-{
-  jumpped = 0;
-  if (lowerHalfFs > 0) {
-    this->lowerHalfFs = lowerHalfFs;
-    this->upperHalfFs = getFS();
-    setFS(this->lowerHalfFs);
-    jumpped = 1;
-  }
-}
-
-SwitchContext::~SwitchContext()
-{
-  if (jumpped) {
-    setFS(this->upperHalfFs);
-    jumpped = 0;
-  }
-}

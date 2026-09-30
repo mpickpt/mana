@@ -40,44 +40,28 @@ int CheckAndEnableFsGsBase();
 void setFS(unsigned long fsbase);
 unsigned long getFS(void);
 
-// Helper class to save and restore context (in particular, the FS register),
-// when switching between the upper half and the lower half. In the current
-// design, the caller would generally be the upper half, trying to jump into
-// the lower half. An example would be calling a real function defined in the
-// lower half from a function wrapper defined in the upper half.
-// Example usage:
-//   int function_wrapper()
-//   {
-//     SwitchContext ctx;
-//     return _real_function();
-//   }
-// The idea is to leverage the C++ language semantics to help us automatically
-// restore the context when the object goes out of scope.
-class SwitchContext
-{
-  private:
-    unsigned long upperHalfFs; // The base value of the FS register of the upper half thread
-    unsigned long lowerHalfFs; // The base value of the FS register of the lower half
-    bool jumpped;
-
-  public:
-    // Saves the current FS register value to 'upperHalfFs' and then
-    // changes the value of the FS register to the given 'lowerHalfFs'
-    explicit SwitchContext(unsigned long );
-
-    // Restores the FS register value to 'upperHalfFs'
-    ~SwitchContext();
-};
-
-// Helper macro to be used whenever making a jump from the upper half to
-// the lower half.
+// Helper macros to be used whenever the upper half calls into the lower
+// half (for example, a wrapper calling the real function), and returns:
+//   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
+//   retval = NEXT_FUNC(Send)(...);
+//   RETURN_TO_UPPER_HALF();
+// The first saves the FS register of the calling thread and sets the lower
+// half's; the second restores it.  (A lower half FS of 0 switches nothing.)
+// Nothing between them may leave the block (return, goto, break, continue,
+// or an exception): the FS register would not be restored.
 #define JUMP_TO_LOWER_HALF(lhFs) \
   do { \
-    SwitchContext ctx((unsigned long)lhFs)
+    unsigned long lhFs_ = (unsigned long)(lhFs); \
+    unsigned long uhFs_ = 0; \
+    if (lhFs_ != 0) { \
+      uhFs_ = getFS(); \
+      setFS(lhFs_); \
+    }
 
-// Helper macro to be used whenever making a returning from the lower half to
-// the upper half.
 #define RETURN_TO_UPPER_HALF() \
+    if (lhFs_ != 0) { \
+      setFS(uhFs_); \
+    } \
   } while (0)
 
 #define ONEMB (uint64_t)(1024 * 1024)
