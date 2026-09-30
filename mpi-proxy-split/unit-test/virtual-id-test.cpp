@@ -185,41 +185,35 @@ test_requests()
 }
 
 #ifdef MANA_VIRT_ID_SLOT_MASK
-// Cycles one slot through many generations and checks that no handle equals
-// a predefined constant.  With MPICH, MPI_SUM (0x58000003) looks like a
-// request in slot 3, and MPI_INT (0x4c000405) like an op in slot 0x405.
+// No handle may equal a predefined constant: with MPICH, MPI_SUM (0x58000003)
+// looks like a request in slot 3, and MPI_INT (0x4c000405) like an op in slot
+// 0x405, so such slots are never handed out.  Allocates many handles, then
+// cycles the last slot through all its generations.
 static void
-test_no_constant_collision(int kind, int slot)
+test_no_constant_collision(int kind)
 {
-  std::vector<mana_mpi_handle> fill;
-  // Make 'slot' the next one handed out (the free list is LIFO): allocate
-  // until we get it, then free it.
-  mana_mpi_handle target;
-  while (true) {
-    target = add_virt_id((mana_mpi_handle){._handle64 = 1}, NULL, kind);
-    if ((target._handle & MANA_VIRT_ID_SLOT_MASK) == slot) {
-      break;
-    }
-    fill.push_back(target);
-    if (fill.size() > 100000) {
-      CHECK(false);
-      return;
-    }
+  std::vector<mana_mpi_handle> live;
+  for (int i = 0; i < 0x1000; i++) {
+    mana_mpi_handle h = add_virt_id((mana_mpi_handle){._handle64 = 1}, NULL,
+                                    kind);
+    CHECK(!equals_constant(h._handle));
+    CHECK(!is_predefined_id(h));
+    live.push_back(h);
   }
-  free_virt_id(target);
   std::set<int> handles;
   for (int i = 0; i < 4 * (MANA_VIRT_ID_GEN_MASK + 1); i++) {
+    free_virt_id(live.back());
+    live.pop_back();
     mana_mpi_handle h = add_virt_id((mana_mpi_handle){._handle64 = 2}, NULL,
                                     kind);
-    CHECK((h._handle & MANA_VIRT_ID_SLOT_MASK) == slot);
     CHECK(!equals_constant(h._handle));
     CHECK(!is_predefined_id(h));
     handles.insert(h._handle);
-    free_virt_id(h);
+    live.push_back(h);
   }
   // The slot was reused with more than one generation.
   CHECK(handles.size() > 1);
-  for (mana_mpi_handle h : fill) {
+  for (mana_mpi_handle h : live) {
     free_virt_id(h);
   }
 }
@@ -346,9 +340,8 @@ main(int argc, char **argv)
   } else {
     test_constants();
 #ifdef MANA_VIRT_ID_SLOT_MASK
-    test_no_constant_collision(MANA_REQUEST_KIND, 3);
-    test_no_constant_collision(MANA_REQUEST_KIND, 1);
-    test_no_constant_collision(MANA_OP_KIND, 0x405);
+    test_no_constant_collision(MANA_REQUEST_KIND);
+    test_no_constant_collision(MANA_OP_KIND);
 #endif
     test_comm();
     test_requests();

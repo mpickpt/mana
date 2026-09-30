@@ -46,9 +46,40 @@ find_constant(int64_t upper)
   }
 }
 
+// Slots that no virtual handle may use, because a predefined constant equals
+// one of the slot's handles (for some kind and generation).  Computed from
+// the constants' actual values, so it works for any MPI implementation.
+static std::vector<bool> reserved_slots;
+
+static inline bool
+slot_is_reserved(int slot)
+{
+  return (size_t)slot < reserved_slots.size() && reserved_slots[slot];
+}
+
+// Reserves the slot whose handles could equal the constant 'upper'.
+static void
+reserve_constant_slot(int64_t upper)
+{
+  uint64_t value = (uint64_t)upper;
+  if (sizeof(MPI_Comm) <= sizeof(int)) {
+    value = (uint32_t)value;  // A handle has only 32 bits
+  }
+  unsigned int kind = value >> MANA_VIRT_ID_KIND_SHIFT;
+  if ((value >> 32) != 0 || kind - 1 >= MANA_NUM_KINDS) {
+    return;  // No virtual handle has this value
+  }
+  size_t slot = value & MANA_VIRT_ID_SLOT_MASK;
+  if (slot >= reserved_slots.size()) {
+    reserved_slots.resize(slot + 1);
+  }
+  reserved_slots[slot] = true;
+}
+
 static void
 set_upper_to_lower(int64_t upper, int64_t lower)
 {
+  reserve_constant_slot(upper);
   for (unsigned int i = constant_hash(upper);;
        i = (i + 1) & (MANA_CONSTANTS_TABLE_SIZE - 1)) {
     mana_constant *c = &upper_to_lower_constants[i];
@@ -535,12 +566,20 @@ alloc_slot()
     return slot;
   }
   int slot = virt_id_high_water;
+  while (slot_is_reserved(slot)) {
+    slot++;
+  }
   if (slot > MANA_VIRT_ID_SLOT_MASK) {
     fprintf(stderr, "MANA: too many MPI handles in use (%d)\n", slot);
     abort();
   }
-  int chunk = slot >> MANA_VIRT_ID_CHUNK_SHIFT;
-  if (virt_id_chunks[chunk] == NULL) {
+  // The table has an entry for every slot below the high-water mark, even a
+  // reserved one (it stays free).
+  for (int chunk = virt_id_high_water >> MANA_VIRT_ID_CHUNK_SHIFT;
+       chunk <= slot >> MANA_VIRT_ID_CHUNK_SHIFT; chunk++) {
+    if (virt_id_chunks[chunk] != NULL) {
+      continue;
+    }
     virt_id_entry *entries =
       (virt_id_entry*)calloc(MANA_VIRT_ID_CHUNK_SIZE, sizeof(virt_id_entry));
     if (entries == NULL) {
@@ -550,35 +589,18 @@ alloc_slot()
     // Publish the chunk only after it is initialized; see virtual_id.h.
     __atomic_store_n(&virt_id_chunks[chunk], entries, __ATOMIC_RELEASE);
   }
-  virt_id_high_water++;
+  virt_id_high_water = slot + 1;
   return slot;
 }
 
 mana_mpi_handle add_virt_id(mana_mpi_handle real_id, void *desc, int kind) {
   mana_mpi_handle new_virt_id;
   new_virt_id._handle64 = 0;
-  virt_id_entry *entry;
-  int handle;
-  while (true) {
-    int slot = alloc_slot();
-    entry = slot_entry(slot);
-    // A new handle must never equal a predefined constant: skip the
-    // generations of this slot that would produce one.
-    int tries;
-    for (tries = 0; tries <= MANA_VIRT_ID_GEN_MASK; tries++) {
-      handle = kind << MANA_VIRT_ID_KIND_SHIFT |
+  int slot = alloc_slot();
+  virt_id_entry *entry = slot_entry(slot);
+  int handle = kind << MANA_VIRT_ID_KIND_SHIFT |
                (entry->gen & MANA_VIRT_ID_GEN_MASK) << MANA_VIRT_ID_GEN_SHIFT |
                slot;
-      if (!is_predefined_id({._handle64 = handle})) {
-        break;
-      }
-      entry->gen++;
-    }
-    if (tries <= MANA_VIRT_ID_GEN_MASK) {
-      break;
-    }
-    // Every generation of this slot collides; leave the slot unused.
-  }
   entry->real_id = real_id;
   entry->desc = desc;
   entry->seq = ++virt_id_next_seq;

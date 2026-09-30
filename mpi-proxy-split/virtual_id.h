@@ -126,12 +126,17 @@ size_t virt_id_live_count();
 void reconstruct_descriptors();
 void init_predefined_virt_ids();
 
-// Returns the table entry of a virtual handle that is in use, or NULL if
-// 'virt_id' is not one (a predefined constant, a freed or stale handle, or
-// garbage).  O(1), no locking.
+// Returns the entry of a virtual handle in use, or NULL (a predefined
+// constant, a freed or stale handle, or garbage).  Lock-free.
 static inline virt_id_entry*
 lookup_virt_id_entry(mana_mpi_handle virt_id)
 {
+  // Virtual handles have 32 bits: with 64-bit MPI handles (Open MPI), a
+  // handle whose upper 32 bits are not 0 is not virtual.
+  if (sizeof(MPI_Comm) > sizeof(int) &&
+      ((uint64_t)virt_id._handle64 >> 32) != 0) {
+    return NULL;
+  }
   unsigned int handle = (unsigned int)virt_id._handle;
   unsigned int kind = handle >> MANA_VIRT_ID_KIND_SHIFT;
   if (kind - 1 >= MANA_NUM_KINDS) {
