@@ -67,7 +67,8 @@ extern "C" {
 
 #pragma weak MPI_Init = PMPI_Init
 int PMPI_Init(int *argc, char ***argv) {
-  int retval;
+  // The lower half has initialized MPI already, at launch.
+  int retval = MPI_SUCCESS;
   if (isUsingCollectiveToP2p()) {
     fprintf(stderr, collective_p2p_string);
   }
@@ -99,12 +100,16 @@ int PMPI_Init(int *argc, char ***argv) {
 
 #pragma weak MPI_Init_thread = PMPI_Init_thread
 int PMPI_Init_thread(int *argc, char ***argv, int required, int *provided) {
-  if (*provided == MPI_THREAD_MULTIPLE) {
-    fprintf(stderr, "WARNING: MANA does not support MPI_THREAD_MULTIPLE.\n"); 
-    fprintf(stderr, "MANA initialized with MPI_THREAD_SINGLE instead.\n"); 
+  // The lower half has initialized MPI already, at launch.  MANA supports
+  // MPI_THREAD_SINGLE and MPI_THREAD_FUNNELED.
+  *provided = required < MPI_THREAD_FUNNELED ? required : MPI_THREAD_FUNNELED;
+  if (required > MPI_THREAD_FUNNELED) {
+    fprintf(stderr, "WARNING: MANA does not support MPI_THREAD_SERIALIZED "
+            "or MPI_THREAD_MULTIPLE.\n");
+    fprintf(stderr, "MANA provides MPI_THREAD_FUNNELED instead.\n");
     fflush(stderr);
   }
-  int retval;
+  int retval = MPI_SUCCESS;
   if (isUsingCollectiveToP2p()) {
     fprintf(stderr, collective_p2p_string);
   }
