@@ -58,6 +58,17 @@ typedef struct {
   int size;
   int rank;
   int *global_ranks;
+  // A name for the communicator that all its members agree on, unlike the
+  // virtual handle, which differs between processes.  For a blocked
+  // MPI_Recv, the P2P drain publishes this name, and the rank that sends
+  // the dummy message finds its own handle with find_virt_comm().
+  //   ranks_hash: a hash of the global ranks, in rank order.
+  //   instance: how many communicators with the same ranks_hash this
+  //     process created before this one.  new_virt_comm() takes it from
+  //     comm_instances, a count per ranks_hash.  All members create a
+  //     communicator in the same call, so they get the same instance.
+  uint64_t ranks_hash;
+  unsigned int instance;
 } mana_comm_desc;
 
 typedef struct {
@@ -157,6 +168,10 @@ size_t virt_id_live_count();
 // Returns the virtual communicators in use, in creation order.  The
 // checkpoint thread may call it while an application thread runs.
 std::vector<MPI_Comm> live_virt_comms();
+// Returns the communicator in use with the given name (see mana_comm_desc),
+// or MPI_COMM_NULL if this process is not a member of it.  The checkpoint
+// thread may call it while an application thread runs.
+MPI_Comm find_virt_comm(uint64_t ranks_hash, unsigned int instance);
 
 void reconstruct_descriptors();
 void init_predefined_virt_ids();

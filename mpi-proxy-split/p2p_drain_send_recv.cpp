@@ -389,9 +389,14 @@ consumeMatchingMsgBuffer(void *buf, int count, MPI_Datatype datatype,
 // Publish g_pending_recv to kvdb (one record per rank), then for each
 // rank that is blocked on MPI_Recv, decide whether *this* rank is the
 // designated dummy sender and, if so, issue an MPI_Send to unblock the
-// receiver.  The dummy uses the receiver's own count and datatype so
-// that the lower-half MPI library matches the Recv and returns from
-// NEXT_FUNC(Recv).
+// receiver.  The lower-half MPI library matches the dummy with the Recv
+// by source, tag and communicator, and returns from NEXT_FUNC(Recv).
+//
+// Virtual handles are local to a process: the same communicator or
+// datatype may have different handles on different ranks.  So the
+// blocked rank publishes its communicator by a name that all members
+// share (see mana_comm_desc), and the size of its receive in bytes; the
+// dummy is that many MPI_BYTEs.
 //
 // Must be called after drainInFlightP2p() has returned (i.e., after
 // global_sent == global_recv has been proven).  At that point, no real
@@ -433,9 +438,33 @@ unblockPendingRecvs()
   int64_t my_active = blocked ? 1 : 0;
   int64_t my_source = blocked ? g_pending_recv.source : 0;
   int64_t my_tag    = blocked ? g_pending_recv.tag    : 0;
-  int64_t my_comm   = blocked ? (int64_t)g_pending_recv.comm : 0;
-  int64_t my_count  = blocked ? g_pending_recv.count : 0;
-  int64_t my_dtype  = blocked ? (int64_t)g_pending_recv.datatype : 0;
+  // The communicator's name: its ranks hash and instance, or, for a
+  // predefined communicator (the same handle everywhere), its handle and
+  // instance -1.
+  int64_t my_comm_hash = 0;
+  int64_t my_comm_instance = 0;
+  int64_t my_bytes = 0;
+  if (blocked) {
+    MPI_Comm comm = g_pending_recv.comm;
+    virt_id_entry *entry =
+      lookup_virt_id_entry((mana_mpi_handle){.comm = comm});
+    if (entry != NULL) {
+      mana_comm_desc *desc = (mana_comm_desc*)entry->desc;
+      my_comm_hash = (int64_t)desc->ranks_hash;
+      my_comm_instance = desc->instance;
+    } else {
+      my_comm_hash = (int64_t)comm;
+      my_comm_instance = -1;
+    }
+    MPI_Datatype type = g_pending_recv.datatype;
+    MPI_Datatype realType =
+      get_real_id((mana_mpi_handle){.datatype = type}).datatype;
+    int type_size = 0;
+    JUMP_TO_LOWER_HALF(lh_info->fsaddr);
+    NEXT_FUNC(Type_size)(realType, &type_size);
+    RETURN_TO_UPPER_HALF();
+    my_bytes = (int64_t)type_size * g_pending_recv.count;
+  }
 
   snprintf(key, sizeof(key), "active_%d", g_world_rank);
   kvdb::set64(db, key, my_active);
@@ -443,12 +472,12 @@ unblockPendingRecvs()
   kvdb::set64(db, key, my_source);
   snprintf(key, sizeof(key), "tag_%d", g_world_rank);
   kvdb::set64(db, key, my_tag);
-  snprintf(key, sizeof(key), "comm_%d", g_world_rank);
-  kvdb::set64(db, key, my_comm);
-  snprintf(key, sizeof(key), "count_%d", g_world_rank);
-  kvdb::set64(db, key, my_count);
-  snprintf(key, sizeof(key), "dtype_%d", g_world_rank);
-  kvdb::set64(db, key, my_dtype);
+  snprintf(key, sizeof(key), "commhash_%d", g_world_rank);
+  kvdb::set64(db, key, my_comm_hash);
+  snprintf(key, sizeof(key), "comminst_%d", g_world_rank);
+  kvdb::set64(db, key, my_comm_instance);
+  snprintf(key, sizeof(key), "bytes_%d", g_world_rank);
+  kvdb::set64(db, key, my_bytes);
 
   p2p_dummy_phase = true;
 
@@ -459,9 +488,9 @@ unblockPendingRecvs()
   std::vector<int64_t> active(g_world_size);
   std::vector<int64_t> source(g_world_size);
   std::vector<int64_t> tag(g_world_size);
-  std::vector<int64_t> comm(g_world_size);
-  std::vector<int64_t> count(g_world_size);
-  std::vector<int64_t> dtype(g_world_size);
+  std::vector<int64_t> comm_hash(g_world_size);
+  std::vector<int64_t> comm_instance(g_world_size);
+  std::vector<int64_t> bytes(g_world_size);
   for (int r = 0; r < g_world_size; r++) {
     snprintf(key, sizeof(key), "active_%d", r);
     kvdb::get64(db, key, &active[r]);
@@ -470,12 +499,12 @@ unblockPendingRecvs()
     kvdb::get64(db, key, &source[r]);
     snprintf(key, sizeof(key), "tag_%d", r);
     kvdb::get64(db, key, &tag[r]);
-    snprintf(key, sizeof(key), "comm_%d", r);
-    kvdb::get64(db, key, &comm[r]);
-    snprintf(key, sizeof(key), "count_%d", r);
-    kvdb::get64(db, key, &count[r]);
-    snprintf(key, sizeof(key), "dtype_%d", r);
-    kvdb::get64(db, key, &dtype[r]);
+    snprintf(key, sizeof(key), "commhash_%d", r);
+    kvdb::get64(db, key, &comm_hash[r]);
+    snprintf(key, sizeof(key), "comminst_%d", r);
+    kvdb::get64(db, key, &comm_instance[r]);
+    snprintf(key, sizeof(key), "bytes_%d", r);
+    kvdb::get64(db, key, &bytes[r]);
   }
 
   // Phase C: dispatch dummies.
@@ -488,7 +517,15 @@ unblockPendingRecvs()
   for (int j = 0; j < g_world_size; j++) {
     if (!active[j]) { continue; }
 
-    MPI_Comm virtComm = (MPI_Comm)comm[j];
+    // This rank's handle of j's communicator, if it is a member.
+    MPI_Comm virtComm;
+    if (comm_instance[j] == -1) {
+      virtComm = (MPI_Comm)comm_hash[j];
+    } else {
+      virtComm = find_virt_comm((uint64_t)comm_hash[j],
+                                (unsigned int)comm_instance[j]);
+      if (virtComm == MPI_COMM_NULL) { continue; }
+    }
     MPI_Comm realComm =
       get_real_id((mana_mpi_handle){.comm = virtComm}).comm;
 
@@ -561,18 +598,11 @@ unblockPendingRecvs()
     }
 
     int dummy_tag = ((int)tag[j] == MPI_ANY_TAG) ? 0 : (int)tag[j];
-    int dummy_count = (int)count[j];
-    MPI_Datatype virtDtype = (MPI_Datatype)dtype[j];
-    MPI_Datatype realDtype =
-      get_real_id((mana_mpi_handle){.datatype = virtDtype}).datatype;
-
-    int type_size = 0;
-    MPI_Type_size(virtDtype, &type_size);
-    void *dummy_buf = malloc(dummy_count * type_size);
-    memset(dummy_buf, 0, dummy_count * type_size);
+    int dummy_count = (int)bytes[j];
+    void *dummy_buf = calloc(dummy_count > 0 ? dummy_count : 1, 1);
 
     JUMP_TO_LOWER_HALF(lh_info->fsaddr);
-    int rc = NEXT_FUNC(Send)(dummy_buf, dummy_count, realDtype,
+    int rc = NEXT_FUNC(Send)(dummy_buf, dummy_count, lh_info->MANA_BYTE,
                              j_local_rank_in_comm, dummy_tag, realComm);
     JASSERT(rc == MPI_SUCCESS)(rc)(j)(dummy_tag);
     RETURN_TO_UPPER_HALF();
