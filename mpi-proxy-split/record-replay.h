@@ -62,9 +62,6 @@
 #define CLEAR_COMM_LOGS(comm) \
   dmtcp_mpi::MpiRecordReplay::instance().clearCommLogs(comm)
 
-#define FREE_TYPE_LOGS(type) \
-  dmtcp_mpi::MpiRecordReplay::instance().freeType(type)
-
 // Returns true if we are currently replaying the MPI calls from the saved MPI
 // calls log; false, otherwise. Normally, this would be true while restoring
 // the MPI state at restart time. All other times, this would return false.
@@ -440,31 +437,6 @@ namespace dmtcp_mpi
         MpiRecord *rec = new MpiRecord(cb, type, (void*)fPtr);
         if (rec) {
           rec->addArgs(args...);
-          switch (type) {
-            case GENERATE_ENUM(Type_contiguous):
-            case GENERATE_ENUM(Type_create_hvector):
-            case GENERATE_ENUM(Type_indexed):
-            case GENERATE_ENUM(Type_create_struct):
-            case GENERATE_ENUM(Type_dup):
-            case GENERATE_ENUM(Type_create_resized):
-              datatypeCreated(rec);
-              break;
-            case GENERATE_ENUM(Type_commit):
-              // No reference: freeType() removes the commit records of a
-              // type together with the record that created it.
-              break;
-            case GENERATE_ENUM(Type_free):
-              // Not logged; see freeType().
-              delete rec;
-              return NULL;
-            default:
-              // The 'default' cases include record types like
-              //     comm_create, comm_group, group_incl, etc.
-              // Those known types only need to be recorded.  So they don't
-              //     have any case label to pre-process their record info
-              //     before they are recorded.
-              break;
-          }
 	  {
             lock_t lock(_mutex);
             _records.push_back(rec);
@@ -508,15 +480,6 @@ namespace dmtcp_mpi
       }
 
       void printRecords(bool print);
-
-      // Called by the MPI_Type_free wrapper.  Once no logged datatype was
-      // built from 'type' and no pending MPI_Isend/MPI_Irecv uses it,
-      // removes the records that created and committed it and releases its
-      // virtual id; then does the same for the freed datatypes it was built
-      // from.  Without this, a program that creates and frees a datatype
-      // for every message (as BLACS does for every broadcast) grows the log
-      // and the virtual-id table without bound, which slows it down.
-      void freeType(MPI_Datatype type);
     private:
       // Pvt. constructor
       MpiRecordReplay()
@@ -526,24 +489,8 @@ namespace dmtcp_mpi
       {
       }
 
-      // Registers the datatype that a type-constructor record creates, and
-      // adds a reference to each logged datatype it was built from.
-      void datatypeCreated(const MpiRecord *rec);
-
-      // Drops a reference to a logged datatype.  When none is left, removes
-      // its records, releases its virtual id, and drops the references it
-      // held to the datatypes it was built from.  Requires _mutex.
-      void releaseType(MPI_Datatype type);
-
       // Virtual Ids Table
       dmtcp::vector<MpiRecord*> _records;
-      // Logged datatypes and their references: one from the application
-      // until it calls MPI_Type_free, and one from each logged datatype
-      // built from it.
-      std::unordered_map<MPI_Datatype, int> _datatypeMap;
-      // Datatypes freed while a pending MPI_Isend/MPI_Irecv used them.
-      // freeType() releases them once the calls have completed.
-      dmtcp::vector<MPI_Datatype> _typesFreedWhilePending;
       // True on restart, false otherwise
       bool _replayOn;
       // Lock on list
@@ -552,7 +499,6 @@ namespace dmtcp_mpi
 
 
   // Restores the MPI types and returns MPI_SUCCESS on success
-  extern int restoreTypes(MpiRecord& );
 
   // Restores the MPI cartesian communicators and returns MPI_SUCCESS on success
   extern int restoreCarts(MpiRecord& );

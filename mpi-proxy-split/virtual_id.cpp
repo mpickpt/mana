@@ -1,4 +1,5 @@
 #include <sched.h>
+#include <string.h>
 #include <mpi.h>
 #include <algorithm>
 #include <unordered_map>
@@ -8,6 +9,7 @@
 #include "switch-context.h"
 #include "mpi_nextfunc.h"
 #include "seq_num.h"
+#include "p2p_log_replay.h"
 #include <iostream>
 
 MPI_Group g_world_group;
@@ -216,12 +218,107 @@ MPI_Op new_virt_op(MPI_Op real_op) {
   return virt_id.op;
 }
 
-MPI_Datatype new_virt_datatype(MPI_Datatype real_datatype) {
-  mana_datatype_desc *desc = (mana_datatype_desc*)
-                             malloc(sizeof(mana_datatype_desc));
+// Free datatype descriptors.  Only application threads make and free
+// datatypes, one at a time (MANA does not support MPI_THREAD_MULTIPLE).
+static mana_datatype_desc *datatype_desc_pool = NULL;
+
+mana_datatype_desc* alloc_datatype_desc() {
+  mana_datatype_desc *desc = datatype_desc_pool;
+  if (desc != NULL) {
+    datatype_desc_pool = desc->next_free;
+  } else {
+    desc = (mana_datatype_desc*)malloc(sizeof(mana_datatype_desc));
+  }
+  memset(desc, 0, sizeof(*desc));
+  return desc;
+}
+
+// Calls f on each datatype that 'desc' was made from.
+template<typename F>
+static void
+for_each_oldtype(const mana_datatype_desc *desc, F f) {
+  if (desc->constructor == MANA_TYPE_STRUCT) {
+    for (int i = 0; i < desc->count; i++) {
+      f(desc->oldtypes[i]);
+    }
+  } else {
+    f(desc->oldtype);
+  }
+}
+
+static mana_datatype_desc*
+datatype_desc(MPI_Datatype type) {
+  virt_id_entry *entry =
+    lookup_virt_id_entry((mana_mpi_handle){.datatype = type});
+  return entry != NULL ? (mana_datatype_desc*)entry->desc : NULL;
+}
+
+MPI_Datatype new_virt_datatype(MPI_Datatype real_datatype,
+                               mana_datatype_desc *desc) {
+  desc->refs = 1;
+  for_each_oldtype(desc, [](MPI_Datatype oldtype) {
+    mana_datatype_desc *old = datatype_desc(oldtype);
+    if (old != NULL) {  // Not a predefined datatype
+      old->refs++;
+    }
+  });
   mana_mpi_handle virt_id;
   virt_id = add_virt_id((mana_mpi_handle){.datatype = real_datatype}, desc, MANA_DATATYPE_KIND);
   return virt_id.datatype;
+}
+
+void commit_virt_datatype(MPI_Datatype type) {
+  mana_datatype_desc *desc = datatype_desc(type);
+  if (desc != NULL) {
+    desc->committed = true;
+  }
+}
+
+// Drops a reference to a datatype; releases it, and drops its references
+// to the datatypes it was made from, when none is left.
+static void
+release_datatype(MPI_Datatype type) {
+  mana_datatype_desc *desc = datatype_desc(type);
+  if (desc == NULL || --desc->refs > 0) {
+    return;
+  }
+  MPI_Datatype single = desc->oldtype;
+  std::vector<MPI_Datatype> olds;
+  if (desc->constructor == MANA_TYPE_STRUCT) {
+    olds.assign(desc->oldtypes, desc->oldtypes + desc->count);
+  }
+  free_virt_id((mana_mpi_handle){.datatype = type});  // Frees 'desc'
+  if (olds.empty()) {
+    release_datatype(single);
+  }
+  for (MPI_Datatype oldtype : olds) {
+    release_datatype(oldtype);
+  }
+}
+
+// Datatypes the application freed while a pending MPI_Isend/MPI_Irecv used
+// them: that call needs them at checkpoint and restart.
+static std::vector<MPI_Datatype> datatypes_freed_while_pending;
+
+void free_virt_datatype(MPI_Datatype type) {
+  if (datatype_desc(type) == NULL) {
+    return;
+  }
+  for (size_t i = 0; i < datatypes_freed_while_pending.size();) {
+    MPI_Datatype freed = datatypes_freed_while_pending[i];
+    if (pendingCallUsesDatatype(freed)) {
+      i++;
+    } else {
+      datatypes_freed_while_pending.erase(
+        datatypes_freed_while_pending.begin() + i);
+      release_datatype(freed);
+    }
+  }
+  if (pendingCallUsesDatatype(type)) {
+    datatypes_freed_while_pending.push_back(type);
+  } else {
+    release_datatype(type);
+  }
 }
 
 MPI_File new_virt_file(MPI_File real_file) {
@@ -253,6 +350,63 @@ void reconstruct_op_desc(virt_id_entry *entry) {
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   NEXT_FUNC(Op_create)(desc->user_fn, desc->commute, &(entry->real_id.op));
   RETURN_TO_UPPER_HALF();
+}
+
+// Makes the datatype again in the new lower half.  The datatypes it was
+// made from are older, so they have been made again already.
+void reconstruct_datatype_desc(virt_id_entry *entry) {
+  mana_datatype_desc *desc = (mana_datatype_desc*)entry->desc;
+  MPI_Datatype old = MPI_DATATYPE_NULL;
+  std::vector<MPI_Datatype> olds;
+  if (desc->constructor == MANA_TYPE_STRUCT) {
+    for (int i = 0; i < desc->count; i++) {
+      mana_mpi_handle virt = {.datatype = desc->oldtypes[i]};
+      olds.push_back(get_real_id(virt).datatype);
+    }
+  } else {
+    old = get_real_id((mana_mpi_handle){.datatype = desc->oldtype}).datatype;
+  }
+  MPI_Datatype type = MPI_DATATYPE_NULL;
+  int rc = MPI_ERR_TYPE;
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
+  switch (desc->constructor) {
+    case MANA_TYPE_CONTIGUOUS:
+      rc = NEXT_FUNC(Type_contiguous)(desc->count, old, &type);
+      break;
+    case MANA_TYPE_VECTOR:
+      rc = NEXT_FUNC(Type_vector)(desc->count, desc->blocklength,
+                                  desc->stride, old, &type);
+      break;
+    case MANA_TYPE_HVECTOR:
+      rc = NEXT_FUNC(Type_create_hvector)(desc->count, desc->blocklength,
+                                          desc->hstride, old, &type);
+      break;
+    case MANA_TYPE_INDEXED:
+      rc = NEXT_FUNC(Type_indexed)(desc->count, desc->blocklengths,
+                                   desc->displacements, old, &type);
+      break;
+    case MANA_TYPE_STRUCT:
+      rc = NEXT_FUNC(Type_create_struct)(desc->count, desc->blocklengths,
+                                         desc->hdisplacements, olds.data(),
+                                         &type);
+      break;
+    case MANA_TYPE_DUP:
+      rc = NEXT_FUNC(Type_dup)(old, &type);
+      break;
+    case MANA_TYPE_RESIZED:
+      rc = NEXT_FUNC(Type_create_resized)(old, desc->lb, desc->extent, &type);
+      break;
+  }
+  if (rc == MPI_SUCCESS && desc->committed) {
+    rc = NEXT_FUNC(Type_commit)(&type);
+  }
+  RETURN_TO_UPPER_HALF();
+  if (rc != MPI_SUCCESS) {
+    fprintf(stderr, "Cannot make datatype 0x%x again (constructor %d)\n",
+            entry->virt, desc->constructor);
+    abort();
+  }
+  entry->real_id = (mana_mpi_handle){.datatype = type};
 }
 
 void reconstruct_descriptors() {
@@ -288,7 +442,7 @@ void reconstruct_descriptors() {
         reconstruct_op_desc(entry);
         break;
       case MANA_DATATYPE_KIND:
-        // Handled by the record-and-replay algorithm.
+        reconstruct_datatype_desc(entry);
         break;
       case MANA_REQUEST_KIND:
         // Handled separately by P2P wrappers and CC algorithm.
@@ -670,6 +824,16 @@ void* get_virt_id_desc(mana_mpi_handle virt_id) {
 }
 
 void free_desc(void *desc, int kind) {
+  if (kind == MANA_DATATYPE_KIND) {
+    mana_datatype_desc *type_desc = (mana_datatype_desc*)desc;
+    free(type_desc->blocklengths);
+    free(type_desc->displacements);
+    free(type_desc->hdisplacements);
+    free(type_desc->oldtypes);
+    type_desc->next_free = datatype_desc_pool;
+    datatype_desc_pool = type_desc;
+    return;
+  }
   if (kind == MANA_COMM_KIND) {
     mana_comm_desc *comm_desc = (mana_comm_desc*)desc;
     free(comm_desc->global_ranks);

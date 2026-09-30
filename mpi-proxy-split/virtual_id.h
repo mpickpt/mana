@@ -84,13 +84,42 @@ typedef struct {
   int commute;
 } mana_op_desc;
 
-typedef struct {
-  // It's hard to decode and reconstruct "double derived datatypes",
-  // which means datatypes that are created using derived datatypes.
-  // So we decided to use the old record-and-replay approach to
-  // reconstruct datatypes at restart. Therefore, there's no data
-  // needs to be saved in the descriptor. We keep this structure
-  // definition for future use.
+// How a derived datatype was made (mana_datatype_desc.constructor).
+enum {
+  MANA_TYPE_CONTIGUOUS = 1,
+  MANA_TYPE_VECTOR,
+  MANA_TYPE_HVECTOR,
+  MANA_TYPE_INDEXED,
+  MANA_TYPE_STRUCT,
+  MANA_TYPE_DUP,
+  MANA_TYPE_RESIZED
+};
+
+// A derived datatype: the call that made it, with its arguments, so that
+// restart can make it again (reconstruct_descriptors()), in creation order,
+// from the old types it was made from.  BLACS makes and frees a datatype
+// around almost every message, so descriptors come from a free list
+// (alloc_datatype_desc()), and nothing else is allocated for the common
+// constructors.
+typedef struct mana_datatype_desc {
+  int constructor;              // MANA_TYPE_*
+  int count;
+  int blocklength;              // vector, hvector
+  int stride;                   // vector, in elements
+  MPI_Aint hstride;             // hvector, in bytes
+  MPI_Aint lb;                  // resized
+  MPI_Aint extent;              // resized
+  MPI_Datatype oldtype;         // all but struct
+  int *blocklengths;            // indexed, struct: 'count' entries
+  int *displacements;           // indexed
+  MPI_Aint *hdisplacements;     // struct
+  MPI_Datatype *oldtypes;       // struct
+  bool committed;
+  // One reference from the application until it frees the datatype, and
+  // one from each datatype made from it that is still referenced: restart
+  // needs a freed datatype to make those again.
+  int refs;
+  struct mana_datatype_desc *next_free;
 } mana_datatype_desc;
 
 typedef struct {
@@ -161,7 +190,17 @@ void init_predefined_virt_ids();
 MPI_Comm new_virt_comm(MPI_Comm real_comm);
 MPI_Group new_virt_group(MPI_Group real_group);
 MPI_Op new_virt_op(MPI_Op real_op);
-MPI_Datatype new_virt_datatype(MPI_Datatype real_datatype);
+// Returns an empty descriptor for a new datatype.  The caller fills in the
+// call that made the datatype, and passes it to new_virt_datatype().
+mana_datatype_desc* alloc_datatype_desc();
+MPI_Datatype new_virt_datatype(MPI_Datatype real_datatype,
+                               mana_datatype_desc *desc);
+// Records that the application committed the datatype.
+void commit_virt_datatype(MPI_Datatype type);
+// Called when the application frees the datatype.  Its virtual handle is
+// released once no referenced datatype was made from it and no pending
+// MPI_Isend/MPI_Irecv uses it.
+void free_virt_datatype(MPI_Datatype type);
 MPI_Request new_virt_request(MPI_Request real_request);
 MPI_Request new_virt_collective_request(MPI_Request real_request);
 MPI_File new_virt_file(MPI_File real_request);
