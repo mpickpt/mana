@@ -54,6 +54,7 @@ static char *arena_base = NULL;
 
 static void* __mmap_wrapper(void * , size_t , int , int , int , off_t);
 static void patchLibc(int , char * , char *);
+static void uhExit(int status);
 static void addRegionTommaps(char *, size_t);
 static int __munmap_wrapper(void *, size_t);
 static void updateMmaps(char *, size_t);
@@ -372,6 +373,34 @@ static int __munmap_wrapper(void *addr, size_t length) {
   return ret;
 }
 
+// The MPI process, not a child that the upper half forked.  Set by the
+// lower half's main() at launch and again at restart.
+static pid_t lh_pid;
+
+void
+record_lower_half_pid()
+{
+  lh_pid = syscall(SYS_getpid);
+}
+
+// The upper half libc's _exit() jumps here (patchLibc()).  If the upper half
+// is in exit() (upper_half_exiting), end through the lower half's exit() so
+// that its exit handlers run too: MPICH sends PMI finalize from one, and
+// without it the process manager kills the other ranks.  A direct _exit()
+// and a child that the upper half forked just exit.
+static void
+uhExit(int status)
+{
+  if (lh_info->fsaddr != NULL) {
+    setFS((unsigned long)lh_info->fsaddr);
+  }
+  if (lh_info->upper_half_exiting && syscall(SYS_getpid) == lh_pid) {
+    exit(status);  // The lower half's
+  }
+  syscall(SYS_exit_group, status);
+  __builtin_unreachable();
+}
+
 static void patchLibc(int fd, char *base, char *glibc)
 {
   assert(base != NULL);
@@ -409,6 +438,13 @@ static void patchLibc(int fd, char *base, char *glibc)
   assert(munmap_offset);
   patch_trampoline(base + mmap_offset, reinterpret_cast<void*>(&mmap_wrapper));
   patch_trampoline(base + munmap_offset, reinterpret_cast<void*>(&munmap_wrapper));
+  off_t exit_offset = get_symbol_offset(glibc, "_exit");
+  if (exit_offset) {
+    patch_trampoline(base + exit_offset, reinterpret_cast<void*>(&uhExit));
+  } else {
+    DLOG(ERROR, "No _exit in %s: the lower half's exit handlers won't run\n",
+         glibc);
+  }
   // Restore file offset to not upset the caller
   lseek(fd, save_offset, SEEK_SET);
 }
