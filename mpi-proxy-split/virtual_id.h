@@ -235,6 +235,13 @@ void init_predefined_virt_ids();
 static inline virt_id_entry*
 lookup_virt_id_entry(mana_mpi_handle virt_id)
 {
+  // Virtual handles have 32 bits.  With 64-bit MPI handles (pointers, as in
+  // Open MPI), one whose upper half is not 0 (a predefined constant, for
+  // example) is not virtual, whatever its lower half.
+  if (sizeof(MPI_Comm) > sizeof(int) &&
+      ((uint64_t)virt_id._handle64 >> 32) != 0) {
+    return NULL;
+  }
   unsigned int handle = (unsigned int)virt_id._handle;
   unsigned int kind = handle >> MANA_VIRT_ID_KIND_SHIFT;
   if (kind - 1 >= MANA_NUM_KINDS) {
