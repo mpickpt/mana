@@ -1,6 +1,7 @@
 #include <sched.h>
 #include <mpi.h>
 #include <algorithm>
+#include <unordered_map>
 #include <vector>
 
 #include "virtual_id.h"
@@ -100,6 +101,24 @@ unsigned int generate_ggid(int *ranks, int size) {
   return ggid;
 }
 
+// FNV-1a hash of the global ranks, in order.
+static uint64_t
+hash_ranks(const int *ranks, int size)
+{
+  uint64_t h = 14695981039346656037ULL;
+  for (int i = 0; i < size; i++) {
+    unsigned int r = ranks[i];
+    for (int b = 0; b < 4; b++) {
+      h = (h ^ ((r >> (8 * b)) & 0xff)) * 1099511628211ULL;
+    }
+  }
+  return h;
+}
+
+// The number of communicators created so far for each hash of global ranks.
+// All members create a communicator in the same call, so they agree on it.
+static std::unordered_map<uint64_t, unsigned int> comm_instances;
+
 int is_predefined_id(mana_mpi_handle id) {
   return find_constant(id._handle64) != NULL;
 }
@@ -137,6 +156,8 @@ MPI_Comm new_virt_comm(MPI_Comm real_comm) {
   desc->ggid = ggid;
   desc->seq_num = &seq_num[ggid];
   desc->target = &target[ggid];
+  desc->ranks_hash = hash_ranks(desc->global_ranks, desc->size);
+  desc->instance = comm_instances[desc->ranks_hash]++;
   mana_mpi_handle virt_id;
   virt_id = add_virt_id((mana_mpi_handle){.comm = real_comm}, desc, MANA_COMM_KIND);
   ggid_table[virt_id.comm] = ggid;
@@ -669,11 +690,14 @@ void free_virt_id(mana_mpi_handle virt_id) {
   // A pending call must be removed first (clearPendingRequestFromLog()).
   assert(entry->call.type == UNKNOW_REQUEST);
   int kind = virt_id._handle >> MANA_VIRT_ID_KIND_SHIFT;
-  free_desc(entry->desc, kind);  // free descriptor
-  entry->desc = NULL;
+  void *desc = entry->desc;
   // The next handle that uses this slot gets a new generation.
   entry->gen++;
+  // Unpublish the handle before freeing the descriptor, which the
+  // checkpoint thread may be reading (find_virt_comm()).
   __atomic_store_n(&entry->virt, 0, __ATOMIC_RELEASE);
+  __atomic_store_n(&entry->desc, (void*)NULL, __ATOMIC_RELEASE);
+  free_desc(desc, kind);  // free descriptor
   entry->next_free = virt_id_free_head;
   virt_id_free_head = virt_id._handle & MANA_VIRT_ID_SLOT_MASK;
   virt_id_live--;
@@ -710,6 +734,26 @@ std::vector<MPI_Comm> live_virt_comms() {
     result.push_back(comm.second);
   }
   return result;
+}
+
+MPI_Comm find_virt_comm(uint64_t ranks_hash, unsigned int instance) {
+  int high_water = __atomic_load_n(&virt_id_high_water, __ATOMIC_ACQUIRE);
+  for (int slot = 0; slot < high_water; slot++) {
+    virt_id_entry *entry = slot_entry(slot);
+    int handle = __atomic_load_n(&entry->virt, __ATOMIC_ACQUIRE);
+    if (handle != 0 && handle >> MANA_VIRT_ID_KIND_SHIFT == MANA_COMM_KIND) {
+      // An application thread may free the communicator meanwhile:
+      // free_virt_id() clears 'virt' before it frees the descriptor.
+      mana_comm_desc *desc = (mana_comm_desc*)
+        __atomic_load_n(&entry->desc, __ATOMIC_ACQUIRE);
+      bool match = desc != NULL && desc->ranks_hash == ranks_hash &&
+                   desc->instance == instance;
+      if (match && __atomic_load_n(&entry->virt, __ATOMIC_ACQUIRE) == handle) {
+        return (MPI_Comm)handle;
+      }
+    }
+  }
+  return MPI_COMM_NULL;
 }
 
 std::vector<MPI_Request> pending_collective_requests() {

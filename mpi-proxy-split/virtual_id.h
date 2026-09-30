@@ -66,6 +66,12 @@ typedef struct {
   unsigned int ggid;
   unsigned long *seq_num;
   unsigned long *target;
+  // A name of the communicator that is the same on all its members, since
+  // its virtual handle is not (see unblockPendingRecvs()): a hash of its
+  // global ranks in order, and how many communicators with the same hash
+  // this process created before it.
+  uint64_t ranks_hash;
+  unsigned int instance;
 } mana_comm_desc;
 
 typedef struct {
@@ -175,6 +181,10 @@ std::vector<MPI_Comm> live_virt_comms();
 // Returns the requests of the non-blocking collectives that have not
 // completed yet, in creation order.
 std::vector<MPI_Request> pending_collective_requests();
+// Returns the communicator in use with the given name (see mana_comm_desc),
+// or MPI_COMM_NULL if this process is not a member of it.  The checkpoint
+// thread may call it while an application thread runs.
+MPI_Comm find_virt_comm(uint64_t ranks_hash, unsigned int instance);
 
 void reconstruct_descriptors();
 void init_predefined_virt_ids();
