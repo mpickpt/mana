@@ -27,5 +27,7 @@ void init_mem_arena(char *arena_base);
 void* mmap_wrapper(void *, size_t , int , int , int , off_t );
 void* restore_mmap(void *, size_t , int , int , int , off_t );
 int munmap_wrapper(void *, size_t);
+// Records the pid whose exit runs the lower half's exit handlers (uhExit()).
+void record_lower_half_pid();
 std::vector<MmapInfo_t> &get_mmapped_list(int *num);
 #endif // MMAP_WRAPPER_H

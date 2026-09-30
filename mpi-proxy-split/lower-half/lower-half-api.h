@@ -54,6 +54,9 @@ typedef struct _LowerHalfInfo
   void *munmap;
   void *mmap_list_fptr;
   void *lh_dlsym;
+  // Set by an upper-half atexit() handler: uhExit() then ends the process
+  // through the lower half's exit(), so that its exit handlers run too.
+  int upper_half_exiting;
   char *uh_stack_start;
   char *uh_stack_end;
   char *uh_next_free_addr;

@@ -145,6 +145,7 @@ int main(int argc, char *argv[], char *envp[]) {
   char **initial_argv = argv;
   MPI_Init(&argc, &argv);
   remove_dangling_env_entries(initial_argv);
+  record_lower_half_pid();
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   
   // Initialize MPI Functions and Constants mapping table in lower-half
