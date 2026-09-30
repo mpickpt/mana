@@ -35,15 +35,6 @@
 
 using namespace dmtcp_mpi;
 
-static int restoreTypeContiguous(MpiRecord& rec);
-static int restoreTypeCommit(MpiRecord& rec);
-static int restoreTypeHVector(MpiRecord& rec);
-static int restoreTypeIndexed(MpiRecord& rec);
-static int restoreTypeHIndexed(MpiRecord& rec);
-static int restoreTypeFree(MpiRecord& rec);
-static int restoreTypeCreateStruct(MpiRecord& rec);
-static int restoreTypeDup(MpiRecord& rec);
-static int restoreTypeCreateResized(MpiRecord& rec);
 
 static int restoreCartCreate(MpiRecord& rec);
 static int restoreCartMap(MpiRecord& rec);
@@ -72,53 +63,6 @@ restoreMpiLogState()
 {
   JASSERT(RESTORE_MPI_STATE() == MPI_SUCCESS)
           .Text("Failed to restore MPI state");
-}
-
-int dmtcp_mpi::restoreTypes(MpiRecord &rec) {
-  int rc = -1;
-  JTRACE("Restoring MPI derived types");
-  switch (rec.getType()) {
-    case GENERATE_ENUM(Type_contiguous):
-      JTRACE("restoreTypeContiguous");
-      rc = restoreTypeContiguous(rec);
-      break;
-    case GENERATE_ENUM(Type_commit):
-      JTRACE("restoreTypeCommit");
-      rc = restoreTypeCommit(rec);
-      break;
-    case GENERATE_ENUM(Type_create_hvector):
-      JTRACE("restoreTypeHVector");
-      rc = restoreTypeHVector(rec);
-      break;
-    case GENERATE_ENUM(Type_indexed):
-      JTRACE("restoreTypeIndexed");
-      rc = restoreTypeIndexed(rec);
-      break;
-    case GENERATE_ENUM(Type_free):
-      JTRACE("restoreTypeFree");
-      rc = restoreTypeFree(rec);
-      break;
-    case GENERATE_ENUM(Type_create_struct):
-      JTRACE("restoreTypeCreateStruct");
-      rc = restoreTypeCreateStruct(rec);
-      break;
-    case GENERATE_ENUM(Type_create_hindexed):
-      JTRACE("restoreTypeHIndexed");
-      rc = restoreTypeHIndexed(rec);
-      break;
-    case GENERATE_ENUM(Type_dup):
-      JTRACE("restoreTypeDup");
-      rc = restoreTypeDup(rec);
-      break;
-    case GENERATE_ENUM(Type_create_resized):
-      JTRACE("restoreTypeCreateResized");
-      rc = restoreTypeCreateResized(rec);
-      break;
-    default:
-      JWARNING(false)(rec.getType()).Text("Unknown call");
-      break;
-  }
-  return rc;
 }
 
 int
@@ -150,104 +94,6 @@ dmtcp_mpi::restoreCarts(MpiRecord &rec)
   return rc;
 }
 
-static int
-restoreTypeContiguous(MpiRecord& rec)
-{
-  int retval;
-  int count = rec.args(0);
-  MPI_Datatype oldtype = (MPI_Datatype)(int)rec.args(1);
-  MPI_Datatype newtype;
-  retval = FNC_CALL(Type_contiguous, rec)(count, oldtype, &newtype);
-  if (retval == MPI_SUCCESS) {
-    MPI_Datatype virtType = (MPI_Datatype)(int)rec.args(2);
-    update_virt_id((mana_mpi_handle){.datatype = virtType}, (mana_mpi_handle){.datatype = newtype});
-  }
-  return retval;
-}
-
-static int
-restoreTypeCommit(MpiRecord& rec)
-{
-  int retval;
-  MPI_Datatype type = (MPI_Datatype)(int)rec.args(0);
-  retval = FNC_CALL(Type_commit, rec)(&type);
-  JWARNING(retval == MPI_SUCCESS)(type).Text("Could not commit MPI datatype");
-  return retval;
-}
-
-static int
-restoreTypeHVector(MpiRecord& rec)
-{
-  int retval;
-  int count = rec.args(0);
-  int blocklength = rec.args(1);
-  MPI_Aint stride = rec.args(2);
-  MPI_Datatype oldtype = (MPI_Datatype)(int)rec.args(3);
-  MPI_Datatype newtype = MPI_DATATYPE_NULL;
-  retval = FNC_CALL(Type_create_hvector, rec)(count, blocklength,
-                                      stride, oldtype, &newtype);
-  JWARNING(retval == MPI_SUCCESS)(oldtype)
-          .Text("Could not restore MPI hvector datatype");
-  if (retval == MPI_SUCCESS) {
-    MPI_Datatype virtType = (MPI_Datatype)(int)rec.args(4);
-    update_virt_id((mana_mpi_handle){.datatype = virtType}, (mana_mpi_handle){.datatype = newtype});
-  }
-  return retval;
-}
-
-static int
-restoreTypeHIndexed(MpiRecord& rec)
-{
-  int retval;
-  int count = rec.args(0);
-  int *bs = rec.args(1);
-  MPI_Aint *ds = rec.args(2);
-  MPI_Datatype oldtype = (MPI_Datatype)(int)rec.args(3);
-  MPI_Datatype newtype = MPI_DATATYPE_NULL;
-  retval = FNC_CALL(Type_create_hindexed, rec)(count, bs, ds, oldtype, &newtype);
-  JWARNING(retval == MPI_SUCCESS)(oldtype)
-          .Text("Could not restore MPI hindexed datatype");
-  if (retval == MPI_SUCCESS) {
-    MPI_Datatype virtType = (MPI_Datatype)(int)rec.args(4);
-    update_virt_id((mana_mpi_handle){.datatype = virtType}, (mana_mpi_handle){.datatype = newtype});
-  }
-  return retval;
-}
-
-static int
-restoreTypeDup(MpiRecord& rec)
-{
-  int retval;
-  MPI_Datatype oldtype = (MPI_Datatype)(int)rec.args(0);
-  MPI_Datatype newtype = MPI_DATATYPE_NULL;
-  retval = FNC_CALL(Type_dup, rec)(oldtype, &newtype);
-  JWARNING(retval == MPI_SUCCESS)(oldtype)
-          .Text("Could not restore MPI hvector datatype");
-  if (retval == MPI_SUCCESS) {
-    MPI_Datatype virtType = (MPI_Datatype)(int)rec.args(1);
-    update_virt_id((mana_mpi_handle){.datatype = virtType}, (mana_mpi_handle){.datatype = newtype});
-  }
-  return retval;
-}
-
-static int
-restoreTypeCreateResized(MpiRecord& rec)
-{
-  int retval;
-  MPI_Datatype oldtype = (MPI_Datatype)(int)rec.args(0);
-  MPI_Aint lb = rec.args(1);
-  MPI_Aint ext = rec.args(2);
-  MPI_Datatype newtype = MPI_DATATYPE_NULL;
-  retval = FNC_CALL(Type_create_resized, rec)(oldtype, lb, ext, &newtype);
-  JWARNING(retval == MPI_SUCCESS)(oldtype)
-          .Text("Could not restore MPI hvector datatype");
-  if (retval == MPI_SUCCESS) {
-    MPI_Datatype virtType = (MPI_Datatype)(int)rec.args(3);
-    update_virt_id((mana_mpi_handle){.datatype = virtType}, (mana_mpi_handle){.datatype = newtype});
-  }
-  return retval;
-}
-
 void MpiRecordReplay::printRecords(bool print)
 {
   JNOTE("Printing _records");
@@ -259,64 +105,6 @@ void MpiRecordReplay::printRecords(bool print)
       JNOTE("") (MPI_Fnc_strings[fnc_idx]);
     }
   }
-}
-
-static int
-restoreTypeIndexed(MpiRecord& rec)
-{
-  int retval;
-  int count = rec.args(0);
-  int *blocklengths = rec.args(1);
-  int *displs = rec.args(2);
-  MPI_Datatype oldtype = (MPI_Datatype)(int)rec.args(3);
-  MPI_Datatype newtype = MPI_DATATYPE_NULL;
-  retval = FNC_CALL(Type_indexed, rec)(count, blocklengths,
-                                       displs, oldtype, &newtype);
-  JWARNING(retval == MPI_SUCCESS)(oldtype)
-          .Text("Could not restore MPI indexed datatype");
-  if (retval == MPI_SUCCESS) {
-    MPI_Datatype virtType = (MPI_Datatype)(int)rec.args(4);
-    update_virt_id((mana_mpi_handle){.datatype = virtType}, (mana_mpi_handle){.datatype = newtype});
-  }
-  return retval;
-}
-
-static int
-restoreTypeFree(MpiRecord& rec)
-{
-  int retval;
-  MPI_Datatype type = (MPI_Datatype)(int)rec.args(0);
-  retval = FNC_CALL(Type_free, rec)(&type);
-  JWARNING(retval == MPI_SUCCESS)(type).Text("Could not free MPI datatype");
-  if (retval == MPI_SUCCESS) {
-    // See mpi_type_wrappers.cpp:Type_free
-    // NOTE: We cannot remove the old type from the map, since
-    // we'll need to replay this call to reconstruct any other type that
-    // might have been created using this type.
-    //
-    // MPI_Datatype realType = REMOVE_OLD_TYPE(type);
-  }
-  return retval;
-}
-
-static int
-restoreTypeCreateStruct(MpiRecord& rec)
-{
-  int retval;
-  int count = rec.args(0);
-  int *blocklengths = rec.args(1);
-  MPI_Aint *displs = rec.args(2);
-  MPI_Datatype *types = (MPI_Datatype*)rec.args(3);
-  MPI_Datatype newtype = MPI_DATATYPE_NULL;
-  retval = FNC_CALL(Type_create_struct, rec)(count, blocklengths,
-                                       displs, types, &newtype);
-  JWARNING(retval == MPI_SUCCESS)(types)
-          .Text("Could not restore MPI struct datatype");
-  if (retval == MPI_SUCCESS) {
-    MPI_Datatype virtType = (MPI_Datatype)(int)rec.args(4);
-    update_virt_id((mana_mpi_handle){.datatype = virtType}, (mana_mpi_handle){.datatype = newtype});
-  }
-  return retval;
 }
 
 #ifdef SINGLE_CART_REORDER

@@ -55,6 +55,14 @@ static int failures = 0;
     }                                                                   \
   } while (0)
 
+// virtual_id.cpp asks p2p_log_replay.cpp whether a pending call uses a
+// datatype; this test has no pending calls.
+bool
+pendingCallUsesDatatype(MPI_Datatype type)
+{
+  return false;
+}
+
 static void
 init_lh_info()
 {
