@@ -112,7 +112,10 @@ void drainInFlightP2p();
 // Dispatch dummy MPI_Send messages to unblock any rank that is parked
 // in blocking MPI_Recv at pre-suspend time.  Must be called after
 // drainInFlightP2p() returns (i.e., after all real in-flight messages
-// have been accounted for).  See implementation for the full protocol.
+// have been accounted for).  Only blocked ranks publish; each chooses
+// the rank that sends its dummy and posts the dummy to it, so the
+// coordinator serves O(ranks + blocked ranks) requests, not O(ranks^2).
+// See implementation for the full protocol.
 void unblockPendingRecvs();
 
 // Single entry point for draining all P2P communications before
@@ -131,10 +134,11 @@ struct DrainStats {
   uint64_t t_probe;          //   probing communicators, buffering messages
   uint64_t t_isends;         //   completing the remaining MPI_Isends
   uint64_t t_unblock;        // unblockPendingRecvs()
-  uint64_t t_publish;        //   publishing the pending MPI_Recv
+  uint64_t t_publish;        //   publishing whether blocked in MPI_Recv
   uint64_t t_published;      //   barrier after publishing
-  uint64_t t_read;           //   reading the other ranks' pending MPI_Recvs
-  uint64_t t_dispatch;       //   sending dummies
+  uint64_t t_post;           //   posting the dummy to its sender
+  uint64_t t_posted;         //   barrier after posting
+  uint64_t t_dispatch;       //   sending the dummies posted to this rank
   uint64_t t_dispatched;     //   barrier after sending
   uint64_t t_wait_lower_half;  // wait_for_threads_to_leave_lower_half()
   int64_t iterations;        // rounds of the in-flight drain
