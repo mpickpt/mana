@@ -60,7 +60,7 @@ typedef struct {
   int tag;        // user-provided value; may be MPI_ANY_TAG
   MPI_Comm comm;  // virtual communicator
   int count;      // user-provided count (needed for dummy buffer size)
-  MPI_Datatype datatype;  // virtual datatype handle (needed for dummy matching)
+  MPI_Datatype datatype;  // virtual datatype handle (for the size of the dummy)
 } pending_recv_t;
 
 extern pending_recv_t g_pending_recv;
