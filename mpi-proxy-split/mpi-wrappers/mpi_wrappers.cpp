@@ -53,6 +53,16 @@ static const char collective_p2p_string[] =
 
 ManaHeader g_mana_header = { .init_flag = MPI_INIT_NO_THREAD };
 
+// Runs in the upper half's exit(), not in a direct _exit(): so the process
+// ends through the lower half's exit(), and the lower half's exit handlers
+// run too (uhExit() in lower-half/mem-wrapper.cpp).  Registered once, at
+// MPI_Init; the registration is restored with the upper half at restart.
+static void
+end_through_lower_half_exit()
+{
+  lh_info->upper_half_exiting = 1;
+}
+
 extern "C" {
 
 #pragma weak MPI_Init = PMPI_Init
@@ -81,6 +91,7 @@ int PMPI_Init(int *argc, char ***argv) {
 
   init_predefined_virt_ids();
   initialize_drain_send_recv();
+  atexit(end_through_lower_half_exit);
   LOWER_HALF_ENABLE_CKPT();
   g_libmpi_is_initialized = true;
   return retval;
@@ -116,6 +127,7 @@ int PMPI_Init_thread(int *argc, char ***argv, int required, int *provided) {
 
   init_predefined_virt_ids();
   initialize_drain_send_recv();
+  atexit(end_through_lower_half_exit);
   LOWER_HALF_ENABLE_CKPT();
   g_libmpi_is_initialized = true;
   return retval;

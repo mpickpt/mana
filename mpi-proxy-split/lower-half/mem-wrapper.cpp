@@ -56,6 +56,7 @@ static char *arena_base = NULL;
 
 static void* __mmap_wrapper(void * , size_t , int , int , int , off_t);
 static void patchLibc(int , char * , char *);
+static void uhExit(int status);
 static void patchSbrk(char *, char *, size_t);
 static void addRegionTommaps(char *, size_t);
 static int __munmap_wrapper(void *, size_t);
@@ -480,6 +481,39 @@ static int __munmap_wrapper(void *addr, size_t length) {
   return ret;
 }
 
+// The process whose exit runs the lower half's exit handlers: recorded by
+// the lower half's main(), at launch and at restart (a restarted process
+// has another pid).
+static pid_t lh_pid;
+
+void
+record_lower_half_pid()
+{
+  lh_pid = syscall(SYS_getpid);
+}
+
+// The upper half libc's _exit() jumps here (patchLibc()): the last step of
+// the upper half's exit(), after its exit handlers and destructors.  Unlike
+// a native process, the process has two libcs, and the lower half's exit
+// handlers would never run: MPICH, for one, sends PMI finalize from one,
+// and the process manager takes an exit without it for a crash and kills
+// the other ranks.  So if the upper half is in exit() (see
+// LowerHalfInfo_t.upper_half_exiting), the process ends through the lower
+// half's exit() instead.  A direct _exit() (as natively, no exit handlers;
+// e.g. DMTCP's kill) and a child the upper half forked just exit.
+static void
+uhExit(int status)
+{
+  if (lh_info->fsaddr != NULL) {
+    setFS((unsigned long)lh_info->fsaddr);
+  }
+  if (lh_info->upper_half_exiting && syscall(SYS_getpid) == lh_pid) {
+    exit(status);  // The lower half's
+  }
+  syscall(SYS_exit_group, status);
+  __builtin_unreachable();
+}
+
 static void patchLibc(int fd, char *base, char *glibc)
 {
   assert(base != NULL);
@@ -517,6 +551,13 @@ static void patchLibc(int fd, char *base, char *glibc)
   assert(munmap_offset);
   patch_trampoline(base + mmap_offset, reinterpret_cast<void*>(&mmap_wrapper));
   patch_trampoline(base + munmap_offset, reinterpret_cast<void*>(&munmap_wrapper));
+  off_t exit_offset = get_symbol_offset(glibc, "_exit");
+  if (exit_offset) {
+    patch_trampoline(base + exit_offset, reinterpret_cast<void*>(&uhExit));
+  } else {
+    DLOG(ERROR, "No _exit in %s: the lower half's exit handlers won't run\n",
+         glibc);
+  }
   // Restore file offset to not upset the caller
   lseek(fd, save_offset, SEEK_SET);
 }

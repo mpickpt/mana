@@ -54,6 +54,10 @@ typedef struct _LowerHalfInfo
   void *munmap;
   void *mmap_list_fptr;
   void *lh_dlsym;
+  // Set by an atexit() handler in the upper half (libmana): the upper half is
+  // in exit(), not _exit(), so the process ends through the lower half's
+  // exit() and the lower half's exit handlers run too (uhExit()).
+  int upper_half_exiting;
   char *uh_stack_start;
   char *uh_stack_end;
   char *uh_next_free_addr;
