@@ -79,6 +79,6 @@ echo '# This is a temporary file for communication between' >> $MANA_RC
 echo '#   mana_coordinator and mana_launch/mana_restart.' >> $MANA_RC
 echo '*** '"Coordinator/job information written to $MANA_RC"
 
-# srun -n1 -c1 --cpu-bind=cores bin/dmtcp_launch  -i10 -h `hostname` --no-gzip --join --disable-dl-plugin --with-plugin $PWD/lib/dmtcp/libmana.so contrib/mpi-proxy-split/test/mpi_hello_world.mana.exe
+# srun -n1 -c1 --cpu-bind=cores bin/dmtcp_launch  -i10 -h `hostname` --no-gzip --join --disable-dl-plugin --with-plugin $PWD/lib/dmtcp/libmana.so mpi-proxy-split/examples/ring
 
-# srun -n1 -c1 --cpu-bind=cores bin/mana_launch  -i10 contrib/mpi-proxy-split/test/mpi_hello_world.mana.exe
+# srun -n1 -c1 --cpu-bind=cores bin/mana_launch  -i10 mpi-proxy-split/examples/ring

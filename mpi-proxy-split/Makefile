@@ -93,6 +93,7 @@ touch: ${FILE}
 
 tests:
 	+ @make -C test/ default
+	+ @make -C examples/
 
 check: libmana.so
 	@make -C test/ e2e

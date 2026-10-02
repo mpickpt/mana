@@ -59,9 +59,10 @@ cd dmtcp-mana
 ./configure --enable-debug
 make -j mana
 # Build the program with mpicc as usual; no relinking for MANA is needed.
+# 'make' also builds an example: mpi-proxy-split/examples/ring
 salloc -N 2 -q interactive -C haswell -t 01:00:00
 bin/mana_coordinator -i10
-srun -N 2 bin/mana_launch <TARGET_DIR>/ping_pong.exe
+srun -N 2 bin/mana_launch mpi-proxy-split/examples/ring
 bin/mana_coordinator -i10
 srun -N 2 bin/mana_restart
 ```
