@@ -75,6 +75,17 @@ MANA supports most features of DMTCP, including:
 
 # ENVIRONMENT VARIABLES AND DEBUGGING
 
+**`MANA_P2P_WAIT`**
+
+: How `MPI_Send` and `MPI_Recv` wait for their message.  `polling` (the
+  default): as `MPI_Isend` or `MPI_Irecv`, then a loop of `MPI_Test` in MANA.
+  `blocking`: in the MPI library's own `MPI_Send` and `MPI_Recv`.  Both modes
+  checkpoint and restart the same way.  `polling` can be faster when the MPI
+  library's blocking wait yields the processor (MPICH 5).  `blocking` is
+  faster on Cray MPICH, and much faster when two ranks share a core.  With an
+  MPI library on UCX, `blocking` can fail at a checkpoint.  MANA reads the
+  variable at `MPI_Init` and keeps the mode after restart.
+
 **`MANA_DEBUG`**
 
 : MANA will print to stderr extra information to help developers debug MANA.

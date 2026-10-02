@@ -21,6 +21,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 #include <mpi.h>
 #include <map>
@@ -67,6 +68,7 @@ dmtcp::vector<mpi_message_t*> g_message_queue;
 // See p2p_drain_send_recv.h for documentation of these globals.
 pending_recv_t g_pending_recv = { /*.state=*/ PENDING_RECV_IDLE };
 volatile bool p2p_dummy_phase = false;
+p2p_wait_t g_p2p_wait = P2P_WAIT_POLLING;
 
 DrainStats g_drain_stats;
 
@@ -149,6 +151,15 @@ void
 initialize_drain_send_recv()
 {
   getLocalRankInfo();
+  const char *wait = getenv("MANA_P2P_WAIT");
+  if (wait != NULL && strcmp(wait, "blocking") == 0) {
+    g_p2p_wait = P2P_WAIT_BLOCKING;
+  } else if (wait != NULL && strcmp(wait, "polling") != 0 &&
+             g_world_rank == 0) {
+    // Not JWARNING: mana_launch silences it.
+    fprintf(stderr, "WARNING: MANA_P2P_WAIT is 'polling' or 'blocking', not "
+            "'%s'.  MANA uses 'polling'.\n", wait);
+  }
 #ifdef DEBUG_P2P
   g_sendBytesByRank = (int*)JALLOC_HELPER_MALLOC(g_world_size * sizeof(int));
   g_rsendBytesByRank = (int*)JALLOC_HELPER_MALLOC(g_world_size * sizeof(int));
@@ -641,6 +652,8 @@ unblockPendingRecvs()
                               PENDING_RECV_CLOSED, false,
                               __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE);
   bool blocked = (state == PENDING_RECV_ACTIVE);
+  JASSERT(!blocked || g_p2p_wait == P2P_WAIT_BLOCKING)
+    .Text("An MPI_Recv waits in the lower half with MANA_P2P_WAIT=polling");
   if (blocked) {
     snprintf(key, sizeof(key), "blocked_%d", g_world_rank / 64);
     kvOr(g_drain_db, key, (int64_t)((uint64_t)1 << (g_world_rank % 64)));
@@ -785,7 +798,8 @@ reportDrainStats()
     v[metrics[i].name] = (long)value;
   }
   fprintf(stderr,
-          "MANA drain stats, checkpoint %d, %d ranks (us: max over ranks):\n"
+          "MANA drain stats, checkpoint %d, %d ranks, MANA_P2P_WAIT=%s on "
+          "rank 0 (us: max over ranks):\n"
           "  collective %ld | in-flight %ld (register %ld, complete %ld, "
           "probe %ld, isends %ld) | unblock %ld (publish %ld, barrier %ld, "
           "post %ld, barrier %ld, dispatch %ld, barrier %ld) | "
@@ -794,7 +808,9 @@ reportDrainStats()
           "iprobes %ld, drained %ld msgs %ld bytes, irecvs completed %ld, "
           "isends completed %ld, blocked %ld, dummies %ld, "
           "kvdb requests %ld\n",
-          checkpoint, g_world_size, v["collective"], v["inflight"],
+          checkpoint, g_world_size,
+          g_p2p_wait == P2P_WAIT_POLLING ? "polling" : "blocking",
+          v["collective"], v["inflight"],
           v["register"], v["complete"], v["probe"], v["isends"], v["unblock"],
           v["publish"], v["published"], v["post"], v["posted"],
           v["dispatch"], v["dispatched"], v["wait_lower_half"],
