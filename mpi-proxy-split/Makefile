@@ -102,7 +102,8 @@ check-unit: libmana.so
 
 ${MANA_ROOT}/lib/dmtcp/libmana.so: libmana.so
 	cp -f $< $@
-${MANA_ROOT}/lib/dmtcp/libmpistub.so:
+${MANA_ROOT}/lib/dmtcp/libmpistub.so: ${WRAPPERS_SRCDIR}/mpi_stub_wrappers.txt \
+                                      ${WRAPPERS_SRCDIR}/mpi_stub_data.c
 	+ make -C ${WRAPPERS_SRCDIR} install
 
 # ${WRAPPERS_SRCDIR}/libmpiwrappers.a ia a prerequisite for libmana.so,
