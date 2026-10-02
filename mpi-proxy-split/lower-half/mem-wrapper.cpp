@@ -223,6 +223,15 @@ void init_mem_arena(char *base)
   free_blocks.push_back({arena_base, SIZE_MAX / 2});
 }
 
+// At restart, after restore_mmap() has mapped the upper half's areas, the
+// upper half's new areas go above them.  Without an arena, they would go
+// where the kernel puts them, among the lower half's mappings, and a later
+// restart's lower half may already have mapped that address.
+void init_mem_arena_after_restore()
+{
+  init_mem_arena((char*)ROUND_UP(max_allocated_addr, PAGE_SIZE));
+}
+
 // Returns a pointer to the array of mmap-ed regions
 // Sets num to the number of valid items in the array
 std::vector<MmapInfo_t> &get_mmapped_list(int *num) {

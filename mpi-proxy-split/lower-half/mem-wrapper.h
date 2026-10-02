@@ -24,6 +24,7 @@
 #include <vector>
 #include "lower-half-api.h"
 void init_mem_arena(char *arena_base);
+void init_mem_arena_after_restore();
 void* mmap_wrapper(void *, size_t , int , int , int , off_t );
 void* restore_mmap(void *, size_t , int , int , int , off_t );
 int munmap_wrapper(void *, size_t);
