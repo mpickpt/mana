@@ -65,6 +65,13 @@ TESTS = [
   Test("p2p_large", 2),
   Test("p2p_proc_null", 4),
   Test("fortran_p2p", 2),
+  Test("collectives", 4),
+  Test("nonblocking_collectives", 4),
+  Test("communicators", 4),
+  Test("cartesian", 4,
+       known_bug="restart rebuilds a Cartesian communicator without its "
+                 "topology"),
+  Test("datatypes", 2),
 ]
 
 
