@@ -56,6 +56,15 @@ class Test:
 
 TESTS = [
   Test("p2p_blocking", 3),
+  Test("p2p_nonblocking", 4),
+  Test("p2p_ring", 4),
+  Test("p2p_any_source", 4),
+  Test("p2p_probe", 4,
+       known_bug="MPI_Probe and MPI_Iprobe do not see the messages that a "
+                 "checkpoint drained"),
+  Test("p2p_large", 2),
+  Test("p2p_proc_null", 4),
+  Test("fortran_p2p", 2),
 ]
 
 
