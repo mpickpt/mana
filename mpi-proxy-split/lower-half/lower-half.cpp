@@ -69,6 +69,9 @@
 #define LOADER_SIZE_LIMIT 0x2000000
 #define MAX_CMD_ARGV2_LENGTH 100
 #define HEAP_GUARD_SIZE 0x1000000
+// Room below the heap guard for the heap of a restarted lower half, which
+// may need a little more than at launch (see restore_heap_break()).
+#define HEAP_SLACK_SIZE 0x1000000
 
 // Lower half initialization helper functions
 void set_addr_no_randomize(char *argv[]);
@@ -82,6 +85,7 @@ void remove_dangling_env_entries(char **argv);
 int parse_restore_flag(int *argc, char **argv);
 string get_restore_target_info(string restart_dir, int rank);
 void validate_checkpoint_header(RestoreTarget *t, DmtcpCkptHeader &ckpt_hdr);
+void restore_heap_break(void *saved_brk);
 void reserve_memory_areas(RestoreTarget *t, off_t &ckpt_file_pos);
 void *mmap_fixed_noreplace(void *addr, size_t length, int prot, int flags,
                            int fd, off_t offset);
@@ -187,6 +191,7 @@ int main(int argc, char *argv[], char *envp[]) {
     
     DmtcpCkptHeader ckpt_hdr;
     validate_checkpoint_header(t, ckpt_hdr);
+    restore_heap_break((void *)ckpt_hdr.savedBrk);
     off_t ckpt_file_pos = 0;
     reserve_memory_areas(t, ckpt_file_pos);
     t->initialize();
@@ -203,6 +208,7 @@ int main(int argc, char *argv[], char *envp[]) {
     assert(0);
   } else {
     // LAUNCH MODE:
+    sbrk(HEAP_SLACK_SIZE);
     create_heap_guard_page();
     parse_launch_arguments(argc, argv, &cmd_argc, &cmd_argv);
     // set default loader address
@@ -602,6 +608,34 @@ void validate_checkpoint_header(RestoreTarget *t, DmtcpCkptHeader &ckpt_hdr)
   ssize_t rc = read(t->fd(), &ckpt_hdr, sizeof(ckpt_hdr));
   ASSERT_EQ(rc, static_cast<ssize_t>(sizeof(ckpt_hdr)));
   ASSERT_EQ(string(ckpt_hdr.ckptSignature), string(DMTCP_CKPT_SIGNATURE));
+}
+
+/**
+ * @brief Sets the lower half's break to the checkpointed process's break.
+ *
+ * The heap guard and DMTCP's end-of-brk area start at that break and are
+ * restored with the upper half; DMTCP's restoreHeap() then madvise()s the
+ * end-of-brk area away.  So the heap must not reach past that break.  Ending
+ * the heap exactly there keeps the break where the upper half's libc and
+ * DMTCP saw it, and keeps the room left at launch (HEAP_SLACK_SIZE) for the
+ * next restart.
+ *
+ * @param saved_brk The break saved in the checkpoint image's header.
+ */
+void restore_heap_break(void *saved_brk)
+{
+  void *cur_brk = sbrk(0);
+  if (cur_brk > saved_brk) {
+    fprintf(stderr, "MANA: the lower half's heap (break %p) has grown past "
+            "the break of the checkpointed process (%p)\n",
+            cur_brk, saved_brk);
+    exit(1);
+  }
+  if (cur_brk < saved_brk && brk(saved_brk) != 0) {
+    fprintf(stderr, "MANA: cannot move the lower half's break from %p to %p: "
+            "%s\n", cur_brk, saved_brk, strerror(errno));
+    exit(1);
+  }
 }
 
 /**
