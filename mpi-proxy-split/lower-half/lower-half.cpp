@@ -198,6 +198,7 @@ int main(int argc, char *argv[], char *envp[]) {
     release_reserved_memory(t, ckpt_file_pos);
     restore_session_leadership(t);
     restore_memory_data(t, ckpt_hdr);
+    init_mem_arena_after_restore();
     create_heap_guard_page();
     /* Everything restored, close file and finish up */
     close(t->fd());
