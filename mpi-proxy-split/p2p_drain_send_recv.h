@@ -35,6 +35,15 @@ extern int *g_recvBytesByRank; // Number of bytes received from other ranks
 #endif
 extern int64_t global_sent_messages, global_recv_messages;
 extern int64_t local_sent_messages, local_recv_messages;
+
+// The application thread and, during a checkpoint, the drain (the checkpoint
+// thread) both count received messages.  Release: MPI_Recv's store to
+// g_pending_recv.state must be visible before its count.
+static inline void
+count_received_message()
+{
+  __atomic_fetch_add(&local_recv_messages, 1, __ATOMIC_RELEASE);
+}
 extern std::unordered_set<MPI_Comm> active_comms;
 extern dmtcp::vector<mpi_message_t*> g_message_queue;
 

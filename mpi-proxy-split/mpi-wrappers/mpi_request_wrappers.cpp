@@ -100,7 +100,7 @@ int PMPI_Test(MPI_Request* request, int* flag, MPI_Status* status)
   // clearPendingRequestFromLog()
   if (*flag && *request != MPI_REQUEST_NULL
       && is_counted_irecv(*request)) {
-    local_recv_messages++;
+    count_received_message();
 #ifdef DEBUG_P2P
     int count = 0;
     int size = 0;
@@ -289,7 +289,7 @@ int PMPI_Waitany(int count, MPI_Request *array_of_requests,
         MPI_Request *request = &local_array_of_requests[i];
         if (*request != MPI_REQUEST_NULL
           && is_counted_irecv(*request)) {
-          local_recv_messages++;
+          count_received_message();
 #ifdef DEBUG_P2P
           int count = 0;
           int size = 0;
@@ -357,7 +357,7 @@ int PMPI_Wait(MPI_Request *request, MPI_Status *status)
     // clearPendingRequestFromLog()
     if (flag && *request != MPI_REQUEST_NULL
         && is_counted_irecv(*request)) {
-      local_recv_messages++;
+      count_received_message();
 #ifdef DEBUG_P2P
       int count = 0;
       int size = 0;

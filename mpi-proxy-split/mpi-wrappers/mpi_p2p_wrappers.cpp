@@ -294,7 +294,7 @@ retry:
     __atomic_store_n(&g_pending_recv.state, PENDING_RECV_IDLE,
                      __ATOMIC_RELEASE);
     if (source != MPI_PROC_NULL) {
-      local_recv_messages++;
+      count_received_message();
     }
   }
   LOWER_HALF_ENABLE_CKPT();
