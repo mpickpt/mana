@@ -996,6 +996,8 @@ void print_usage_and_exit(char *prog_name)
  *      MPI-symbols required for user's MPI application.
  *  b) location of 'shadow-libraries', that cintain sym-link 
  *      for dynamic libraries with constructors.
+ * It also sets LD_AUDIT, so that the upper half loads libmpistub.so in
+ *  place of the MPI library that the application was linked with.
  *
  * NOTE:  This is necessary when an application is compiled with `mpicc_mana`
  *        instead of `mpicc`, or when shadow libraries are needed for dynamic linking.
@@ -1029,6 +1031,27 @@ void update_library_path(const char *argv0)
   // prepend lib1 to LD_LIBRARY_PATH
   if (prepend_to_library_path(lib1) != 0) {
     perror("Lib1 prepend to LD_LIBRARY_PATH failed");
+    exit(1);
+  }
+
+  // The upper half loads libmpistub.so in place of the MPI library (see
+  // mpi-wrappers/mpi_stub_audit.c).  ld.so ignores LD_AUDIT in
+  // secure-execution mode.  The upper half's ld.so gets the lower half's
+  // AT_SECURE (copy-stack.c copies the auxv), so if the lower half runs
+  // set-user-ID or with file capabilities, the upper half loads the real
+  // MPI library.
+  string audit = string(lib1) + "/libmpistub_audit.so";
+  if (access(audit.c_str(), R_OK) != 0) {
+    fprintf(stderr, "MANA: cannot read %s: %s\n", audit.c_str(),
+            strerror(errno));
+    exit(1);
+  }
+  const char *old_audit = getenv("LD_AUDIT");
+  if (old_audit != NULL && old_audit[0] != '\0') {
+    audit = audit + ":" + old_audit;
+  }
+  if (setenv("LD_AUDIT", audit.c_str(), 1) != 0) {
+    perror("MANA: setenv(LD_AUDIT) failed");
     exit(1);
   }
   free(lib1);
