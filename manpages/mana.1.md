@@ -79,6 +79,12 @@ MANA supports most features of DMTCP, including:
 
 : MANA will print to stderr extra information to help developers debug MANA.
 
+**`MANA_PRELOAD`**
+
+: A colon-separated list of libraries that `mana_launch` loads ahead of MANA,
+  so that they intercept MPI calls before MANA does (e.g., a PMPI profiler).
+  A library in `LD_PRELOAD` loads after them.
+
 **`DMTCP_MANA_PAUSE` or `DMTCP_LAUNCH_PAUSE`**
 
 : DMTCP/MANA will pause during launch to allow `gdb attach` (GDB must be on same node.)
