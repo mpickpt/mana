@@ -64,11 +64,14 @@ void* mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset)
     lowerHalfMmapWrapper = (__typeof__(&mmap))lh_info->mmap;
   }
   void *ret;
-  if (mana_state == RUNNING) {
+  // Read mana_state once: a checkpoint can change it during the call, and
+  // the lock taken must be the lock released.
+  bool lock = mana_state == RUNNING;
+  if (lock) {
     DMTCP_PLUGIN_DISABLE_CKPT();
   }
   ret = lowerHalfMmapWrapper(addr, length, prot, flags, fd, offset);
-  if (mana_state == RUNNING) {
+  if (lock) {
     DMTCP_PLUGIN_ENABLE_CKPT();
   }
   return ret;
@@ -83,11 +86,12 @@ int munmap(void *addr, size_t length) {
     lowerHalfMunmapWrapper = (__typeof__(&munmap))lh_info->munmap;
   }
   int ret;
-  if (mana_state == RUNNING) {
+  bool lock = mana_state == RUNNING;
+  if (lock) {
     DMTCP_PLUGIN_DISABLE_CKPT();
   }
   ret = lowerHalfMunmapWrapper(addr, length);
-  if (mana_state == RUNNING) {
+  if (lock) {
     DMTCP_PLUGIN_ENABLE_CKPT();
   }
   return ret;
