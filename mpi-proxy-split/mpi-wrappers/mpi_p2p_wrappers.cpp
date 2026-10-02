@@ -49,7 +49,10 @@ int PMPI_Send(const void *buf, int count, MPI_Datatype datatype,
     usleep(100);
   }
   DMTCP_PLUGIN_DISABLE_CKPT();
-  local_sent_messages++;
+  // A message to MPI_PROC_NULL is never received: don't count it.
+  if (dest != MPI_PROC_NULL) {
+    local_sent_messages++;
+  }
   MPI_Comm realComm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   MPI_Datatype realType = get_real_id((mana_mpi_handle){.datatype = datatype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
@@ -75,7 +78,9 @@ int PMPI_Isend(const void *buf, int count, MPI_Datatype datatype,
 {
   int retval;
   DMTCP_PLUGIN_DISABLE_CKPT();
-  local_sent_messages++;
+  if (dest != MPI_PROC_NULL) {
+    local_sent_messages++;
+  }
   MPI_Comm realComm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   MPI_Datatype realType = get_real_id((mana_mpi_handle){.datatype = datatype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
@@ -113,7 +118,9 @@ int PMPI_Rsend(const void* ibuf, int count,
     usleep(100);
   }
   DMTCP_PLUGIN_DISABLE_CKPT();
-  local_sent_messages++;
+  if (dest != MPI_PROC_NULL) {
+    local_sent_messages++;
+  }
   MPI_Comm realComm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   MPI_Datatype realType = get_real_id((mana_mpi_handle){.datatype = datatype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
@@ -238,7 +245,9 @@ retry:
   }
 
   // Real message.
-  local_recv_messages++;
+  if (source != MPI_PROC_NULL) {
+    local_recv_messages++;
+  }
   g_pending_recv.active = false;
   if (status != MPI_STATUS_IGNORE) {
     *status = local_status;

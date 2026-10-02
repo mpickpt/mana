@@ -94,7 +94,8 @@ int PMPI_Test(MPI_Request* request, int* flag, MPI_Status* status)
   // clearPendingRequestFromLog()
   if (*flag && *request != MPI_REQUEST_NULL
       && g_nonblocking_calls.find(*request) != g_nonblocking_calls.end()
-      && g_nonblocking_calls[*request]->type == IRECV_REQUEST) {
+      && g_nonblocking_calls[*request]->type == IRECV_REQUEST
+      && g_nonblocking_calls[*request]->remote_node != MPI_PROC_NULL) {
     local_recv_messages++;
 #ifdef DEBUG_P2P
     int count = 0;
@@ -284,7 +285,8 @@ int PMPI_Waitany(int count, MPI_Request *array_of_requests,
         MPI_Request *request = &local_array_of_requests[i];
         if (*request != MPI_REQUEST_NULL
           && g_nonblocking_calls.find(*request) != g_nonblocking_calls.end()
-          && g_nonblocking_calls[*request]->type == IRECV_REQUEST) {
+          && g_nonblocking_calls[*request]->type == IRECV_REQUEST
+          && g_nonblocking_calls[*request]->remote_node != MPI_PROC_NULL) {
           local_recv_messages++;
 #ifdef DEBUG_P2P
           int count = 0;
@@ -353,7 +355,8 @@ int PMPI_Wait(MPI_Request *request, MPI_Status *status)
     // clearPendingRequestFromLog()
     if (flag && *request != MPI_REQUEST_NULL
         && g_nonblocking_calls.find(*request) != g_nonblocking_calls.end()
-        && g_nonblocking_calls[*request]->type == IRECV_REQUEST) {
+        && g_nonblocking_calls[*request]->type == IRECV_REQUEST
+        && g_nonblocking_calls[*request]->remote_node != MPI_PROC_NULL) {
       local_recv_messages++;
 #ifdef DEBUG_P2P
       int count = 0;
