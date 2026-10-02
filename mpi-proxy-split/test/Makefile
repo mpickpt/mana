@@ -67,13 +67,17 @@ default_part2: ${TESTS} ${TESTS_DUMMY} ${BENCHES} e2e
 
 # End-to-end tests, run by autotest.py natively and under MANA.  Each test is
 # one program, named after the test and linked as any MPI program.
-E2E_TESTS = p2p_blocking
-E2E_FORTRAN =
+E2E_TESTS = p2p_blocking p2p_nonblocking p2p_ring p2p_any_source p2p_probe \
+            p2p_large p2p_proc_null
+E2E_FORTRAN = fortran_p2p
 
 e2e: ${E2E_TESTS} ${E2E_FORTRAN}
 
 ${E2E_TESTS}: %: %.c mana_test.h
 	$(MPICC) -g3 -O0 -o $@ $< $(MPI_CFLAGS) ${MPI_LDFLAGS}
+
+${E2E_FORTRAN}: %: %.f90
+	$(MPIFORTRAN) ${FFLAGS} -g3 -O0 -o $@ $<
 
 check-e2e: e2e
 	./autotest.py
