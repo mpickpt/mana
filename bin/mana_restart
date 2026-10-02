@@ -89,7 +89,7 @@ rc_file.close()
 os.system("find $HOME/.mana*.rc -ignore_readdir_race -maxdepth 0 -mtime +7 -type f -delete")
 
 # Check dmtcp coordinator
-coordinator_found = os.system(mana_root_path + "bin/dmtcp_command -s " + host_flag + port_flag + " &>/dev/null")
+coordinator_found = os.system(mana_root_path + "bin/dmtcp_command -s " + host_flag + port_flag + " >/dev/null 2>&1")
 if coordinator_found != 0:
   print("No MANA coordinator detected. Try:")
   print("  " + mana_root_path + "bin/dmtcp_coordinator")
