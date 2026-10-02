@@ -22,6 +22,14 @@ As seen in the MANA documentation, for install and a quick start, do:
     PATH_TO_MANA/bin/mana_coordinator
     PATH_TO_MANA/bin/mana_launch [mana options] [user_program and args]
 
+On Debian and Ubuntu, also install the package libc6-dbg: MANA needs the
+symbols of the dynamic loader, which these distributions strip.
+
+To run MANA's tests, which checkpoint and restart each test program:
+
+    mpi-proxy-split/test/autotest.py         # or: make -C mpi-proxy-split check
+    mpi-proxy-split/test/autotest.py --help  # e.g. --launcher 'srun -n {n}'
+
 ---
 
 To cite this project in a publicatoin, please cite:
