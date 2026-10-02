@@ -21,8 +21,7 @@
 
 /*
   Microbenchmark of the per-call cost that MANA adds to wrapped MPI calls.
-  Run it natively (virtid_bench.exe) and under MANA (virtid_bench.mana.exe)
-  and subtract.
+  Run it natively and under MANA, and subtract.
 
   Groups:
     a: handle translation, meant for 1 rank: MPI_Comm_size on
