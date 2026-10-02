@@ -1,0 +1,48 @@
+name: MANA tests
+
+on:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  e2e:
+    name: Ubuntu 26.04
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    container:
+      # Ubuntu's MPICH 4.3 runs on UCX (ch4:ucx), as MPICH does on many
+      # clusters.
+      image: ubuntu:26.04
+      # DMTCP turns off address space randomization, which Docker's default
+      # seccomp profile forbids; MPICH needs more than 64 MB of /dev/shm.
+      options: --security-opt seccomp=unconfined --shm-size=2g
+    steps:
+      - name: Install packages
+        run: |
+          apt-get update
+          # libc6-dbg: MANA needs the symbols of ld.so, which Ubuntu strips.
+          DEBIAN_FRONTEND=noninteractive apt-get install -y \
+            --no-install-recommends build-essential gfortran git \
+            ca-certificates python3 mpich libmpich-dev libc6-dbg
+
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Build
+        run: |
+          ./configure
+          make -j"$(nproc)" mana
+
+      - name: Test MANA
+        run: >
+          mpi-proxy-split/test/autotest.py --retry-once
+          --workdir /tmp/autotest
+
+      - name: Keep the logs of failed tests
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: autotest-logs
+          path: /tmp/autotest/
+          if-no-files-found: ignore
