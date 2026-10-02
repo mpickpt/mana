@@ -961,8 +961,15 @@ void print_usage_and_exit(char *prog_name)
  */
 void update_library_path(const char *argv0)
 {
-  const char *remove_part = "bin/../bin/lower-half";
-  size_t base_len = strlen(argv0) - strlen(remove_part);
+  // argv0 is <MANA root>/bin/lower-half (mana_launch passes
+  // <MANA root>/bin/../bin/lower-half); otherwise, leave the path alone.
+  const char *remove_part = "bin/lower-half";
+  size_t argv0_len = strlen(argv0);
+  if (argv0_len < strlen(remove_part) ||
+      strcmp(argv0 + argv0_len - strlen(remove_part), remove_part) != 0) {
+    return;
+  }
+  size_t base_len = argv0_len - strlen(remove_part);
 
   // constructing lib1 path: "/path_to_mana/lib/dmtcp"
   const char *lib1_suffix = "lib/dmtcp";
