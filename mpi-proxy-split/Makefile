@@ -94,9 +94,9 @@ touch: ${FILE}
 tests:
 	+ @make -C test/ default
 
-check: libmana.so ./autotest.py
-	@make -C test/ default
-	@python ./autotest.py
+check: libmana.so
+	@make -C test/ e2e
+	@test/autotest.py
 
 check-unit: libmana.so
 	@make -C unit-test/ check

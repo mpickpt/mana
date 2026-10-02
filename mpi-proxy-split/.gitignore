@@ -1,3 +1,10 @@
+# The binaries of the end-to-end tests have no suffix: ignore all but the
+# sources.
+test/*
+!test/*.c
+!test/*.f90
+!test/*.h
+!test/*.py
 test/*.exe
 unit-test/*.exe
 unit-test/lh_constants.inc
