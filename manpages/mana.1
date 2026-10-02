@@ -96,6 +96,12 @@ The default is to overwrite the last checkpoint.
 MANA will print to stderr extra information to help developers debug
 MANA.
 .TP
+\f[B]\f[R]\f[C]MANA_PRELOAD\f[R]\f[B]\f[R]
+A colon-separated list of libraries that \f[C]mana_launch\f[R] loads
+ahead of MANA, so that they intercept MPI calls before MANA does (e.g.,
+a PMPI profiler).
+A library in \f[C]LD_PRELOAD\f[R] loads after them.
+.TP
 \f[B]\f[R]\f[C]DMTCP_MANA_PAUSE\f[R]\f[B] or \f[R]\f[C]DMTCP_LAUNCH_PAUSE\f[R]\f[B]\f[R]
 DMTCP/MANA will pause during launch to allow \f[C]gdb attach\f[R] (GDB
 must be on same node.)

@@ -166,7 +166,11 @@ while index < len(dmtcp_flags):
 dmtcp_flags = filtered_flags
 
 mana_plugin = mana_root_path + "lib/dmtcp/libmana.so"
-plugin_list = ":".join([mana_plugin] + user_plugins)
+# Libraries in MANA_PRELOAD (colon-separated, e.g. a PMPI profiler) load
+# ahead of the mana plugin, so they intercept MPI calls before MANA does.
+# A library in LD_PRELOAD loads after them.
+pre_plugins = [p for p in os.environ.get("MANA_PRELOAD", "").split(":") if p]
+plugin_list = ":".join(pre_plugins + [mana_plugin] + user_plugins)
 
 # Build the command line to be executed
 if not verbose:
