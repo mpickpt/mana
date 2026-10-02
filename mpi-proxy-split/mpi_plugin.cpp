@@ -796,6 +796,15 @@ void printEventToStderr(const char *msg) {
   }
 }
 
+// No thread may be in the lower half when DMTCP suspends the threads.
+static void
+close_lower_half()
+{
+  uint64_t t = drainStatsNow();
+  wait_for_threads_to_leave_lower_half();  // lower_half_ckpt.cpp
+  g_drain_stats.t_wait_lower_half = drainStatsNow() - t;
+}
+
 static void
 mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
@@ -895,15 +904,22 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       // preSuspendBarrier() will send coord response and get worker state.
       // FIXME:  See commant at: dmtcpplugin.cpp:'case DMTCP_EVENT_PRESUSPEND'
       drain_mpi_collective();
+      // From here on, the checkpoint thread calls MPI, which the lower half
+      // runs as MPI_THREAD_SINGLE.  With MANA_P2P_WAIT=polling, no thread
+      // waits in the lower half for the drain, so close it now.  A blocking
+      // MPI_Recv stays there until the P2P drain sends it a dummy.
+      if (g_p2p_wait == P2P_WAIT_POLLING) {
+        close_lower_half();
+      }
       dmtcp_global_barrier("MPI:Drain-Send-Recv");
-      g_drain_stats.t_collective = drainStatsNow() - t0;
+      g_drain_stats.t_collective =
+        drainStatsNow() - t0 - g_drain_stats.t_wait_lower_half;
       mana_state = CKPT_P2P;
       drainP2p(); // p2p_drain_send_recv.cpp
       openCkptFileFds();
-      // No thread may be in the lower half when DMTCP suspends the threads.
-      uint64_t t1 = drainStatsNow();
-      wait_for_threads_to_leave_lower_half();  // lower_half_ckpt.cpp
-      g_drain_stats.t_wait_lower_half = drainStatsNow() - t1;
+      if (g_p2p_wait == P2P_WAIT_BLOCKING) {
+        close_lower_half();
+      }
       reportDrainStats();  // With MANA_DRAIN_STATS set
       printEventToStderr("EVENT_PRESUSPEND (done)");
       break;

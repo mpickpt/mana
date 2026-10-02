@@ -37,10 +37,52 @@
 
 extern "C" {
 
+static int
+MPI_Irecv_internal(void *buf, int count, MPI_Datatype datatype,
+                   int source, int tag, MPI_Comm comm, MPI_Request *request);
+
+// MPI_Send with MANA_P2P_WAIT=polling (see g_p2p_wait): MPI_Isend, then
+// MANA's MPI_Wait.
+static int
+send_by_polling(const void *buf, int count, MPI_Datatype datatype, int dest,
+                int tag, MPI_Comm comm)
+{
+  MPI_Request request;
+  int retval = PMPI_Isend(buf, count, datatype, dest, tag, comm, &request);
+  if (retval != MPI_SUCCESS) {
+    return retval;
+  }
+  return PMPI_Wait(&request, MPI_STATUS_IGNORE);
+}
+
+// MPI_Recv with MANA_P2P_WAIT=polling: MPI_Irecv, then MANA's MPI_Wait.  A
+// message in MANA's buffer completes the request at once.
+static int
+recv_by_polling(void *buf, int count, MPI_Datatype datatype, int source,
+                int tag, MPI_Comm comm, MPI_Status *status)
+{
+  // As in MPI_Send: don't start a receive while the P2P drain runs.
+  while (mana_state == CKPT_P2P) {
+    usleep(100);
+  }
+  MPI_Request request;
+  LOWER_HALF_DISABLE_CKPT();
+  int retval = MPI_Irecv_internal(buf, count, datatype, source, tag, comm,
+                                  &request);
+  LOWER_HALF_ENABLE_CKPT();
+  if (retval != MPI_SUCCESS) {
+    return retval;
+  }
+  return PMPI_Wait(&request, status);
+}
+
 #pragma weak MPI_Send = PMPI_Send
 int PMPI_Send(const void *buf, int count, MPI_Datatype datatype,
              int dest, int tag, MPI_Comm comm)
 {
+  if (g_p2p_wait == P2P_WAIT_POLLING) {
+    return send_by_polling(buf, count, datatype, dest, tag, comm);
+  }
   int retval;
   while (mana_state == CKPT_P2P) {
     usleep(100);
@@ -126,6 +168,11 @@ int PMPI_Rsend(const void* ibuf, int count,
               MPI_Datatype datatype, int dest,
               int tag, MPI_Comm comm)
 {
+  // A ready send may be done as a standard one; with MANA_P2P_WAIT=polling,
+  // no thread may wait in the lower half (see DMTCP_EVENT_PRESUSPEND).
+  if (g_p2p_wait == P2P_WAIT_POLLING) {
+    return send_by_polling(ibuf, count, datatype, dest, tag, comm);
+  }
   int retval;
   while (mana_state == CKPT_P2P) {
     usleep(100);
@@ -157,56 +204,25 @@ int PMPI_Rsend(const void* ibuf, int count,
 int PMPI_Recv(void *buf, int count, MPI_Datatype datatype,
              int source, int tag, MPI_Comm comm, MPI_Status *status)
 {
-  // MANA does not support MPI_THREAD_MULTIPLE.  This wrapper relies on
-  // a single global pending-Recv slot (g_pending_recv) being claimed
-  // by at most one thread at a time.
-  //
-  // Protocol overview (replaces the older MPI_Iprobe polling loop):
-  //
-  //   Steps 1 to 3 run inside LOWER_HALF_DISABLE_CKPT(), so that a
-  //   checkpoint waits until this thread is back in the upper half.  That
-  //   doesn't keep the pre-suspend hook from running while we are blocked
-  //   in the lower half: the checkpoint thread keeps threads out of the
-  //   lower half only at the end of pre-suspend, after sending the dummies
-  //   (wait_for_threads_to_leave_lower_half()).
-  //
-  //   1. Check the MANA-internal message buffer first.  Messages
-  //      drained from in-flight Sends during a previous checkpoint's
-  //      pre-suspend (via recvMsgIntoInternalBuffer) are served here.
-  //
-  //   2. Publish (source, tag, comm, count, datatype) to g_pending_recv,
-  //      and move its state from PENDING_RECV_IDLE to PENDING_RECV_ACTIVE,
-  //      so that unblockPendingRecvs(), running on the DMTCP checkpoint
-  //      thread during a future pre-suspend, can identify this rank as
-  //      blocked and arrange for a matching dummy MPI_Send to unblock us.
-  //      If unblockPendingRecvs() has already taken its snapshot, the
-  //      state is PENDING_RECV_CLOSED, and no dummy would reach us in the
-  //      lower half: wait in the upper half for the checkpoint to finish,
-  //      and retry.
-  //
-  //   3. Call NEXT_FUNC(Recv).  When it returns, read p2p_dummy_phase,
-  //      still before leaving the no-checkpoint section (resume and
-  //      restart clear it).
-  //
-  //   4. If p2p_dummy_phase was true, the message we just received was a
-  //      dummy injected by unblockPendingRecvs; discard it, park until
-  //      mana_state == RUNNING (resume/restart complete), and retry.
-  //      Otherwise the message is real: go back to PENDING_RECV_IDLE,
-  //      increment local_recv_messages, deliver status, and return.
-  //
-  // The reason a single post-call read of p2p_dummy_phase is sufficient
-  // is documented at the declaration of p2p_dummy_phase in
-  // p2p_drain_send_recv.h.  Briefly: unblockPendingRecvs only sets
-  // p2p_dummy_phase = true AFTER drainInFlightP2p() exits, which requires
-  // this rank's local_recv_messages to have caught up with local_send_messages
-  // which only happens after we have already incremented for any real
-  // message; hence the post-call read is correctly false for real
-  // messages and (by the dispatch-after-barrier ordering in
-  // unblockPendingRecvs) correctly true for dummies.
+  // With MANA_P2P_WAIT=polling, see recv_by_polling().  Otherwise:
+  //   1. Serve a matching message from MANA's buffer, if any.
+  //   2. Publish the receive in g_pending_recv (IDLE -> ACTIVE), so that a
+  //      checkpoint's unblockPendingRecvs() sends this rank a dummy.
+  //   3. Call NEXT_FUNC(Recv), then read p2p_dummy_phase once, before
+  //      LOWER_HALF_ENABLE_CKPT() (resume and restart clear it).  Its
+  //      declaration explains why one read suffices.
+  //   4. On a dummy, wait for the checkpoint to end and retry.
+  // Steps 1-3 run inside LOWER_HALF_DISABLE_CKPT().  Pre-suspend still runs
+  // while we block: it waits for threads to leave the lower half only after
+  // sending the dummies.  The single g_pending_recv slot assumes no
+  // MPI_THREAD_MULTIPLE.
 
+  get_fortran_constants();  // For FORTRAN_MPI_STATUS_IGNORE
+  if (g_p2p_wait == P2P_WAIT_POLLING) {
+    return recv_by_polling(buf, count, datatype, source, tag, comm, status);
+  }
   int retval = MPI_SUCCESS;
   int flag = 0;
-  get_fortran_constants();  // For FORTRAN_MPI_STATUS_IGNORE
   // A receive from MPI_PROC_NULL returns at once.  Don't publish it in
   // g_pending_recv: the drain would take it for a blocked receive.
   if (source == MPI_PROC_NULL) {

@@ -92,6 +92,21 @@ distinct checkpoint filenames
 The default is to overwrite the last checkpoint.
 .SH ENVIRONMENT VARIABLES AND DEBUGGING
 .TP
+\f[B]\f[R]\f[C]MANA_P2P_WAIT\f[R]\f[B]\f[R]
+How \f[C]MPI_Send\f[R] and \f[C]MPI_Recv\f[R] wait for their message.
+\f[C]polling\f[R] (the default): as \f[C]MPI_Isend\f[R] or
+\f[C]MPI_Irecv\f[R], then a loop of \f[C]MPI_Test\f[R] in MANA.
+\f[C]blocking\f[R]: in the MPI library\[cq]s own \f[C]MPI_Send\f[R] and
+\f[C]MPI_Recv\f[R].
+Both modes checkpoint and restart the same way.
+\f[C]polling\f[R] can be faster when the MPI library\[cq]s blocking wait
+yields the processor (MPICH 5).
+\f[C]blocking\f[R] is faster on Cray MPICH, and much faster when two
+ranks share a core.
+With an MPI library on UCX, \f[C]blocking\f[R] can fail at a checkpoint.
+MANA reads the variable at \f[C]MPI_Init\f[R] and keeps the mode after
+restart.
+.TP
 \f[B]\f[R]\f[C]MANA_DEBUG\f[R]\f[B]\f[R]
 MANA will print to stderr extra information to help developers debug
 MANA.

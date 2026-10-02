@@ -103,6 +103,13 @@ extern pending_recv_t g_pending_recv;
 //     receiver's post-call read sees true.
 extern volatile bool p2p_dummy_phase;
 
+// How MPI_Send, MPI_Rsend and MPI_Recv wait (MANA_P2P_WAIT, read at MPI_Init
+// and kept after restart).  POLLING (default): MPI_Isend/MPI_Irecv, then
+// MANA's MPI_Wait (an MPI_Test loop); no thread blocks in the lower half.
+// BLOCKING: in the lower half; a blocked MPI_Recv gets a dummy at checkpoint.
+enum p2p_wait_t { P2P_WAIT_BLOCKING, P2P_WAIT_POLLING };
+extern p2p_wait_t g_p2p_wait;
+
 void initialize_drain_send_recv();
 void registerLocalSendsAndRecvs();
 
