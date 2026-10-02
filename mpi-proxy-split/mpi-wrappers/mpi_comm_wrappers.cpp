@@ -438,6 +438,7 @@ int PMPI_Comm_free_keyval(int *comm_keyval)
   if (keyval < keyvalVec.size() && keyvalVec[keyval] != -1) {
     keyvalVec[keyval] = -1;
     tupleMap.erase(keyval);
+    *comm_keyval = MPI_KEYVAL_INVALID;
   } else {
     JWARNING(false)(keyval).Text("Attempted to free an invalid key!");
   }
