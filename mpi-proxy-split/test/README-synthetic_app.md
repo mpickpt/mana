@@ -23,10 +23,10 @@ same options.
 ## Usage
 
 ```
-make -C mpi-proxy-split/test synthetic_app.exe synthetic_app.mana.exe
-mpirun -np 8 mpi-proxy-split/test/synthetic_app.exe --profile=vasp
+make -C mpi-proxy-split/test synthetic_app
+mpirun -np 8 mpi-proxy-split/test/synthetic_app --profile=vasp
 bin/mana_coordinator
-mpirun -np 8 bin/mana_launch mpi-proxy-split/test/synthetic_app.mana.exe --profile=vasp
+mpirun -np 8 bin/mana_launch mpi-proxy-split/test/synthetic_app --profile=vasp
 ```
 
 The options are listed at the top of `synthetic_app.c`.

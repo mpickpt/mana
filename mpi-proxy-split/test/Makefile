@@ -25,14 +25,12 @@ TESTS=$(addsuffix .exe, ${FILES})
 LDFLAGS_DUMMY=-L$$PWD/../mpi-wrappers -lmpistub
 
 # Benchmarks of MANA's overhead; built with -O2 and not run by 'make check'.
-BENCH_FILES=virtid_bench synthetic_app
-BENCHES=$(addsuffix .exe, ${BENCH_FILES}) \
-        $(addsuffix .mana.exe, ${BENCH_FILES})
+BENCH_FILES = virtid_bench synthetic_app
 
 default: default_prereqs
 	+ $(MAKE) default_part2
 
-default_part2: ${TESTS} ${TESTS_DUMMY} ${BENCHES} e2e
+default_part2: ${TESTS} ${TESTS_DUMMY} ${BENCH_FILES} e2e
 
 # End-to-end tests, run by autotest.py natively and under MANA.  Each test is
 # one program, named after the test and linked as any MPI program.
@@ -50,6 +48,9 @@ ${E2E_TESTS}: %: %.c mana_test.h
 
 ${E2E_FORTRAN}: %: %.f90
 	$(MPIFORTRAN) ${FFLAGS} -g3 -O0 -o $@ $<
+
+${BENCH_FILES}: %: %.c
+	$(MPICC) -g -O2 -o $@ $< $(MPI_CFLAGS) ${MPI_LDFLAGS}
 
 check: e2e
 	./autotest.py
@@ -73,9 +74,6 @@ default_prereqs:
 %.o: %.c
 	 $(MPICC) -g3 -O0 -c -o $@ $< $(MPI_CFLAGS)
 
-$(addsuffix .o, ${BENCH_FILES}): %.o: %.c
-	 $(MPICC) -g -O2 -c -o $@ $< $(MPI_CFLAGS)
-
 %.exe: %.f90
 	$(MPIFORTRAN) ${FFLAGS} -g3 -O0 -o $@ $<
 
@@ -98,5 +96,5 @@ tidy:
 	rm -f dmtcp_coordinator_db-*.json
 
 clean: tidy
-	rm -f $(TESTS) ${OBJS} ${TESTS_DUMMY} ${BENCHES} *.pyc *.so
-	rm -f ${E2E_TESTS} ${E2E_FORTRAN}
+	rm -f $(TESTS) ${OBJS} ${TESTS_DUMMY} *.pyc *.so
+	rm -f ${E2E_TESTS} ${E2E_FORTRAN} ${BENCH_FILES}
