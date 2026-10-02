@@ -18,6 +18,7 @@ endif
 
 # Targets to install:
 #   libmana.so (using mpi-wrappers/libmpiwrappers.a), libmpistub.so,
+#   libmpistub_audit.so,
 #   mana_coordinator.o (needed to compile dmtcp_coordinator)
 
 # Subdirectories needed to install
@@ -60,7 +61,7 @@ default: ${MANA_COORD_OBJS}
 	make -C ${LH_SRCDIR} lower-half
 	make -C ${WRAPPERS_SRCDIR} libmpiwrappers.a
 	make libmana.so
-	make -C ${WRAPPERS_SRCDIR} libmpistub.so
+	make -C ${WRAPPERS_SRCDIR} libmpistub.so libmpistub_audit.so
 
 # ${WRAPPERS_SRCDIR}/libmpiwrappers.a made in install/default before libmana.so
 libmana.so: ${LIBOBJS} ${WRAPPERS_SRCDIR}/libmpiwrappers.a
@@ -105,6 +106,8 @@ ${MANA_ROOT}/lib/dmtcp/libmana.so: libmana.so
 ${MANA_ROOT}/lib/dmtcp/libmpistub.so: ${WRAPPERS_SRCDIR}/mpi_stub_wrappers.txt \
                                       ${WRAPPERS_SRCDIR}/mpi_stub_data.c
 	+ make -C ${WRAPPERS_SRCDIR} install
+${MANA_ROOT}/lib/dmtcp/libmpistub_audit.so: ${WRAPPERS_SRCDIR}/mpi_stub_audit.c
+	+ make -C ${WRAPPERS_SRCDIR} install
 
 # ${WRAPPERS_SRCDIR}/libmpiwrappers.a ia a prerequisite for libmana.so,
 #   which is a prerequisite for ${MANA_ROOT}/lib/dmtcp/libmana.so
@@ -114,6 +117,7 @@ install: ${MANA_COORD_OBJS}
 	+ make -C ${WRAPPERS_SRCDIR} libmpiwrappers.a
 	+ make ${MANA_ROOT}/lib/dmtcp/libmana.so
 	+ make ${MANA_ROOT}/lib/dmtcp/libmpistub.so
+	+ make ${MANA_ROOT}/lib/dmtcp/libmpistub_audit.so
 	+ make -C ${LH_SRCDIR} install
 
 tidy:

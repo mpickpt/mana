@@ -58,10 +58,10 @@ A typical workflow for using MANA after untar\'ing is:
 cd dmtcp-mana
 ./configure --enable-debug
 make -j mana
-# Compile against libmana.so: Examples at contrib/mpi-proxy-split/test
+# Build the program with mpicc as usual; no relinking for MANA is needed.
 salloc -N 2 -q interactive -C haswell -t 01:00:00
 bin/mana_coordinator -i10
-srun -N 2 bin/mana_launch <TARGET_DIR>/ping_pong.mana.exe
+srun -N 2 bin/mana_launch <TARGET_DIR>/ping_pong.exe
 bin/mana_coordinator -i10
 srun -N 2 bin/mana_restart
 ```
