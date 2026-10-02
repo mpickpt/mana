@@ -629,6 +629,7 @@ mana_mpi_handle add_virt_id(mana_mpi_handle real_id, void *desc, int kind) {
   entry->desc = desc;
   entry->seq = ++virt_id_next_seq;
   entry->call.type = UNKNOW_REQUEST;
+  entry->completed = false;
   // Publish the handle last; see virtual_id.h.
   __atomic_store_n(&entry->virt, handle, __ATOMIC_RELEASE);
   virt_id_live++;
@@ -754,6 +755,32 @@ void update_virt_id(mana_mpi_handle virt_id, mana_mpi_handle real_id) {
   }
   __atomic_store_n(&entry->real_id._handle64, real_id._handle64,
                    __ATOMIC_RELAXED);
+}
+
+void complete_virt_request(MPI_Request request, const MPI_Status *status) {
+  virt_id_entry *entry =
+    get_virt_id_entry((mana_mpi_handle){.request = request});
+  entry->status = *status;
+  // An application thread may be in MPI_Wait on this request: publish the
+  // status before the real request becomes MPI_REQUEST_NULL.
+  __atomic_store_n(&entry->completed, true, __ATOMIC_RELEASE);
+  mana_mpi_handle real_request;
+  real_request._handle64 = 0;
+  real_request.request = MPI_REQUEST_NULL;
+  __atomic_store_n(&entry->real_id._handle64, real_request._handle64,
+                   __ATOMIC_RELEASE);
+}
+
+bool completed_request_status(MPI_Request request, MPI_Status *status) {
+  virt_id_entry *entry =
+    lookup_virt_id_entry((mana_mpi_handle){.request = request});
+  if (entry == NULL || !__atomic_load_n(&entry->completed, __ATOMIC_ACQUIRE)) {
+    return false;
+  }
+  if (status != NULL) {
+    *status = entry->status;
+  }
+  return true;
 }
 
 size_t virt_id_live_count() {

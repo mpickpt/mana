@@ -260,10 +260,15 @@ completePendingP2pRequests()
 #endif
         count_received_message();
         g_drain_stats.irecvs_completed++;
-      } else if (call.type == ISEND_REQUEST) {
-        g_drain_stats.isends_completed++;
+        // Keep the status for the application's MPI_Wait or MPI_Test.
+        complete_virt_request(request, &status);
+      } else {
+        if (call.type == ISEND_REQUEST) {
+          g_drain_stats.isends_completed++;
+        }
+        update_virt_id((mana_mpi_handle){.request = request},
+                       (mana_mpi_handle){.request = MPI_REQUEST_NULL});
       }
-      update_virt_id((mana_mpi_handle){.request = request},(mana_mpi_handle){.request = MPI_REQUEST_NULL});
       clearPendingRequestFromLog(request);
     } else {
       /*  We go on to the next request even if the MPI_Test fails.
@@ -354,8 +359,7 @@ drainRemainingP2pMsgs()
           }
           count_received_message();
           g_drain_stats.irecvs_completed++;
-          update_virt_id((mana_mpi_handle){.request = matched_request},
-                         (mana_mpi_handle){.request = MPI_REQUEST_NULL});
+          complete_virt_request(matched_request, &recv_status);
           clearPendingRequestFromLog(matched_request);
         } else {
           int bytes = recvMsgIntoInternalBuffer(status, comm);

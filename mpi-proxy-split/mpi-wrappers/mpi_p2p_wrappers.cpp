@@ -358,10 +358,9 @@ MPI_Irecv_internal(void *buf, int count, MPI_Datatype datatype,
     // FIXME:  In the wrappers for MPI_Waitany/Waitsome/Testany/Testsome
     //    We should add a comment that MPI_REQUEST_FAKE_NULL can occr,
     //    and that the details are in the comments for the MPI_Irecv wrapper.
+    // The request keeps the message's status (complete_virt_request()).
     MPI_Request virtRequest = new_virt_request((MPI_Request)((intptr_t)MPI_REQUEST_NULL+1));
-    mana_mpi_handle real_request_null;
-    real_request_null.request = MPI_REQUEST_NULL;
-    update_virt_id((mana_mpi_handle){.request = virtRequest}, real_request_null);
+    complete_virt_request(virtRequest, &status);
     *request = virtRequest;
     retval = MPI_SUCCESS;
     return retval;

@@ -127,23 +127,22 @@ typedef struct virt_id_entry {
   int virt;           // The virtual handle while in use; 0 if the slot is free
   int next_free;      // Next slot in the free list, if the slot is free
   unsigned int gen;   // Generation of the next handle that uses this slot
-  // For a request of a pending MPI_Isend/MPI_Irecv: the call, linked in
-  // posting order with the other pending calls (see p2p_log_replay.cpp).
-  // Otherwise, call.type is UNKNOW_REQUEST.
+  // For a pending MPI_Isend/MPI_Irecv: the call, linked in posting order
+  // (see p2p_log_replay.cpp).  Otherwise, call.type is UNKNOW_REQUEST.
   mpi_nonblocking_call_t call;
   struct virt_id_entry *pending_prev;
   struct virt_id_entry *pending_next;
+  // Set by complete_virt_request(), with the receive's status.
+  bool completed;
+  MPI_Status status;
 } virt_id_entry;
 
-// Synchronization: the table lives in upper-half memory and is saved in the
-// checkpoint image.  Only application threads allocate and free slots
-// (add_virt_id/free_virt_id); MANA does not support MPI_THREAD_MULTIPLE, so
-// at most one does so at a time.  The checkpoint thread also translates
-// handles and calls update_virt_id() during PRESUSPEND (the P2P drain) and
-// at restart, possibly while an application thread is running.  Lookups are
-// therefore lock-free: a chunk is published only after it is initialized,
-// chunks never move, and an entry's 'virt' field is published after its
-// other fields.
+// Synchronization: only application threads allocate and free slots, one at
+// a time (MANA does not support MPI_THREAD_MULTIPLE).  The checkpoint thread
+// also translates handles and calls update_virt_id() (P2P drain, restart)
+// while an application thread may run.  So lookups are lock-free: a chunk is
+// published after it is initialized and never moves, and an entry's 'virt'
+// is published after its other fields.
 extern virt_id_entry *virt_id_chunks[MANA_VIRT_ID_NUM_CHUNKS];
 
 extern int g_world_rank;
@@ -164,13 +163,20 @@ void* get_virt_id_desc(mana_mpi_handle virt_id);
 void free_desc(void *desc, int kind);
 void free_virt_id(mana_mpi_handle virt_id);
 void update_virt_id(mana_mpi_handle virt_id, mana_mpi_handle real_id);
+// Marks 'request', a receive that MANA completed for the application, as
+// done: its real request becomes MPI_REQUEST_NULL, and the application's
+// MPI_Wait/MPI_Test/MPI_Request_get_status return 'status'.
+void complete_virt_request(MPI_Request request, const MPI_Status *status);
+// If complete_virt_request() completed 'request', copies its status to
+// 'status' (unless NULL) and returns true.
+bool completed_request_status(MPI_Request request, MPI_Status *status);
 size_t virt_id_live_count();
-// Returns the virtual communicators in use, in creation order.  The
-// checkpoint thread may call it while an application thread runs.
+// Returns the communicators in use, in creation order.  Safe to call from
+// the checkpoint thread while an application thread runs.
 std::vector<MPI_Comm> live_virt_comms();
-// Returns the communicator in use with the given name (see mana_comm_desc),
-// or MPI_COMM_NULL if this process is not a member of it.  The checkpoint
-// thread may call it while an application thread runs.
+// Returns the communicator with this name (see mana_comm_desc), or
+// MPI_COMM_NULL.  Safe to call from the checkpoint thread while an
+// application thread runs.
 MPI_Comm find_virt_comm(uint64_t ranks_hash, unsigned int instance);
 
 void reconstruct_descriptors();
