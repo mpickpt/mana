@@ -100,8 +100,6 @@ ${MANA_ROOT}/lib/dmtcp/libmpistub.so:
 	+ make -C ${WRAPPERS_SRCDIR} install
 ${MANA_ROOT}/bin/mana_p2p_update_logs: ${WRAPPERS_SRCDIR}/mana_p2p_update_logs.c
 	+ make -C ${WRAPPERS_SRCDIR} install
-${MANA_ROOT}/bin/lower-half:
-	+ make -C ${LH_SRCDIR} install
 
 # ${WRAPPERS_SRCDIR}/libmpiwrappers.a ia a prerequisite for libmana.so,
 #   which is a prerequisite for ${MANA_ROOT}/lib/dmtcp/libmana.so
@@ -112,7 +110,7 @@ install: ${MANA_COORD_OBJS}
 	+ make ${MANA_ROOT}/lib/dmtcp/libmana.so
 	+ make ${MANA_ROOT}/lib/dmtcp/libmpistub.so
 	+ make ${MANA_ROOT}/bin/mana_p2p_update_logs
-	+ make ${MANA_ROOT}/bin/lower-half
+	+ make -C ${LH_SRCDIR} install
 
 tidy:
 	rm -f *~ .*.swp dmtcp_restart_script*.sh ckpt_*.dmtcp
