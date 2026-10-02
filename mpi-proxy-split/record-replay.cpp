@@ -206,7 +206,7 @@ restoreTypeHIndexed(MpiRecord& rec)
   MPI_Datatype newtype = MPI_DATATYPE_NULL;
   retval = FNC_CALL(Type_create_hindexed, rec)(count, bs, ds, oldtype, &newtype);
   JWARNING(retval == MPI_SUCCESS)(oldtype)
-          .Text("Could not restore MPI hvector datatype");
+          .Text("Could not restore MPI hindexed datatype");
   if (retval == MPI_SUCCESS) {
     MPI_Datatype virtType = (MPI_Datatype)(int)rec.args(4);
     update_virt_id((mana_mpi_handle){.datatype = virtType}, (mana_mpi_handle){.datatype = newtype});
