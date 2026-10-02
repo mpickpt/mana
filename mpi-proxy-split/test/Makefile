@@ -69,8 +69,10 @@ default_part2: ${TESTS} ${TESTS_DUMMY} ${BENCHES} e2e
 # one program, named after the test and linked as any MPI program.
 E2E_TESTS = p2p_blocking p2p_nonblocking p2p_ring p2p_any_source p2p_probe \
             p2p_large p2p_proc_null collectives nonblocking_collectives \
-            communicators cartesian datatypes
-E2E_FORTRAN = fortran_p2p
+            communicators cartesian datatypes memory init_thread \
+            exit_after_finalize attributes misc_calls \
+            finalize_unsync abort
+E2E_FORTRAN = fortran_p2p fortran_nonblocking
 
 e2e: ${E2E_TESTS} ${E2E_FORTRAN}
 
