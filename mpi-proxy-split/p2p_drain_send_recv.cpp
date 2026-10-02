@@ -94,7 +94,8 @@ registerLocalSendsAndRecvs()
   kvdb::set64(db, recv_counter_key, 0);
   dmtcp_global_barrier("MPI:Reset-p2p-send-recv");
   kvdb::request64(KVDBRequest::INCRBY, db, sent_counter_key, local_sent_messages);
-  kvdb::request64(KVDBRequest::INCRBY, db, recv_counter_key, local_recv_messages);
+  kvdb::request64(KVDBRequest::INCRBY, db, recv_counter_key,
+                  __atomic_load_n(&local_recv_messages, __ATOMIC_ACQUIRE));
   dmtcp_global_barrier("MPI:Register-p2p-send-recv");
   kvdb::get64(db, sent_counter_key, &global_sent_messages);
   kvdb::get64(db, recv_counter_key, &global_recv_messages);
@@ -131,7 +132,7 @@ recvMsgIntoInternalBuffer(MPI_Status status, MPI_Comm comm)
   // The wrapper would have incremented local_recv_messages for this
   // real receive; we must do it explicitly when bypassing the wrapper,
   // so the global drain test in drainInFlightP2p() sees a balanced count.
-  local_recv_messages++;
+  count_received_message();
 
   mpi_message_t *message = (mpi_message_t *)JALLOC_HELPER_MALLOC(sizeof(mpi_message_t));
   message->buf        = buf;
@@ -175,7 +176,7 @@ completePendingP2pRequests()
 #ifdef DEBUG_P2P
         g_recvBytesByRank[worldRank] += call.count * size;
 #endif
-        local_recv_messages++;
+        count_received_message();
       }
       update_virt_id((mana_mpi_handle){.request = request},(mana_mpi_handle){.request = MPI_REQUEST_NULL});
       clearPendingRequestFromLog(request);
@@ -264,7 +265,7 @@ drainRemainingP2pMsgs()
           while (!done) {
             MPI_Test_internal(&matched_request, &done, &recv_status, false);
           }
-          local_recv_messages++;
+          count_received_message();
           update_virt_id((mana_mpi_handle){.request = matched_request},
                          (mana_mpi_handle){.request = MPI_REQUEST_NULL});
           clearPendingRequestFromLog(matched_request);
