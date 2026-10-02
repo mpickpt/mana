@@ -36,6 +36,16 @@
 #include "mpi_nextfunc.h"
 #include "virtual_id.h"
 
+// 'status', or NULL if the caller passed MPI_STATUS_IGNORE (C or Fortran).
+static inline MPI_Status *
+status_or_null(MPI_Status *status)
+{
+  if (status == MPI_STATUS_IGNORE || status == FORTRAN_MPI_STATUS_IGNORE) {
+    return NULL;
+  }
+  return status;
+}
+
 // A completed MPI_Irecv counts as a received message, unless it was from
 // MPI_PROC_NULL.
 static bool
@@ -57,6 +67,13 @@ int MPI_Test_internal(MPI_Request *request, int *flag, MPI_Status *status,
     real_request = *request;
   } else {
     real_request = get_real_id((mana_mpi_handle){.request = *request}).request;
+    // A receive that MANA completed for the application has its status in
+    // the request's entry (complete_virt_request()).
+    if (real_request == MPI_REQUEST_NULL &&
+        completed_request_status(*request, status_or_null(status))) {
+      *flag = 1;
+      return MPI_SUCCESS;
+    }
   }
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   // MPI_Test can change the *request argument
@@ -86,11 +103,15 @@ int PMPI_Test(MPI_Request* request, int* flag, MPI_Status* status)
   MPI_Request real_request;
   real_request = get_real_id((mana_mpi_handle){.request = *request}).request;
   if (*request != MPI_REQUEST_NULL && real_request == MPI_REQUEST_NULL) {
+    // MANA completed it: the P2P drain, or a message from MANA's buffer.  A
+    // receive has its status in the request's entry.
     *flag = 1;
+    completed_request_status(*request, status_or_null(status));
+    // The P2P drain unlinks the request after it completes it.
+    clearPendingRequestFromLog(*request);
     free_virt_id((mana_mpi_handle){.request = *request});
     *request = MPI_REQUEST_NULL;
     LOWER_HALF_ENABLE_CKPT();
-    // FIXME: We should also fill in the status
     return MPI_SUCCESS;
   }
 
@@ -416,6 +437,13 @@ int PMPI_Request_get_status(MPI_Request request, int *flag, MPI_Status *status)
   int retval;
   LOWER_HALF_DISABLE_CKPT();
   MPI_Request real_request = get_real_id((mana_mpi_handle){.request = request}).request;
+  if (real_request == MPI_REQUEST_NULL &&
+      completed_request_status(request, status_or_null(status))) {
+    // A receive that MANA completed (see MPI_Test_internal()).
+    *flag = 1;
+    LOWER_HALF_ENABLE_CKPT();
+    return MPI_SUCCESS;
+  }
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Request_get_status)(real_request, flag, status);
   RETURN_TO_UPPER_HALF();
