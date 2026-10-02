@@ -5,7 +5,7 @@ test/*
 !test/*.f90
 !test/*.h
 !test/*.py
-test/*.exe
+examples/ring
 unit-test/*.exe
 unit-test/lh_constants.inc
 proxy

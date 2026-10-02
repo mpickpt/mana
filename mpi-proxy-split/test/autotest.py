@@ -45,7 +45,8 @@ class Test:
   """
 
   def __init__(self, name, ranks, args=(), kind="loop", expect=None,
-               restart=False, fails=False, known_bug=None, native_args=None):
+               restart=False, fails=False, known_bug=None, native_args=None,
+               program=None):
     self.name = name
     self.ranks = ranks
     self.args = list(args)
@@ -54,6 +55,8 @@ class Test:
     self.restart = restart
     self.fails = fails
     self.known_bug = known_bug
+    # The program, relative to this directory.
+    self.program = program or name
     # Arguments for a native run of kind "run".
     self.native_args = native_args if native_args is not None else self.args
 
@@ -88,6 +91,9 @@ TESTS = [
   Test("abort", 2, kind="run", fails=True, expect="abort: calling MPI_Abort"),
   Test("dlopen_mpi", 2, args=[MPI_LIBRARY, "8"], kind="run", restart=True,
        native_args=[MPI_LIBRARY, "1"]),
+  # The example that the documentation uses, as its users run it.
+  Test("ring_example", 4, args=["-n", "20", "-s", "0.25"], kind="run",
+       restart=True, expect="ring: done", program="../examples/ring"),
 ]
 
 
@@ -380,7 +386,7 @@ class Run:
             self.logs[-1])))
 
   def exe(self):
-    path = os.path.join(TEST_DIR, self.test.name)
+    path = os.path.normpath(os.path.join(TEST_DIR, self.test.program))
     if not os.path.exists(path):
       raise Failure("%s not built (run make in %s)" % (path, TEST_DIR))
     return path

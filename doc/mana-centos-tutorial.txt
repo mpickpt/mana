@@ -312,21 +312,21 @@ If you've been following this tutorial precisely, then {MANA_ROOT} should be
 
 1. Launching an MPI application
 
-The MANA directory comes with many test MPI applications that can be found in
-contrib/mpi-proxy-plugin/test. Depending on the application, we may require
-more than one copy of the process running -- for example, ping_pong.mana.exe
-requires two. To support this, change the argument after -np accordingly. For this
-tutorial, we'll use mpi_hello_world.mana.exe, which only requires one copy
-running.
+The MANA directory comes with an example MPI application,
+mpi-proxy-split/examples/ring.c, which 'make' builds as ring. Once a second,
+for 60 steps, it passes a token around a ring of all the ranks and sums one
+value per rank, and every rank checks every value. Rank 0 prints one line per
+step. It runs with any number of copies of the process; for this tutorial,
+we'll use two. To use another number, change the argument after -np.
 
   $ mana_coordinator
-  $ mpirun -np 1 mana_launch \
-      contrib/mpi-proxy-split/test/mpi_hello_world.mana.exe
+  $ mpirun -np 2 mana_launch mpi-proxy-split/examples/ring
 
-If the application is launched properly, you should see the following printed:
+If the application is launched properly, you should see lines like the
+following printed:
 
-  Hello world from processor test, rank 0 out of 1 processors
-  Will now sleep for 500 seconds ...
+  ring: step 1 of 60: token 2, sum 3: ok
+  ring: step 2 of 60: token 3, sum 5: ok
 
 From here, we can either exit the program (through CTRL-C), or continue on to
 the next set of instructions to checkpoint and restart the application.
@@ -344,8 +344,7 @@ Otherwise, we'll launch an application the same way as above, but as a
 background process (note the &).
 
   $ mana_coordinator
-  $ mpirun -np 1 mana_launch \
-      contrib/mpi-proxy-split/test/mpi_hello_world.mana.exe &
+  $ mpirun -np 2 mana_launch mpi-proxy-split/examples/ring &
 
 Subsequently, we only need the following command to checkpoint the application.
 
@@ -365,10 +364,11 @@ MANA_ROOT/test/plugin/applic-initiated-ckpt.
 
 3. Restarting an MPI application
 
-To restart the application, we do the following:
+First stop the running application (for example, bring it to the foreground
+with fg and press CTRL-C). To restart the application, we do the following:
 
   $ mana_coordinator
-  $ mpirun -np 1 mana_restart
+  $ mpirun -np 2 mana_restart
 
 By default, the mana_restart command looks for ckpt_rank_* folders in the
 current directory to restart, and will fail if such folders cannot be found.
@@ -382,13 +382,11 @@ port different from the default 7779.
 
   $ mana_coordinator -p 7780
 
-If the restart is successful, then you should see something similar to the
-following printed:
+If the restart is successful, the steps go on from where the checkpoint was
+taken, not from step 1. For example, after a checkpoint at step 6:
 
-  [17847] mtcp_restart.c:803 main:
-    [Rank: 0] Choosing ckpt image: ./ckpt_rank_0/ckpt_mpi_hello_world.mana.exe_
-      7c4af7b7e161f9fd-40000-1000f911e89fa5.dmtcp
-  Signal received; continuing sleep for 294 seconds.
+  ring: step 7 of 60: token 8, sum 15: ok
+  ring: step 8 of 60: token 9, sum 17: ok
 
 C. MISCELLANEOUS RESOURCES
 
