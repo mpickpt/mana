@@ -64,6 +64,25 @@ int64_t global_sent_messages = 0, global_recv_messages = 0;
 int64_t local_sent_messages = 0, local_recv_messages = 0;
 std::unordered_set<MPI_Comm> active_comms;
 dmtcp::vector<mpi_message_t*> g_message_queue;
+// The drain (checkpoint thread) adds to g_message_queue while an application
+// thread may look it up.  The lock is taken only if the queue is not empty.
+static bool g_message_queue_lock = false;
+static int g_queued_messages = 0;
+
+static inline void
+lockMessageQueue()
+{
+  while (__atomic_test_and_set(&g_message_queue_lock, __ATOMIC_ACQUIRE)) {
+  }
+}
+
+static inline void
+unlockMessageQueue()
+{
+  __atomic_store_n(&g_queued_messages, (int)g_message_queue.size(),
+                   __ATOMIC_RELEASE);
+  __atomic_clear(&g_message_queue_lock, __ATOMIC_RELEASE);
+}
 
 // See p2p_drain_send_recv.h for documentation of these globals.
 pending_recv_t g_pending_recv = { /*.state=*/ PENDING_RECV_IDLE };
@@ -235,8 +254,9 @@ recvMsgIntoInternalBuffer(MPI_Status status, MPI_Comm comm)
   message->status     = status;
   message->size       = size * count;
 
-  // queue it
+  lockMessageQueue();
   g_message_queue.push_back(message);
+  unlockMessageQueue();
 
   return count;
 }
@@ -301,6 +321,22 @@ completePendingP2pRequests()
     }
   }
   return bytesReceived;
+}
+
+// Whether the pending MPI_Recv (published, not yet completed) would receive a
+// message with this envelope.
+static bool
+pendingRecvMatches(MPI_Comm comm, const MPI_Status &status)
+{
+  if (__atomic_load_n(&g_pending_recv.state, __ATOMIC_ACQUIRE) !=
+      PENDING_RECV_ACTIVE) {
+    return false;
+  }
+  return g_pending_recv.comm == comm &&
+         (g_pending_recv.source == status.MPI_SOURCE ||
+          g_pending_recv.source == MPI_ANY_SOURCE) &&
+         (g_pending_recv.tag == status.MPI_TAG ||
+          g_pending_recv.tag == MPI_ANY_TAG);
 }
 
 int
@@ -372,6 +408,11 @@ drainRemainingP2pMsgs()
           g_drain_stats.irecvs_completed++;
           complete_virt_request(matched_request, &recv_status);
           clearPendingRequestFromLog(matched_request);
+        } else if (pendingRecvMatches(comm, status)) {
+          // An MPI_Recv published before the drain waits for this message:
+          // leave it to that MPI_Recv, which counts it.  Buffering it would
+          // let the MPI_Recv take a later message first.
+          break;
         } else {
           int bytes = recvMsgIntoInternalBuffer(status, comm);
           bytesReceived += bytes;
@@ -437,7 +478,11 @@ bool
 existsMatchingMsgBuffer(int source, int tag, MPI_Comm comm, int *flag,
                         MPI_Status *status)
 {
+  if (__atomic_load_n(&g_queued_messages, __ATOMIC_ACQUIRE) == 0) {
+    return false;
+  }
   bool ret = false;
+  lockMessageQueue();
   dmtcp::vector<mpi_message_t*>::iterator req =
     std::find_if(g_message_queue.begin(), g_message_queue.end(),
                  [source, tag, comm](const mpi_message_t *msg)
@@ -451,6 +496,7 @@ existsMatchingMsgBuffer(int source, int tag, MPI_Comm comm, int *flag,
     *status = (*req)->status;
     ret = true;
   }
+  unlockMessageQueue();
   return ret;
 }
 
@@ -460,6 +506,7 @@ consumeMatchingMsgBuffer(void *buf, int count, MPI_Datatype datatype,
                          MPI_Status *mpi_status, int size)
 {
   mpi_message_t *foundMsg = NULL;
+  lockMessageQueue();
   dmtcp::vector<mpi_message_t*>::iterator req =
     std::find_if(g_message_queue.begin(), g_message_queue.end(),
                  [source, tag, comm](const mpi_message_t *msg)
@@ -498,6 +545,7 @@ consumeMatchingMsgBuffer(void *buf, int count, MPI_Datatype datatype,
   }
   *mpi_status = foundMsg->status;
   g_message_queue.erase(req);
+  unlockMessageQueue();
   JALLOC_HELPER_FREE(foundMsg->buf);
   JALLOC_HELPER_FREE(foundMsg);
   return MPI_SUCCESS;
@@ -701,6 +749,12 @@ drainP2p()
            (unsigned long long)id._hostid, (unsigned long long)id._time,
            (unsigned int)id._pid, ++drains);
   g_drain_round = 0;
+  // An MPI_Recv that starts from now on waits until the checkpoint is over
+  // (an IDLE slot becomes CLOSED); one already published keeps its slot.
+  int idle = PENDING_RECV_IDLE;
+  __atomic_compare_exchange_n(&g_pending_recv.state, &idle,
+                              PENDING_RECV_CLOSED, false, __ATOMIC_ACQ_REL,
+                              __ATOMIC_ACQUIRE);
   drainInFlightP2p();
   unblockPendingRecvs();
 }

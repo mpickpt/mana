@@ -50,12 +50,12 @@ extern dmtcp::vector<mpi_message_t*> g_message_queue;
 // State of the single pending blocking MPI_Recv.  MANA does not support
 // MPI_THREAD_MULTIPLE; supporting it would need one slot per thread.
 //
-// 'state' is changed by the MPI_Recv wrapper and by unblockPendingRecvs()
+// 'state' is changed by the MPI_Recv wrapper and by the P2P drain
 // (checkpoint thread, pre-suspend):
 //   IDLE:   no MPI_Recv is in the lower half.
 //   ACTIVE: an MPI_Recv is in, or entering, the lower half; the fields
 //           below describe it.
-//   CLOSED: set by unblockPendingRecvs() or after a dummy.  No MPI_Recv may
+//   CLOSED: set when the P2P drain begins or after a dummy.  No MPI_Recv may
 //           enter the lower half until resetDrainCounters() sets IDLE.
 // Both threads leave IDLE by compare-and-swap, so exactly one wins: the
 // MPI_Recv enters the lower half and gets a dummy, or it waits in the upper

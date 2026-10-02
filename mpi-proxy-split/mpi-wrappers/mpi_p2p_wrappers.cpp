@@ -243,14 +243,18 @@ int PMPI_Recv(void *buf, int count, MPI_Datatype datatype,
   }
 
 retry:
+  // As in MPI_Send: don't start a receive while the P2P drain runs; it
+  // could take a later message ahead of one that the drain buffers.
+  while (mana_state == CKPT_P2P) {
+    usleep(100);
+  }
   LOWER_HALF_DISABLE_CKPT();
   // Step 1: serve from the MANA-internal buffer if a matching message
   // was drained during a previous pre-suspend cycle.
   // The buffer functions write a status, and 'status' may be
   // MPI_STATUS_IGNORE: use a local one.
   MPI_Status buffered_status;
-  if (mana_state == RUNNING &&
-      existsMatchingMsgBuffer(source, tag, comm, &flag, &buffered_status)) {
+  if (existsMatchingMsgBuffer(source, tag, comm, &flag, &buffered_status)) {
     int type_size;
     MPI_Type_size(datatype, &type_size);
     int msg_size = type_size * count;
@@ -277,9 +281,9 @@ retry:
   if (!__atomic_compare_exchange_n(&g_pending_recv.state, &idle,
                                    PENDING_RECV_ACTIVE, false,
                                    __ATOMIC_RELEASE, __ATOMIC_RELAXED)) {
-    // CLOSED: unblockPendingRecvs() has run, so no dummy would come.  Wait
-    // in the upper half for the checkpoint to end, then retry (the message
-    // may be in MANA's buffer by then).
+    // CLOSED: the P2P drain has begun, so no dummy would come.  Wait in the
+    // upper half for the checkpoint to end, then retry (the message may be
+    // in MANA's buffer by then).
     LOWER_HALF_ENABLE_CKPT();
     while (mana_state != RUNNING) {
       usleep(100);
@@ -342,8 +346,7 @@ MPI_Irecv_internal(void *buf, int count, MPI_Datatype datatype,
   int flag = 0;
   MPI_Status status;
 
-  if (mana_state == RUNNING &&
-      existsMatchingMsgBuffer(source, tag, comm, &flag, &status)) {
+  if (existsMatchingMsgBuffer(source, tag, comm, &flag, &status)) {
     int type_size;
     retval = MPI_Type_size(datatype, &type_size);
     int msg_size = type_size * count;
@@ -404,6 +407,10 @@ int PMPI_Irecv(void *buf, int count, MPI_Datatype datatype,
               int source, int tag, MPI_Comm comm, MPI_Request *request)
 {
   int retval;
+  // As in MPI_Recv.
+  while (mana_state == CKPT_P2P) {
+    usleep(100);
+  }
   LOWER_HALF_DISABLE_CKPT();
   retval = MPI_Irecv_internal(buf, count, datatype, source, tag, comm,
                               request);
