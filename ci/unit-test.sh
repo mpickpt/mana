@@ -21,3 +21,6 @@ cd $SCRIPT_DIR/../mpi-proxy-split/unit-test
 make || exit 1
 make clean
 make check || exit 1
+
+# Additional wrapper regression test.
+python3 ci/test-mana-coordinator.py -v || exit 1
