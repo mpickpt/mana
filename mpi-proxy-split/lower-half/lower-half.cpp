@@ -24,6 +24,7 @@
 #include "patch-trampoline.h"
 #include "lower-half-api.h"
 #include "logging.h"
+#include "build-id-debug.h"
 #include "dmtcp.h"
 #include "dmtcprestartinternal.h"
 #include "procmapsarea.h"
@@ -1465,26 +1466,62 @@ patchAuxv(Elf64_auxv_t *av, unsigned long phnum,
  * @return                The offset of the symbol within the ELF binary. The
  *                        function asserts if the symbol is found.
  */
-off_t get_symbol_offset_with_debug(const char *elf_interpreter, const char *symbol)
+off_t
+get_symbol_offset_with_debug(const char *elf_interpreter, const char *symbol)
 {
   off_t offset = get_symbol_offset(elf_interpreter, symbol);
-  if (!offset) {
-    char buf[256] = "/usr/lib/debug";
-    buf[sizeof(buf)-1] = '\0';
-    
-    ssize_t rc = 0;
-    rc = readlink(elf_interpreter, buf + strlen(buf), sizeof(buf) - strlen(buf) - 1);
-    if (rc != -1 && access(buf, F_OK) == 0) {
-      // Debian family (Ubuntu, etc.) use this scheme to store debug symbols.
-      //   http://sourceware.org/gdb/onlinedocs/gdb/Separate-Debug-Files.html
-      fprintf(stderr, "Debug symbols for interpreter in: %s\n", buf);
+  if (offset) {
+    return offset;
+  }
+
+  char conventional_path[PATH_MAX] = "/usr/lib/debug";
+  const size_t prefix_length = strlen(conventional_path);
+  const ssize_t link_length = readlink(
+    elf_interpreter,
+    conventional_path + prefix_length,
+    sizeof(conventional_path) - prefix_length - 1
+  );
+
+  if (link_length >= 0) {
+    conventional_path[prefix_length + link_length] = '\0';
+    if (access(conventional_path, R_OK) == 0) {
+      fprintf(stderr,
+              "Debug symbols for interpreter in: %s\n",
+              conventional_path);
+      offset = get_symbol_offset(conventional_path, symbol);
+      if (offset) {
+        return offset;
+      }
     }
-    offset = get_symbol_offset(buf, symbol); // elf interpreter debug path
+  }
+
+  const std::string build_id_path = get_build_id_debug_path(
+    elf_interpreter,
+    getenv("MANA_DEBUG_ROOT")
+  );
+  if (!build_id_path.empty() && access(build_id_path.c_str(), R_OK) == 0) {
+    fprintf(stderr,
+            "Debug symbols for interpreter in: %s\n",
+            build_id_path.c_str());
+    offset = get_symbol_offset(build_id_path.c_str(), symbol);
+    if (offset) {
+      return offset;
+    }
+  }
+
+  fprintf(stderr,
+          "Unable to find symbol %s in %s or its detached debug files.\n",
+          symbol,
+          elf_interpreter);
+  if (link_length >= 0) {
+    fprintf(stderr, "Tried: %s\n", conventional_path);
+  }
+  if (!build_id_path.empty()) {
+    fprintf(stderr, "Tried: %s\n", build_id_path.c_str());
   }
   assert(offset);
   return offset;
 }
-
 int MPI_MANA_Internal(char *dummy) {
   return 0;
 }
