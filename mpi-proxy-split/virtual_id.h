@@ -58,6 +58,11 @@ typedef struct {
   int size;
   int rank;
   int *global_ranks;
+  // The Cartesian topology, or cart_ndims == -1 if there is none.  Restart
+  // makes it again without reordering, so each rank keeps its coordinates.
+  int cart_ndims;
+  int *cart_dims;
+  int *cart_periods;
   // Collective Clock state (see seq_num.cpp): the group's global id and its
   // entries in seq_num and target, shared by all communicators of the group.
   unsigned int ggid;

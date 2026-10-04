@@ -73,9 +73,7 @@ TESTS = [
   Test("collectives", 4),
   Test("nonblocking_collectives", 4),
   Test("communicators", 4),
-  Test("cartesian", 4,
-       known_bug="restart rebuilds a Cartesian communicator without its "
-                 "topology"),
+  Test("cartesian", 4),
   Test("datatypes", 2),
   Test("memory", 2),
   Test("init_thread", 2, kind="run", expect="init_thread: PASS"),

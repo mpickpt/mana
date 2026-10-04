@@ -20,9 +20,10 @@
  ****************************************************************************/
 
 // Cartesian topology, which MANA must rebuild at restart: a 2-D grid made
-// once by MPI_Cart_create (dimension 0 periodic, dimension 1 not) and its
-// rows made by MPI_Cart_sub.  Each iteration checks the topology queries and
-// exchanges values with the neighbours that MPI_Cart_shift returns.
+// once by MPI_Cart_create (dimension 0 periodic, dimension 1 not), a copy of
+// it made by MPI_Comm_dup, and its rows made by MPI_Cart_sub.  Each iteration
+// checks the topology queries and exchanges values with the neighbours that
+// MPI_Cart_shift returns.
 
 #include "mana_test.h"
 
@@ -40,6 +41,28 @@ step(int coord, int disp, int n, int periodic)
     return (c % n + n) % n;
   }
   return c >= 0 && c < n ? c : -1;
+}
+
+// Checks that 'comm' is Cartesian, with the dimensions 'dims' and 'periods',
+// and that this rank is at 'coords'.
+static void
+check_topology(const char *name, MPI_Comm comm, int ndims, const int *dims,
+               const int *periods, const int *coords)
+{
+  int topology, n, d[2], p[2], c[2];
+  MT_MPI(MPI_Topo_test(comm, &topology));
+  MT_CHECK(topology == MPI_CART, "iteration %ld %s: topology %d", it, name,
+           topology);
+  MT_MPI(MPI_Cartdim_get(comm, &n));
+  MT_CHECK(n == ndims, "iteration %ld %s: %d dimensions, not %d", it, name,
+           n, ndims);
+  MT_MPI(MPI_Cart_get(comm, ndims, d, p, c));
+  for (int i = 0; i < ndims; i++) {
+    MT_CHECK(d[i] == dims[i] && p[i] == periods[i] && c[i] == coords[i],
+             "iteration %ld %s dim %d: size %d period %d at %d, not size %d "
+             "period %d at %d", it, name, i, d[i], p[i], c[i], dims[i],
+             periods[i], coords[i]);
+  }
 }
 
 // Checks MPI_Cart_shift along 'dim' of 'comm', then sends to the destination
@@ -84,24 +107,22 @@ main(int argc, char **argv)
 {
   mt_init(&argc, &argv, "cartesian");
   int dims[2] = {0, 0}, periods[2] = {1, 0}, remain[2] = {0, 1};
-  MPI_Comm cart, row_comm;
+  MPI_Comm cart, cart_dup, row_comm;
   MT_MPI(MPI_Dims_create(mt_size, 2, dims));
   MT_MPI(MPI_Cart_create(MPI_COMM_WORLD, 2, dims, periods, 0, &cart));
+  MT_MPI(MPI_Comm_dup(cart, &cart_dup));
   MT_MPI(MPI_Cart_sub(cart, remain, &row_comm));
   // Without reordering, rank r is at (r / dims[1], r % dims[1]).
   int row = mt_rank / dims[1], col = mt_rank % dims[1];
+  int coords[2] = {row, col};
 
   for (it = 0; mt_continue(it); it++) {
     if (mt_rank == it % mt_size) {
       usleep(2000);
     }
-    int ndims, d[2], p[2], c[2], rank;
-    MT_MPI(MPI_Cartdim_get(cart, &ndims));
-    MT_MPI(MPI_Cart_get(cart, 2, d, p, c));
-    MT_CHECK(ndims == 2 && d[0] == dims[0] && d[1] == dims[1] &&
-             p[0] == 1 && p[1] == 0 && c[0] == row && c[1] == col,
-             "iteration %ld: cart %d dims %dx%d periods %d,%d at (%d, %d)",
-             it, ndims, d[0], d[1], p[0], p[1], c[0], c[1]);
+    check_topology("cart", cart, 2, dims, periods, coords);
+    check_topology("dup", cart_dup, 2, dims, periods, coords);
+    int c[2], rank;
     int r = (int)(it % mt_size);
     MT_MPI(MPI_Cart_coords(cart, r, 2, c));
     MT_CHECK(c[0] == r / dims[1] && c[1] == r % dims[1],
@@ -117,21 +138,18 @@ main(int argc, char **argv)
     disp = it % 2 ? -1 : 1;
     src = step(col, -disp, dims[1], 0);
     dst = step(col, disp, dims[1], 0);
-    shift("cart", cart, 0, 1, disp,
+    shift("dup", cart_dup, 0, 1, disp,
           src < 0 ? MPI_PROC_NULL : row * dims[1] + src,
           dst < 0 ? MPI_PROC_NULL : row * dims[1] + dst, N);
 
     // A row keeps dimension 1, so its ranks are the columns.
-    MT_MPI(MPI_Cartdim_get(row_comm, &ndims));
-    MT_MPI(MPI_Cart_get(row_comm, 1, d, p, c));
-    MT_CHECK(ndims == 1 && d[0] == dims[1] && p[0] == 0 && c[0] == col,
-             "iteration %ld: row %d dims %d period %d at %d", it, ndims,
-             d[0], p[0], c[0]);
+    check_topology("row", row_comm, 1, &dims[1], &periods[1], &col);
     shift("row", row_comm, row * dims[1], 0, disp,
           src < 0 ? MPI_PROC_NULL : src, dst < 0 ? MPI_PROC_NULL : dst,
           2 * N);
   }
   MPI_Comm_free(&row_comm);
+  MPI_Comm_free(&cart_dup);
   MPI_Comm_free(&cart);
   mt_finish(it);
   return 0;
