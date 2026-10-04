@@ -33,6 +33,7 @@
 #include "p2p_drain_send_recv.h"
 #include "p2p_log_replay.h"
 #include "mpi_nextfunc.h"
+#include "seq_num.h"
 #include "virtual_id.h"
 
 using namespace dmtcp;
@@ -473,6 +474,112 @@ drainInFlightP2p()
   g_drain_stats.t_inflight = drainStatsNow() - t0;
 }
 
+static int64_t
+countPendingIsends()
+{
+  int64_t n = 0;
+  for (MPI_Request request : pendingRequestsInPostingOrder()) {
+    if (pendingRequestType(request) == ISEND_REQUEST) {
+      n++;
+    }
+  }
+  return n;
+}
+
+// Sums the counters over all ranks.  While the reduction is in progress, the
+// pending requests are tested too, so that this rank's MPI library keeps
+// moving the transfers that other ranks wait for.
+static void
+reduceDrainCounters(int64_t *local, int64_t *sums, int n)
+{
+  uint64_t t0 = drainStatsNow();
+  MPI_Comm realComm =
+    get_real_id((mana_mpi_handle){.comm = g_world_comm}).comm;
+  MPI_Request request;
+  int done = 0;
+  int retval;
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
+  retval = NEXT_FUNC(Iallreduce)(local, sums, n, lh_info->MANA_INT64_T,
+                                 lh_info->MANA_SUM, realComm, &request);
+  RETURN_TO_UPPER_HALF();
+  JASSERT(retval == MPI_SUCCESS)(retval);
+  for (;;) {
+    JUMP_TO_LOWER_HALF(lh_info->fsaddr);
+    retval = NEXT_FUNC(Test)(&request, &done, MPI_STATUS_IGNORE);
+    RETURN_TO_UPPER_HALF();
+    JASSERT(retval == MPI_SUCCESS)(retval);
+    if (done) {
+      break;
+    }
+    completePendingP2pRequests();
+    test_pending_nonblocking_collectives();
+  }
+  g_drain_stats.t_register += drainStatsNow() - t0;
+}
+
+// Returns when every rank has called it.  It replaces a barrier: between
+// polls of the KVDB counter, this rank calls MPI, so that a message that
+// another rank still waits for does not stay in this rank's buffers.
+static void
+waitForAllRanksDone()
+{
+  uint64_t t0 = drainStatsNow();
+  kvIncr(g_drain_db, "done", 1);
+  uint64_t pause = 20;  // us between polls, doubling up to 1 ms
+  for (;;) {
+    int64_t done = 0;
+    kvGet(g_drain_db, "done", &done);
+    g_drain_stats.done_polls++;
+    if (done >= g_world_size) {
+      break;
+    }
+    uint64_t until = drainStatsNow() + pause;
+    do {
+      int flag = 0;
+      MPI_Status status;
+      MPI_Iprobe_internal(MPI_ANY_SOURCE, MPI_ANY_TAG, g_world_comm, &flag,
+                          &status);
+    } while (drainStatsNow() < until);
+    pause = std::min(pause * 2, (uint64_t)1000);
+  }
+  g_drain_stats.t_done = drainStatsNow() - t0;
+}
+
+// The drain of MANA_P2P_WAIT=polling, where no application thread is in MPI.
+// The checkpoint thread never waits for another rank outside MPI: a
+// rendezvous receive needs its sender's MPI library, and with some providers
+// even an eager message leaves its sender only during an MPI call.
+static void
+drainWithoutBarriers()
+{
+  uint64_t t0 = drainStatsNow();
+  for (;;) {
+    g_drain_stats.iterations++;
+    uint64_t t = drainStatsNow();
+    completePendingP2pRequests();
+    int64_t nbcs = test_pending_nonblocking_collectives();
+    g_drain_stats.t_complete += drainStatsNow() - t;
+    t = drainStatsNow();
+    drainRemainingP2pMsgs();
+    g_drain_stats.t_probe += drainStatsNow() - t;
+    int64_t local[4] = {
+      local_sent_messages,
+      __atomic_load_n(&local_recv_messages, __ATOMIC_ACQUIRE),
+      countPendingIsends(),
+      nbcs
+    };
+    int64_t sums[4];
+    reduceDrainCounters(local, sums, 4);
+    global_sent_messages = sums[0];
+    global_recv_messages = sums[1];
+    if (sums[1] >= sums[0] && sums[2] == 0 && sums[3] == 0) {
+      break;
+    }
+  }
+  g_drain_stats.t_inflight = drainStatsNow() - t0;
+  waitForAllRanksDone();
+}
+
 // FIXME: existsMatchingMsgBuffer and consumeMatchingMsgBuffer both search
 // in the g_message_queue with the same condition. Maybe we can
 // combine them into one function.
@@ -757,6 +864,10 @@ drainP2p()
   __atomic_compare_exchange_n(&g_pending_recv.state, &idle,
                               PENDING_RECV_CLOSED, false, __ATOMIC_ACQ_REL,
                               __ATOMIC_ACQUIRE);
+  if (g_p2p_wait == P2P_WAIT_POLLING) {
+    drainWithoutBarriers();
+    return;
+  }
   drainInFlightP2p();
   unblockPendingRecvs();
 }
@@ -818,6 +929,7 @@ reportDrainStats()
     {"complete", (int64_t)d.t_complete, true},
     {"probe", (int64_t)d.t_probe, true},
     {"isends", (int64_t)d.t_isends, true},
+    {"done", (int64_t)d.t_done, true},
     {"unblock", (int64_t)d.t_unblock, true},
     {"publish", (int64_t)d.t_publish, true},
     {"published", (int64_t)d.t_published, true},
@@ -836,6 +948,7 @@ reportDrainStats()
     {"blocked", d.blocked, false},
     {"dummies", d.dummies, false},
     {"kvdb_requests", d.kvdb_requests, false},
+    {"done_polls", d.done_polls, false},
     {"barriers", d.barriers, true},      // The same on every rank
   };
   const int n = sizeof(metrics) / sizeof(metrics[0]);
@@ -857,21 +970,22 @@ reportDrainStats()
           "MANA drain stats, checkpoint %d, %d ranks, MANA_P2P_WAIT=%s on "
           "rank 0 (us: max over ranks):\n"
           "  collective %ld | in-flight %ld (register %ld, complete %ld, "
-          "probe %ld, isends %ld) | unblock %ld (publish %ld, barrier %ld, "
-          "post %ld, barrier %ld, dispatch %ld, barrier %ld) | "
+          "probe %ld, isends %ld) | done %ld | unblock %ld (publish %ld, "
+          "barrier %ld, post %ld, barrier %ld, dispatch %ld, barrier %ld) | "
           "wait-lower-half %ld\n"
           "  iterations %ld, barriers %ld; totals: comms probed %ld, "
           "iprobes %ld, drained %ld msgs %ld bytes, irecvs completed %ld, "
           "isends completed %ld, blocked %ld, dummies %ld, "
-          "kvdb requests %ld\n",
+          "kvdb requests %ld, done polls %ld\n",
           checkpoint, g_world_size,
           g_p2p_wait == P2P_WAIT_POLLING ? "polling" : "blocking",
           v["collective"], v["inflight"],
-          v["register"], v["complete"], v["probe"], v["isends"], v["unblock"],
+          v["register"], v["complete"], v["probe"], v["isends"], v["done"],
+          v["unblock"],
           v["publish"], v["published"], v["post"], v["posted"],
           v["dispatch"], v["dispatched"], v["wait_lower_half"],
           v["iterations"], v["barriers"], v["comms_probed"], v["iprobes"],
           v["drained_msgs"], v["drained_bytes"], v["irecvs_completed"],
           v["isends_completed"], v["blocked"], v["dummies"],
-          v["kvdb_requests"]);
+          v["kvdb_requests"], v["done_polls"]);
 }

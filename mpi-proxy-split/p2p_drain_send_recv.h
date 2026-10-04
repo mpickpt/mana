@@ -125,7 +125,9 @@ void drainInFlightP2p();
 void unblockPendingRecvs();
 
 // Single entry point for draining all P2P communications before
-// checkpoint: drains in-flight messages, then unblocks pending recvs.
+// checkpoint: drains in-flight messages, then unblocks pending recvs.  With
+// MANA_P2P_WAIT=polling, it also completes the pending non-blocking
+// collectives, and it uses no barrier (see drainWithoutBarriers()).
 void drainP2p();
 
 // What the drain did on this rank at one checkpoint (times in
@@ -137,6 +139,7 @@ struct DrainStats {
   uint64_t t_complete;       //   completing pending MPI_Isend/MPI_Irecv
   uint64_t t_probe;          //   probing communicators, buffering messages
   uint64_t t_isends;         //   completing the remaining MPI_Isends
+  uint64_t t_done;           //   polling: waiting until all ranks are done
   uint64_t t_unblock;        // unblockPendingRecvs()
   uint64_t t_publish;        //   publishing whether blocked in MPI_Recv
   uint64_t t_published;      //   barrier after publishing
@@ -155,6 +158,7 @@ struct DrainStats {
   int64_t blocked;           // ranks blocked in MPI_Recv
   int64_t dummies;           // dummy messages sent
   int64_t kvdb_requests;     // requests to the coordinator's database
+  int64_t done_polls;        // polling: polls of the "done" counter
   int64_t barriers;          // global barriers
 };
 extern DrainStats g_drain_stats;
