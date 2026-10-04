@@ -20,6 +20,8 @@ using dmtcp::kvdb::KVDBResponse;
 
 constexpr int MAX_DRAIN_ROUNDS = 200;
 
+extern "C" int MPI_Iprobe_internal(int source, int tag, MPI_Comm comm,
+                                   int *flag, MPI_Status *status);
 extern "C" int MPI_Test_internal(MPI_Request *request, int *flag,
                                  MPI_Status *status, bool isRealRequest);
 
@@ -135,7 +137,8 @@ void commit_begin(MPI_Comm comm) {
   while (ckpt_pending && check_seq_nums()) {
     MPI_Status status;
     int flag;
-    MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, g_world_comm, &flag, &status);
+    MPI_Iprobe_internal(MPI_ANY_SOURCE, MPI_ANY_TAG, g_world_comm, &flag,
+                        &status);
     if (flag) {
       unsigned long new_target[2];
       MPI_Comm real_world_comm = get_real_id((mana_mpi_handle){.comm = g_world_comm}).comm;
@@ -179,7 +182,8 @@ void commit_finish(MPI_Comm comm) {
   while (ckpt_pending && check_seq_nums()) {
     MPI_Status status;
     int flag;
-    MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, g_world_comm, &flag, &status);
+    MPI_Iprobe_internal(MPI_ANY_SOURCE, MPI_ANY_TAG, g_world_comm, &flag,
+                        &status);
     if (flag) {
       unsigned long new_target[2];
       MPI_Comm real_world_comm = get_real_id((mana_mpi_handle){.comm = g_world_comm}).comm;
