@@ -30,9 +30,6 @@
 #include <sys/personality.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#ifdef SINGLE_CART_REORDER
-#include "cartesian.h"
-#endif
 
 #include <cxxabi.h>  /* For backtrace() */
 #include <execinfo.h>  /* For backtrace() */
@@ -69,10 +66,6 @@ using dmtcp::kvdb::KVDBRequest;
 using dmtcp::kvdb::KVDBResponse;
 
 /* Global variables */
-#ifdef SINGLE_CART_REORDER
-extern CartesianProperties g_cartesian_properties;
-#endif
-
 void * lh_ckpt_mem_addr = NULL;
 size_t lh_ckpt_mem_size = 0;
 int pagesize = sysconf(_SC_PAGESIZE);
@@ -714,49 +707,6 @@ restore_mpi_files(const char *filename)
 
 }
 
-#ifdef SINGLE_CART_REORDER
-const char *
-get_cartesian_properties_file_name()
-{
-  struct stat st;
-  const char *ckptDir;
-  dmtcp::ostringstream o;
-
-  ckptDir = dmtcp_get_ckpt_dir();
-  if (stat(ckptDir, &st) == -1) {
-    mkdir(ckptDir, 0700); // Create directory if not already exist
-  }
-  o << ckptDir << "/cartesian.info";
-  return strdup(o.str().c_str());
-}
-
-void
-save_cartesian_properties(const char *filename)
-{
-  if (g_cartesian_properties.comm_old_size == -1 ||
-      g_cartesian_properties.comm_cart_size == -1 ||
-      g_cartesian_properties.comm_old_rank == -1 ||
-      g_cartesian_properties.comm_cart_rank == -1) {
-    return;
-  }
-  int fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0755);
-  if (fd == -1) {
-    return;
-  }
-  write(fd, &g_cartesian_properties.comm_old_size, sizeof(int));
-  write(fd, &g_cartesian_properties.comm_cart_size, sizeof(int));
-  write(fd, &g_cartesian_properties.comm_old_rank, sizeof(int));
-  write(fd, &g_cartesian_properties.comm_cart_rank, sizeof(int));
-  write(fd, &g_cartesian_properties.reorder, sizeof(int));
-  write(fd, &g_cartesian_properties.ndims, sizeof(int));
-  int array_size = sizeof(int) * g_cartesian_properties.ndims;
-  write(fd, g_cartesian_properties.coordinates, array_size);
-  write(fd, g_cartesian_properties.dimensions, array_size);
-  write(fd, g_cartesian_properties.periods, array_size);
-  close(fd);
-}
-#endif
-
 void printElapsedTime(time_t origin_time, const char *msg) {
   char time_string[30];
   time_t cur_time = time(NULL);
@@ -950,11 +900,6 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       save_mana_header(file);
       const char *file2 = get_mpi_file_filename();
       save_mpi_files(file2);
-#ifdef SINGLE_CART_REORDER
-      dmtcp_global_barrier("MPI:save-cartesian-properties");
-      const char *file = get_cartesian_properties_file_name();
-      save_cartesian_properties(file);
-#endif
       printEventToStderr("EVENT_PRECHECKPOINT (done)");
       // Save a copy of the break address before checkpoint
       old_brk = sbrk(0);
@@ -1002,11 +947,6 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
                              // for easy debugging of lower half during restart.
                              // See definition in mpi-wrappers/mpi_wrappers.cpp
       mana_state = RESTART_REPLAY;
-#ifdef SINGLE_CART_REORDER
-      dmtcp_global_barrier("MPI:setCartesianCommunicator");
-      // record-replay.cpp
-      setCartesianCommunicator(lh_info->getCartesianCommunicatorFptr);
-#endif
       dmtcp_global_barrier("MPI:restoreMpiLogState");
       restoreMpiLogState(); // record-replay.cpp
       dmtcp_global_barrier("MPI:record-replay.cpp-void");
