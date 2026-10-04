@@ -179,6 +179,29 @@ MPI_Comm new_virt_comm(MPI_Comm real_comm) {
                                    g_world_group, desc->global_ranks);
   RETURN_TO_UPPER_HALF();
 
+  // MPI_Cart_create, MPI_Cart_sub and MPI_Comm_dup of a Cartesian
+  // communicator make a Cartesian communicator.
+  int topology = MPI_UNDEFINED;
+  desc->cart_ndims = -1;
+  desc->cart_dims = NULL;
+  desc->cart_periods = NULL;
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
+  NEXT_FUNC(Topo_test)(real_comm, &topology);
+  if (topology == MPI_CART) {
+    NEXT_FUNC(Cartdim_get)(real_comm, &desc->cart_ndims);
+  }
+  RETURN_TO_UPPER_HALF();
+  if (desc->cart_ndims > 0) {
+    int ndims = desc->cart_ndims;
+    std::vector<int> coords(ndims);
+    desc->cart_dims = (int*)malloc(sizeof(int) * ndims);
+    desc->cart_periods = (int*)malloc(sizeof(int) * ndims);
+    JUMP_TO_LOWER_HALF(lh_info->fsaddr);
+    NEXT_FUNC(Cart_get)(real_comm, ndims, desc->cart_dims, desc->cart_periods,
+                        coords.data());
+    RETURN_TO_UPPER_HALF();
+  }
+
   unsigned int ggid = generate_ggid(desc->global_ranks,
                                     desc->size);
   seq_num[ggid] = 0;
@@ -360,12 +383,20 @@ MPI_File new_virt_file(MPI_File real_file) {
 
 void reconstruct_comm_desc(virt_id_entry *entry) {
   MPI_Group group;
+  MPI_Comm comm;
   mana_comm_desc *desc = (mana_comm_desc*)entry->desc;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   NEXT_FUNC(Group_incl)(g_world_group, desc->size, desc->global_ranks, &group);
-  NEXT_FUNC(Comm_create_group)(lh_info->MANA_COMM_WORLD, group, 0, &(entry->real_id.comm));
+  NEXT_FUNC(Comm_create_group)(lh_info->MANA_COMM_WORLD, group, 0, &comm);
   NEXT_FUNC(Group_free)(&group);
+  if (desc->cart_ndims >= 0) {
+    MPI_Comm plain = comm;
+    NEXT_FUNC(Cart_create)(plain, desc->cart_ndims, desc->cart_dims,
+                           desc->cart_periods, 0, &comm);
+    NEXT_FUNC(Comm_free)(&plain);
+  }
   RETURN_TO_UPPER_HALF();
+  entry->real_id.comm = comm;
 }
 
 void reconstruct_group_desc(virt_id_entry *entry) {
@@ -891,6 +922,8 @@ void free_desc(void *desc, int kind) {
   if (kind == MANA_COMM_KIND) {
     mana_comm_desc *comm_desc = (mana_comm_desc*)desc;
     free(comm_desc->global_ranks);
+    free(comm_desc->cart_dims);
+    free(comm_desc->cart_periods);
   } else if (kind == MANA_GROUP_KIND) {
     mana_group_desc *group_desc = (mana_group_desc*)desc;
     free(group_desc->global_ranks);
