@@ -224,10 +224,7 @@ int
 recvMsgIntoInternalBuffer(MPI_Status status, MPI_Comm comm)
 {
   int count = 0;
-  int size = 0;
   MPI_Get_count(&status, MPI_BYTE, &count);
-  MPI_Type_size(MPI_BYTE, &size);
-  JASSERT(size == 1);
   void *buf = JALLOC_HELPER_MALLOC(count);
   // Bypass the MPI_Recv wrapper deliberately.  The wrapper publishes
   // g_pending_recv from a single-slot global, and the user thread's
@@ -255,7 +252,7 @@ recvMsgIntoInternalBuffer(MPI_Status status, MPI_Comm comm)
   message->datatype   = MPI_BYTE;
   message->comm       = comm;
   message->status     = status;
-  message->size       = size * count;
+  message->size       = count;
 
   lockMessageQueue();
   g_message_queue.push_back(message);
@@ -285,11 +282,11 @@ completePendingP2pRequests()
     MPI_Test_internal(&request, &flag, &status, false);
     if (flag) {
       if (call.type == IRECV_REQUEST) {
+#ifdef DEBUG_P2P
         int size = 0;
         MPI_Type_size(call.datatype, &size);
         int worldRank = localRankToGlobalRank(status.MPI_SOURCE,
                                               call.comm);
-#ifdef DEBUG_P2P
         g_recvBytesByRank[worldRank] += call.count * size;
 #endif
         count_received_message();
