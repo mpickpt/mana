@@ -23,7 +23,9 @@
 // once by MPI_Cart_create (dimension 0 periodic, dimension 1 not), a copy of
 // it made by MPI_Comm_dup, and its rows made by MPI_Cart_sub.  Each iteration
 // checks the topology queries and exchanges values with the neighbours that
-// MPI_Cart_shift returns.
+// MPI_Cart_shift returns.  Each iteration also makes a row, uses it and
+// frees it, so that checkpoints come while ranks are in MPI_Cart_sub and
+// after the program freed such communicators.
 
 #include "mana_test.h"
 
@@ -147,6 +149,17 @@ main(int argc, char **argv)
     shift("row", row_comm, row * dims[1], 0, disp,
           src < 0 ? MPI_PROC_NULL : src, dst < 0 ? MPI_PROC_NULL : dst,
           2 * N);
+
+    MPI_Comm new_row;
+    MT_MPI(MPI_Cart_sub(cart_dup, remain, &new_row));
+    check_topology("new row", new_row, 1, &dims[1], &periods[1], &col);
+    MT_MPI(MPI_Cart_map(new_row, 1, &dims[1], &periods[1], &rank));
+    MT_CHECK(rank >= 0 && rank < dims[1], "iteration %ld: MPI_Cart_map "
+             "returned rank %d", it, rank);
+    shift("new row", new_row, row * dims[1], 0, -disp,
+          dst < 0 ? MPI_PROC_NULL : dst, src < 0 ? MPI_PROC_NULL : src,
+          3 * N);
+    MT_MPI(MPI_Comm_free(&new_row));
   }
   MPI_Comm_free(&row_comm);
   MPI_Comm_free(&cart_dup);

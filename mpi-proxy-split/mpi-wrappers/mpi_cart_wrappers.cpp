@@ -79,11 +79,6 @@ int PMPI_Cart_map(MPI_Comm comm, int ndims, const int *dims, const int *periods,
   // FIXME: Need to virtualize this newrank??
   retval = NEXT_FUNC(Cart_map)(realComm, ndims, dims, periods, newrank);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
-    FncArg ds = CREATE_LOG_BUF(dims, ndims  *sizeof(int));
-    FncArg ps = CREATE_LOG_BUF(periods, ndims  *sizeof(int));
-    LOG_CALL(restoreCarts, Cart_map, comm, ndims, ds, ps, newrank);
-  }
   LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
@@ -112,10 +107,6 @@ int PMPI_Cart_shift(MPI_Comm comm, int direction, int disp, int *rank_source,
   retval = NEXT_FUNC(Cart_shift)(realComm, direction,
                                  disp, rank_source, rank_dest);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
-    LOG_CALL(restoreCarts, Cart_shift, comm, direction,
-             disp, *rank_source, *rank_dest);
-  }
   LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
