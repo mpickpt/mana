@@ -41,10 +41,15 @@ E2E_TESTS = p2p_blocking p2p_nonblocking p2p_ring p2p_any_source p2p_probe \
             finalize_unsync abort
 E2E_FORTRAN = fortran_p2p fortran_nonblocking
 
-e2e: ${E2E_TESTS} ${E2E_FORTRAN}
+e2e: ${E2E_TESTS} ${E2E_FORTRAN} dlopen_mpi
 
 ${E2E_TESTS}: %: %.c mana_test.h
 	$(MPICC) -g3 -O0 -o $@ $< $(MPI_CFLAGS) ${MPI_LDFLAGS}
+
+# Opens the MPI library with dlopen(), so it is not linked with it.
+dlopen_mpi: dlopen_mpi.c
+	$(MPICC) -g3 -O0 -c -o $@.o $< $(MPI_CFLAGS)
+	$(CC) -g3 -o $@ $@.o -ldl
 
 ${E2E_FORTRAN}: %: %.f90
 	$(MPIFORTRAN) ${FFLAGS} -g3 -O0 -o $@ $<

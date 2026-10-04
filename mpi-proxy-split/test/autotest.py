@@ -28,6 +28,10 @@ TEST_DIR = os.path.dirname(os.path.abspath(__file__))
 MANA_ROOT = os.path.abspath(os.path.join(TEST_DIR, "..", ".."))
 
 
+# In the arguments of a test, stands for the MPI library by its full path.
+MPI_LIBRARY = "{mpi_library}"
+
+
 class Test:
   """A test program and how to run it.
 
@@ -82,6 +86,8 @@ TESTS = [
   Test("finalize_unsync", 4, args=["8"], kind="run", restart=True,
        native_args=["1"]),
   Test("abort", 2, kind="run", fails=True, expect="abort: calling MPI_Abort"),
+  Test("dlopen_mpi", 2, args=[MPI_LIBRARY, "8"], kind="run", restart=True,
+       native_args=[MPI_LIBRARY, "1"]),
 ]
 
 
@@ -161,6 +167,7 @@ class Run:
     return seconds * self.opts.slow
 
   def launch(self, cmd, log):
+    cmd = [mpi_library() if arg == MPI_LIBRARY else arg for arg in cmd]
     path = os.path.join(self.dir, log)
     self.logs.append(path)
     out = open(path, "w")
@@ -389,6 +396,16 @@ class Run:
           text.append("    --- %s" % os.path.basename(path))
           text += ["    " + line for line in tail]
     return "\n".join(text)
+
+
+def mpi_library():
+  """The MPI library that the tests are linked with, by its full path."""
+  out = subprocess.run(["ldd", os.path.join(TEST_DIR, "p2p_ring")],
+                       stdout=subprocess.PIPE, universal_newlines=True).stdout
+  m = re.search(r"=> (/\S*/libmpi\w*\.so\S*) ", out)
+  if m is None:
+    raise Failure("ldd finds no MPI library in p2p_ring")
+  return m.group(1)
 
 
 def run_test(test, opts):
