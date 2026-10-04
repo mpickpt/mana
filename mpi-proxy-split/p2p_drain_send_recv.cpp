@@ -44,6 +44,8 @@ extern int MPI_Alltoall_internal(const void *sendbuf, int sendcount,
                                  int recvcount, MPI_Datatype recvtype,
                                  MPI_Comm comm);
 // Defined with C linkage in mpi-wrappers/mpi_request_wrappers.cpp.
+extern "C" int MPI_Iprobe_internal(int source, int tag, MPI_Comm comm,
+                                   int *flag, MPI_Status *status);
 extern "C" int MPI_Test_internal(MPI_Request *, int *flag, MPI_Status *status,
                                  bool isRealRequest);
 // FIXME: These three internal functions were added to avoid record and replay.
@@ -372,8 +374,8 @@ drainRemainingP2pMsgs()
     while (flag) {
       MPI_Status status;
       g_drain_stats.iprobes++;
-      int retval = MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, comm, &flag,
-                              &status);
+      int retval = MPI_Iprobe_internal(MPI_ANY_SOURCE, MPI_ANY_TAG, comm,
+                                       &flag, &status);
       JASSERT(retval == MPI_SUCCESS);
       if (flag) {
         MPI_Request matched_request = MPI_REQUEST_NULL;

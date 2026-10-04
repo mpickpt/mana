@@ -21,6 +21,7 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include <unistd.h>
 #include "config.h"
 #include "dmtcp.h"
 #include "util.h"
@@ -422,8 +423,10 @@ int PMPI_Probe(int source, int tag, MPI_Comm comm, MPI_Status *status)
   return retval;
 }
 
-#pragma weak MPI_Iprobe = PMPI_Iprobe
-int PMPI_Iprobe(int source, int tag, MPI_Comm comm, int *flag, MPI_Status *status)
+// MPI_Iprobe in the lower half, without MANA's buffer of drained messages:
+// for MANA itself (the P2P drain, the Collective Clock).
+int MPI_Iprobe_internal(int source, int tag, MPI_Comm comm, int *flag,
+                        MPI_Status *status)
 {
   int retval;
   LOWER_HALF_DISABLE_CKPT();
@@ -431,6 +434,38 @@ int PMPI_Iprobe(int source, int tag, MPI_Comm comm, int *flag, MPI_Status *statu
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Iprobe)(source, tag, realComm, flag, status);
   RETURN_TO_UPPER_HALF();
+  LOWER_HALF_ENABLE_CKPT();
+  return retval;
+}
+
+#pragma weak MPI_Iprobe = PMPI_Iprobe
+int PMPI_Iprobe(int source, int tag, MPI_Comm comm, int *flag,
+                MPI_Status *status)
+{
+  int retval = MPI_SUCCESS;
+  // Neither lookup may write into Fortran's MPI_STATUS_IGNORE.
+  get_fortran_constants();
+  if (status == FORTRAN_MPI_STATUS_IGNORE) {
+    status = MPI_STATUS_IGNORE;
+  }
+  // As in MPI_Recv: don't probe while the P2P drain runs; the probe could
+  // report a later message ahead of one that the drain buffers.
+  while (mana_state == CKPT_P2P) {
+    usleep(100);
+  }
+  // A message that a checkpoint drained is older than any message of the
+  // same sender that the MPI library holds, so report it first, as MPI_Recv
+  // receives it first.  Both lookups are in one section: no checkpoint can
+  // drain a message between them.
+  LOWER_HALF_DISABLE_CKPT();
+  MPI_Status buffered_status;
+  if (existsMatchingMsgBuffer(source, tag, comm, flag, &buffered_status)) {
+    if (status != MPI_STATUS_IGNORE) {
+      *status = buffered_status;
+    }
+  } else {
+    retval = MPI_Iprobe_internal(source, tag, comm, flag, status);
+  }
   LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
