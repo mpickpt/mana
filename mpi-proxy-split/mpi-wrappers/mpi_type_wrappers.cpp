@@ -28,10 +28,7 @@
 #include "jfilesystem.h"
 #include "protectedfds.h"
 #include "mpi_nextfunc.h"
-#include "record-replay.h"
 #include "virtual_id.h"
-
-using namespace dmtcp_mpi;
 
 extern "C" {
 

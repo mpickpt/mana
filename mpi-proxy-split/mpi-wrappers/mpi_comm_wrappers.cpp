@@ -35,12 +35,9 @@
 #include "protectedfds.h"
 
 #include "mpi_nextfunc.h"
-#include "record-replay.h"
 #include "virtual_id.h"
 #include "seq_num.h"
 #include "p2p_drain_send_recv.h"
-
-using namespace dmtcp_mpi;
 
 // TODO
 // - validate operation status (right now we assume them to be successful by
@@ -466,7 +463,7 @@ int PMPI_Comm_create_group(MPI_Comm comm,
 {
   commit_begin(comm);
   int retval = MPI_Comm_create_group_internal(comm, group, tag, newcomm);
-  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
+  if (retval == MPI_SUCCESS) {
     if (*newcomm == lh_info->MANA_COMM_NULL) {
       *newcomm = MPI_COMM_NULL;
     } else {

@@ -28,7 +28,6 @@
 #include "protectedfds.h"
 
 #include "mpi_plugin.h"
-#include "record-replay.h"
 #include "mpi_nextfunc.h"
 #include "seq_num.h"
 #include "virtual_id.h"
@@ -50,8 +49,6 @@ isUsingCollectiveToP2p() {
   return false;
 #endif
 }
-
-using namespace dmtcp_mpi;
 
 extern "C" {
 
@@ -919,7 +916,7 @@ int PMPI_Comm_split(MPI_Comm comm, int color, int key, MPI_Comm *newcomm)
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Comm_split)(real_comm, color, key, newcomm);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
+  if (retval == MPI_SUCCESS) {
     if (*newcomm == lh_info->MANA_COMM_NULL) {
       *newcomm = MPI_COMM_NULL;
     } else {
@@ -941,7 +938,7 @@ int PMPI_Comm_dup(MPI_Comm comm, MPI_Comm *newcomm)
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Comm_dup)(real_comm, newcomm);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
+  if (retval == MPI_SUCCESS) {
     if (*newcomm == lh_info->MANA_COMM_NULL) {
       *newcomm = MPI_COMM_NULL;
     } else {

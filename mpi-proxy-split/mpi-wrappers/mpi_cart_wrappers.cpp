@@ -29,12 +29,9 @@
 #include "protectedfds.h"
 
 #include "mpi_nextfunc.h"
-#include "record-replay.h"
 #include "virtual_id.h"
 #include "seq_num.h"
 #include "p2p_drain_send_recv.h"
-
-using namespace dmtcp_mpi;
 
 extern "C" {
 
@@ -118,9 +115,7 @@ int PMPI_Cart_sub(MPI_Comm comm, const int *remain_dims, MPI_Comm *new_comm)
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Cart_sub)(realComm, remain_dims, new_comm);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
-    int ndims = 0;
-    MPI_Cartdim_get(comm, &ndims);
+  if (retval == MPI_SUCCESS) {
     *new_comm = new_virt_comm(*new_comm);
   }
   LOWER_HALF_ENABLE_CKPT();
@@ -186,7 +181,7 @@ int PMPI_Cart_create(MPI_Comm old_comm, int ndims,
   retval = NEXT_FUNC(Cart_create)(realComm, ndims, dims,
                                   periods, reorder, comm_cart);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
+  if (retval == MPI_SUCCESS) {
     *comm_cart = new_virt_comm(*comm_cart);
   }
   LOWER_HALF_ENABLE_CKPT();
