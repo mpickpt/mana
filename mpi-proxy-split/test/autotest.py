@@ -198,9 +198,11 @@ class Run:
     return (int(peers.group(1)), running.group(1) == "yes")
 
   def start_coordinator(self):
+    # The coordinator writes dmtcp_restart_script*.sh into its working
+    # directory at each checkpoint.
     for _ in range(50):
       rc = subprocess.run([os.path.join(self.bin, "mana_coordinator"),
-                           "-p", str(self.port)], env=self.env,
+                           "-p", str(self.port)], cwd=self.dir, env=self.env,
                           stdout=subprocess.DEVNULL,
                           stderr=subprocess.DEVNULL).returncode
       if rc == 0:
