@@ -29,10 +29,7 @@
 #include "protectedfds.h"
 
 #include "mpi_nextfunc.h"
-#include "record-replay.h"
 #include "virtual_id.h"
-
-using namespace dmtcp_mpi;
 
 extern "C" {
 
@@ -113,7 +110,7 @@ int PMPI_Group_incl(MPI_Group group, int n, const int* ranks, MPI_Group * newgro
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Group_incl)(real_group, n, ranks, newgroup);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
+  if (retval == MPI_SUCCESS) {
     if (*newgroup == lh_info->MANA_GROUP_NULL) {
       *newgroup = MPI_GROUP_NULL;
     } else {

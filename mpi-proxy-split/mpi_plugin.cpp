@@ -36,6 +36,7 @@
 
 #include <regex>
 
+#include "jconvert.h"
 #include "mpi_files.h"
 #include "mana_header.h"
 #include "mpi_plugin.h"
@@ -43,7 +44,6 @@
 #include "lower_half_ckpt.h"
 #include "p2p_log_replay.h"
 #include "p2p_drain_send_recv.h"
-#include "record-replay.h"
 #include "seq_num.h"
 #include "mpi_nextfunc.h"
 #include "virtual_id.h"
@@ -947,9 +947,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
                              // for easy debugging of lower half during restart.
                              // See definition in mpi-wrappers/mpi_wrappers.cpp
       mana_state = RESTART_REPLAY;
-      dmtcp_global_barrier("MPI:restoreMpiLogState");
-      restoreMpiLogState(); // record-replay.cpp
-      dmtcp_global_barrier("MPI:record-replay.cpp-void");
+      dmtcp_global_barrier("MPI:replayMpiP2pOnRestart");
       replayMpiP2pOnRestart(); // p2p_log_replay.cpp
       dmtcp_local_barrier("MPI:p2p_log_replay.cpp-void");
       const char *file = get_mpi_file_filename();

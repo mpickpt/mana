@@ -29,7 +29,6 @@
 #include "lower_half_ckpt.h"
 #include "jfilesystem.h"
 #include "protectedfds.h"
-#include "record-replay.h"
 #include "mpi_nextfunc.h"
 #include "virtual_id.h"
 #include "p2p_drain_send_recv.h"
@@ -37,7 +36,6 @@
 #include "seq_num.h"
 #include "uh_wrappers.h"
 
-using namespace dmtcp_mpi;
 bool g_libmpi_is_initialized = false;
 
 static const char collective_p2p_string[] =
@@ -250,7 +248,8 @@ int PMPI_Get_address(const void *location, MPI_Aint *address)
 // FOR DEBUGGING ONLY:
 // This defines a call to MPI_MANA_Internal in the lower half, which
 //   is especially useful in debugging restart.  It is called
-//   from mpi-proxy-split/mpi_plugin.cpp, just before doing record-replay.
+//   from mpi-proxy-split/mpi_plugin.cpp, just before replaying the pending
+//   receives.
 // In mpi-proxy-split/lower-half, redefine MPI_MANA_Internal()
 //   to do whatever is desired.  Then do:
 //   rm bin/lh_proxy

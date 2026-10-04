@@ -30,11 +30,8 @@
 #include "protectedfds.h"
 
 #include "mpi_nextfunc.h"
-#include "record-replay.h"
 #include "virtual_id.h"
 #include "seq_num.h"
-
-using namespace dmtcp_mpi;
 
 std::unordered_map<MPI_File, OpenFileParameters> g_params_map;
 

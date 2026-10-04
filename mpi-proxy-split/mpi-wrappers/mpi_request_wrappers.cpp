@@ -30,7 +30,6 @@
 #include "jfilesystem.h"
 #include "protectedfds.h"
 
-#include "record-replay.h"
 #include "p2p_log_replay.h"
 #include "p2p_drain_send_recv.h"
 #include "mpi_plugin.h"
@@ -142,7 +141,7 @@ int PMPI_Test(MPI_Request* request, int* flag, MPI_Status* status)
 #endif
 #endif
   }
-  if (retval == MPI_SUCCESS && *flag && MPI_LOGGING()) {
+  if (retval == MPI_SUCCESS && *flag) {
     clearPendingRequestFromLog(*request);
     release_freed_datatypes();
     free_virt_id((mana_mpi_handle){.request = *request});
@@ -333,12 +332,10 @@ int PMPI_Waitany(int count, MPI_Request *array_of_requests,
           }
         }
 
-        if (MPI_LOGGING()) {
-          clearPendingRequestFromLog(local_array_of_requests[i]);
-          release_freed_datatypes();
-          free_virt_id((mana_mpi_handle){.request = local_array_of_requests[i]});
-          local_array_of_requests[i] = MPI_REQUEST_NULL;
-        }
+        clearPendingRequestFromLog(local_array_of_requests[i]);
+        release_freed_datatypes();
+        free_virt_id((mana_mpi_handle){.request = local_array_of_requests[i]});
+        local_array_of_requests[i] = MPI_REQUEST_NULL;
 
         *local_index = i;
 
@@ -401,7 +398,7 @@ int PMPI_Wait(MPI_Request *request, MPI_Status *status)
 #endif
 #endif
     }
-    if (flag && MPI_LOGGING()) {
+    if (flag) {
       clearPendingRequestFromLog(*request);  // Remove from pending calls
       release_freed_datatypes();
       free_virt_id((mana_mpi_handle){.request = *request}); // Remove from virtual id

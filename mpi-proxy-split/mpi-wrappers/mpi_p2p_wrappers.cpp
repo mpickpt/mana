@@ -33,7 +33,6 @@
 #include "protectedfds.h"
 #include "mpi_nextfunc.h"
 #include "virtual_id.h"
-#include "record-replay.h"
 
 extern "C" {
 
