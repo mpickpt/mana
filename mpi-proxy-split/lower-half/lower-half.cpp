@@ -221,9 +221,8 @@ int main(int argc, char *argv[], char *envp[]) {
       print_usage_and_exit(argv[0]);
     }
 
-    //  Prepend LD_LIBRARY_PATH env variable to
-    //    * '/PATH_TO_MANA/lib/dmtcp' for libmpistub.so (always)
-    //    * '/PATH_TO_MANA/lib/tmp'   for shadow libraries (only when launched with --use-shadowlibs flag)
+    //  Prepend '/PATH_TO_MANA/lib/dmtcp' to LD_LIBRARY_PATH for libmpistub.so,
+    //  and set LD_AUDIT.
     update_library_path(argv[0]);
     get_elf_interpreter(cmd_argv[0], &cmd_entry, elf_interpreter);       
     
@@ -990,17 +989,10 @@ void print_usage_and_exit(char *prog_name)
 /**
  * @brief Updates the LD_LIBRARY_PATH for the upper-half application.
  *
- * Update LD_LIBRARY_PATH env variable for the Upper-Half(user's MPI application). 
- *  The env variable will be prepended with:
- *  a) location of libmpistub.so library, that contains 
- *      MPI-symbols required for user's MPI application.
- *  b) location of 'shadow-libraries', that cintain sym-link 
- *      for dynamic libraries with constructors.
- * It also sets LD_AUDIT, so that the upper half loads libmpistub.so in
- *  place of the MPI library that the application was linked with.
- *
- * NOTE:  This is necessary when an application is compiled with `mpicc_mana`
- *        instead of `mpicc`, or when shadow libraries are needed for dynamic linking.
+ * Prepends the location of libmpistub.so, which defines the MPI symbols of
+ *  the user's MPI application, to LD_LIBRARY_PATH for the upper half.  It
+ *  also sets LD_AUDIT, so that the upper half loads libmpistub.so in place
+ *  of the MPI library that the application was linked with.
  *
  * @param argv0 the path to the executing binary. 
  */
@@ -1055,29 +1047,6 @@ void update_library_path(const char *argv0)
     exit(1);
   }
   free(lib1);
-
-  // constructing lib2 path: "/path_to_mana/lib/tmp"
-  const char *lib2_suffix = "lib/tmp";
-  size_t lib2_len = base_len + strlen(lib2_suffix) + 1;
-  char *lib2 = static_cast<char*>(malloc(lib2_len));
-  if (!lib2) {
-    perror("Malloc for lib2 path failed");
-    exit(1);
-  }
-  strncpy(lib2, argv0, base_len);
-  lib2[base_len] = '\0';
-  strcat(lib2, lib2_suffix);
-
-  // checking if tmp directory for shadow-libs exist
-  struct stat info;
-  if (stat(lib2, &info) == 0) {
-    // prepend lib2 to LD_LIBRARY_PATH
-    if(prepend_to_library_path(lib2) != 0) {
-      perror("");
-      exit(1);
-    }
-  }
-  free(lib2);
 }
 
 /**
