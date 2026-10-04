@@ -337,3 +337,26 @@ complete_pending_nonblocking_collectives()
                    (mana_mpi_handle){.request = MPI_REQUEST_NULL});
   }
 }
+
+// Tests each pending non-blocking collective once, under the same conditions
+// as complete_pending_nonblocking_collectives(), and returns how many are
+// still pending.
+int
+test_pending_nonblocking_collectives()
+{
+  int pending = 0;
+  for (MPI_Request request : pending_collective_requests()) {
+    int flag = 0;
+    MPI_Status status;
+    int rc = MPI_Test_internal(&request, &flag, &status, false);
+    JASSERT(rc == MPI_SUCCESS)(rc)
+      .Text("MPI_Test failed on a pending non-blocking collective");
+    if (flag) {
+      update_virt_id((mana_mpi_handle){.request = request},
+                     (mana_mpi_handle){.request = MPI_REQUEST_NULL});
+    } else {
+      pending++;
+    }
+  }
+  return pending;
+}
