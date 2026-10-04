@@ -99,9 +99,6 @@ check: libmana.so
 	@make -C test/ e2e
 	@test/autotest.py
 
-check-unit: libmana.so
-	@make -C unit-test/ check
-
 ${MANA_ROOT}/lib/dmtcp/libmana.so: libmana.so
 	cp -f $< $@
 ${MANA_ROOT}/lib/dmtcp/libmpistub.so: ${WRAPPERS_SRCDIR}/mpi_stub_wrappers.txt \
@@ -135,11 +132,10 @@ clean: tidy
 
 distclean: clean
 	#cd test && make clean
-	cd unit-test && make clean
 
 dist: distclean
 	dir=`basename $$PWD` && cd .. && tar czvf $$dir.tgz ./$$dir
 	dir=`basename $$PWD` && ls -l ../$$dir.tgz
 
 .PHONY: default clean dist distclean vi vim touch gdb tidy check \
-        tests check-unit install
+        tests install
