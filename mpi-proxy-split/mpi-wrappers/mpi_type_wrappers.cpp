@@ -57,8 +57,9 @@ int PMPI_Type_free(MPI_Datatype *type)
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Type_free)(&real_datatype);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
-    LOG_CALL(restoreTypes, Type_free, *type);
+  if (retval == MPI_SUCCESS) {
+    free_virt_datatype(*type);
+    *type = MPI_DATATYPE_NULL;
   }
   LOWER_HALF_ENABLE_CKPT();
   return retval;
@@ -73,8 +74,8 @@ int PMPI_Type_commit(MPI_Datatype *type)
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Type_commit)(&real_datatype);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
-    LOG_CALL(restoreTypes, Type_commit, *type);
+  if (retval == MPI_SUCCESS) {
+    commit_virt_datatype(*type);
   }
   LOWER_HALF_ENABLE_CKPT();
   return retval;
@@ -89,9 +90,12 @@ int PMPI_Type_contiguous(int count, MPI_Datatype oldtype, MPI_Datatype *newtype)
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Type_contiguous)(count, real_datatype, newtype);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
-    *newtype = new_virt_datatype(*newtype);
-    LOG_CALL(restoreTypes, Type_contiguous, count, oldtype, *newtype);
+  if (retval == MPI_SUCCESS) {
+    mana_datatype_desc *desc = alloc_datatype_desc();
+    desc->constructor = MANA_TYPE_CONTIGUOUS;
+    desc->count = count;
+    desc->oldtype = oldtype;
+    *newtype = new_virt_datatype(*newtype, desc);
   }
   LOWER_HALF_ENABLE_CKPT();
   return retval;
@@ -108,10 +112,14 @@ int PMPI_Type_create_hvector(int count, int blocklength, MPI_Aint stride,
   retval = NEXT_FUNC(Type_create_hvector)(count, blocklength,
                                   stride, real_datatype, newtype);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
-    *newtype = new_virt_datatype(*newtype);
-    LOG_CALL(restoreTypes, Type_create_hvector, count, blocklength,
-             stride, oldtype, *newtype);
+  if (retval == MPI_SUCCESS) {
+    mana_datatype_desc *desc = alloc_datatype_desc();
+    desc->constructor = MANA_TYPE_HVECTOR;
+    desc->count = count;
+    desc->blocklength = blocklength;
+    desc->hstride = stride;
+    desc->oldtype = oldtype;
+    *newtype = new_virt_datatype(*newtype, desc);
   }
   LOWER_HALF_ENABLE_CKPT();
   return retval;
@@ -121,13 +129,25 @@ int PMPI_Type_create_hvector(int count, int blocklength, MPI_Aint stride,
 int PMPI_Type_vector(int count, int blocklength, int stride, MPI_Datatype oldtype,
                     MPI_Datatype *newtype)
 {
-  int size;
-  int retval = MPI_Type_size(oldtype, &size);
-  if(retval != MPI_SUCCESS) {
-    return retval;
+  int retval;
+  LOWER_HALF_DISABLE_CKPT();
+  MPI_Datatype real_datatype =
+    get_real_id((mana_mpi_handle){.datatype = oldtype}).datatype;
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
+  retval = NEXT_FUNC(Type_vector)(count, blocklength, stride, real_datatype,
+                                  newtype);
+  RETURN_TO_UPPER_HALF();
+  if (retval == MPI_SUCCESS) {
+    mana_datatype_desc *desc = alloc_datatype_desc();
+    desc->constructor = MANA_TYPE_VECTOR;
+    desc->count = count;
+    desc->blocklength = blocklength;
+    desc->stride = stride;
+    desc->oldtype = oldtype;
+    *newtype = new_virt_datatype(*newtype, desc);
   }
-
-  return PMPI_Type_create_hvector(count, blocklength, stride*size, oldtype, newtype);
+  LOWER_HALF_ENABLE_CKPT();
+  return retval;
 }
 
 //       int PMPI_Type_create_struct(int count,
@@ -153,12 +173,18 @@ int PMPI_Type_create_struct(int count, const int *array_of_blocklengths,
                                    array_of_displacements,
                                    real_datatypes, newtype);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
-    *newtype = new_virt_datatype(*newtype);
-    FncArg bs = CREATE_LOG_BUF(array_of_blocklengths, count * sizeof(int));
-    FncArg ds = CREATE_LOG_BUF(array_of_displacements, count * sizeof(MPI_Aint));
-    FncArg ts = CREATE_LOG_BUF(array_of_types, count * sizeof(MPI_Datatype));
-    LOG_CALL(restoreTypes, Type_create_struct, count, bs, ds, ts, *newtype);
+  if (retval == MPI_SUCCESS) {
+    mana_datatype_desc *desc = alloc_datatype_desc();
+    desc->constructor = MANA_TYPE_STRUCT;
+    desc->count = count;
+    desc->blocklengths = (int*)malloc(count * sizeof(int));
+    desc->hdisplacements = (MPI_Aint*)malloc(count * sizeof(MPI_Aint));
+    desc->oldtypes = (MPI_Datatype*)malloc(count * sizeof(MPI_Datatype));
+    memcpy(desc->blocklengths, array_of_blocklengths, count * sizeof(int));
+    memcpy(desc->hdisplacements, array_of_displacements,
+           count * sizeof(MPI_Aint));
+    memcpy(desc->oldtypes, array_of_types, count * sizeof(MPI_Datatype));
+    *newtype = new_virt_datatype(*newtype, desc);
   }
   LOWER_HALF_ENABLE_CKPT();
   return retval;
@@ -208,13 +234,17 @@ int PMPI_Type_create_hindexed(int count, const int *array_of_blocklengths,
                                            (MPI_Aint*)array_of_displacements,
                                            real_datatype, newtype);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
-    *newtype = new_virt_datatype(*newtype);
-    FncArg bs = CREATE_LOG_BUF(array_of_blocklengths, count * sizeof(int));
-    FncArg ds = CREATE_LOG_BUF(array_of_displacements,
-                               count * sizeof(MPI_Aint));
-    LOG_CALL(restoreTypes, Type_create_hindexed, count, bs, ds, oldtype,
-             *newtype);
+  if (retval == MPI_SUCCESS) {
+    mana_datatype_desc *desc = alloc_datatype_desc();
+    desc->constructor = MANA_TYPE_HINDEXED;
+    desc->count = count;
+    desc->blocklengths = (int*)malloc(count * sizeof(int));
+    desc->hdisplacements = (MPI_Aint*)malloc(count * sizeof(MPI_Aint));
+    memcpy(desc->blocklengths, array_of_blocklengths, count * sizeof(int));
+    memcpy(desc->hdisplacements, array_of_displacements,
+           count * sizeof(MPI_Aint));
+    desc->oldtype = oldtype;
+    *newtype = new_virt_datatype(*newtype, desc);
   }
   LOWER_HALF_ENABLE_CKPT();
   return retval;
@@ -257,11 +287,16 @@ int PMPI_Type_indexed(int count, const int *array_of_blocklengths,
                                    array_of_displacements,
                                    real_datatype, newtype);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
-    *newtype = new_virt_datatype(*newtype);
-    FncArg bs = CREATE_LOG_BUF(array_of_blocklengths, count * sizeof(int));
-    FncArg ds = CREATE_LOG_BUF(array_of_displacements, count * sizeof(int));
-    LOG_CALL(restoreTypes, Type_indexed, count, bs, ds, oldtype, *newtype);
+  if (retval == MPI_SUCCESS) {
+    mana_datatype_desc *desc = alloc_datatype_desc();
+    desc->constructor = MANA_TYPE_INDEXED;
+    desc->count = count;
+    desc->blocklengths = (int*)malloc(count * sizeof(int));
+    desc->displacements = (int*)malloc(count * sizeof(int));
+    memcpy(desc->blocklengths, array_of_blocklengths, count * sizeof(int));
+    memcpy(desc->displacements, array_of_displacements, count * sizeof(int));
+    desc->oldtype = oldtype;
+    *newtype = new_virt_datatype(*newtype, desc);
   }
   LOWER_HALF_ENABLE_CKPT();
   return retval;
@@ -276,9 +311,11 @@ int PMPI_Type_dup(MPI_Datatype oldtype, MPI_Datatype *newtype)
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Type_dup)(real_datatype, newtype);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
-    *newtype = new_virt_datatype(*newtype);
-    LOG_CALL(restoreTypes, Type_dup, oldtype, *newtype);
+  if (retval == MPI_SUCCESS) {
+    mana_datatype_desc *desc = alloc_datatype_desc();
+    desc->constructor = MANA_TYPE_DUP;
+    desc->oldtype = oldtype;
+    *newtype = new_virt_datatype(*newtype, desc);
   }
   LOWER_HALF_ENABLE_CKPT();
   return retval;
@@ -294,9 +331,13 @@ int PMPI_Type_create_resized(MPI_Datatype oldtype, MPI_Aint lb, MPI_Aint extent,
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Type_create_resized)(real_datatype, lb, extent, newtype);
   RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS && MPI_LOGGING()) {
-    *newtype = new_virt_datatype(*newtype);
-    LOG_CALL(restoreTypes, Type_create_resized, oldtype, lb, extent, *newtype);
+  if (retval == MPI_SUCCESS) {
+    mana_datatype_desc *desc = alloc_datatype_desc();
+    desc->constructor = MANA_TYPE_RESIZED;
+    desc->lb = lb;
+    desc->extent = extent;
+    desc->oldtype = oldtype;
+    *newtype = new_virt_datatype(*newtype, desc);
   }
   LOWER_HALF_ENABLE_CKPT();
   return retval;
