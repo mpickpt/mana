@@ -31,9 +31,9 @@
 #include "mpi_nextfunc.h"
 #include "record-replay.h"
 #include "virtual_id.h"
+#include "seq_num.h"
 #ifdef SINGLE_CART_REORDER
 #include "two-phase-algo.h"
-#include "seq_num.h"
 #include "../cartesian.h"
 #endif
 #include "p2p_drain_send_recv.h"
@@ -125,6 +125,7 @@ int PMPI_Cart_sub(MPI_Comm comm, const int *remain_dims, MPI_Comm *new_comm)
 {
   int retval;
 
+  commit_begin(comm);
   LOWER_HALF_DISABLE_CKPT();
   MPI_Comm realComm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
@@ -136,6 +137,7 @@ int PMPI_Cart_sub(MPI_Comm comm, const int *remain_dims, MPI_Comm *new_comm)
     *new_comm = new_virt_comm(*new_comm);
   }
   LOWER_HALF_ENABLE_CKPT();
+  commit_finish(comm);
   return retval;
 }
 
@@ -239,6 +241,7 @@ int PMPI_Cart_create(MPI_Comm old_comm, int ndims,
                                      "the current implementation does not "
                                      "support reordered ranks.");
   reorder = 0;
+  commit_begin(old_comm);
   LOWER_HALF_DISABLE_CKPT();
   MPI_Comm realComm = get_real_id((mana_mpi_handle){.comm = old_comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
@@ -249,6 +252,7 @@ int PMPI_Cart_create(MPI_Comm old_comm, int ndims,
     *comm_cart = new_virt_comm(*comm_cart);
   }
   LOWER_HALF_ENABLE_CKPT();
+  commit_finish(old_comm);
   return retval;
 }
 
