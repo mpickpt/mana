@@ -319,7 +319,7 @@ dmtcp_skip_memory_region_ckpting(ProcMapsArea *area)
     return 1;
   }
 
-  if (strstr(area->name, "heap")) {
+  if (strcmp(area->name, "[heap]") == 0) {
     JTRACE("Ignoring heap region")(area->name)((void*)area->addr);
     return 1;
   }
