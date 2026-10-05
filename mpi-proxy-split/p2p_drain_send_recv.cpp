@@ -483,6 +483,38 @@ countPendingIsends()
   return n;
 }
 
+static void postDummy();
+static void sendPostedDummies(bool nonblocking);
+
+// The dummies that the barrier-free drain sent with MPI_Isend: the real
+// requests and their buffers.
+struct DummySend {
+  MPI_Request request;
+  void *buf;
+};
+static std::vector<DummySend> g_dummy_sends;
+
+// Returns the number of dummies whose MPI_Isend is not complete.
+static int64_t
+testDummySends()
+{
+  for (auto it = g_dummy_sends.begin(); it != g_dummy_sends.end();) {
+    int flag = 0;
+    int retval;
+    JUMP_TO_LOWER_HALF(lh_info->fsaddr);
+    retval = NEXT_FUNC(Test)(&it->request, &flag, MPI_STATUS_IGNORE);
+    RETURN_TO_UPPER_HALF();
+    JASSERT(retval == MPI_SUCCESS)(retval);
+    if (flag) {
+      free(it->buf);
+      it = g_dummy_sends.erase(it);
+    } else {
+      ++it;
+    }
+  }
+  return (int64_t)g_dummy_sends.size();
+}
+
 // Sums the counters over all ranks.  While the reduction is in progress, the
 // pending requests are tested too, so that this rank's MPI library keeps
 // moving the transfers that other ranks wait for.
@@ -510,6 +542,7 @@ reduceDrainCounters(int64_t *local, int64_t *sums, int n)
     }
     completePendingP2pRequests();
     test_pending_nonblocking_collectives();
+    testDummySends();
   }
   g_drain_stats.t_register += drainStatsNow() - t0;
 }
@@ -542,38 +575,86 @@ waitForAllRanksDone()
   g_drain_stats.t_done = drainStatsNow() - t0;
 }
 
-// The drain of MANA_P2P_WAIT=polling, where no application thread is in MPI.
-// The checkpoint thread never waits for another rank outside MPI: a
-// rendezvous receive needs its sender's MPI library, and with some providers
-// even an eager message leaves its sender only during an MPI call.
+bool
+drainHasNoBarrier()
+{
+  return g_p2p_wait == P2P_WAIT_POLLING || lh_info->ckpt_fsaddr != NULL;
+}
+
+// The drain without barriers (see drainHasNoBarrier()).  The checkpoint
+// thread never waits for another rank outside MPI: a rendezvous receive needs
+// its sender's MPI library, and with some providers even an eager message
+// leaves its sender only during an MPI call.  In blocking mode, an
+// application thread may wait in MPI_Recv or MPI_Send meanwhile.  Once every
+// message is received, an MPI_Recv still waiting gets a dummy in three passes:
+// it publishes that it is blocked, then posts its dummy request, then the
+// senders send the dummies.  Each pass ends with a reduction, so it sees the
+// KVDB records of the pass before.
 static void
 drainWithoutBarriers()
 {
   uint64_t t0 = drainStatsNow();
+  uint64_t t_dummy = 0;
+  int dummy_pass = 0;  // 1 to 3 in the dummy step
+  bool blocked = false;
   for (;;) {
     g_drain_stats.iterations++;
+    if (dummy_pass == 1) {
+      int state = PENDING_RECV_IDLE;
+      __atomic_compare_exchange_n(&g_pending_recv.state, &state,
+                                  PENDING_RECV_CLOSED, false,
+                                  __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE);
+      blocked = (state == PENDING_RECV_ACTIVE);
+      if (blocked) {
+        char key[64];
+        snprintf(key, sizeof(key), "blocked_%d", g_world_rank / 64);
+        kvOr(g_drain_db, key, (int64_t)((uint64_t)1 << (g_world_rank % 64)));
+      }
+      // No real message can reach a blocked MPI_Recv any more.
+      p2p_dummy_phase = true;
+      g_drain_stats.blocked = blocked;
+    } else if (dummy_pass == 2 && blocked) {
+      postDummy();
+    } else if (dummy_pass == 3) {
+      sendPostedDummies(true);
+    }
+    if (dummy_pass > 0) {
+      dummy_pass++;
+    }
     uint64_t t = drainStatsNow();
     completePendingP2pRequests();
     int64_t nbcs = test_pending_nonblocking_collectives();
+    int64_t dummies = testDummySends();
     g_drain_stats.t_complete += drainStatsNow() - t;
     t = drainStatsNow();
     drainRemainingP2pMsgs();
     g_drain_stats.t_probe += drainStatsNow() - t;
-    int64_t local[4] = {
-      local_sent_messages,
-      __atomic_load_n(&local_recv_messages, __ATOMIC_ACQUIRE),
-      countPendingIsends(),
-      nbcs
+    // Read the received count before the slot: a returning MPI_Recv sets
+    // its slot to IDLE before it counts its message.
+    int64_t recv = __atomic_load_n(&local_recv_messages, __ATOMIC_ACQUIRE);
+    int64_t in_recv =
+      __atomic_load_n(&g_pending_recv.state, __ATOMIC_ACQUIRE) ==
+        PENDING_RECV_ACTIVE;
+    int64_t local[6] = {
+      local_sent_messages, recv, countPendingIsends(), nbcs, in_recv, dummies
     };
-    int64_t sums[4];
-    reduceDrainCounters(local, sums, 4);
+    int64_t sums[6];
+    reduceDrainCounters(local, sums, 6);
     global_sent_messages = sums[0];
     global_recv_messages = sums[1];
-    if (sums[1] >= sums[0] && sums[2] == 0 && sums[3] == 0) {
+    bool received = sums[1] >= sums[0] && sums[2] == 0 && sums[3] == 0;
+    if (received && sums[4] == 0 && sums[5] == 0) {
       break;
+    }
+    if (received && sums[4] > 0 && dummy_pass == 0) {
+      dummy_pass = 1;
+      t_dummy = drainStatsNow();
     }
   }
   g_drain_stats.t_inflight = drainStatsNow() - t0;
+  if (t_dummy != 0) {
+    g_drain_stats.t_unblock = drainStatsNow() - t_dummy;
+  }
   waitForAllRanksDone();
 }
 
@@ -746,9 +827,10 @@ postDummy()
   kvSetString(g_drain_db, key, dummy);
 }
 
-// Phase C of unblockPendingRecvs(): sends the dummies posted to this rank.
+// Phase C of unblockPendingRecvs(): sends the dummies posted to this rank,
+// with MPI_Isend if 'nonblocking' (see testDummySends()).
 static void
-sendPostedDummies()
+sendPostedDummies(bool nonblocking)
 {
   char key[64];
   int64_t count = 0;  // No key: no dummy to send
@@ -780,13 +862,23 @@ sendPostedDummies()
     // local_sent_messages (the receiver doesn't count it either).
     void *dummy_buf = calloc(bytes > 0 ? bytes : 1, 1);
     int ret;
+    MPI_Request request = MPI_REQUEST_NULL;
     JUMP_TO_LOWER_HALF(lh_info->fsaddr);
-    ret = NEXT_FUNC(Send)(dummy_buf, (int)bytes, lh_info->MANA_BYTE, dest,
-                          tag, realComm);
+    if (nonblocking) {
+      ret = NEXT_FUNC(Isend)(dummy_buf, (int)bytes, lh_info->MANA_BYTE, dest,
+                             tag, realComm, &request);
+    } else {
+      ret = NEXT_FUNC(Send)(dummy_buf, (int)bytes, lh_info->MANA_BYTE, dest,
+                            tag, realComm);
+    }
     RETURN_TO_UPPER_HALF();
     JASSERT(ret == MPI_SUCCESS)(ret)(dest)(tag);
     g_drain_stats.dummies++;
-    free(dummy_buf);
+    if (nonblocking) {
+      g_dummy_sends.push_back({request, dummy_buf});
+    } else {
+      free(dummy_buf);
+    }
   }
 }
 
@@ -834,7 +926,7 @@ unblockPendingRecvs()
 
   // Phase C: send the dummies posted to this rank.  Every rank has set
   // p2p_dummy_phase before the first barrier.
-  sendPostedDummies();
+  sendPostedDummies(false);
   uint64_t t5 = drainStatsNow();
   g_drain_stats.t_dispatch = t5 - t4;
 
@@ -861,7 +953,7 @@ drainP2p()
   __atomic_compare_exchange_n(&g_pending_recv.state, &idle,
                               PENDING_RECV_CLOSED, false, __ATOMIC_ACQ_REL,
                               __ATOMIC_ACQUIRE);
-  if (g_p2p_wait == P2P_WAIT_POLLING) {
+  if (drainHasNoBarrier()) {
     drainWithoutBarriers();
     return;
   }

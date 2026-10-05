@@ -891,9 +891,10 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       if (g_p2p_wait == P2P_WAIT_BLOCKING) {
         close_lower_half();
       }
-      // The lower half is closed now in both modes.  With polling, drainP2p()
-      // has completed the non-blocking collectives.
-      if (g_p2p_wait == P2P_WAIT_BLOCKING) {
+      // The lower half is closed now in both modes.  Without barriers
+      // (drainHasNoBarrier()), drainP2p() has completed the non-blocking
+      // collectives.
+      if (!drainHasNoBarrier()) {
         uint64_t t_nbc = drainStatsNow();
         complete_pending_nonblocking_collectives();  // seq_num.cpp
         g_drain_stats.t_collective += drainStatsNow() - t_nbc;

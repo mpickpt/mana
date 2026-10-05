@@ -125,10 +125,14 @@ void drainInFlightP2p();
 void unblockPendingRecvs();
 
 // Single entry point for draining all P2P communications before
-// checkpoint: drains in-flight messages, then unblocks pending recvs.  With
-// MANA_P2P_WAIT=polling, it also completes the pending non-blocking
+// checkpoint: drains in-flight messages, then unblocks pending recvs.  If
+// drainHasNoBarrier(), it also completes the pending non-blocking
 // collectives, and it uses no barrier (see drainWithoutBarriers()).
 void drainP2p();
+
+// True with MANA_P2P_WAIT=polling, and with blocking if the lower half has a
+// TLS for the checkpoint thread (MPI_THREAD_MULTIPLE).
+bool drainHasNoBarrier();
 
 // What the drain did on this rank at one checkpoint (times in
 // microseconds); see reportDrainStats().
