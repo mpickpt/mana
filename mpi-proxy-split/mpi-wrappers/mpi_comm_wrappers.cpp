@@ -336,6 +336,7 @@ int PMPI_Comm_split_type(MPI_Comm comm, int split_type,
                         int key, MPI_Info inf, MPI_Comm *newcomm)
 {
   int retval;
+  commit_begin(comm);
   LOWER_HALF_DISABLE_CKPT();
   MPI_Comm real_comm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
@@ -349,6 +350,7 @@ int PMPI_Comm_split_type(MPI_Comm comm, int split_type,
     }
   }
   LOWER_HALF_ENABLE_CKPT();
+  commit_finish(comm);
   return retval;
 }
 
