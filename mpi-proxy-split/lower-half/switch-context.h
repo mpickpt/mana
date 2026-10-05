@@ -50,6 +50,7 @@ unsigned long getFS(void);
     unsigned long uhFs_ = 0; \
     if (lhFs_ != 0) { \
       uhFs_ = getFS(); \
+      lhFs_ = lower_half_fs(lhFs_, uhFs_); \
       setFS(lhFs_); \
     }
 

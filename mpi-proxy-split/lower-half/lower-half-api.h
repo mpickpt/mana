@@ -168,9 +168,28 @@ typedef struct _LowerHalfInfo
   MPI_Datatype MANA_COUNT;
   MPI_Errhandler MANA_ERRORS_ARE_FATAL;
   MPI_Errhandler MANA_ERRORS_RETURN;
+  // Blocking mode with MPI_THREAD_MULTIPLE: the FS of
+  // lh_thread_for_extra_tls(), which the checkpoint thread uses in the lower
+  // half, and the checkpoint thread's own FS meanwhile (see lower_half_fs()).
+  // Otherwise NULL.
+  void *ckpt_fsaddr;
+  void *ckpt_uh_fs;
 } LowerHalfInfo_t;
 
-extern LowerHalfInfo_t *lh_info;  
+extern LowerHalfInfo_t *lh_info;
+
+// The FS to enter the lower half with (see JUMP_TO_LOWER_HALF()).  The
+// checkpoint thread gets a TLS of its own, so that it can call MPI while an
+// application thread waits in MPI with the lower half's main TLS.
+static inline unsigned long
+lower_half_fs(unsigned long lh_fs, unsigned long uh_fs)
+{
+  if (__builtin_expect(lh_info->ckpt_uh_fs != NULL, 0) &&
+      (unsigned long)lh_info->ckpt_uh_fs == uh_fs) {
+    return (unsigned long)lh_info->ckpt_fsaddr;
+  }
+  return lh_fs;
+}
 
 #define FOREACH_FNC(MACRO) \
   MACRO(Init) \

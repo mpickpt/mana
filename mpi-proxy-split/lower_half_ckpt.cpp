@@ -115,8 +115,8 @@ init_lower_half_ckpt()
     .Text("MANA needs membarrier(2) (Linux 4.3 or later)");
 }
 
-void
-wait_for_threads_to_leave_lower_half()
+static void
+close_lower_half_and_wait(bool skip_blocked)
 {
   __atomic_store_n(&closing_thread, &lh_thread, __ATOMIC_RELAXED);
   __atomic_store_n(&lower_half_closed, true, __ATOMIC_RELAXED);
@@ -128,11 +128,30 @@ wait_for_threads_to_leave_lower_half()
     if (t == &lh_thread) {
       continue;
     }
-    while (__atomic_load_n(&t->depth, __ATOMIC_ACQUIRE) > 0) {
+    while (__atomic_load_n(&t->depth, __ATOMIC_ACQUIRE) > 0 &&
+           !(skip_blocked &&
+             __atomic_load_n(&t->in_blocking_call, __ATOMIC_ACQUIRE))) {
       usleep(100);
     }
   }
   pthread_mutex_unlock(&threads_lock);
+}
+
+void
+wait_for_threads_to_leave_lower_half()
+{
+  close_lower_half_and_wait(false);
+}
+
+// Closes the lower half too, but does not wait for a thread that is blocked
+// in a lower-half call: it may stay in MPI while the checkpoint thread
+// drains (MANA_P2P_WAIT=blocking, with MPI_THREAD_MULTIPLE).  Any other
+// thread leaves, and new entries wait, so that the checkpoint thread is the
+// only one that tests requests.
+void
+wait_for_unblocked_threads_to_leave_lower_half()
+{
+  close_lower_half_and_wait(true);
 }
 
 void

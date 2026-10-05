@@ -40,7 +40,6 @@
 #include <regex>
 
 #include "mpi_files.h"
-#include "mana_header.h"
 #include "mpi_plugin.h"
 #include "lower-half-api.h"
 #include "lower_half_ckpt.h"
@@ -79,7 +78,6 @@ int pagesize = sysconf(_SC_PAGESIZE);
 get_mmapped_list_fptr_t get_mmapped_list_fnc = NULL;
 std::vector<MmapInfo_t> uh_mmaps;
 
-extern ManaHeader g_mana_header;
 extern std::unordered_map<MPI_File, OpenFileParameters> g_params_map;
 
 bool g_libmana_is_initialized = false;
@@ -604,7 +602,12 @@ save_mana_header(const char *filename)
     return;
   }
 
-  write(fd, &g_mana_header.init_flag, sizeof(int));
+  // One "name=value" line per field.  mana_restart reads p2p_wait to start
+  // the new lower half in the same mode.
+  char text[64];
+  int len = snprintf(text, sizeof(text), "p2p_wait=%s\n",
+                     g_p2p_wait == P2P_WAIT_BLOCKING ? "blocking" : "polling");
+  write(fd, text, len);
   close(fd);
 }
 
@@ -802,7 +805,15 @@ close_lower_half()
 {
   uint64_t t = drainStatsNow();
   wait_for_threads_to_leave_lower_half();  // lower_half_ckpt.cpp
-  g_drain_stats.t_wait_lower_half = drainStatsNow() - t;
+  g_drain_stats.t_wait_lower_half += drainStatsNow() - t;
+}
+
+static void
+close_lower_half_except_blocked()
+{
+  uint64_t t = drainStatsNow();
+  wait_for_unblocked_threads_to_leave_lower_half();  // lower_half_ckpt.cpp
+  g_drain_stats.t_wait_lower_half += drainStatsNow() - t;
 }
 
 static void
@@ -904,18 +915,28 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       // preSuspendBarrier() will send coord response and get worker state.
       // FIXME:  See commant at: dmtcpplugin.cpp:'case DMTCP_EVENT_PRESUSPEND'
       drain_mpi_collective();
-      // From here on, the checkpoint thread calls MPI, which the lower half
-      // runs as MPI_THREAD_SINGLE.  With MANA_P2P_WAIT=polling, no thread
-      // waits in the lower half for the drain, so close it now.  A blocking
-      // MPI_Recv stays there until the P2P drain sends it a dummy.
+      // From here on, the checkpoint thread calls MPI.  With
+      // MANA_P2P_WAIT=polling, no thread waits in the lower half for the
+      // drain, so close it now (the lower half runs as MPI_THREAD_SINGLE).  In
+      // blocking mode, a blocked MPI_Recv stays there until the P2P drain
+      // sends it a dummy.  If the lower half runs as MPI_THREAD_MULTIPLE, the
+      // other threads leave now, and the checkpoint thread uses a lower-half
+      // TLS of its own; otherwise the lower half closes after the drain.
+      bool own_tls = lh_info->ckpt_fsaddr != NULL;
       if (g_p2p_wait == P2P_WAIT_POLLING) {
         close_lower_half();
+      } else if (own_tls) {
+        close_lower_half_except_blocked();
       }
       dmtcp_global_barrier("MPI:Drain-Send-Recv");
       g_drain_stats.t_collective =
         drainStatsNow() - t0 - g_drain_stats.t_wait_lower_half;
       mana_state = CKPT_P2P;
+      if (own_tls) {
+        lh_info->ckpt_uh_fs = (void *)getFS();
+      }
       drainP2p(); // p2p_drain_send_recv.cpp
+      lh_info->ckpt_uh_fs = NULL;
       openCkptFileFds();
       if (g_p2p_wait == P2P_WAIT_BLOCKING) {
         close_lower_half();
