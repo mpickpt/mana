@@ -62,6 +62,7 @@ int MPI_Waitall(int count, MPI_Request* array_of_requests, MPI_Status* array_of_
 int MPI_Waitany(int count, MPI_Request* array_of_requests, int* index, MPI_Status* status);
 int MPI_Testall(int count, MPI_Request* array_of_requests, int* flag, MPI_Status* array_of_statuses);
 int MPI_Testany(int count, MPI_Request* array_of_requests, int* index, int* flag, MPI_Status* status);
+int MPI_Request_get_status(MPI_Request request, int* flag, MPI_Status* status);
 
 int MPI_Comm_group(MPI_Comm comm, MPI_Group* group);
 int MPI_Group_size(MPI_Group group, int* size);

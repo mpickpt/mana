@@ -471,6 +471,10 @@ int PMPI_Iprobe(int source, int tag, MPI_Comm comm, int *flag,
 int PMPI_Request_get_status(MPI_Request request, int *flag, MPI_Status *status)
 {
   int retval;
+  // The MPI library must not write into Fortran's MPI_STATUS_IGNORE.
+  if (status == FORTRAN_MPI_STATUS_IGNORE) {
+    status = MPI_STATUS_IGNORE;
+  }
   LOWER_HALF_DISABLE_CKPT();
   MPI_Request real_request = get_real_id((mana_mpi_handle){.request = request}).request;
   if (real_request == MPI_REQUEST_NULL &&
