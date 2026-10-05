@@ -291,8 +291,11 @@ completePendingP2pRequests()
 #ifdef DEBUG_P2P
         g_recvBytesByRank[worldRank] += call.count * size;
 #endif
-        count_received_message();
-        g_drain_stats.irecvs_completed++;
+        // A receive from MPI_PROC_NULL gets no message: don't count it.
+        if (call.remote_node != MPI_PROC_NULL) {
+          count_received_message();
+          g_drain_stats.irecvs_completed++;
+        }
         // Keep the status for the application's MPI_Wait or MPI_Test.
         complete_virt_request(request, &status);
       } else {
