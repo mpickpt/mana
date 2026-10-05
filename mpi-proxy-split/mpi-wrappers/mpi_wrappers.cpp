@@ -84,6 +84,8 @@ int PMPI_Init(int *argc, char ***argv) {
 
   init_predefined_virt_ids();
   initialize_drain_send_recv();
+  // Before any wrapper compares an argument with Fortran's MPI_STATUS_IGNORE.
+  get_fortran_constants();
   atexit(end_through_lower_half_exit);
   LOWER_HALF_ENABLE_CKPT();
   g_libmpi_is_initialized = true;
@@ -116,6 +118,8 @@ int PMPI_Init_thread(int *argc, char ***argv, int required, int *provided) {
 
   init_predefined_virt_ids();
   initialize_drain_send_recv();
+  // Before any wrapper compares an argument with Fortran's MPI_STATUS_IGNORE.
+  get_fortran_constants();
   atexit(end_through_lower_half_exit);
   LOWER_HALF_ENABLE_CKPT();
   g_libmpi_is_initialized = true;
