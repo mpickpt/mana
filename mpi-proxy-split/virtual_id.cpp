@@ -177,7 +177,9 @@ MPI_Comm new_virt_comm(MPI_Comm real_comm) {
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   NEXT_FUNC(Group_translate_ranks)(local_group, desc->size, local_ranks,
                                    g_world_group, desc->global_ranks);
+  NEXT_FUNC(Group_free)(&local_group);
   RETURN_TO_UPPER_HALF();
+  free(local_ranks);
 
   // MPI_Cart_create, MPI_Cart_sub and MPI_Comm_dup of a Cartesian
   // communicator make a Cartesian communicator.
@@ -236,6 +238,7 @@ MPI_Group new_virt_group(MPI_Group real_group) {
   NEXT_FUNC(Group_translate_ranks)(real_group, desc->size, local_ranks,
                                    g_world_group, desc->global_ranks);
   RETURN_TO_UPPER_HALF();
+  free(local_ranks);
 
   mana_mpi_handle virt_id;
   virt_id = add_virt_id((mana_mpi_handle){.group = real_group}, desc, MANA_GROUP_KIND);
