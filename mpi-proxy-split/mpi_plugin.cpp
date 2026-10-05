@@ -859,6 +859,12 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 
     case DMTCP_EVENT_PRESUSPEND: {
       printEventToStderr("EVENT_PRESUSPEND (finish collective op's)");
+      // A rank still in MPI_Init has no MANA state yet (no rank, no
+      // g_world_comm).  Its MPI_Init can need the other ranks' progress,
+      // which their application threads keep making until the drains.
+      while (!__atomic_load_n(&g_libmpi_is_initialized, __ATOMIC_ACQUIRE)) {
+        usleep(1000);
+      }
       resetDrainStats();  // p2p_drain_send_recv.cpp
       uint64_t t0 = drainStatsNow();
       mana_state = CKPT_COLLECTIVE;

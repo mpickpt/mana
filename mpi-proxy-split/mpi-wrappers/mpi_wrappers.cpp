@@ -88,7 +88,8 @@ int PMPI_Init(int *argc, char ***argv) {
   get_fortran_constants();
   atexit(end_through_lower_half_exit);
   LOWER_HALF_ENABLE_CKPT();
-  g_libmpi_is_initialized = true;
+  // Release: the checkpoint thread waits for it (see PRESUSPEND).
+  __atomic_store_n(&g_libmpi_is_initialized, true, __ATOMIC_RELEASE);
   return retval;
 }
 
@@ -122,7 +123,8 @@ int PMPI_Init_thread(int *argc, char ***argv, int required, int *provided) {
   get_fortran_constants();
   atexit(end_through_lower_half_exit);
   LOWER_HALF_ENABLE_CKPT();
-  g_libmpi_is_initialized = true;
+  // Release: the checkpoint thread waits for it (see PRESUSPEND).
+  __atomic_store_n(&g_libmpi_is_initialized, true, __ATOMIC_RELEASE);
   if (required > MPI_THREAD_FUNNELED && g_world_rank == 0) {
     fprintf(stderr, "WARNING: MANA does not support MPI_THREAD_SERIALIZED "
             "or MPI_THREAD_MULTIPLE.\n");
