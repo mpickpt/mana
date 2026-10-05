@@ -21,6 +21,8 @@
 #include <sys/types.h>
 #include <sys/mman.h>
 #include <sys/resource.h>
+#include <algorithm>
+#include <vector>
 
 #include "mtcp_header.h"
 #include "mem-wrapper.h"
@@ -28,6 +30,7 @@
 #include "lower-half-api.h"
 #include "logging.h"
 #include "dmtcp.h"
+#include "protectedfds.h"
 #include "dmtcprestartinternal.h"
 #include "procmapsarea.h"
 // FIXME:  lower-half should be a standalone program, except where it uses
@@ -78,6 +81,7 @@
 
 // Lower half initialization helper functions
 void set_addr_no_randomize(char *argv[]);
+static void reserve_restart_fds();
 void create_heap_guard_page();
 void initialize_lh_info();
 void *lh_dlsym(enum MPI_Fncs fnc);
@@ -200,6 +204,7 @@ int main(int argc, char *argv[], char *envp[]) {
   int required = (p2p_wait != NULL && strcmp(p2p_wait, "blocking") == 0)
                    ? MPI_THREAD_MULTIPLE : MPI_THREAD_SINGLE;
   int provided = MPI_THREAD_SINGLE;
+  reserve_restart_fds();
   MPI_Init_thread(&argc, &argv, required, &provided);
   if (required == MPI_THREAD_MULTIPLE && provided == MPI_THREAD_MULTIPLE) {
     create_lh_thread_for_extra_tls();
@@ -338,6 +343,82 @@ int main(int argc, char *argv[], char *envp[]) {
 #else
 # error "current architecture not supported"
 #endif /* if defined: __i386__ || x86_64 || __aarch64__ || __riscv */
+  }
+}
+
+// At restart, DMTCP dup2()s the upper half's fds onto their checkpointed
+// numbers after the restore, which closes any fd of this lower half at those
+// numbers.  A placeholder keeps each of those numbers (MANA_RESERVED_FDS, set
+// by mana_restart) free of this lower half's fds; the upper half closes the
+// placeholders left over (closeReservedFds()).
+static void reserve_restart_fds() {
+  const char *list = getenv("MANA_RESERVED_FDS");
+  if (list == NULL || *list == '\0') {
+    return;
+  }
+  // DMTCP takes an fd already open at one of its protected numbers for its
+  // own (e.g., jassert_init()), so neither a placeholder nor an fd of this
+  // lower half may be there: keep at least `room` numbers below them free.
+  const int room = 64;
+  std::vector<int> fds;
+  const char *p = list;
+  while (*p != '\0') {
+    char *end;
+    long fd = strtol(p, &end, 10);
+    if (end == p) {
+      break;
+    }
+    if (fd > 2 && (fd < PROTECTED_FD_START || fd > PROTECTED_FD_END) &&
+        fcntl((int)fd, F_GETFD) == -1) {
+      fds.push_back((int)fd);
+    }
+    p = (*end == ',') ? end + 1 : end;
+  }
+  if (fds.empty()) {
+    return;
+  }
+  std::sort(fds.begin(), fds.end());
+  fds.erase(std::unique(fds.begin(), fds.end()), fds.end());
+
+  int free_below = 0;
+  for (int fd = 3; fd < PROTECTED_FD_START; fd++) {
+    if (!std::binary_search(fds.begin(), fds.end(), fd) &&
+        fcntl(fd, F_GETFD) == -1) {
+      free_below++;
+    }
+  }
+  if (free_below < room) {
+    fprintf(stderr, "MANA: WARNING: too many fds were open at checkpoint to "
+            "keep their numbers free at restart; restoring them can close "
+            "fds of the MPI library.\n");
+    return;
+  }
+
+  // dup2() needs each number below the soft RLIMIT_NOFILE: raise it if
+  // needed.  After the restore, DMTCP sets the checkpointed soft limit again
+  // (rlimitfloatenv).
+  struct rlimit rl;
+  if (getrlimit(RLIMIT_NOFILE, &rl) == 0 && rl.rlim_cur != RLIM_INFINITY &&
+      rl.rlim_cur <= (rlim_t)fds.back()) {
+    rlim_t need = (rlim_t)fds.back() + 1 + room;
+    rl.rlim_cur = (rl.rlim_max == RLIM_INFINITY || rl.rlim_max >= need)
+                    ? need : rl.rlim_max;
+    setrlimit(RLIMIT_NOFILE, &rl);
+  }
+
+  // A memfd has an inode of its own, so closeReservedFds() closes only its
+  // copies, not, e.g., the application's fds of /dev/null.
+  int placeholder = memfd_create("mana-reserved-fd", MFD_CLOEXEC);
+  struct stat st;
+  if (placeholder == -1 || fstat(placeholder, &st) == -1) {
+    return;
+  }
+  lh_info->reserved_fd_dev = st.st_dev;
+  lh_info->reserved_fd_ino = st.st_ino;
+  for (int fd : fds) {
+    if (fd != placeholder) {
+      dup2(placeholder, fd);
+    }
   }
 }
 

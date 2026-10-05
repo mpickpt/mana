@@ -170,6 +170,16 @@ typedef struct _LowerHalfInfo
   // Otherwise NULL.
   void *ckpt_fsaddr;
   void *ckpt_uh_fs;
+  // At restart, DMTCP restores each upper-half fd with dup2() onto its
+  // checkpointed number, which closes any fd that the new lower half already
+  // has at that number (e.g., a UCX socket).  So before MPI_Init,
+  // reserve_restart_fds() dup2()s one memfd onto those numbers: an empty
+  // in-memory file (memfd_create()) with an inode of its own.  DMTCP's
+  // restore replaces the copies that the upper half needs, and
+  // closeReservedFds() closes the others, found by this st_dev and st_ino.
+  // st_ino is 0 if nothing was reserved.
+  unsigned long reserved_fd_dev;
+  unsigned long reserved_fd_ino;
 } LowerHalfInfo_t;
 
 extern LowerHalfInfo_t *lh_info;
