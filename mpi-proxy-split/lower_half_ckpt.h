@@ -36,6 +36,10 @@ struct LowerHalfThread {
   // Nesting depth in LOWER_HALF_DISABLE_CKPT().  Only this thread writes it;
   // the checkpoint thread reads it.
   int depth;
+  // Set around a lower-half call that can block (MPI_Recv, MPI_Send and
+  // MPI_Rsend with MANA_P2P_WAIT=blocking); see
+  // wait_for_unblocked_threads_to_leave_lower_half().
+  bool in_blocking_call;
   bool registered;
   LowerHalfThread *prev;
   LowerHalfThread *next;
@@ -49,6 +53,7 @@ void register_lower_half_thread();
 void unregister_lower_half_thread();
 void wait_until_lower_half_open();
 void wait_for_threads_to_leave_lower_half();
+void wait_for_unblocked_threads_to_leave_lower_half();
 void allow_threads_to_enter_lower_half();
 
 #define LOWER_HALF_DISABLE_CKPT() lower_half_disable_ckpt()
@@ -74,6 +79,24 @@ static inline void
 lower_half_enable_ckpt()
 {
   __atomic_store_n(&lh_thread.depth, lh_thread.depth - 1, __ATOMIC_RELEASE);
+}
+
+// The checkpoint thread does not wait for a thread that is blocked in
+// MPI_Send, MPI_Rsend or MPI_Recv (blocking mode) to leave the lower half.
+// So call this right before such a call, after the wrapper has done
+// everything that the drain reads: counting the message, setting
+// g_pending_recv.
+static inline void
+lower_half_blocking_call_begin()
+{
+  __atomic_store_n(&lh_thread.in_blocking_call, true, __ATOMIC_RELEASE);
+}
+
+// Call this right after the blocking call returns.
+static inline void
+lower_half_blocking_call_end()
+{
+  __atomic_store_n(&lh_thread.in_blocking_call, false, __ATOMIC_RELEASE);
 }
 
 #endif  // ifndef _LOWER_HALF_CKPT_H

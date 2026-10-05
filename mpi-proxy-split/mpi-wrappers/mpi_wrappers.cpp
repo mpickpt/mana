@@ -32,7 +32,6 @@
 #include "mpi_nextfunc.h"
 #include "virtual_id.h"
 #include "p2p_drain_send_recv.h"
-#include "mana_header.h"
 #include "seq_num.h"
 #include "uh_wrappers.h"
 
@@ -48,8 +47,6 @@ static const char collective_p2p_string[] =
    "   ***   individual MPI collective calls for translation to MPI_Send/Recv.\n"
    "   ***************************************************************************\n"
    "\n";
-
-ManaHeader g_mana_header = { .init_flag = MPI_INIT_NO_THREAD };
 
 // An atexit() handler: makes uhExit() (lower-half/mem-wrapper.cpp) end the
 // process through the lower half's exit(), so that its exit handlers run.
@@ -70,8 +67,6 @@ int PMPI_Init(int *argc, char ***argv) {
     fprintf(stderr, collective_p2p_string);
   }
   LOWER_HALF_DISABLE_CKPT();
-
-  g_mana_header.init_flag = MPI_INIT_NO_THREAD;
 
   /*
    * The code below to Initialize MANA should be synchronized 
@@ -104,7 +99,6 @@ int PMPI_Init_thread(int *argc, char ***argv, int required, int *provided) {
     fprintf(stderr, collective_p2p_string);
   }
   LOWER_HALF_DISABLE_CKPT();
-  g_mana_header.init_flag = *provided;
 
   /*
    * The code below to Initialize MANA should be synchronized 

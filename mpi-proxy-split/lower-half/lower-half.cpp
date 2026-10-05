@@ -6,7 +6,10 @@
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
+#include <linux/futex.h>
 #include <pthread.h>
+#include <sched.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -127,6 +130,47 @@ LowerHalfInfo_t *lh_info;
 
 #define MTCP_RESTART_BINARY "mtcp_restart"
 
+// Created only for an extra lower-half TLS, which the checkpoint thread uses
+// (lh_info->ckpt_fsaddr), because glibc makes a TLS only for a new thread.
+// MPI then sees the checkpoint thread as a second thread while an application
+// thread waits in a blocking call.  This thread never does any work: it
+// reports its FS, then waits forever with all signals blocked.
+static void *
+lh_thread_for_extra_tls(void *arg)
+{
+  unsigned long fs = 0;
+  syscall(SYS_arch_prctl, ARCH_GET_FS, &fs);
+  __atomic_store_n((unsigned long *)arg, fs, __ATOMIC_RELEASE);
+  int never = 0;
+  for (;;) {
+    syscall(SYS_futex, &never, FUTEX_WAIT_PRIVATE, 0, NULL, NULL, 0);
+  }
+  return NULL;
+}
+
+static void
+create_lh_thread_for_extra_tls()
+{
+  static unsigned long fs = 0;
+  sigset_t all, old;
+  pthread_t thread;
+  pthread_attr_t attr;
+  sigfillset(&all);
+  pthread_attr_init(&attr);
+  pthread_attr_setstacksize(&attr, 64 * 1024);
+  pthread_sigmask(SIG_SETMASK, &all, &old);
+  int rc = pthread_create(&thread, &attr, lh_thread_for_extra_tls, &fs);
+  pthread_sigmask(SIG_SETMASK, &old, NULL);
+  pthread_attr_destroy(&attr);
+  if (rc != 0) {
+    return;
+  }
+  while (__atomic_load_n(&fs, __ATOMIC_ACQUIRE) == 0) {
+    sched_yield();
+  }
+  lh_info->ckpt_fsaddr = (void *)fs;
+}
+
 int main(int argc, char *argv[], char *envp[]) {
   set_addr_no_randomize(argv);
   Elf64_Addr cmd_entry;
@@ -144,10 +188,22 @@ int main(int argc, char *argv[], char *envp[]) {
   lh_info->fsaddr = (void*)fsaddr;
   lh_info->fsgsbase_enabled = CheckAndEnableFsGsBase();
 
-  // Initialize MPI in advance
+  // Initialize MPI in advance.  In blocking mode (MANA_P2P_WAIT=blocking;
+  // mana_restart sets it from the checkpoint), the checkpoint thread's P2P
+  // drain calls MPI while an application thread waits in the library's
+  // MPI_Recv or MPI_Send.  So two threads are in the library at once: this
+  // needs MPI_THREAD_MULTIPLE.  In polling mode no thread waits in the
+  // library during the drain, so the cheaper MPI_THREAD_SINGLE is enough.
   int rank;
   char **initial_argv = argv;
-  MPI_Init(&argc, &argv);
+  const char *p2p_wait = getenv("MANA_P2P_WAIT");
+  int required = (p2p_wait != NULL && strcmp(p2p_wait, "blocking") == 0)
+                   ? MPI_THREAD_MULTIPLE : MPI_THREAD_SINGLE;
+  int provided = MPI_THREAD_SINGLE;
+  MPI_Init_thread(&argc, &argv, required, &provided);
+  if (required == MPI_THREAD_MULTIPLE && provided == MPI_THREAD_MULTIPLE) {
+    create_lh_thread_for_extra_tls();
+  }
   remove_dangling_env_entries(initial_argv);
   record_lower_half_pid();
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);

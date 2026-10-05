@@ -46,6 +46,19 @@ if "--restartdir" in dmtcp_flags:
               ": Restart directory has .tmp files. ")
         print("Previous checkpoint may be incomplete.")
         sys.exit(1)
+# The new lower half starts MPI for the checkpoint's MANA_P2P_WAIT, which
+# header.mana ("name=value" lines) records as p2p_wait.
+restart_dir = "./"
+if "--restartdir" in dmtcp_flags:
+  restart_dir = dmtcp_flags[dmtcp_flags.index("--restartdir") + 1]
+for rank_dir in sorted(os.listdir(restart_dir)):
+  header = os.path.join(restart_dir, rank_dir, "header.mana")
+  if os.path.isfile(header):
+    with open(header, errors="replace") as f:
+      fields = dict(line.strip().split("=", 1) for line in f if "=" in line)
+    if fields.get("p2p_wait") in ("polling", "blocking"):
+      os.environ["MANA_P2P_WAIT"] = fields["p2p_wait"]
+    break
 if "--ckptdir" in dmtcp_flags:
   ckptdir_path = dmtcp_flags[dmtcp_flags.index("--ckptdir") + 1]
   if not os.path.exists(ckptdir_path):

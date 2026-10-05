@@ -93,9 +93,11 @@ int PMPI_Send(const void *buf, int count, MPI_Datatype datatype,
   }
   MPI_Comm realComm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   MPI_Datatype realType = get_real_id((mana_mpi_handle){.datatype = datatype}).datatype;
+  lower_half_blocking_call_begin();
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Send)(buf, count, realType, dest, tag, realComm);
   RETURN_TO_UPPER_HALF();
+  lower_half_blocking_call_end();
   LOWER_HALF_ENABLE_CKPT();
 #ifdef DEBUG_P2P
   if (retval == MPI_SUCCESS) {
@@ -182,9 +184,11 @@ int PMPI_Rsend(const void* ibuf, int count,
   }
   MPI_Comm realComm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   MPI_Datatype realType = get_real_id((mana_mpi_handle){.datatype = datatype}).datatype;
+  lower_half_blocking_call_begin();
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Rsend)(ibuf, count, realType, dest, tag, realComm);
   RETURN_TO_UPPER_HALF();
+  lower_half_blocking_call_end();
 #ifdef DEBUG_P2P
   if (retval == MPI_SUCCESS) {
     // Updating global counter of send bytes
@@ -295,10 +299,12 @@ retry:
   MPI_Status local_status;
   MPI_Comm realComm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   MPI_Datatype realType = get_real_id((mana_mpi_handle){.datatype = datatype}).datatype;
+  lower_half_blocking_call_begin();
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Recv)(buf, count, realType, source, tag, realComm,
                            &local_status);
   RETURN_TO_UPPER_HALF();
+  lower_half_blocking_call_end();
   bool dummy = p2p_dummy_phase;
   if (dummy) {
     // Do NOT increment local_recv_messages (the dummy bypassed the
