@@ -587,6 +587,24 @@ get_mana_header_file_name()
   return strdup(o.str().c_str());
 }
 
+// After a restart, DMTCP has restored the upper half's fds over the
+// placeholders that the lower half kept them free with; close the others.
+static void
+closeReservedFds()
+{
+  if (lh_info->reserved_fd_ino == 0) {
+    return;
+  }
+  for (int fd : jalib::Filesystem::ListOpenFds()) {
+    struct stat st;
+    if (fstat(fd, &st) == 0 && st.st_dev == lh_info->reserved_fd_dev &&
+        st.st_ino == lh_info->reserved_fd_ino) {
+      close(fd);
+    }
+  }
+  lh_info->reserved_fd_ino = 0;
+}
+
 void
 save_mana_header(const char *filename)
 {
@@ -596,11 +614,21 @@ save_mana_header(const char *filename)
   }
 
   // One "name=value" line per field.  mana_restart reads p2p_wait to start
-  // the new lower half in the same mode.
-  char text[64];
-  int len = snprintf(text, sizeof(text), "p2p_wait=%s\n",
-                     g_p2p_wait == P2P_WAIT_BLOCKING ? "blocking" : "polling");
-  write(fd, text, len);
+  // the new lower half in the same mode, and fds to keep these fd numbers
+  // free for DMTCP's restore (reserve_restart_fds() in the lower half).
+  ostringstream o;
+  o << "p2p_wait=" << (g_p2p_wait == P2P_WAIT_BLOCKING ? "blocking" : "polling")
+    << "\nfds=";
+  const char *sep = "";
+  for (int open_fd : jalib::Filesystem::ListOpenFds()) {
+    if (open_fd > 2 && open_fd != fd && !dmtcp_is_protected_fd(open_fd)) {
+      o << sep << open_fd;
+      sep = ",";
+    }
+  }
+  o << "\n";
+  string text = o.str();
+  write(fd, text.c_str(), text.size());
   close(fd);
 }
 
@@ -985,6 +1013,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 
     case DMTCP_EVENT_RUNNING: {
       closeCkptFileFds();
+      closeReservedFds();
       break;
     }
 
