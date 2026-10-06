@@ -71,6 +71,7 @@ TESTS = [
   Test("p2p_proc_null", 4),
   Test("p2p_ssend", 4),
   Test("p2p_ssend_wait", 4, args=["-w"], program="p2p_ssend"),
+  Test("p2p_ssend_sync", 4),
   Test("fortran_p2p", 2),
   Test("collectives", 4),
   Test("nonblocking_collectives", 4),
