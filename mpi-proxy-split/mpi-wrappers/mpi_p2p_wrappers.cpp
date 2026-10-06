@@ -111,11 +111,13 @@ int PMPI_Send(const void *buf, int count, MPI_Datatype datatype,
   return retval;
 }
 
-// The body of MPI_Isend.  The caller has waited out the P2P drain (see
-// MPI_Isend) and called LOWER_HALF_DISABLE_CKPT().
+// The body of MPI_Isend, or of MPI_Issend if synchronous.  The caller has
+// waited out the P2P drain (see MPI_Isend) and called
+// LOWER_HALF_DISABLE_CKPT().
 static int
 MPI_Isend_internal(const void *buf, int count, MPI_Datatype datatype,
-                   int dest, int tag, MPI_Comm comm, MPI_Request *request)
+                   int dest, int tag, MPI_Comm comm, MPI_Request *request,
+                   bool synchronous = false)
 {
   int retval;
   if (dest != MPI_PROC_NULL) {
@@ -124,7 +126,13 @@ MPI_Isend_internal(const void *buf, int count, MPI_Datatype datatype,
   MPI_Comm realComm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   MPI_Datatype realType = get_real_id((mana_mpi_handle){.datatype = datatype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
-  retval = NEXT_FUNC(Isend)(buf, count, realType, dest, tag, realComm, request);
+  if (synchronous) {
+    retval = NEXT_FUNC(Issend)(buf, count, realType, dest, tag, realComm,
+                               request);
+  } else {
+    retval = NEXT_FUNC(Isend)(buf, count, realType, dest, tag, realComm,
+                              request);
+  }
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS) {
 #ifdef DEBUG_P2P
@@ -199,6 +207,53 @@ int PMPI_Rsend(const void* ibuf, int count,
     g_rsendBytesByRank[worldRank] += count * size;
   }
 #endif
+  LOWER_HALF_ENABLE_CKPT();
+  return retval;
+}
+
+// MPI_Ssend with MANA_P2P_WAIT=polling: MPI_Issend, then MANA's MPI_Wait.
+static int
+ssend_by_polling(const void *buf, int count, MPI_Datatype datatype, int dest,
+                 int tag, MPI_Comm comm)
+{
+  // As in MPI_Isend: don't start a send while the P2P drain runs.
+  while (mana_state == CKPT_P2P) {
+    usleep(100);
+  }
+  MPI_Request request;
+  LOWER_HALF_DISABLE_CKPT();
+  int retval = MPI_Isend_internal(buf, count, datatype, dest, tag, comm,
+                                  &request, true);
+  LOWER_HALF_ENABLE_CKPT();
+  if (retval != MPI_SUCCESS) {
+    return retval;
+  }
+  return PMPI_Wait(&request, MPI_STATUS_IGNORE);
+}
+
+#pragma weak MPI_Ssend = PMPI_Ssend
+int PMPI_Ssend(const void *buf, int count, MPI_Datatype datatype,
+              int dest, int tag, MPI_Comm comm)
+{
+  if (g_p2p_wait == P2P_WAIT_POLLING) {
+    return ssend_by_polling(buf, count, datatype, dest, tag, comm);
+  }
+  int retval;
+  while (mana_state == CKPT_P2P) {
+    usleep(100);
+  }
+  LOWER_HALF_DISABLE_CKPT();
+  // A message to MPI_PROC_NULL is never received: don't count it.
+  if (dest != MPI_PROC_NULL) {
+    local_sent_messages++;
+  }
+  MPI_Comm realComm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
+  MPI_Datatype realType = get_real_id((mana_mpi_handle){.datatype = datatype}).datatype;
+  lower_half_blocking_call_begin();
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
+  retval = NEXT_FUNC(Ssend)(buf, count, realType, dest, tag, realComm);
+  RETURN_TO_UPPER_HALF();
+  lower_half_blocking_call_end();
   LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
