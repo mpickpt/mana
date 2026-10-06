@@ -104,7 +104,9 @@ Both modes checkpoint and restart the same way.
 yields the processor (MPICH 5).
 \f[C]blocking\f[R] is faster on Cray MPICH, and much faster when two
 ranks share a core.
-With an MPI library on UCX, \f[C]blocking\f[R] can fail at a checkpoint.
+In \f[C]blocking\f[R] mode, MANA initializes the MPI library with
+\f[C]MPI_THREAD_MULTIPLE\f[R]; with a library that does not provide it,
+\f[C]blocking\f[R] can fail at a checkpoint (e.g., over UCX).
 MANA reads the variable at \f[C]MPI_Init\f[R] and keeps the mode after
 restart.
 .TP

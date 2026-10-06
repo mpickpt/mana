@@ -25,6 +25,11 @@ As seen in the MANA documentation, for install and a quick start, do:
 On Debian and Ubuntu, also install the package libc6-dbg: MANA needs the
 symbols of the dynamic loader, which these distributions strip.
 
+In a container, MANA needs `personality(ADDR_NO_RANDOMIZE)`, which the
+default seccomp profile of Docker and Podman forbids: run the container with
+`--security-opt seccomp=unconfined` (or a profile that allows it), as MANA's
+CI does.
+
 To run MANA's tests, which checkpoint and restart each test program:
 
     mpi-proxy-split/test/autotest.py         # or: make -C mpi-proxy-split check

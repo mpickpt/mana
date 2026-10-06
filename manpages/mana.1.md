@@ -83,9 +83,11 @@ MANA supports most features of DMTCP, including:
   `blocking`: in the MPI library's own `MPI_Send` and `MPI_Recv`.  Both modes
   checkpoint and restart the same way.  `polling` can be faster when the MPI
   library's blocking wait yields the processor (MPICH 5).  `blocking` is
-  faster on Cray MPICH, and much faster when two ranks share a core.  With an
-  MPI library on UCX, `blocking` can fail at a checkpoint.  MANA reads the
-  variable at `MPI_Init` and keeps the mode after restart.
+  faster on Cray MPICH, and much faster when two ranks share a core.  In
+  `blocking` mode, MANA initializes the MPI library with
+  `MPI_THREAD_MULTIPLE`; with a library that does not provide it, `blocking`
+  can fail at a checkpoint (e.g., over UCX).  MANA reads the variable at
+  `MPI_Init` and keeps the mode after restart.
 
 **`MANA_DEBUG`**
 
