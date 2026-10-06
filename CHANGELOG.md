@@ -22,6 +22,43 @@ TODO for all releases:
 - Finally, go to github and do a new release there.
 --->
 
+## [1.5.0] - 2026-10-05
+
+We're pleased to announce `MANA` 1.5.0 !
+
+### What's new
+* The checkpoint drain of point-to-point messages is rewritten. A checkpoint
+  no longer hangs when a large message is in flight, and messages are no
+  longer lost or reordered across a restart (PR #497, #502, #513, #515).
+* `MANA_P2P_WAIT` chooses how `MPI_Send` and `MPI_Recv` wait: `polling` (the
+  default) or `blocking`. A restart keeps the mode (PR #502, #513).
+* MANA completes pending non-blocking collectives before a checkpoint, and
+  now wraps `MPI_Iallreduce`, `MPI_Ialltoall`, `MPI_Iallgather`,
+  `MPI_Igather`, `MPI_Iscatter` and their variants (PR #504).
+* In the upper half, MANA loads a stub in place of the MPI library. So a
+  program built with any MPICH-ABI library (MPICH, Intel MPI, MVAPICH, Cray
+  MPICH) runs as it is. `mana_launch --use-shadowlibs` is no longer needed
+  and is removed (PR #506).
+* MPI calls cost much less under MANA: handles are looked up in a table
+  instead of a `std::map`, and creating, committing and freeing a datatype is
+  about 2.5 times faster (PR #501, #504, #505).
+* `MANA_PRELOAD` loads libraries, such as a PMPI tool, ahead of MANA (PR #495).
+* A test suite checkpoints and restarts 23 programs
+  (`make -C mpi-proxy-split check`), and GitHub Actions runs it on every pull
+  request (PR #507). New benchmarks measure MANA's overhead per call and per
+  application pattern (PR #500).
+
+### Notes for users
+* In a container, run with `--security-opt seccomp=unconfined`.
+
+### Known limitations
+* With MPICH's `ch4:ofi` device and libfabric's `sockets` provider, a
+  restart can hang, for example with MPICH 5.0.1 on one node with
+  `MPIR_CVAR_NOLOCAL=1`. To avoid it, select libfabric's `tcp` provider
+  with `FI_PROVIDER=tcp`.
+
+**Full Changelog**: https://github.com/mpickpt/mana/compare/v1.4.0...v1.5.0
+
 ## [1.4.0] - 2026-06-28
 
 We're pleased to announce `MANA` 1.4.0 !
