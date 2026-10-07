@@ -21,9 +21,9 @@
 
 ! Fortran point-to-point between two ranks.  Each iteration: a blocking
 ! exchange received with MPI_STATUS_IGNORE (which the MPI library must not
-! write to), one received with a status, an MPI_ALLREDUCE with MPI_IN_PLACE
-! and an MPI_BARRIER.  Stops as the C tests do (see mana_test.h); then rank
-! 0 prints "fortran_p2p: PASS".
+! write to), one received with a status, an MPI_SSEND from rank 0, an
+! MPI_ALLREDUCE with MPI_IN_PLACE and an MPI_BARRIER.  Stops as the C tests
+! do (see mana_test.h); then rank 0 prints "fortran_p2p: PASS".
 
 program fortran_p2p
   use iso_c_binding, only: c_int
@@ -111,6 +111,25 @@ program fortran_p2p
       if ((i <= m .and. rbuf(i) /= val(other, it, n + i)) .or. &
           (i > m .and. rbuf(i) /= -1)) call fail('wrong value (exchange 2)')
     end do
+
+    ! Exchange 3: MPI_SSEND to rank 1, which receives it after 1 ms.
+    do i = 1, n
+      sbuf(i) = val(rank, it, 3 * n + i)
+    end do
+    rbuf = -1
+    if (rank == 0) then
+      call MPI_SSEND(sbuf, n, MPI_INTEGER, other, 4, MPI_COMM_WORLD, ierr)
+      if (ierr /= MPI_SUCCESS) call fail('MPI_SSEND failed')
+    else
+      r = usleep(1000_c_int)
+      call MPI_RECV(rbuf, n, MPI_INTEGER, other, 4, MPI_COMM_WORLD, &
+                    MPI_STATUS_IGNORE, ierr)
+      if (ierr /= MPI_SUCCESS) call fail('MPI_RECV failed')
+      do i = 1, n
+        if (rbuf(i) /= val(other, it, 3 * n + i)) &
+          call fail('wrong value (exchange 3)')
+      end do
+    end if
 
     ! The sum over all ranks, in place.
     do i = 1, n

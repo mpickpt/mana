@@ -43,11 +43,13 @@ class Test:
   known_bug:   a bug that this test still hits; its failure is reported but
                does not fail the run.
   burst:       checkpoints in a row per cycle, without waiting for progress.
+  restart_now: restart right after the checkpoints, without waiting for
+               progress.
   """
 
   def __init__(self, name, ranks, args=(), kind="loop", expect=None,
                restart=False, fails=False, known_bug=None, native_args=None,
-               program=None, burst=1):
+               program=None, burst=1, restart_now=False):
     self.name = name
     self.ranks = ranks
     self.args = list(args)
@@ -61,6 +63,7 @@ class Test:
     # Arguments for a native run of kind "run".
     self.native_args = native_args if native_args is not None else self.args
     self.burst = burst
+    self.restart_now = restart_now
 
 
 TESTS = [
@@ -75,6 +78,13 @@ TESTS = [
   Test("p2p_ssend_wait", 4, args=["-w"], program="p2p_ssend"),
   Test("p2p_ssend_sync", 4),
   Test("p2p_ssend_burst", 4, args=["-b"], program="p2p_ssend_sync", burst=3),
+  Test("p2p_ssend_restart", 4, args=["-r"], program="p2p_ssend_sync",
+       restart_now=True),
+  Test("p2p_ssend_large", 4, args=["-l"], program="p2p_ssend_sync"),
+  Test("p2p_ssend_stress", 4, args=["-x"], program="p2p_ssend_sync"),
+  Test("p2p_ssend_order", 4),
+  Test("p2p_ssend_comm", 4),
+  Test("p2p_ssend_blocked", 3),
   Test("p2p_ssend_collective", 4),
   Test("p2p_ssend_probe", 4),
   Test("p2p_ssend_wildcard", 4),
@@ -343,7 +353,8 @@ class Run:
     for cycle in range(self.opts.cycles):
       for _ in range(t.burst):
         self.checkpoint()
-      self.wait_progress("after the checkpoint", self.log_size())
+      if not t.restart_now:
+        self.wait_progress("after the checkpoint", self.log_size())
       report("ckpt:PASSED")
       self.restart("restart-%d.out" % (cycle + 1))
       self.wait_progress("after the restart")

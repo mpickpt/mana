@@ -28,7 +28,8 @@ E2E_TESTS = p2p_blocking p2p_nonblocking p2p_ring p2p_any_source p2p_probe \
             communicators cartesian datatypes memory init_thread \
             exit_after_finalize attributes misc_calls \
             finalize_unsync abort p2p_ssend p2p_ssend_sync \
-            p2p_ssend_collective p2p_ssend_probe p2p_ssend_wildcard
+            p2p_ssend_collective p2p_ssend_probe p2p_ssend_wildcard \
+            p2p_ssend_order p2p_ssend_comm p2p_ssend_blocked
 E2E_FORTRAN = fortran_p2p fortran_nonblocking
 
 # The suite also runs the example of ../examples (ring_example).
