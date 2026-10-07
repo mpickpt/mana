@@ -903,13 +903,15 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       // MANA_P2P_WAIT=polling, no thread waits in the lower half for the
       // drain, so close it now (the lower half runs as MPI_THREAD_SINGLE).  In
       // blocking mode, a blocked MPI_Recv stays there until the P2P drain
-      // sends it a dummy.  If the lower half runs as MPI_THREAD_MULTIPLE, the
-      // other threads leave now, and the checkpoint thread uses a lower-half
-      // TLS of its own; otherwise the lower half closes after the drain.
+      // sends it a dummy, and the other threads leave now: no application
+      // thread may see a request complete while the drain runs (see
+      // resolvePendingSsends()).  If the lower half runs as
+      // MPI_THREAD_MULTIPLE, the checkpoint thread uses a lower-half TLS of
+      // its own.
       bool own_tls = lh_info->ckpt_fsaddr != NULL;
       if (g_p2p_wait == P2P_WAIT_POLLING) {
         close_lower_half();
-      } else if (own_tls) {
+      } else {
         close_lower_half_except_blocked();
       }
       dmtcp_global_barrier("MPI:Drain-Send-Recv");

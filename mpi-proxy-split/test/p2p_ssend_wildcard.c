@@ -20,22 +20,30 @@
  ****************************************************************************/
 
 // Wildcard receives of MPI_Ssend and MPI_Send messages.  Each iteration,
-// odd ranks MPI_Ssend and even ranks but 0 MPI_Send one message to rank 0,
-// which waits, then receives them alternately: with MPI_Probe (MPI_ANY_SOURCE,
-// MPI_ANY_TAG) and MPI_Recv from the probed source and tag, which must get
-// the probed message; and with MPI_Recv (MPI_ANY_SOURCE, MPI_ANY_TAG), whose
-// status must match the message.
+// odd ranks MPI_Ssend one message to rank 0, and even ranks but 0 MPI_Send
+// two, the second 50 ms later.  Rank 0 waits, then receives them
+// alternately: with MPI_Probe (MPI_ANY_SOURCE, MPI_ANY_TAG) and MPI_Recv from
+// the probed source and tag, which must get the probed message; and with
+// MPI_Recv (MPI_ANY_SOURCE, MPI_ANY_TAG), whose status must match the
+// message.  Each sender's messages must arrive in order.
 
 #include "mana_test.h"
 
 #define MAXLEN 1024  // Words.
-#define HEADER 2     // Sender, iteration.
+#define HEADER 3     // Sender, iteration, message number.
 #define WAIT_MS 100  // Checkpoints find the MPI_Ssends waiting
 
 static int
-msg_len(int rank, long it)
+msg_len(int rank, long it, int k)
 {
-  return HEADER + (int)((rank * 131 + it * 7) % (MAXLEN - HEADER));
+  return HEADER + (int)((rank * 131 + it * 7 + k * 61) % (MAXLEN - HEADER));
+}
+
+// Messages from 'rank' per iteration.
+static int
+msgs(int rank)
+{
+  return rank % 2 == 1 ? 1 : 2;
 }
 
 int
@@ -47,16 +55,22 @@ main(int argc, char **argv)
   long it;
   for (it = 0; mt_continue(it); it++) {
     if (mt_rank != 0) {
-      int len = msg_len(mt_rank, it);
-      buf[0] = mt_rank;
-      buf[1] = (int)it;
-      for (int i = HEADER; i < len; i++) {
-        buf[i] = mt_value(mt_rank, it, i);
-      }
-      if (mt_rank % 2 == 1) {
-        MT_MPI(MPI_Ssend(buf, len, MPI_INT, 0, mt_rank, MPI_COMM_WORLD));
-      } else {
-        MT_MPI(MPI_Send(buf, len, MPI_INT, 0, mt_rank, MPI_COMM_WORLD));
+      for (int k = 0; k < msgs(mt_rank); k++) {
+        int len = msg_len(mt_rank, it, k);
+        buf[0] = mt_rank;
+        buf[1] = (int)it;
+        buf[2] = k;
+        for (int i = HEADER; i < len; i++) {
+          buf[i] = mt_value(mt_rank, it, k * MAXLEN + i);
+        }
+        if (mt_rank % 2 == 1) {
+          MT_MPI(MPI_Ssend(buf, len, MPI_INT, 0, mt_rank, MPI_COMM_WORLD));
+        } else {
+          if (k > 0) {
+            usleep(50000);
+          }
+          MT_MPI(MPI_Send(buf, len, MPI_INT, 0, mt_rank, MPI_COMM_WORLD));
+        }
       }
       MT_MPI(MPI_Barrier(MPI_COMM_WORLD));
       continue;
@@ -64,9 +78,13 @@ main(int argc, char **argv)
     for (int ms = 0; ms < WAIT_MS; ms++) {
       usleep(1000);
     }
-    int seen[mt_size];
-    memset(seen, 0, sizeof(seen));
-    for (int j = 1; j < mt_size; j++) {
+    int next[mt_size];
+    memset(next, 0, sizeof(next));
+    int total = 0;
+    for (int r = 1; r < mt_size; r++) {
+      total += msgs(r);
+    }
+    for (int j = 1; j <= total; j++) {
       MPI_Status probed, status;
       int count, received;
       if (j % 2 == 1) {
@@ -88,14 +106,18 @@ main(int argc, char **argv)
                "iteration %ld: probed %d %d %d, received %d %d %d", it,
                probed.MPI_SOURCE, probed.MPI_TAG, count, src, status.MPI_TAG,
                received);
-      MT_CHECK(src > 0 && src < mt_size && !seen[src]++ && status.MPI_TAG == src
-               && count == msg_len(src, it) && buf[0] == src &&
-               buf[1] == (int)it,
-               "iteration %ld: source %d tag %d count %d header %d %d", it,
-               src, status.MPI_TAG, count, buf[0], buf[1]);
+      MT_CHECK(src > 0 && src < mt_size && next[src] < msgs(src),
+               "iteration %ld: message from %d", it, src);
+      int k = next[src]++;
+      MT_CHECK(status.MPI_TAG == src && count == msg_len(src, it, k) &&
+               buf[0] == src && buf[1] == (int)it && buf[2] == k,
+               "iteration %ld message %d from %d: tag %d count %d header %d "
+               "%d %d", it, k, src, status.MPI_TAG, count, buf[0], buf[1],
+               buf[2]);
       for (int i = HEADER; i < count; i++) {
-        MT_CHECK(buf[i] == mt_value(src, it, i),
-                 "iteration %ld from %d word %d: %d", it, src, i, buf[i]);
+        MT_CHECK(buf[i] == mt_value(src, it, k * MAXLEN + i),
+                 "iteration %ld message %d from %d word %d: %d", it, k, src,
+                 i, buf[i]);
       }
     }
     MT_MPI(MPI_Barrier(MPI_COMM_WORLD));
