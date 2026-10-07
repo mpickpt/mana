@@ -19,55 +19,58 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
-// MPI_Ssend must not return before its receive is posted, even when a
-// checkpoint drains the message: the sender then sends a marker, which the
-// receiver must not see before it posts the receive.  With -b (the test
-// p2p_ssend_burst), the receiver waits 2 s, so that checkpoints in a row
-// find the MPI_Ssend still waiting.
+// A probed MPI_Ssend message stays probed: once MPI_Iprobe finds it, every
+// later MPI_Iprobe finds it, with the same count, until it is received, even
+// when a checkpoint drains it meanwhile.
 
 #include "mana_test.h"
 
-#define N 32
-#define WAIT_MS 100  // The receiver waits; checkpoints find the sender waiting
-#define BURST_WAIT_MS 2000
+#define MAXLEN 1024
+#define WAIT_MS 100  // Checkpoints find the message probed, not received
+
+static int
+msg_len(int rank, long it)
+{
+  return 1 + (int)((rank * 31 + it * 7) % MAXLEN);
+}
 
 int
 main(int argc, char **argv)
 {
-  int burst = argc > 1 && strcmp(argv[1], "-b") == 0;
-  mt_init(&argc, &argv, burst ? "p2p_ssend_burst" : "p2p_ssend_sync");
-  int wait_ms = burst ? BURST_WAIT_MS : WAIT_MS;
+  mt_init(&argc, &argv, "p2p_ssend_probe");
   MT_CHECK(mt_size % 2 == 0, "needs an even number of ranks, not %d", mt_size);
   int sender = mt_rank % 2 == 0;
   int partner = sender ? mt_rank + 1 : mt_rank - 1;
-  int out[N], in[N];
+  int buf[MAXLEN];
   long it;
   for (it = 0; mt_continue(it); it++) {
+    int len = msg_len(sender ? mt_rank : partner, it);
     if (sender) {
-      for (int i = 0; i < N; i++) {
-        out[i] = mt_value(mt_rank, it, i);
+      for (int i = 0; i < len; i++) {
+        buf[i] = mt_value(mt_rank, it, i);
       }
-      MT_MPI(MPI_Ssend(out, N, MPI_INT, partner, 1, MPI_COMM_WORLD));
-      MT_MPI(MPI_Send(&it, 1, MPI_LONG, partner, 2, MPI_COMM_WORLD));
+      MT_MPI(MPI_Ssend(buf, len, MPI_INT, partner, 1, MPI_COMM_WORLD));
       continue;
     }
-    for (int ms = 0; ms < wait_ms; ms++) {
-      int flag;
-      MT_MPI(MPI_Iprobe(partner, 2, MPI_COMM_WORLD, &flag,
-                        MPI_STATUS_IGNORE));
-      MT_CHECK(!flag, "iteration %ld: MPI_Ssend returned before its receive",
-               it);
-      usleep(1000);
+    int flag = 0;
+    MPI_Status status;
+    while (!flag) {
+      MT_MPI(MPI_Iprobe(partner, 1, MPI_COMM_WORLD, &flag, &status));
     }
-    MT_MPI(MPI_Recv(in, N, MPI_INT, partner, 1, MPI_COMM_WORLD,
+    for (int ms = 0; ms < WAIT_MS; ms++) {
+      int count;
+      MPI_Get_count(&status, MPI_INT, &count);
+      MT_CHECK(flag && count == len,
+               "iteration %ld: probed message lost (flag %d count %d, not %d)",
+               it, flag, count, len);
+      usleep(1000);
+      MT_MPI(MPI_Iprobe(partner, 1, MPI_COMM_WORLD, &flag, &status));
+    }
+    MT_MPI(MPI_Recv(buf, len, MPI_INT, partner, 1, MPI_COMM_WORLD,
                     MPI_STATUS_IGNORE));
-    long marker;
-    MT_MPI(MPI_Recv(&marker, 1, MPI_LONG, partner, 2, MPI_COMM_WORLD,
-                    MPI_STATUS_IGNORE));
-    MT_CHECK(marker == it, "iteration %ld: marker %ld", it, marker);
-    for (int i = 0; i < N; i++) {
-      MT_CHECK(in[i] == mt_value(partner, it, i), "iteration %ld word %d: %d",
-               it, i, in[i]);
+    for (int i = 0; i < len; i++) {
+      MT_CHECK(buf[i] == mt_value(partner, it, i), "iteration %ld word %d: %d",
+               it, i, buf[i]);
     }
   }
   mt_finish(it);

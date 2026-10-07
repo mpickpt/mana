@@ -42,11 +42,12 @@ class Test:
   fails:       the run must end with a nonzero status (e.g. MPI_Abort).
   known_bug:   a bug that this test still hits; its failure is reported but
                does not fail the run.
+  burst:       checkpoints in a row per cycle, without waiting for progress.
   """
 
   def __init__(self, name, ranks, args=(), kind="loop", expect=None,
                restart=False, fails=False, known_bug=None, native_args=None,
-               program=None):
+               program=None, burst=1):
     self.name = name
     self.ranks = ranks
     self.args = list(args)
@@ -59,6 +60,7 @@ class Test:
     self.program = program or name
     # Arguments for a native run of kind "run".
     self.native_args = native_args if native_args is not None else self.args
+    self.burst = burst
 
 
 TESTS = [
@@ -72,6 +74,10 @@ TESTS = [
   Test("p2p_ssend", 4),
   Test("p2p_ssend_wait", 4, args=["-w"], program="p2p_ssend"),
   Test("p2p_ssend_sync", 4),
+  Test("p2p_ssend_burst", 4, args=["-b"], program="p2p_ssend_sync", burst=3),
+  Test("p2p_ssend_collective", 4),
+  Test("p2p_ssend_probe", 4),
+  Test("p2p_ssend_wildcard", 4),
   Test("fortran_p2p", 2),
   Test("collectives", 4),
   Test("nonblocking_collectives", 4),
@@ -335,7 +341,8 @@ class Run:
                 "launch.out")
     self.wait_progress("after launch")
     for cycle in range(self.opts.cycles):
-      self.checkpoint()
+      for _ in range(t.burst):
+        self.checkpoint()
       self.wait_progress("after the checkpoint", self.log_size())
       report("ckpt:PASSED")
       self.restart("restart-%d.out" % (cycle + 1))
