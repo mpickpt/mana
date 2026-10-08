@@ -447,6 +447,11 @@ void set_addr_no_randomize(char *argv[]) {
     setenv(stack_pad, string(64 * 1024, 'x').c_str(), 1);
     personality(ADDR_NO_RANDOMIZE);
     execvpe(argv[0], argv, environ);
+    // E2BIG near the exec size limit: retry without the pad.
+    unsetenv(stack_pad);
+    execvpe(argv[0], argv, environ);
+    fprintf(stderr, "MANA: cannot re-execute %s: %s\n", argv[0], strerror(errno));
+    exit(1);
   } else {
     env[0] = '0';
     // Emptied in place: unsetenv() would shift envp, which deepCopyStack() walks.
