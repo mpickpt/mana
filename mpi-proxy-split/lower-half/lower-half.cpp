@@ -14,6 +14,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <sys/auxv.h>
 #include <sys/personality.h>
 #include <asm/prctl.h>
 #include <sys/stat.h>
@@ -100,6 +101,7 @@ void release_reserved_memory(RestoreTarget *t, off_t ckpt_file_pos);
 void restore_session_leadership(RestoreTarget *t);
 void restore_memory_data(RestoreTarget *t, DmtcpCkptHeader &ckpt_hdr);
 static int restoreMemoryArea(int fd, DmtcpCkptHeader *ckptHdr);
+static void check_vdso_address(const DmtcpCkptHeader &ckpt_hdr);
 
 // Launch Mode helper functions
 void parse_launch_arguments(int argc, char **argv, int *cmd_argc, char ***cmd_argv);
@@ -259,6 +261,7 @@ int main(int argc, char *argv[], char *envp[]) {
     release_reserved_memory(t, ckpt_file_pos);
     restore_session_leadership(t);
     restore_memory_data(t, ckpt_hdr);
+    check_vdso_address(ckpt_hdr);
     init_mem_arena_after_restore();
     create_heap_guard_page();
     /* Everything restored, close file and finish up */
@@ -436,13 +439,26 @@ static void reserve_restart_fds() {
 void set_addr_no_randomize(char *argv[]) {
   extern char **environ;
   const char *first_time = "MANA_FIRST_TIME";
+  const char *stack_pad = "MANA_STACK_PAD";
   char *env = getenv(first_time);
   if (env == NULL) {
     setenv(first_time, "1", 1);
+    // Keeps the vDSO at one address in every exec (else random with 5-level paging).
+    setenv(stack_pad, string(64 * 1024, 'x').c_str(), 1);
     personality(ADDR_NO_RANDOMIZE);
     execvpe(argv[0], argv, environ);
+    // E2BIG near the exec size limit: retry without the pad.
+    unsetenv(stack_pad);
+    execvpe(argv[0], argv, environ);
+    fprintf(stderr, "MANA: cannot re-execute %s: %s\n", argv[0], strerror(errno));
+    exit(1);
   } else {
     env[0] = '0';
+    // Emptied in place: unsetenv() would shift envp, which deepCopyStack() walks.
+    char *pad = getenv(stack_pad);
+    if (pad != NULL) {
+      pad[0] = '\0';
+    }
   }
 }
 
@@ -884,6 +900,19 @@ void restore_memory_data(RestoreTarget *t, DmtcpCkptHeader &ckpt_hdr)
     if (ret == -1) {
       break; /* end of ckpt image */
     }
+  }
+}
+
+// The upper half's libc calls the vDSO at its address in the checkpointed process.
+static void
+check_vdso_address(const DmtcpCkptHeader &ckpt_hdr)
+{
+  unsigned long vdso = getauxval(AT_SYSINFO_EHDR);
+  if (ckpt_hdr.vdso.startAddr != 0 && vdso != ckpt_hdr.vdso.startAddr) {
+    fprintf(stderr, "MANA: the vDSO is at %p, but was at %p in the checkpointed "
+            "process; the application would crash in clock_gettime()\n",
+            (void *)vdso, (void *)ckpt_hdr.vdso.startAddr);
+    exit(1);
   }
 }
 
