@@ -79,8 +79,7 @@ static std::vector<int> keyvalVec;
 static std::unordered_map<int, KeyvalTuple> tupleMap;
 
 // The following are prvalues. So we need an address to point them to.
-// On Cori, this is 2^22 - 1, but it just needs to be greater than 2^15 - 1.
-static const int MAX_TAG_COUNT = 2097151;
+static int tag_ub;  // The lower half's MPI_TAG_UB
 // We're actually supposed to check the rank of the HOST process in the group
 // associated with the MPI_COMM_WORLD communicator, but even the standard says
 // "MPI does not specify what it means for a process to be a HOST, nor does it
@@ -219,10 +218,21 @@ int PMPI_Comm_get_attr(MPI_Comm comm, int comm_keyval, void *attribute_val, int 
   }
   // Environmental inquiries
   switch (comm_keyval) {
-    case MPI_TAG_UB:
-      * (const int **) attribute_val = &MAX_TAG_COUNT;
-      *flag = 1;
+    case MPI_TAG_UB: {
+      // The lower half's: MPI libraries differ, and restart may change it.
+      int *ub = NULL;
+      LOWER_HALF_DISABLE_CKPT();
+      MPI_Comm real_comm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
+      JUMP_TO_LOWER_HALF(lh_info->fsaddr);
+      retval = NEXT_FUNC(Comm_get_attr)(real_comm, MPI_TAG_UB, &ub, flag);
+      RETURN_TO_UPPER_HALF();
+      LOWER_HALF_ENABLE_CKPT();
+      if (retval == MPI_SUCCESS && *flag) {
+        tag_ub = *ub;
+        * (int **) attribute_val = &tag_ub;
+      }
       return retval;
+    }
     case MPI_HOST:
       * (const int **) attribute_val = &MPI_HOST_RANK;
       *flag = 1;
