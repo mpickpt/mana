@@ -145,9 +145,8 @@ wait_for_threads_to_leave_lower_half()
 
 // Closes the lower half too, but does not wait for a thread that is blocked
 // in a lower-half call: it may stay in MPI while the checkpoint thread
-// drains (MANA_P2P_WAIT=blocking, with MPI_THREAD_MULTIPLE).  Any other
-// thread leaves, and new entries wait, so that the checkpoint thread is the
-// only one that tests requests.
+// drains (MANA_P2P_WAIT=blocking).  Any other thread leaves, and new entries
+// wait, so that the checkpoint thread is the only one that tests requests.
 void
 wait_for_unblocked_threads_to_leave_lower_half()
 {

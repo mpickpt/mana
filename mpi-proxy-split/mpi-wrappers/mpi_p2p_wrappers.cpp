@@ -111,11 +111,13 @@ int PMPI_Send(const void *buf, int count, MPI_Datatype datatype,
   return retval;
 }
 
-// The body of MPI_Isend.  The caller has waited out the P2P drain (see
-// MPI_Isend) and called LOWER_HALF_DISABLE_CKPT().
+// The body of MPI_Isend, or of MPI_Issend if synchronous.  The caller has
+// waited out the P2P drain (see MPI_Isend) and called
+// LOWER_HALF_DISABLE_CKPT().
 static int
 MPI_Isend_internal(const void *buf, int count, MPI_Datatype datatype,
-                   int dest, int tag, MPI_Comm comm, MPI_Request *request)
+                   int dest, int tag, MPI_Comm comm, MPI_Request *request,
+                   bool synchronous = false)
 {
   int retval;
   if (dest != MPI_PROC_NULL) {
@@ -124,7 +126,13 @@ MPI_Isend_internal(const void *buf, int count, MPI_Datatype datatype,
   MPI_Comm realComm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   MPI_Datatype realType = get_real_id((mana_mpi_handle){.datatype = datatype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
-  retval = NEXT_FUNC(Isend)(buf, count, realType, dest, tag, realComm, request);
+  if (synchronous) {
+    retval = NEXT_FUNC(Issend)(buf, count, realType, dest, tag, realComm,
+                               request);
+  } else {
+    retval = NEXT_FUNC(Isend)(buf, count, realType, dest, tag, realComm,
+                              request);
+  }
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS) {
 #ifdef DEBUG_P2P
@@ -136,9 +144,12 @@ MPI_Isend_internal(const void *buf, int count, MPI_Datatype datatype,
     printf("rank %d sends %d bytes to rank %d\n", g_world_rank, count * size, worldRank);
     fflush(stdout);
 #endif
-    // Virtualize request
+    // Virtualize request.  A message to MPI_PROC_NULL needs no MPI_Ssend
+    // handling (see resolvePendingSsends()).
     *request = new_virt_request(*request);
-    addPendingRequestToLog(ISEND_REQUEST, buf, NULL, count,
+    mpi_req_t type = synchronous && dest != MPI_PROC_NULL ? ISSEND_REQUEST
+                                                          : ISEND_REQUEST;
+    addPendingRequestToLog(type, buf, NULL, count,
                            datatype, dest, tag, comm, *request);
 #ifdef USE_REQUEST_LOG
     logRequestInfo(*request, ISEND_REQUEST);
@@ -201,6 +212,43 @@ int PMPI_Rsend(const void* ibuf, int count,
 #endif
   LOWER_HALF_ENABLE_CKPT();
   return retval;
+}
+
+// MPI_Ssend in both modes (MANA_P2P_WAIT): MPI_Issend, then MANA's MPI_Wait.
+// If a checkpoint drains the message before its receive is posted, the
+// request becomes a receive of the receiver's ack (see
+// resolvePendingSsends()).
+#pragma weak MPI_Ssend = PMPI_Ssend
+int PMPI_Ssend(const void *buf, int count, MPI_Datatype datatype,
+              int dest, int tag, MPI_Comm comm)
+{
+  // As in MPI_Isend: don't start a send while the P2P drain runs.
+  while (mana_state == CKPT_P2P) {
+    usleep(100);
+  }
+  MPI_Request request;
+  LOWER_HALF_DISABLE_CKPT();
+  int retval = MPI_Isend_internal(buf, count, datatype, dest, tag, comm,
+                                  &request, true);
+  LOWER_HALF_ENABLE_CKPT();
+  if (retval != MPI_SUCCESS) {
+    return retval;
+  }
+  return PMPI_Wait(&request, MPI_STATUS_IGNORE);
+}
+
+// Called from consumeMatchingMsgBuffer(), under LOWER_HALF_DISABLE_CKPT().
+// The ack has no data, and its receive is posted (or replayed on restart):
+// it completes at once.
+void
+sendSsendAck(int rank)
+{
+  MPI_Request request;
+  int retval = MPI_Isend_internal(NULL, 0, MPI_BYTE, rank, 0,
+                                  g_ssend_ack_comm, &request);
+  JASSERT(retval == MPI_SUCCESS)(retval)(rank);
+  retval = PMPI_Wait(&request, MPI_STATUS_IGNORE);
+  JASSERT(retval == MPI_SUCCESS)(retval)(rank);
 }
 
 #pragma weak MPI_Recv = PMPI_Recv

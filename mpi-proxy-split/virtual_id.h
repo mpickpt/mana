@@ -139,6 +139,9 @@ typedef enum __mpi_req
   IBCAST_REQUEST,
   IREDUCE_REQUEST,
   IBARRIER_REQUEST,
+  // An MPI_Ssend's MPI_Issend (see resolvePendingSsends()).  Its real
+  // request is MPI_REQUEST_NULL once the P2P drain has completed it.
+  ISSEND_REQUEST,
 } mpi_req_t;
 
 // Struct to store the metadata of an nonblocking MPI send/recv call

@@ -215,6 +215,17 @@ clearPendingRequestFromLog(MPI_Request req)
   unlockPending();
 }
 
+void
+replacePendingCall(MPI_Request req, const mpi_nonblocking_call_t *call)
+{
+  lockPending();
+  virt_id_entry *entry =
+    lookup_virt_id_entry((mana_mpi_handle){.request = req});
+  JASSERT(entry != NULL && entry->call.type != UNKNOW_REQUEST)(req);
+  entry->call = *call;
+  unlockPending();
+}
+
 std::vector<MPI_Request>
 pendingRequestsInPostingOrder()
 {
@@ -307,7 +318,8 @@ replayMpiP2pOnRestart()
         JASSERT(retval == MPI_SUCCESS).Text("Error while replaying recv");
         break;
       case ISEND_REQUEST:
-        JASSERT(false)
+      case ISSEND_REQUEST:
+        JASSERT(false)(call->type)
           .Text("There should be no pending MPI_Isend after restart");
         break;
       default:
