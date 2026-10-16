@@ -65,23 +65,31 @@ char *deepCopyStack(int argc, char **argv, char *argc_ptr, char *argv_ptr,
     env_strings_count++;
   }
   char **env_strings = (char **)malloc(env_strings_count * sizeof(char *));
-  size_t *env_strings_len =
+  size_t *env_strlen_array =
     (size_t *)malloc(env_strings_count * sizeof(size_t));
   int env_strings_size = 0;
   for (i = 0; i < env_strings_count && __environ[i] != NULL; i++) {
     env_strings[i] = __environ[i];
-    env_strings_len[i] = strlen(__environ[i]);
-    env_strings_size += env_strings_len[i] + 1;
+    env_strlen_array[i] = strlen(__environ[i]);
+    env_strings_size += env_strlen_array[i] + 1;
   }
   env_strings_count = i;
   int env_ptr_size = (env_strings_count + 1) * sizeof(__environ[0]);
   char *env_ptr_addr = (char *)&__environ[0];
   char **new_env_ptrs = (char**)malloc(env_ptr_size);
   memset(new_env_ptrs, 0, env_ptr_size);
-  char *argv_strings_addr = argv[0];
-  int argv_strings_size = (argv[argc-1] + strlen(argv[argc-1]) + 1) - argv[0];
+  // Copy the dest_argv strings too.  They are in the lower half's initial
+  //   stack and heap, which are not checkpointed: after a restart, that stack
+  //   holds the restarted lower half's own arguments and environment.
+  assert(dest_argv[dest_argc] == NULL);
+  size_t *argv_strlen_array = (size_t *)malloc(dest_argc * sizeof(size_t));
+  int argv_strings_size = 0;
+  for (i = 0; i < dest_argc; i++) {
+    argv_strlen_array[i] = strlen(dest_argv[i]);
+    argv_strings_size += argv_strlen_array[i] + 1;
+  }
   int argv_ptr_size = (dest_argc + 1) * sizeof(argv[0]);
-  char *argv_ptr_addr = (char *)&dest_argv[0];
+  char **new_argv_ptrs = (char **)malloc(argv_ptr_size);
 
   for (i = 0; auxv[i].a_type != AT_NULL; i++) {};
   assert(auxv[i].a_type == AT_NULL);
@@ -181,19 +189,19 @@ dbg_end_marker_addr = dest_curr_stack;
   *****************************/
   dest_curr_stack -= env_strings_size;
   for (i = 0; i < env_strings_count; i++) {
-    memcpy(dest_curr_stack, env_strings[i], env_strings_len[i]);
-    dest_curr_stack[env_strings_len[i]] = '\0';
+    memcpy(dest_curr_stack, env_strings[i], env_strlen_array[i]);
+    dest_curr_stack[env_strlen_array[i]] = '\0';
     // Change UH_PRELOAD to LD_PRELOAD
     if (strstr(dest_curr_stack, "UH_PRELOAD")) {
       dest_curr_stack[0] = 'L';
       dest_curr_stack[1] = 'D';
     }
     new_env_ptrs[i] = dest_curr_stack;
-    dest_curr_stack += env_strings_len[i] + 1;
+    dest_curr_stack += env_strlen_array[i] + 1;
   }
   assert(dest_curr_stack == dest_stack_bottom - sizeof(NULL));
   free(env_strings);
-  free(env_strings_len);
+  free(env_strlen_array);
   dest_curr_stack -= env_strings_size;
   environ = __environ = (char **)dest_curr_stack;
   // ld.so will probably reset environ and __environ anyway
@@ -203,8 +211,14 @@ dbg_env_strings_addr = dest_curr_stack;
   * argv strings
   *****************************/
   dest_curr_stack -= argv_strings_size;
-  memcpy(dest_curr_stack, argv_strings_addr, argv_strings_size);
-  // ld.so will probably reset environ and __environ anyway
+  char *arg = dest_curr_stack;
+  for (i = 0; i < dest_argc; i++) {
+    memcpy(arg, dest_argv[i], argv_strlen_array[i] + 1);
+    new_argv_ptrs[i] = arg;
+    arg += argv_strlen_array[i] + 1;
+  }
+  new_argv_ptrs[dest_argc] = NULL;
+  free(argv_strlen_array);
 dbg_argv_strings_addr = dest_curr_stack;
 
  /*****************************
@@ -249,9 +263,10 @@ dbg_env_ptr_addr = dest_curr_stack;
   * argv pointers
   *****************************/
   dest_curr_stack -= argv_ptr_size;
-  memcpy(dest_curr_stack, argv_ptr_addr, argv_ptr_size);
-  assert( *(char **)((char *)argv_ptr_addr+argv_ptr_size - sizeof(argv[0]))
-                    == NULL );
+  // As for envp: point to the copies on the new stack.
+  memcpy(dest_curr_stack, new_argv_ptrs, argv_ptr_size);
+  assert( ((char **)dest_curr_stack)[dest_argc] == NULL );
+  free(new_argv_ptrs);
 dbg_argv_ptr_addr = dest_curr_stack;
 
  /*****************************
