@@ -240,6 +240,7 @@ int PMPI_Comm_free(MPI_Comm *comm)
   int retval = MPI_Comm_free_internal(comm);
   if (retval == MPI_SUCCESS) {
     free_virt_id((mana_mpi_handle){.comm = *comm});
+    *comm = MPI_COMM_NULL;
   }
   LOWER_HALF_ENABLE_CKPT();
   return retval;
