@@ -47,8 +47,9 @@ int PMPI_File_open(MPI_Comm comm, const char *filename,
   int retval;
   LOWER_HALF_DISABLE_CKPT();
   MPI_Comm realComm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
+  MPI_Info realInfo = lower_half_handle(info);
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
-  retval = NEXT_FUNC(File_open)(realComm, filename, amode, info, fh);
+  retval = NEXT_FUNC(File_open)(realComm, filename, amode, realInfo, fh);
   RETURN_TO_UPPER_HALF();
 
   // Save file initialization parameters to restore the file on restart
@@ -136,9 +137,10 @@ int PMPI_File_set_view(MPI_File fh, MPI_Offset disp,
   MPI_File real_file = get_real_id((mana_mpi_handle){.file = fh}).file;
   MPI_Datatype realEtype = get_real_id((mana_mpi_handle){.datatype = etype}).datatype;
   MPI_Datatype realFtype = get_real_id((mana_mpi_handle){.datatype = filetype}).datatype;
+  MPI_Info realInfo = lower_half_handle(info);
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(File_set_view)(real_file, disp, realEtype, realFtype,
-                                    datarep, info);
+                                    datarep, realInfo);
   RETURN_TO_UPPER_HALF();
 
   // Normally, we wait until checkpoint time to update any file characteristics
@@ -384,8 +386,9 @@ int PMPI_File_delete(const char *filename, MPI_Info info)
 {
   int retval;
   LOWER_HALF_DISABLE_CKPT();
+  MPI_Info realInfo = lower_half_handle(info);
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
-  retval = NEXT_FUNC(File_delete)(filename, info);
+  retval = NEXT_FUNC(File_delete)(filename, realInfo);
   RETURN_TO_UPPER_HALF();
 
   // MPI_File_delete results in an error if the file is opened by any other
@@ -407,8 +410,9 @@ int PMPI_File_set_errhandler(MPI_File file, MPI_Errhandler errhandler)
   int retval;
   LOWER_HALF_DISABLE_CKPT();
   MPI_File real_file = get_real_id((mana_mpi_handle){.file = file}).file;
+  MPI_Errhandler real_errhandler = lower_half_handle(errhandler);
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
-  retval = NEXT_FUNC(File_set_errhandler)(real_file, errhandler);
+  retval = NEXT_FUNC(File_set_errhandler)(real_file, real_errhandler);
   RETURN_TO_UPPER_HALF();
   LOWER_HALF_ENABLE_CKPT();
   return retval;
@@ -423,6 +427,9 @@ int PMPI_File_get_errhandler(MPI_File file, MPI_Errhandler *errhandler)
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(File_get_errhandler)(real_file, errhandler);
   RETURN_TO_UPPER_HALF();
+  if (retval == MPI_SUCCESS) {
+    *errhandler = upper_half_handle(*errhandler);
+  }
   LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
