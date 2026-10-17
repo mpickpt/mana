@@ -6,16 +6,34 @@ on:
 
 jobs:
   e2e:
-    name: Ubuntu 26.04
+    name: ${{ matrix.name }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Ubuntu's MPICH 4.3 runs on UCX (ch4:ucx), as MPICH does on many
+          # clusters.
+          - name: Ubuntu 26.04, MPICH
+            id: mpich
+            packages: mpich libmpich-dev
+            launcher: mpirun -np {n}
+          # Some tests have more ranks than the runner has cores, which Open
+          # MPI refuses by default.
+          - name: Ubuntu 26.04, Open MPI
+            id: openmpi
+            packages: openmpi-bin libopenmpi-dev
+            launcher: mpirun --oversubscribe -np {n}
     container:
-      # Ubuntu's MPICH 4.3 runs on UCX (ch4:ucx), as MPICH does on many
-      # clusters.
       image: ubuntu:26.04
       # DMTCP turns off address space randomization, which Docker's default
       # seccomp profile forbids; MPICH needs more than 64 MB of /dev/shm.
       options: --security-opt seccomp=unconfined --shm-size=2g
+    env:
+      # The container runs as root, which Open MPI refuses by default.
+      OMPI_ALLOW_RUN_AS_ROOT: 1
+      OMPI_ALLOW_RUN_AS_ROOT_CONFIRM: 1
     steps:
       - name: Install packages
         run: |
@@ -23,7 +41,7 @@ jobs:
           # libc6-dbg: MANA needs the symbols of ld.so, which Ubuntu strips.
           DEBIAN_FRONTEND=noninteractive apt-get install -y \
             --no-install-recommends build-essential gfortran git \
-            ca-certificates python3 mpich libmpich-dev libc6-dbg
+            ca-certificates python3 ${{ matrix.packages }} libc6-dbg
 
       - uses: actions/checkout@v4
         with:
@@ -40,12 +58,12 @@ jobs:
       - name: Test MANA
         run: >
           mpi-proxy-split/test/autotest.py --retry-once
-          --workdir /tmp/autotest
+          --workdir /tmp/autotest --launcher '${{ matrix.launcher }}'
 
       - name: Keep the logs of failed tests
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: autotest-logs
+          name: autotest-logs-${{ matrix.id }}
           path: /tmp/autotest/
           if-no-files-found: ignore
