@@ -69,7 +69,7 @@ int MPI_Test_internal(MPI_Request *request, int *flag, MPI_Status *status,
     real_request = get_real_id((mana_mpi_handle){.request = *request}).request;
     // A receive that MANA completed for the application has its status in
     // the request's entry (complete_virt_request()).
-    if (real_request == MPI_REQUEST_NULL &&
+    if (real_request == lh_info->MANA_REQUEST_NULL &&
         completed_request_status(*request, status_or_null(status))) {
       *flag = 1;
       return MPI_SUCCESS;
@@ -102,7 +102,8 @@ int PMPI_Test(MPI_Request* request, int* flag, MPI_Status* status)
   }
   MPI_Request real_request;
   real_request = get_real_id((mana_mpi_handle){.request = *request}).request;
-  if (*request != MPI_REQUEST_NULL && real_request == MPI_REQUEST_NULL) {
+  if (*request != MPI_REQUEST_NULL &&
+      real_request == lh_info->MANA_REQUEST_NULL) {
     // MANA completed it: the P2P drain, or a message from MANA's buffer.  A
     // receive has its status in the request's entry.
     *flag = 1;
@@ -477,7 +478,7 @@ int PMPI_Request_get_status(MPI_Request request, int *flag, MPI_Status *status)
   }
   LOWER_HALF_DISABLE_CKPT();
   MPI_Request real_request = get_real_id((mana_mpi_handle){.request = request}).request;
-  if (real_request == MPI_REQUEST_NULL &&
+  if (real_request == lh_info->MANA_REQUEST_NULL &&
       completed_request_status(request, status_or_null(status))) {
     // A receive that MANA completed (see MPI_Test_internal()).
     *flag = 1;
