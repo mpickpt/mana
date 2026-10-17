@@ -439,6 +439,16 @@ int PMPI_Attr_put(MPI_Comm comm, int keyval, void *attribute_val)
   return retval;
 }
 
+// Whether 'keyval' is a predefined keyval of communicators, which MANA must
+// not hand out.  Open MPI numbers those from 0, like keyvalVec.
+static bool
+is_predefined_keyval(int keyval)
+{
+  return keyval == MPI_TAG_UB || keyval == MPI_HOST || keyval == MPI_IO ||
+         keyval == MPI_WTIME_IS_GLOBAL || keyval == MPI_APPNUM ||
+         keyval == MPI_LASTUSEDCODE || keyval == MPI_UNIVERSE_SIZE;
+}
+
 #pragma weak MPI_Comm_create_keyval = PMPI_Comm_create_keyval
 int PMPI_Comm_create_keyval(MPI_Comm_copy_attr_function *comm_copy_attr_fn,
                        MPI_Comm_delete_attr_function *comm_delete_attr_fn,
@@ -447,9 +457,6 @@ int PMPI_Comm_create_keyval(MPI_Comm_copy_attr_function *comm_copy_attr_fn,
   int retval = MPI_SUCCESS;
   int keyval = 0;
   for (; keyval < keyvalVec.size(); keyval++) {
-    if (keyval == MPI_ERR_KEYVAL) {
-      continue;
-    }
     if (keyvalVec[keyval] == -1) {
       keyvalVec[keyval] = keyval;
       *comm_keyval = keyvalVec[keyval];
@@ -460,6 +467,11 @@ int PMPI_Comm_create_keyval(MPI_Comm_copy_attr_function *comm_copy_attr_fn,
                        std::unordered_map<MPI_Comm, void*>()));
       return retval;
     }
+  }
+  // Skip the predefined keyvals: their placeholders (-2) are never freed.
+  while (is_predefined_keyval(keyval)) {
+    keyvalVec.push_back(-2);
+    keyval++;
   }
   keyvalVec.push_back(keyval);
   *comm_keyval = keyvalVec[keyval];
@@ -476,7 +488,7 @@ int PMPI_Comm_free_keyval(int *comm_keyval)
 {
   int retval = MPI_SUCCESS;
   int keyval = *comm_keyval;
-  if (keyval < keyvalVec.size() && keyvalVec[keyval] != -1) {
+  if (keyval < keyvalVec.size() && keyvalVec[keyval] >= 0) {
     keyvalVec[keyval] = -1;
     tupleMap.erase(keyval);
     *comm_keyval = MPI_KEYVAL_INVALID;
