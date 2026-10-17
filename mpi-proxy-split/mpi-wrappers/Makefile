@@ -38,6 +38,10 @@ override CFLAGS += -fPIC -I${DMTCP_INCLUDE} -I${PLUGIN_HALF_SRCDIR} \
 override CXXFLAGS += -fPIC -I${DMTCP_INCLUDE} -I${JALIB_INCLUDE} \
                      -I${PLUGIN_HALF_SRCDIR} -I${DMTCP_ROOT}/src \
                      -I${LOWER_HALF_SRCDIR}
+# The upper half has no MPI library, so leave out the C++ bindings that
+# mpi.h declares in C++ (Open MPI 4.1: MPI::Datatype::Free(), ...), whose
+# code is in libmpi_cxx.so.
+override CXXFLAGS += -DOMPI_SKIP_MPICXX -DMPICH_SKIP_MPICXX
 
 # We don't build libmpiwrappers.a.  Instead, we use *.o to build libmana.so.
 default: ${LIBNAME}.a libmpistub.so libmpistub_audit.so
