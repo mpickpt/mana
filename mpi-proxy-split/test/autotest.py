@@ -110,6 +110,7 @@ TESTS = [
   Test("mmap_threads", 2),
   Test("mmap_threads_quiet", 2, args=["-q"], program="mmap_threads"),
   Test("fortran_nonblocking", 2),
+  Test("fortran_handles", 2),
   Test("finalize_unsync", 4, args=["8"], kind="run", restart=True,
        native_args=["1"]),
   Test("abort", 2, kind="run", fails=True, expect="abort: calling MPI_Abort"),
