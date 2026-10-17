@@ -245,7 +245,7 @@ recvMsgIntoInternalBuffer(MPI_Status status, MPI_Comm comm)
   // avoided by going through NEXT_FUNC(Recv) directly.
   MPI_Comm realComm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
-  int retval = NEXT_FUNC(Recv)(buf, count, MPI_BYTE,
+  int retval = NEXT_FUNC(Recv)(buf, count, lh_info->MANA_BYTE,
                                status.MPI_SOURCE, status.MPI_TAG,
                                realComm, MPI_STATUS_IGNORE);
   ASSERT(retval == MPI_SUCCESS, "retval={}", retval);
@@ -316,8 +316,9 @@ completePendingP2pRequests()
         if (call.type == ISEND_REQUEST) {
           g_drain_stats.isends_completed++;
         }
-        update_virt_id((mana_mpi_handle){.request = request},
-                       (mana_mpi_handle){.request = MPI_REQUEST_NULL});
+        update_virt_id(
+          (mana_mpi_handle){.request = request},
+          (mana_mpi_handle){.request = lh_info->MANA_REQUEST_NULL});
       }
       clearPendingRequestFromLog(request);
     } else {
@@ -466,7 +467,7 @@ completePendingIsends()
       continue;
     }
     update_virt_id((mana_mpi_handle){.request = request},
-                   (mana_mpi_handle){.request = MPI_REQUEST_NULL});
+                   (mana_mpi_handle){.request = lh_info->MANA_REQUEST_NULL});
     clearPendingRequestFromLog(request);
     g_drain_stats.isends_completed++;
   }
@@ -790,8 +791,9 @@ consumeMatchingMsgBuffer(void *buf, int count, MPI_Datatype datatype,
 
 // A communicator as other ranks can find it (commByName()): virtual handles
 // differ between ranks, so it is named by its mana_comm_desc name.  A
-// predefined communicator is named by its handle, which every rank shares,
-// with instance -1.
+// predefined communicator has instance -1, and name 0 (MPI_COMM_WORLD) or 1
+// (MPI_COMM_SELF), not its handle: with Open MPI, a handle is an address,
+// which can differ between the programs of an MPMD job.
 struct CommName {
   uint64_t hash;
   int64_t instance;
@@ -811,18 +813,20 @@ commName(MPI_Comm comm)
             desc->global_ranks};
   }
   if (comm == MPI_COMM_WORLD) {
-    return {(uint64_t)comm, -1, g_world_size, g_world_rank, NULL};
+    return {0, -1, g_world_size, g_world_rank, NULL};
   }
   ASSERT(comm == MPI_COMM_SELF, "Unknown communicator: comm={}", comm);
-  return {(uint64_t)comm, -1, 1, 0, &g_world_rank};
+  return {1, -1, 1, 0, &g_world_rank};
 }
 
 // This rank's handle of a communicator named by commName(), or MPI_COMM_NULL.
 static MPI_Comm
 commByName(uint64_t hash, int64_t instance)
 {
-  return instance == -1 ? (MPI_Comm)hash
-                        : find_virt_comm(hash, (unsigned int)instance);
+  if (instance == -1) {
+    return hash == 0 ? MPI_COMM_WORLD : MPI_COMM_SELF;
+  }
+  return find_virt_comm(hash, (unsigned int)instance);
 }
 
 // Phase B of unblockPendingRecvs(), on a blocked rank: posts the dummy to
@@ -923,7 +927,7 @@ sendPostedDummies(bool nonblocking)
     // local_sent_messages (the receiver doesn't count it either).
     void *dummy_buf = calloc(bytes > 0 ? bytes : 1, 1);
     int ret;
-    MPI_Request request = MPI_REQUEST_NULL;
+    MPI_Request request = lh_info->MANA_REQUEST_NULL;
     JUMP_TO_LOWER_HALF(lh_info->fsaddr);
     if (nonblocking) {
       ret = NEXT_FUNC(Isend)(dummy_buf, (int)bytes, lh_info->MANA_BYTE, dest,
@@ -1179,7 +1183,7 @@ localRankToGlobalRank(int localRank, MPI_Comm localComm)
   MPI_Group worldGroup, localGroup;
   MPI_Comm realComm = get_real_id((mana_mpi_handle){.comm = localComm}).comm;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
-  NEXT_FUNC(Comm_group)(MPI_COMM_WORLD, &worldGroup);
+  NEXT_FUNC(Comm_group)(lh_info->MANA_COMM_WORLD, &worldGroup);
   NEXT_FUNC(Comm_group)(realComm, &localGroup);
   NEXT_FUNC(Group_translate_ranks)(localGroup, 1, &localRank,
                                    worldGroup, &worldRank);

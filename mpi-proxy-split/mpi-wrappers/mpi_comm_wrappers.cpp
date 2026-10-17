@@ -506,8 +506,9 @@ int PMPI_Comm_set_errhandler(MPI_Comm comm, MPI_Errhandler errhandler)
   int retval;
   LOWER_HALF_DISABLE_CKPT();
   MPI_Comm real_comm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
+  MPI_Errhandler real_errhandler = lower_half_handle(errhandler);
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
-  retval = NEXT_FUNC(Comm_set_errhandler)(real_comm, errhandler);
+  retval = NEXT_FUNC(Comm_set_errhandler)(real_comm, real_errhandler);
   RETURN_TO_UPPER_HALF();
   LOWER_HALF_ENABLE_CKPT();
   return retval;
@@ -534,8 +535,10 @@ int PMPI_Comm_split_type(MPI_Comm comm, int split_type,
   commit_begin(comm);
   LOWER_HALF_DISABLE_CKPT();
   MPI_Comm real_comm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
+  MPI_Info real_info = lower_half_handle(inf);
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
-  retval = NEXT_FUNC(Comm_split_type)(real_comm, split_type, key, inf, newcomm);
+  retval = NEXT_FUNC(Comm_split_type)(real_comm, split_type, key, real_info,
+                                      newcomm);
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS) {
     if (*newcomm == lh_info->MANA_COMM_NULL) {
