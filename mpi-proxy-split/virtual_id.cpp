@@ -35,6 +35,19 @@ constant_hash(int64_t upper)
          (MANA_CONSTANTS_TABLE_SIZE - 1);
 }
 
+// The key of a handle in the table of constants.  With 32-bit handles
+// (MPICH), only the low 32 bits of the union hold the handle, and the table
+// has them sign-extended: MPICH's struct datatypes, e.g. MPI_LONG_INT, are
+// negative.  With 64-bit handles (Open MPI), the key is the whole value.
+// MPI_File is a pointer even in MPICH, but its only constant, MPI_FILE_NULL,
+// is 0.
+static inline int64_t
+constant_key(mana_mpi_handle id)
+{
+  return sizeof(MPI_Comm) <= sizeof(int) ? (int64_t)id._handle
+                                         : id._handle64;
+}
+
 // Returns the entry of a predefined constant, or NULL.
 static inline mana_constant*
 find_constant(int64_t upper)
@@ -151,7 +164,7 @@ hash_ranks(const int *ranks, int size)
 static std::unordered_map<uint64_t, unsigned int> comm_instances;
 
 int is_predefined_id(mana_mpi_handle id) {
-  return find_constant(id._handle64) != NULL;
+  return find_constant(constant_key(id)) != NULL;
 }
 
 MPI_Comm new_virt_comm(MPI_Comm real_comm) {
@@ -866,31 +879,7 @@ virt_id_entry* get_virt_id_entry(mana_mpi_handle virt_id) {
 // get_real_id() for anything but a virtual handle in use: a predefined
 // constant or an invalid handle.
 mana_mpi_handle get_real_id_slow(mana_mpi_handle virt_id) {
-  mana_constant *c;
-  
-  /*
-   * MPICH represents struct-based MPI datatypes (e.g., MPI_LONG_INT, MPI_DOUBLE_INT) 
-   * using negative values in MPI_Datatype. When cast to int64_t, these negative 
-   * values will have their upper bits filled with 'f' due to sign extension.
-   * 
-   * However, during argument passing, the upper bits can be lost, resulting in 
-   * zero-filled upper bits. This causes the datatype to appear as a positive number 
-   * when referenced as a 64-bit type instead of retaining its original negative value.
-   *
-   * To handle this discrepancy, we check if the 32-bit handle (`virt_id._handle`) 
-   * is less than its 64-bit counterpart (`virt_id._handle64`). If so, we use the 
-   * int64_t casted handle for lookup in `upper_to_lower_constants`; otherwise, we 
-   * use `_handle64` directly. This ensures consistent mapping and prevents lookup 
-   * failures due to sign mismatches.
-   *
-   * FIXME: This will fail with big-endian CPUs.
-   */
-  if (virt_id._handle < virt_id._handle64) {
-    c = find_constant((int64_t)virt_id._handle);
-  } else {
-    c = find_constant(virt_id._handle64);
-  }
-  
+  mana_constant *c = find_constant(constant_key(virt_id));
   if (c != NULL) {
     return {._handle64 = c->lower};
   } else {
@@ -904,7 +893,7 @@ void* get_virt_id_desc(mana_mpi_handle virt_id) {
   if (entry != NULL) {
     return entry->desc;
   }
-  if (find_constant(virt_id._handle64) != NULL) {
+  if (find_constant(constant_key(virt_id)) != NULL) {
     return NULL; // Predefined MPI constants
   } else {
     return get_virt_id_entry(virt_id)->desc;
