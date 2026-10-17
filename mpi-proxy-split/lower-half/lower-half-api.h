@@ -39,6 +39,21 @@ typedef struct __MmapInfo
   size_t len;
 } MmapInfo_t;
 
+// The kinds of MPI handles.  MANA virtualizes the first MANA_NUM_KINDS kinds
+// (see virtual_id.h); the others only classify predefined constants.
+#define MANA_COMM_KIND 1
+#define MANA_GROUP_KIND 2
+#define MANA_DATATYPE_KIND 3
+#define MANA_OP_KIND 4
+#define MANA_REQUEST_KIND 5
+#define MANA_FILE_KIND 6
+#define MANA_NUM_KINDS 6
+#define MANA_ERRHANDLER_KIND 7
+#define MANA_INFO_KIND 8
+#define MANA_WIN_KIND 9
+#define MANA_MESSAGE_KIND 10
+#define MANA_NUM_HANDLE_KINDS 10
+
 // The transient lh_proxy process introspects its memory layout and passes this
 // information back to the main application process using this struct.
 // This must be same in restart_plugin and low
@@ -180,6 +195,10 @@ typedef struct _LowerHalfInfo
   // st_ino is 0 if nothing was reserved.
   unsigned long reserved_fd_dev;
   unsigned long reserved_fd_ino;
+  // int handle_c2f(int kind, int64_t handle): the Fortran handle of a
+  // handle of the lower half (MANA_*_KIND), from MPI_Comm_c2f() and others.
+  // With MPICH, those are macros, which the upper half cannot look up.
+  void *handle_c2f;
 } LowerHalfInfo_t;
 
 extern LowerHalfInfo_t *lh_info;
