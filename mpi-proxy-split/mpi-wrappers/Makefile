@@ -102,10 +102,19 @@ mpi_fortran_wrappers.cpp: generate-mpi-fortran-wrappers.py \
 	 "// *** THIS FILE IS AUTO-GENERATED! DO 'make' TO UPDATE. ***" >$$tmp;\
 	python3 $^ >> $$tmp && mv -f $$tmp $@ || (rm -f $$tmp && false)
 
+# With Open MPI, a predefined handle is the address of an object in the MPI
+# library, which libmpistub.so must define too.
+mpi_stub_objects.c: generate-mpi-stub-objects.py
+	rm -f $@
+	tmp=$@.tmp.$$$$ ; \
+	printf "%s\n\n" \
+	 "// *** THIS FILE IS AUTO-GENERATED! DO 'make' TO UPDATE. ***" >$$tmp;\
+	python3 $< ${MPICC} >> $$tmp && mv -f $$tmp $@ || (rm -f $$tmp && false)
+
 mpi_stub_wrappers.o: mpi_stub_wrappers.c
 	${MPICC} ${CFLAGS} -c -o $@ $<
 
-libmpistub.so: mpi_stub_wrappers.o mpi_stub_data.o
+libmpistub.so: mpi_stub_wrappers.o mpi_stub_data.o mpi_stub_objects.o
 	${CC} -fPIC $^ -shared -o $@
 
 # An LD_AUDIT module for the upper half; it must not need libc.
@@ -150,6 +159,7 @@ install: libmpistub.so libmpistub_audit.so
 clean: tidy
 	rm -f ${LIBWRAPPER_OBJS}
 	rm -f ${LIBNAME}.a libmpistub.so mpi_stub_data.o libmpistub_audit.so
+	rm -f mpi_stub_objects.c mpi_stub_objects.o
 	rm -f ${MANA_ROOT}/lib/dmtcp/libmpistub.so
 	rm -f ${MANA_ROOT}/lib/dmtcp/libmpistub_audit.so
 	rm -f mpi_stub_wrappers.c
