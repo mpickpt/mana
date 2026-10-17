@@ -64,6 +64,7 @@ mpi_unimplemented_wrappers.cpp: generate-mpi-unimplemented-wrappers.py \
 # Make ignores prerequisites on suffix rules, so list header dependencies
 # here: the headers that define inline code.
 $(filter mpi_%,${LIBWRAPPER_OBJS}): ../virtual_id.h ../lower_half_ckpt.h
+mpi_fortran_wrappers.o: fortran_handles.h
 
 # FIXME:  This assumes 'CFLAGS' is compatible with FORTRAN, since MANA does not
 #         define 'FFLAGS'.  But Fortran doesn't use '-std=gnu11' from CFLAGS.
