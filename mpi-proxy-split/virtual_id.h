@@ -9,13 +9,8 @@
 #include <map>
 #include <vector>
 
-#define MANA_COMM_KIND 1
-#define MANA_GROUP_KIND 2
-#define MANA_DATATYPE_KIND 3
-#define MANA_OP_KIND 4
-#define MANA_REQUEST_KIND 5
-#define MANA_FILE_KIND 6
-#define MANA_NUM_KINDS 6
+#include "lower-half-api.h"  // MANA_*_KIND
+
 #define MANA_VIRT_ID_KIND_SHIFT 28
 
 // A virtual handle is a 32-bit value laid out as
@@ -319,4 +314,9 @@ upper_half_handle(Handle handle)
 {
   return (Handle)(intptr_t)upper_of_constant(handle_key(handle));
 }
+
+// The Fortran handle of a handle of this kind, and back; see
+// mpi-wrappers/fortran_handles.h.  Fortran handles have 32 bits.
+int64_t fortran_to_handle(int kind, int fortran);
+int handle_to_fortran(int kind, int64_t key);
 #endif // MANA_VIRTUAL_ID_H

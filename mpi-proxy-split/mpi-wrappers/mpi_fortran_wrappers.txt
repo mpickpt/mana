@@ -2,6 +2,7 @@
 
 #include "dmtcp.h";
 #include "jassert.h";
+#include "fortran_handles.h";
 
 int MPI_Finalize();
 int MPI_Finalized(int* flag);

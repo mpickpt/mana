@@ -494,6 +494,36 @@ void create_heap_guard_page()
   }
 }
 
+// lh_info->handle_c2f: see lower-half-api.h.
+static int
+handle_c2f(int kind, int64_t handle)
+{
+  intptr_t h = (intptr_t)handle;
+  switch (kind) {
+    case MANA_COMM_KIND:
+      return MPI_Comm_c2f((MPI_Comm)h);
+    case MANA_GROUP_KIND:
+      return MPI_Group_c2f((MPI_Group)h);
+    case MANA_DATATYPE_KIND:
+      return MPI_Type_c2f((MPI_Datatype)h);
+    case MANA_OP_KIND:
+      return MPI_Op_c2f((MPI_Op)h);
+    case MANA_REQUEST_KIND:
+      return MPI_Request_c2f((MPI_Request)h);
+    case MANA_FILE_KIND:
+      return MPI_File_c2f((MPI_File)h);
+    case MANA_ERRHANDLER_KIND:
+      return MPI_Errhandler_c2f((MPI_Errhandler)h);
+    case MANA_INFO_KIND:
+      return MPI_Info_c2f((MPI_Info)h);
+    case MANA_WIN_KIND:
+      return MPI_Win_c2f((MPI_Win)h);
+    case MANA_MESSAGE_KIND:
+      return MPI_Message_c2f((MPI_Message)h);
+  }
+  abort();
+}
+
 /**
  * @brief Initializes the LowerHalfInfo_t structure with 
  *        MPI constants and function pointers.
@@ -507,6 +537,7 @@ void initialize_lh_info()
   lh_info->mmap = (void*)&mmap_wrapper;
   lh_info->munmap = (void*)&munmap_wrapper;
   lh_info->lh_dlsym = (void*)&lh_dlsym;
+  lh_info->handle_c2f = (void*)&handle_c2f;
   lh_info->mmap_list_fptr = (void*)&get_mmapped_list;
   // MPI constants values
   lh_info->MANA_GROUP_NULL = MPI_GROUP_NULL;
