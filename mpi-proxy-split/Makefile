@@ -59,13 +59,18 @@ override CXXFLAGS += -fPIC -I${DMTCP_INCLUDE} -I${JALIB_INCLUDE} \
 # Always do 'make default' or 'make install' -- not 'make libmana.so'
 default: ${MANA_COORD_OBJS}
 	make -C ${LH_SRCDIR} lower-half
-	make -C ${WRAPPERS_SRCDIR} libmpiwrappers.a
+	make -C ${WRAPPERS_SRCDIR} libmpiwrappers.a libmpistub.so \
+	  libmpistub_audit.so
 	make libmana.so
-	make -C ${WRAPPERS_SRCDIR} libmpistub.so libmpistub_audit.so
 
 # ${WRAPPERS_SRCDIR}/libmpiwrappers.a made in install/default before libmana.so
+# libmana.so needs libmpistub.so (in the same directory once installed): with
+# Open MPI, it refers to the MPI library's objects (see
+# generate-mpi-stub-objects.py), and a program that loads the MPI library
+# with dlopen() has not loaded libmpistub.so yet.
 libmana.so: ${LIBOBJS} ${WRAPPERS_SRCDIR}/libmpiwrappers.a
-	${CXX} -shared -fPIC -g3 -O0 -o $@ ${LIBOBJS} -Wl,--whole-archive ${WRAPPERS_SRCDIR}/libmpiwrappers.a -Wl,--no-whole-archive
+	${CXX} -shared -fPIC -g3 -O0 -o $@ ${LIBOBJS} -Wl,--whole-archive ${WRAPPERS_SRCDIR}/libmpiwrappers.a -Wl,--no-whole-archive \
+	  -L${WRAPPERS_SRCDIR} -lmpistub -Wl,-rpath,'$$ORIGIN'
 
 mpi_unimplemented_wrappers.cpp: generate-mpi-unimplemented-wrappers.py \
                                 mpi_unimplemented_wrappers.txt
@@ -111,7 +116,7 @@ ${MANA_ROOT}/lib/dmtcp/libmpistub_audit.so: ${WRAPPERS_SRCDIR}/mpi_stub_audit.c
 # Always do 'make default' or 'make install' -- not 'make libmana.so'
 # MANA_COORD_OBJS needed for 'make mana' at top level.
 install: ${MANA_COORD_OBJS}
-	+ make -C ${WRAPPERS_SRCDIR} libmpiwrappers.a
+	+ make -C ${WRAPPERS_SRCDIR} libmpiwrappers.a libmpistub.so
 	+ make ${MANA_ROOT}/lib/dmtcp/libmana.so
 	+ make ${MANA_ROOT}/lib/dmtcp/libmpistub.so
 	+ make ${MANA_ROOT}/lib/dmtcp/libmpistub_audit.so
