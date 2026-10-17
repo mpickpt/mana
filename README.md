@@ -25,6 +25,17 @@ As seen in the MANA documentation, for install and a quick start, do:
 On Debian and Ubuntu, also install the package libc6-dbg: MANA needs the
 symbols of the dynamic loader, which these distributions strip.
 
+`./configure` uses the MPI library whose `mpicc` comes first in `PATH`: MPICH
+or a library based on it (such as Cray MPICH), or Open MPI 4.1 or 5.0.  Build
+the program with the same MPI library.  To switch MPI libraries, run `make
+clean` first.  For example, on Fedora, with Open MPI:
+
+    PATH=/usr/lib64/openmpi/bin:$PATH ./configure
+    PATH=/usr/lib64/openmpi/bin:$PATH make -j8
+
+In a container that runs as root, Open MPI's `mpirun` needs
+`OMPI_ALLOW_RUN_AS_ROOT=1` and `OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1`.
+
 In a container, MANA needs `personality(ADDR_NO_RANDOMIZE)`, which the
 default seccomp profile of Docker and Podman forbids: run the container with
 `--security-opt seccomp=unconfined` (or a profile that allows it), as MANA's
