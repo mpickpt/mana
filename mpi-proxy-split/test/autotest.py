@@ -283,13 +283,24 @@ class Run:
     except subprocess.TimeoutExpired:
       raise Failure("timed out waiting for the job to end")
 
+  def image_inodes(self):
+    inodes = {}
+    for f in glob.glob(os.path.join(self.dir, "ckpt_rank_*", "ckpt_*.dmtcp")):
+      try:
+        inodes[f] = os.stat(f).st_ino
+      except FileNotFoundError:  # Replaced between glob() and stat().
+        pass
+    return inodes
+
   def checkpoint(self):
-    mark = time.time() - 0.01
+    # DMTCP writes each image to a temporary file and renames it into place,
+    # so a new image has a new inode.  A time mark would miss images written
+    # in the same second on a filesystem with 1 s mtimes (Lustre).
+    before = set(self.image_inodes().items())
     self.command("-bc")  # May return before the images are written.
 
     def images():
-      files = glob.glob(os.path.join(self.dir, "ckpt_rank_*", "ckpt_*.dmtcp"))
-      return len([f for f in files if os.path.getmtime(f) >= mark])
+      return len(set(self.image_inodes().items()) - before)
 
     self.wait_for(lambda: images() >= self.test.ranks, "the checkpoint")
 
