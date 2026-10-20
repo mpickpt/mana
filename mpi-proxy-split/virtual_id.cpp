@@ -885,10 +885,11 @@ mana_mpi_handle get_real_id_slow(mana_mpi_handle virt_id) {
    *
    * FIXME: This will fail with big-endian CPUs.
    */
-  if (virt_id._handle < virt_id._handle64) {
+  // An Open MPI handle is an address, which can have bit 31 set: try the
+  // exact value first.
+  c = find_constant(virt_id._handle64);
+  if (c == NULL && virt_id._handle < virt_id._handle64) {
     c = find_constant((int64_t)virt_id._handle);
-  } else {
-    c = find_constant(virt_id._handle64);
   }
   
   if (c != NULL) {
