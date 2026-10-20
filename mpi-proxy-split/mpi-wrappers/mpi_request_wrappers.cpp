@@ -69,10 +69,14 @@ int MPI_Test_internal(MPI_Request *request, int *flag, MPI_Status *status,
     real_request = get_real_id((mana_mpi_handle){.request = *request}).request;
     // A receive that MANA completed for the application has its status in
     // the request's entry (complete_virt_request()).
-    if (real_request == MPI_REQUEST_NULL &&
-        completed_request_status(*request, status_or_null(status))) {
-      *flag = 1;
-      return MPI_SUCCESS;
+    if (real_request == MPI_REQUEST_NULL) {
+      if (completed_request_status(*request, status_or_null(status))) {
+        *flag = 1;
+        return MPI_SUCCESS;
+      }
+      // A send or collective that MANA completed.  Open MPI's
+      // MPI_REQUEST_NULL is an address, different in each half.
+      real_request = lh_info->MANA_REQUEST_NULL;
     }
   }
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
@@ -477,12 +481,14 @@ int PMPI_Request_get_status(MPI_Request request, int *flag, MPI_Status *status)
   }
   LOWER_HALF_DISABLE_CKPT();
   MPI_Request real_request = get_real_id((mana_mpi_handle){.request = request}).request;
-  if (real_request == MPI_REQUEST_NULL &&
-      completed_request_status(request, status_or_null(status))) {
-    // A receive that MANA completed (see MPI_Test_internal()).
-    *flag = 1;
-    LOWER_HALF_ENABLE_CKPT();
-    return MPI_SUCCESS;
+  if (real_request == MPI_REQUEST_NULL) {
+    if (completed_request_status(request, status_or_null(status))) {
+      // A receive that MANA completed (see MPI_Test_internal()).
+      *flag = 1;
+      LOWER_HALF_ENABLE_CKPT();
+      return MPI_SUCCESS;
+    }
+    real_request = lh_info->MANA_REQUEST_NULL;  // See MPI_Test_internal().
   }
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Request_get_status)(real_request, flag, status);
