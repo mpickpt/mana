@@ -25,6 +25,10 @@
 // they must keep their values across checkpoints and restarts, and change
 // every few iterations.  Every few iterations, a short-lived keyval is made,
 // set, deleted and freed.  A delete callback counts the deleted values.
+// A third attribute, on MPI_COMM_WORLD, goes only through the MPI-1 calls
+// (MPI_Attr_put, MPI_Attr_get, MPI_Attr_delete), which must share the
+// MPI_Comm_*_attr store; MPI_Attr_get(MPI_TAG_UB) must give the same pointer
+// as MPI_Comm_get_attr.
 
 #include <stdint.h>
 #include "mana_test.h"
@@ -74,6 +78,10 @@ main(int argc, char **argv)
                                 &extra_state));
   MT_MPI(MPI_Comm_set_attr(MPI_COMM_WORLD, keyval, attr_value(0, 0)));
   MT_MPI(MPI_Comm_set_attr(dup, keyval, attr_value(1, 0)));
+  int keyval1;  // for the MPI-1 calls
+  MT_MPI(MPI_Comm_create_keyval(MPI_COMM_NULL_COPY_FN, delete_fn, &keyval1,
+                                &extra_state));
+  MT_MPI(MPI_Attr_put(MPI_COMM_WORLD, keyval1, attr_value(3, 0)));
   long expected_deleted = 0;
   long it;
   for (it = 0; mt_continue(it); it++) {
@@ -84,6 +92,11 @@ main(int argc, char **argv)
     MT_MPI(MPI_Comm_get_attr(MPI_COMM_WORLD, MPI_TAG_UB, &tag_ub, &flag));
     MT_CHECK(flag && *tag_ub >= 32767, "iteration %ld: MPI_TAG_UB: flag %d,"
              " value %d", it, flag, flag ? *tag_ub : 0);
+    int *tag_ub1 = NULL;
+    MT_MPI(MPI_Attr_get(MPI_COMM_WORLD, MPI_TAG_UB, &tag_ub1, &flag));
+    MT_CHECK(flag && tag_ub1 == tag_ub, "iteration %ld: MPI_Attr_get("
+             "MPI_TAG_UB): flag %d, %p instead of %p", it, flag,
+             (void *)tag_ub1, (void *)tag_ub);
     int sbuf = mt_value(mt_rank, it, 0), rbuf = -1;
     MPI_Status status;
     MT_MPI(MPI_Sendrecv(&sbuf, 1, MPI_INT, other, *tag_ub, &rbuf, 1, MPI_INT,
@@ -95,12 +108,22 @@ main(int argc, char **argv)
     long set = it - it % CHANGE;  // when the values were last set
     check_attr(MPI_COMM_WORLD, keyval, attr_value(0, set), "world", it);
     check_attr(dup, keyval, attr_value(1, set), "dup", it);
+    void *value1 = NULL;
+    MT_MPI(MPI_Attr_get(MPI_COMM_WORLD, keyval1, &value1, &flag));
+    MT_CHECK(flag && value1 == attr_value(3, set), "iteration %ld:"
+             " MPI_Attr_get: flag %d, value %p instead of %p", it, flag,
+             value1, attr_value(3, set));
+    check_attr(MPI_COMM_WORLD, keyval1, attr_value(3, set), "MPI_Attr_put",
+               it);
     if (it % CHANGE == CHANGE - 1) {
       // Replacing a value deletes the old one.
       MT_MPI(MPI_Comm_set_attr(MPI_COMM_WORLD, keyval,
                                attr_value(0, it + 1)));
       MT_MPI(MPI_Comm_set_attr(dup, keyval, attr_value(1, it + 1)));
       expected_deleted += 2;
+      MT_MPI(MPI_Attr_delete(MPI_COMM_WORLD, keyval1));
+      MT_MPI(MPI_Attr_put(MPI_COMM_WORLD, keyval1, attr_value(3, it + 1)));
+      expected_deleted++;
     }
 
     if (it % 4 == 0) {
