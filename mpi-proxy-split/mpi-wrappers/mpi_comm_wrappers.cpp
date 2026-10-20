@@ -357,30 +357,16 @@ int PMPI_Attr_get(MPI_Comm comm, int keyval,
 {
   JWARNING(false).Text(
     "Use of MPI_Attr_get is deprecated - use MPI_Comm_get_attr instead");
-  int retval;
-  LOWER_HALF_DISABLE_CKPT();
-  MPI_Comm real_comm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
-  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
-  retval = NEXT_FUNC(Attr_get)(real_comm, keyval, attribute_val, flag);
-  RETURN_TO_UPPER_HALF();
-  LOWER_HALF_ENABLE_CKPT();
-  return retval;
+  // Keyvals and attributes live in the upper half; the lower half knows none.
+  return PMPI_Comm_get_attr(comm, keyval, attribute_val, flag);
 }
 
 #pragma weak MPI_Attr_delete = PMPI_Attr_delete
 int PMPI_Attr_delete(MPI_Comm comm, int keyval)
 {
-
   JWARNING(false).Text(
     "Use of MPI_Attr_delete is deprecated - use MPI_Comm_delete_attr instead");
-  int retval;
-  LOWER_HALF_DISABLE_CKPT();
-  MPI_Comm real_comm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
-  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
-  retval = NEXT_FUNC(Attr_delete)(real_comm, keyval);
-  RETURN_TO_UPPER_HALF();
-  LOWER_HALF_ENABLE_CKPT();
-  return retval;
+  return PMPI_Comm_delete_attr(comm, keyval);
 }
 
 #pragma weak MPI_Attr_put = PMPI_Attr_put
@@ -388,14 +374,7 @@ int PMPI_Attr_put(MPI_Comm comm, int keyval, void *attribute_val)
 {
   JWARNING(false).Text(
     "Use of MPI_Attr_put is deprecated - use MPI_Comm_set_attr instead");
-  int retval;
-  LOWER_HALF_DISABLE_CKPT();
-  MPI_Comm real_comm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
-  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
-  retval = NEXT_FUNC(Attr_put)(real_comm, keyval, attribute_val);
-  RETURN_TO_UPPER_HALF();
-  LOWER_HALF_ENABLE_CKPT();
-  return retval;
+  return PMPI_Comm_set_attr(comm, keyval, attribute_val);
 }
 
 #pragma weak MPI_Comm_create_keyval = PMPI_Comm_create_keyval
