@@ -21,8 +21,9 @@
 
 // Calls that the other tests do not cover: MPI_Get_processor_name;
 // MPI_Alloc_mem and MPI_Free_mem, for a buffer allocated at start (which
-// must keep its content across checkpoints and restarts) and one per
-// iteration; MPI_Allreduce with MPI_MINLOC and MPI_MAXLOC on MPI_DOUBLE_INT
+// must keep its content across checkpoints and restarts), one per iteration,
+// and a large one at start that must not take much more memory than asked
+// for; MPI_Allreduce with MPI_MINLOC and MPI_MAXLOC on MPI_DOUBLE_INT
 // and MPI_2INT; MPI_Wtime; MPI_Initialized and MPI_Finalized; the tool
 // information interface (MPI_T); and the variables that the MPI library
 // defines (MPI_UNWEIGHTED, ...), which a program can use only by address.
@@ -31,6 +32,7 @@
 #include "mana_test.h"
 
 #define N 64  // ints in each buffer
+#define LARGE (64L << 20)  // bytes in the large MPI_Alloc_mem buffer
 #define K 8   // pairs in each reduction
 
 struct double_int {
@@ -135,6 +137,24 @@ check_library_variables(void)
            "MPI_F_STATUS_IGNORE and MPI_F_STATUSES_IGNORE are one variable");
 }
 
+// The process's virtual size, from /proc/self/status.
+static long
+vm_size_kb(void)
+{
+  FILE *f = fopen("/proc/self/status", "r");
+  char line[256];
+  long kb = -1;
+  while (f != NULL && fgets(line, sizeof(line), f) != NULL) {
+    if (sscanf(line, "VmSize: %ld", &kb) == 1) {
+      break;
+    }
+  }
+  if (f != NULL) {
+    fclose(f);
+  }
+  return kb;
+}
+
 int
 main(int argc, char **argv)
 {
@@ -151,6 +171,13 @@ main(int argc, char **argv)
   int left = (mt_rank + mt_size - 1) % mt_size;
   int *kept;  // filled in each iteration, checked in the next one
   MT_MPI(MPI_Alloc_mem(N * sizeof(int), MPI_INFO_NULL, &kept));
+  void *large;
+  long before = vm_size_kb();
+  MT_MPI(MPI_Alloc_mem(LARGE, MPI_INFO_NULL, &large));
+  long grown = (vm_size_kb() - before) * 1024;
+  MT_CHECK(large != NULL && grown < 2 * LARGE, "MPI_Alloc_mem(%ld) grew the"
+           " process by %ld bytes", LARGE, grown);
+  MT_MPI(MPI_Free_mem(large));
   long it;
   for (it = 0; mt_continue(it); it++) {
     double t0 = MPI_Wtime();
