@@ -18,6 +18,8 @@ void commit_begin(MPI_Comm comm);
 void commit_finish(MPI_Comm comm);
 
 void drain_mpi_collective();
+void ckpt_kvdb_name(char *buf, size_t size, const char *what,
+                    int attempt = -1);
 void complete_pending_nonblocking_collectives();
 int test_pending_nonblocking_collectives();
 void share_seq_nums();

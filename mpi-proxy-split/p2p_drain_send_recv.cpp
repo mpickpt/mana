@@ -1129,13 +1129,7 @@ unblockPendingRecvs()
 void
 drainP2p()
 {
-  // Name this checkpoint's database by the computation ID and a drain count;
-  // both are the same on every rank and survive restart.
-  static int drains = 0;
-  DmtcpUniqueProcessId id = dmtcp_get_computation_id();
-  snprintf(g_drain_db, sizeof(g_drain_db), "/plugin/MANA/p2p-%llx-%llx-%x-%d",
-           (unsigned long long)id._hostid, (unsigned long long)id._time,
-           (unsigned int)id._pid, ++drains);
+  ckpt_kvdb_name(g_drain_db, sizeof(g_drain_db), "p2p");
   g_drain_round = 0;
   // An MPI_Recv that starts from now on waits until the checkpoint is over
   // (an IDLE slot becomes CLOSED); one already published keeps its slot.

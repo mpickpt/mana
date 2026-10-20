@@ -5,6 +5,7 @@
 #include <pthread.h>
 #include <semaphore.h>
 
+#include "dmtcp.h"
 #include "jassert.h"
 #include "jconvert.h"
 #include "kvdb.h"
@@ -232,12 +233,33 @@ download_targets(const char *db)
   }
 }
 
+// Writes the KVDB name "/plugin/MANA/<what>-<start>-<generation>" to buf,
+// with "-<attempt>" appended if attempt >= 0: <start> is when the computation
+// started, and <generation> is the checkpoint's.  The coordinator keeps its
+// KVDB across checkpoints, and across computations, until a restart, so each
+// checkpoint needs names of its own.  Every rank has both values from the
+// coordinator before DMTCP_EVENT_PRESUSPEND.  Fails if the name is longer
+// than 63 characters, where DMTCP would truncate it.
+void
+ckpt_kvdb_name(char *buf, size_t size, const char *what, int attempt)
+{
+  DmtcpUniqueProcessId id = dmtcp_get_computation_id();
+  unsigned long long start = id._time;
+  unsigned int generation = id._computation_generation;
+  int n = attempt < 0
+    ? snprintf(buf, size, "/plugin/MANA/%s-%llx-%u", what, start, generation)
+    : snprintf(buf, size, "/plugin/MANA/%s-%llx-%u-%06d", what, start,
+               generation, attempt);
+  // DMTCP silently truncates a KVDB name at 63 characters (kvdbId).
+  JASSERT(n > 0 && n < 64 && (size_t)n < size)(buf).Text("KVDB name too long");
+}
+
 void
 share_seq_nums(int attemptId)
 {
   char db[64] = { 0 };
   char barrier[64] = { 0 };
-  snprintf(db, 63, "/plugin/MANA/comm-seq-max-%06d", attemptId);
+  ckpt_kvdb_name(db, sizeof(db), "comm-seq-max", attemptId);
   snprintf(barrier, 63, "MANA-SHARE-SEQ-NUM-%06d", attemptId);
 
   upload_seq_num(db);
@@ -258,8 +280,8 @@ try_drain_mpi_collective(int attemptId)
     char cs_id[64] = { 0 };
     char converge_id[64] = { 0 };
 
-    snprintf(cs_id, 63, "/plugin/MANA/CRITICAL-SECTION-%06d", attemptId);
-    snprintf(converge_id, 63, "/plugin/MANA/CONVERGE-%06d", attemptId);
+    ckpt_kvdb_name(cs_id, sizeof(cs_id), "CRITICAL-SECTION", attemptId);
+    ckpt_kvdb_name(converge_id, sizeof(converge_id), "CONVERGE", attemptId);
     snprintf(barrier_id, 63, "MANA-PRESUSPEND-%06d-%06d", attemptId, round_num);
     snprintf(key, 63, "round-%06d", round_num);
 
