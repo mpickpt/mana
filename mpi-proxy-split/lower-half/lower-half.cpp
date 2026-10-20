@@ -254,6 +254,7 @@ int main(int argc, char *argv[], char *envp[]) {
     
     DmtcpCkptHeader ckpt_hdr;
     validate_checkpoint_header(t, ckpt_hdr);
+    check_vdso_address(ckpt_hdr);
     restore_heap_break((void *)ckpt_hdr.savedBrk);
     off_t ckpt_file_pos = 0;
     reserve_memory_areas(t, ckpt_file_pos);
@@ -261,7 +262,6 @@ int main(int argc, char *argv[], char *envp[]) {
     release_reserved_memory(t, ckpt_file_pos);
     restore_session_leadership(t);
     restore_memory_data(t, ckpt_hdr);
-    check_vdso_address(ckpt_hdr);
     init_mem_arena_after_restore();
     create_heap_guard_page();
     /* Everything restored, close file and finish up */
@@ -430,8 +430,11 @@ static void reserve_restart_fds() {
  *
  * This function checks if the environment variable "MANA_FIRST_TIME" is set. If not,
  *  it disables address space randomization by setting the ADDR_NO_RANDOMIZE 
- *  personality flag and then re-executes the process with the modified environment.
- *  If the variable is already set, it resets it to "0". 
+ *  personality flag and then re-executes the process with the modified
+ *  environment, padded by MANA_STACK_PAD so that the vDSO is at the same
+ *  address in every exec.  It exits if the re-exec fails.
+ *  If the variable is already set, it resets it to "0" and empties the pad in
+ *  place: unsetenv() would shift envp, which deepCopyStack() walks.
  *
  * @param argv  The argument vector to be passed to execvpe() when 
  *              re-executing the process.
@@ -443,18 +446,28 @@ void set_addr_no_randomize(char *argv[]) {
   char *env = getenv(first_time);
   if (env == NULL) {
     setenv(first_time, "1", 1);
-    // Keeps the vDSO at one address in every exec (else random with 5-level paging).
+    // Kernels like 5.14 try a random vDSO address just above the stack, and
+    // fall back to the fixed slot only if it overlaps the stack's strings.
+    // With 5-level paging that address (above 2^47) is accepted whenever the
+    // strings take less than the vDSO + vvar (24 KiB on x86-64), so the vDSO
+    // moves between launch and restart (mpickpt/mana#526).  64 KiB of strings
+    // always overlap it.
     setenv(stack_pad, string(64 * 1024, 'x').c_str(), 1);
     personality(ADDR_NO_RANDOMIZE);
     execvpe(argv[0], argv, environ);
-    // E2BIG near the exec size limit: retry without the pad.
-    unsetenv(stack_pad);
-    execvpe(argv[0], argv, environ);
-    fprintf(stderr, "MANA: cannot re-execute %s: %s\n", argv[0], strerror(errno));
+    // E2BIG: the other strings take at least 64 KiB, enough without the
+    // pad.  After any other error, a re-exec without the pad could move the
+    // vDSO unnoticed, so give up.
+    if (errno == E2BIG) {
+      unsetenv(stack_pad);
+      execvpe(argv[0], argv, environ);
+    }
+    fprintf(stderr, "MANA: cannot re-execute %s: %s\n", argv[0],
+            strerror(errno));
     exit(1);
   } else {
     env[0] = '0';
-    // Emptied in place: unsetenv() would shift envp, which deepCopyStack() walks.
+    // Emptied in place (see above).
     char *pad = getenv(stack_pad);
     if (pad != NULL) {
       pad[0] = '\0';
@@ -903,16 +916,18 @@ void restore_memory_data(RestoreTarget *t, DmtcpCkptHeader &ckpt_hdr)
   }
 }
 
-// The upper half's libc calls the vDSO at its address in the checkpointed process.
+// The upper half's libc calls the vDSO at its address in the checkpointed
+// process.  MPI_Abort, not exit(): srun can leave the other ranks waiting.
 static void
 check_vdso_address(const DmtcpCkptHeader &ckpt_hdr)
 {
   unsigned long vdso = getauxval(AT_SYSINFO_EHDR);
   if (ckpt_hdr.vdso.startAddr != 0 && vdso != ckpt_hdr.vdso.startAddr) {
-    fprintf(stderr, "MANA: the vDSO is at %p, but was at %p in the checkpointed "
-            "process; the application would crash in clock_gettime()\n",
+    fprintf(stderr, "MANA: the vDSO is at %p, but was at %p in the "
+            "checkpointed process; the application would crash in "
+            "clock_gettime()\n",
             (void *)vdso, (void *)ckpt_hdr.vdso.startAddr);
-    exit(1);
+    MPI_Abort(MPI_COMM_WORLD, 1);
   }
 }
 
