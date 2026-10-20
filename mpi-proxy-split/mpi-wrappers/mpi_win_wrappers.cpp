@@ -15,7 +15,11 @@ int PMPI_Alloc_mem(MPI_Aint size, MPI_Info info, void *baseptr)
   // Since memory allocated by the lower half will be discarded during
   // checkpoint, we need to translate MPI_Alloc_mem and MPI_Free_mem
   // to malloc and free. This may slow down the program.
-  *(void**)baseptr = malloc(size * sizeof(MPI_Aint));
+  void *mem = malloc(size);
+  if (mem == NULL && size > 0) {
+    return MPI_ERR_NO_MEM;
+  }
+  *(void**)baseptr = mem;
   return MPI_SUCCESS;
 }
 
