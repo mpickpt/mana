@@ -83,6 +83,7 @@ int PMPI_Init(int *argc, char ***argv) {
   recordPostMpiInitMaps();
 
   init_predefined_virt_ids();
+  init_tag_ub();
   initialize_drain_send_recv();
   // Before any wrapper compares an argument with Fortran's MPI_STATUS_IGNORE.
   get_fortran_constants();
@@ -118,6 +119,7 @@ int PMPI_Init_thread(int *argc, char ***argv, int required, int *provided) {
   recordPostMpiInitMaps();
 
   init_predefined_virt_ids();
+  init_tag_ub();
   initialize_drain_send_recv();
   // Before any wrapper compares an argument with Fortran's MPI_STATUS_IGNORE.
   get_fortran_constants();

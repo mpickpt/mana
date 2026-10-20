@@ -998,6 +998,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       seq_num_reset();
       dmtcp_local_barrier("MPI:seq_num_reset");
       init_predefined_virt_ids();
+      check_tag_ub();
       reconstruct_descriptors();
       dmtcp_local_barrier("MPI:Reset-Drain-Send-Recv-Counters");
       resetDrainCounters(); // p2p_drain_send_recv.cpp
