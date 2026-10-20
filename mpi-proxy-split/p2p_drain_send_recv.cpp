@@ -89,6 +89,7 @@ unlockMessageQueue()
 
 // See p2p_drain_send_recv.h for documentation of these globals.
 pending_recv_t g_pending_recv = { /*.state=*/ PENDING_RECV_IDLE };
+MPI_Comm g_ssend_ack_comm = MPI_COMM_NULL;
 volatile bool p2p_dummy_phase = false;
 p2p_wait_t g_p2p_wait = P2P_WAIT_POLLING;
 
@@ -195,6 +196,14 @@ initialize_drain_send_recv()
 #endif
   active_comms.insert(MPI_COMM_WORLD);
   active_comms.insert(MPI_COMM_SELF);
+  // Made only here: restart rebuilds it with the application's communicators.
+  MPI_Comm ack_comm;
+  int retval;
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
+  retval = NEXT_FUNC(Comm_dup)(lh_info->MANA_COMM_WORLD, &ack_comm);
+  RETURN_TO_UPPER_HALF();
+  JASSERT(retval == MPI_SUCCESS)(retval);
+  g_ssend_ack_comm = new_virt_comm(ack_comm);
 }
 
 // Sums all ranks' sent and received counts in this round's keys.  The next
@@ -253,6 +262,8 @@ recvMsgIntoInternalBuffer(MPI_Status status, MPI_Comm comm)
   message->comm       = comm;
   message->status     = status;
   message->size       = count;
+  message->ack_to     = -1;
+  message->ack_tag    = 0;
 
   lockMessageQueue();
   g_message_queue.push_back(message);
@@ -260,6 +271,8 @@ recvMsgIntoInternalBuffer(MPI_Status status, MPI_Comm comm)
 
   return count;
 }
+
+static void awaitSsendAck(MPI_Request request);
 
 // Go through each pending MPI_Irecv (and MPI_Isend) and try to complete
 // them before checkpointing.
@@ -296,6 +309,9 @@ completePendingP2pRequests()
         }
         // Keep the status for the application's MPI_Wait or MPI_Test.
         complete_virt_request(request, &status);
+      } else if (call.type == ISSEND_REQUEST) {
+        awaitSsendAck(request);
+        continue;
       } else {
         if (call.type == ISEND_REQUEST) {
           g_drain_stats.isends_completed++;
@@ -430,18 +446,24 @@ drainRemainingP2pMsgs()
 
 // Completes the pending MPI_Isends, whose messages the drain has seen
 // received, since restart cannot replay a send.  The application's
-// MPI_Wait/MPI_Test then sees the real request MPI_REQUEST_NULL.
+// MPI_Wait/MPI_Test then sees the real request MPI_REQUEST_NULL.  An
+// MPI_Issend's waits for its ack.
 static void
 completePendingIsends()
 {
   for (MPI_Request request : pendingRequestsInPostingOrder()) {
-    if (pendingRequestType(request) != ISEND_REQUEST) {
+    mpi_req_t type = pendingRequestType(request);
+    if (type != ISEND_REQUEST && type != ISSEND_REQUEST) {
       continue;
     }
     int flag = 0;
     MPI_Status status;
     while (!flag) {
       MPI_Test_internal(&request, &flag, &status, false);
+    }
+    if (type == ISSEND_REQUEST) {
+      awaitSsendAck(request);
+      continue;
     }
     update_virt_id((mana_mpi_handle){.request = request},
                    (mana_mpi_handle){.request = MPI_REQUEST_NULL});
@@ -479,7 +501,8 @@ countPendingIsends()
 {
   int64_t n = 0;
   for (MPI_Request request : pendingRequestsInPostingOrder()) {
-    if (pendingRequestType(request) == ISEND_REQUEST) {
+    mpi_req_t type = pendingRequestType(request);
+    if (type == ISEND_REQUEST || type == ISSEND_REQUEST) {
       n++;
     }
   }
@@ -488,6 +511,21 @@ countPendingIsends()
 
 static void postDummy();
 static void sendPostedDummies(bool nonblocking);
+static void markSsendAcks();
+// This rank's MPI_Issends that publishSsendNotices() announced, with their
+// receivers' world ranks and their acks' tags.
+struct SsendNotice {
+  MPI_Request request;
+  int receiver;
+  int ack_tag;
+};
+static std::vector<SsendNotice> g_ssend_notices;
+// The acks that sendOwedSsendAcks() sends: world ranks and tags.
+struct SsendAck {
+  int rank;
+  int tag;
+};
+static std::vector<SsendAck> g_owed_acks;
 
 // The dummies that the barrier-free drain sent with MPI_Isend: the real
 // requests and their buffers.
@@ -599,6 +637,7 @@ drainWithoutBarriers()
   uint64_t t0 = drainStatsNow();
   uint64_t t_dummy = 0;
   int dummy_pass = 0;  // 1 to 3 in the dummy step
+  int64_t notices = 0;  // published by all ranks
   bool blocked = false;
   for (;;) {
     g_drain_stats.iterations++;
@@ -638,13 +677,15 @@ drainWithoutBarriers()
     int64_t in_recv =
       __atomic_load_n(&g_pending_recv.state, __ATOMIC_ACQUIRE) ==
         PENDING_RECV_ACTIVE;
-    int64_t local[6] = {
-      local_sent_messages, recv, countPendingIsends(), nbcs, in_recv, dummies
+    int64_t local[7] = {
+      local_sent_messages, recv, countPendingIsends(), nbcs, in_recv, dummies,
+      (int64_t)g_ssend_notices.size()
     };
-    int64_t sums[6];
-    reduceDrainCounters(local, sums, 6);
+    int64_t sums[7];
+    reduceDrainCounters(local, sums, 7);
     global_sent_messages = sums[0];
     global_recv_messages = sums[1];
+    notices = sums[6];
     bool received = sums[1] >= sums[0] && sums[2] == 0 && sums[3] == 0;
     if (received && sums[4] == 0 && sums[5] == 0) {
       break;
@@ -653,6 +694,9 @@ drainWithoutBarriers()
       dummy_pass = 1;
       t_dummy = drainStatsNow();
     }
+  }
+  if (notices > 0) {
+    markSsendAcks();
   }
   g_drain_stats.t_inflight = drainStatsNow() - t0;
   if (t_dummy != 0) {
@@ -736,49 +780,64 @@ consumeMatchingMsgBuffer(void *buf, int count, MPI_Datatype datatype,
   *mpi_status = foundMsg->status;
   g_message_queue.erase(req);
   unlockMessageQueue();
+  if (foundMsg->ack_to >= 0) {
+    sendSsendAck(foundMsg->ack_to, foundMsg->ack_tag);  // Its receive started
+  }
   JALLOC_HELPER_FREE(foundMsg->buf);
   JALLOC_HELPER_FREE(foundMsg);
   return MPI_SUCCESS;
 }
 
-// Phase B of unblockPendingRecvs(), on a blocked rank: posts the dummy to
-// its sender as dummy_<sender>_<slot>.  Virtual handles differ between
-// ranks, so the dummy names the communicator by its mana_comm_desc name and
-// gives the receive's size in bytes; the sender sends that many MPI_BYTEs.
-static void
-postDummy()
+// A communicator as other ranks can find it (commByName()): virtual handles
+// differ between ranks, so it is named by its mana_comm_desc name.  A
+// predefined communicator is named by its handle, which every rank shares,
+// with instance -1.
+struct CommName {
+  uint64_t hash;
+  int64_t instance;
+  int size;
+  int rank;            // this rank's rank in it
+  const int *members;  // members' world ranks; NULL: member i is world rank i
+};
+
+static CommName
+commName(MPI_Comm comm)
 {
-  // The communicator's name, size, this rank's rank in it, and its members'
-  // world ranks ('members' NULL: member i is world rank i).  A predefined
-  // communicator is named by its handle, which every rank shares, with
-  // instance -1.
-  MPI_Comm comm = g_pending_recv.comm;
-  uint64_t comm_hash;
-  int64_t comm_instance;
-  int size, my_rank;
-  const int *members = NULL;
   virt_id_entry *entry =
     lookup_virt_id_entry((mana_mpi_handle){.comm = comm});
   if (entry != NULL) {
     mana_comm_desc *desc = (mana_comm_desc*)entry->desc;
-    comm_hash = desc->ranks_hash;
-    comm_instance = desc->instance;
-    size = desc->size;
-    my_rank = desc->rank;
-    members = desc->global_ranks;
-  } else if (comm == MPI_COMM_WORLD) {
-    comm_hash = (uint64_t)comm;
-    comm_instance = -1;
-    size = g_world_size;
-    my_rank = g_world_rank;
-  } else {
-    JASSERT(comm == MPI_COMM_SELF)(comm).Text("MPI_Recv on an unknown comm");
-    comm_hash = (uint64_t)comm;
-    comm_instance = -1;
-    size = 1;
-    my_rank = 0;
-    members = &g_world_rank;
+    return {desc->ranks_hash, desc->instance, desc->size, desc->rank,
+            desc->global_ranks};
   }
+  if (comm == MPI_COMM_WORLD) {
+    return {(uint64_t)comm, -1, g_world_size, g_world_rank, NULL};
+  }
+  JASSERT(comm == MPI_COMM_SELF)(comm).Text("Unknown communicator");
+  return {(uint64_t)comm, -1, 1, 0, &g_world_rank};
+}
+
+// This rank's handle of a communicator named by commName(), or MPI_COMM_NULL.
+static MPI_Comm
+commByName(uint64_t hash, int64_t instance)
+{
+  return instance == -1 ? (MPI_Comm)hash
+                        : find_virt_comm(hash, (unsigned int)instance);
+}
+
+// Phase B of unblockPendingRecvs(), on a blocked rank: posts the dummy to
+// its sender as dummy_<sender>_<slot>.  The dummy names the communicator
+// (commName()) and gives the receive's size in bytes; the sender sends that
+// many MPI_BYTEs.
+static void
+postDummy()
+{
+  CommName name = commName(g_pending_recv.comm);
+  uint64_t comm_hash = name.hash;
+  int64_t comm_instance = name.instance;
+  int size = name.size;
+  int my_rank = name.rank;
+  const int *members = name.members;
 
   // The sender: the MPI_Recv's source, or for MPI_ANY_SOURCE the first
   // member that is not blocked itself (the bitmap is complete: every rank
@@ -803,7 +862,7 @@ postDummy()
         sender = i;
       }
     }
-    JASSERT(sender >= 0)(comm)
+    JASSERT(sender >= 0)(g_pending_recv.comm)
       .Text("MPI_ANY_SOURCE Recv with no unblocked sender in comm; "
             "user program may have deadlocked.");
   }
@@ -852,10 +911,7 @@ sendPostedDummies(bool nonblocking)
 
     // This rank's handle of the blocked rank's communicator: it is a
     // member, since the blocked rank chose it among the members.
-    MPI_Comm virtComm = comm_instance == -1
-                          ? (MPI_Comm)comm_hash
-                          : find_virt_comm(comm_hash,
-                                           (unsigned int)comm_instance);
+    MPI_Comm virtComm = commByName(comm_hash, comm_instance);
     JASSERT(virtComm != MPI_COMM_NULL)(comm_hash)(comm_instance)
       .Text("The dummy's sender doesn't know the blocked MPI_Recv's comm");
     MPI_Comm realComm =
@@ -883,6 +939,137 @@ sendPostedDummies(bool nonblocking)
       free(dummy_buf);
     }
   }
+}
+
+// MPI_Issend across a checkpoint.  The drain may receive an MPI_Issend's
+// message into MANA's buffer before its receive starts.  MPI lets an
+// MPI_Issend complete later than that, so each one pending at the checkpoint
+// waits for an ack from its receiver:
+//   1. publishSsendNotices(): the sender posts a notice to the receiver.
+//   2. awaitSsendAck(): when the drain completes the MPI_Issend, its request
+//      becomes the receive of the ack on g_ssend_ack_comm.
+//   3. markSsendAcks(), once every message is received: the receiver marks
+//      the buffered message, whose consumeMatchingMsgBuffer() sends the ack,
+//      or, if the application has received it, sendOwedSsendAcks() sends the
+//      ack at resume or restart.
+// Then the ack and its receive are ordinary messages and requests.
+static void
+publishSsendNotices()
+{
+  static int next_ack_tag = 0;
+  g_ssend_notices.clear();
+  for (MPI_Request request : pendingRequestsInPostingOrder()) {
+    mpi_nonblocking_call_t call;
+    if (!getPendingCall(request, &call) || call.type != ISSEND_REQUEST) {
+      continue;
+    }
+    CommName name = commName(call.comm);
+    int dest = name.members != NULL ? name.members[call.remote_node]
+                                    : call.remote_node;
+    // Unique among this rank's pending acks; MPI_TAG_UB is at least 32767.
+    int ack_tag = next_ack_tag;
+    next_ack_tag = (next_ack_tag + 1) % 32768;
+    char key[64], notice[160];
+    snprintf(key, sizeof(key), "nssends_%d", dest);
+    int64_t slot = kvFetchAdd(g_drain_db, key, 1);
+    snprintf(key, sizeof(key), "ssend_%d_%lld", dest, (long long)slot);
+    snprintf(notice, sizeof(notice), "%llu %lld %d %d %d %d %d",
+             (unsigned long long)name.hash, (long long)name.instance,
+             name.rank, call.tag, call.later_sends, g_world_rank, ack_tag);
+    kvSetString(g_drain_db, key, notice);
+    g_ssend_notices.push_back({request, dest, ack_tag});
+  }
+  g_drain_stats.issends = (int64_t)g_ssend_notices.size();
+}
+
+static void
+awaitSsendAck(MPI_Request request)
+{
+  auto notice = std::find_if(g_ssend_notices.begin(), g_ssend_notices.end(),
+                             [request](const SsendNotice &n)
+                             { return n.request == request; });
+  JASSERT(notice != g_ssend_notices.end())(request);
+  MPI_Comm realComm =
+    get_real_id((mana_mpi_handle){.comm = g_ssend_ack_comm}).comm;
+  MPI_Request realRequest;
+  int retval;
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
+  retval = NEXT_FUNC(Irecv)(NULL, 0, lh_info->MANA_BYTE, notice->receiver,
+                            notice->ack_tag, realComm, &realRequest);
+  RETURN_TO_UPPER_HALF();
+  JASSERT(retval == MPI_SUCCESS)(retval)(notice->receiver);
+  update_virt_id((mana_mpi_handle){.request = request},
+                 (mana_mpi_handle){.request = realRequest});
+  // The receiver's rank in g_ssend_ack_comm is its world rank.
+  mpi_nonblocking_call_t call = {IRECV_REQUEST, NULL, NULL, 0, MPI_BYTE,
+                                 g_ssend_ack_comm, notice->receiver,
+                                 notice->ack_tag, 0};
+  replacePendingCall(request, &call);
+}
+
+// Buffered messages with one envelope are the last ones sent: the drain
+// receives them in order, and a receive takes a buffered message first.
+static bool
+markSsendAck(MPI_Comm comm, int source, int tag, int later_sends, int sender,
+             int ack_tag)
+{
+  lockMessageQueue();
+  mpi_message_t *found = NULL;
+  int n = 0;
+  for (auto it = g_message_queue.rbegin(); it != g_message_queue.rend();
+       ++it) {
+    mpi_message_t *msg = *it;
+    if (msg->comm == comm && msg->status.MPI_SOURCE == source &&
+        msg->status.MPI_TAG == tag && n++ == later_sends) {
+      found = msg;
+      break;
+    }
+  }
+  if (found != NULL) {
+    JASSERT(found->ack_to == -1)(found->ack_to)(sender);
+    found->ack_to = sender;
+    found->ack_tag = ack_tag;
+  }
+  unlockMessageQueue();
+  return found != NULL;
+}
+
+static void
+markSsendAcks()
+{
+  char key[64];
+  int64_t count = 0;  // No key: no notice
+  snprintf(key, sizeof(key), "nssends_%d", g_world_rank);
+  kvGet(g_drain_db, key, &count);
+  for (int64_t k = 0; k < count; k++) {
+    snprintf(key, sizeof(key), "ssend_%d_%lld", g_world_rank, (long long)k);
+    dmtcp::string notice;
+    KVDBResponse rc = kvGetString(g_drain_db, key, &notice);
+    JASSERT(rc == KVDBResponse::SUCCESS)(key)(rc);
+    unsigned long long comm_hash;
+    long long comm_instance;
+    int source, tag, later_sends, sender, ack_tag;
+    JASSERT(sscanf(notice.c_str(), "%llu %lld %d %d %d %d %d", &comm_hash,
+                   &comm_instance, &source, &tag, &later_sends, &sender,
+                   &ack_tag) == 7)(notice);
+    MPI_Comm comm = commByName(comm_hash, comm_instance);
+    JASSERT(comm != MPI_COMM_NULL)(comm_hash)(comm_instance)
+      .Text("The receiver of an MPI_Issend doesn't know its comm");
+    if (markSsendAck(comm, source, tag, later_sends, sender, ack_tag)) {
+      g_drain_stats.issends_buffered++;
+    } else {
+      g_owed_acks.push_back({sender, ack_tag});
+    }
+  }
+}
+
+void
+sendOwedSsendAcks()
+{
+  for (const SsendAck &ack : g_owed_acks) {
+    sendSsendAck(ack.rank, ack.tag);
+  }
+  g_owed_acks.clear();
 }
 
 // Runs after drainInFlightP2p(): with no real message in flight, a blocked
@@ -956,11 +1143,13 @@ drainP2p()
   __atomic_compare_exchange_n(&g_pending_recv.state, &idle,
                               PENDING_RECV_CLOSED, false, __ATOMIC_ACQ_REL,
                               __ATOMIC_ACQUIRE);
+  publishSsendNotices();
   if (drainHasNoBarrier()) {
     drainWithoutBarriers();
     return;
   }
   drainInFlightP2p();
+  markSsendAcks();
   unblockPendingRecvs();
 }
 
@@ -1039,6 +1228,8 @@ reportDrainStats()
     {"isends_completed", d.isends_completed, false},
     {"blocked", d.blocked, false},
     {"dummies", d.dummies, false},
+    {"issends", d.issends, false},
+    {"issends_buffered", d.issends_buffered, false},
     {"kvdb_requests", d.kvdb_requests, false},
     {"done_polls", d.done_polls, false},
     {"barriers", d.barriers, true},      // The same on every rank
@@ -1067,8 +1258,8 @@ reportDrainStats()
           "wait-lower-half %ld\n"
           "  iterations %ld, barriers %ld; totals: comms probed %ld, "
           "iprobes %ld, drained %ld msgs %ld bytes, irecvs completed %ld, "
-          "isends completed %ld, blocked %ld, dummies %ld, "
-          "kvdb requests %ld, done polls %ld\n",
+          "isends completed %ld, blocked %ld, dummies %ld, issends %ld "
+          "(buffered %ld), kvdb requests %ld, done polls %ld\n",
           checkpoint, g_world_size,
           g_p2p_wait == P2P_WAIT_POLLING ? "polling" : "blocking",
           v["collective"], v["inflight"],
@@ -1078,6 +1269,6 @@ reportDrainStats()
           v["dispatch"], v["dispatched"], v["wait_lower_half"],
           v["iterations"], v["barriers"], v["comms_probed"], v["iprobes"],
           v["drained_msgs"], v["drained_bytes"], v["irecvs_completed"],
-          v["isends_completed"], v["blocked"], v["dummies"],
-          v["kvdb_requests"], v["done_polls"]);
+          v["isends_completed"], v["blocked"], v["dummies"], v["issends"],
+          v["issends_buffered"], v["kvdb_requests"], v["done_polls"]);
 }

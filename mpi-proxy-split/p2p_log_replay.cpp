@@ -57,6 +57,8 @@ static pthread_mutex_t logMutex = PTHREAD_MUTEX_INITIALIZER;
 static virt_id_entry *pendingHead = NULL;
 static virt_id_entry *pendingTail = NULL;
 static int pendingLock = 0;
+// The pending MPI_Issends: changed under pendingLock, read without it.
+static int pendingIssends = 0;
 
 static inline void
 lockPending()
@@ -172,8 +174,12 @@ addPendingRequestToLog(mpi_req_t req, const void* sbuf, void* rbuf, int cnt,
   call->remote_node = remote;
   call->tag = tag;
   call->comm = comm;
+  call->later_sends = 0;
   lockPending();
   call->type = req;
+  if (req == ISSEND_REQUEST) {
+    __atomic_fetch_add(&pendingIssends, 1, __ATOMIC_RELAXED);
+  }
   entry->pending_prev = pendingTail;
   entry->pending_next = NULL;
   if (pendingTail != NULL) {
@@ -198,6 +204,9 @@ clearPendingRequestFromLog(MPI_Request req)
     return;
   }
   if (entry->call.type != UNKNOW_REQUEST) {
+    if (entry->call.type == ISSEND_REQUEST) {
+      __atomic_fetch_sub(&pendingIssends, 1, __ATOMIC_RELAXED);
+    }
     if (entry->pending_prev != NULL) {
       entry->pending_prev->pending_next = entry->pending_next;
     } else {
@@ -211,6 +220,38 @@ clearPendingRequestFromLog(MPI_Request req)
     entry->pending_prev = NULL;
     entry->pending_next = NULL;
     entry->call.type = UNKNOW_REQUEST;
+  }
+  unlockPending();
+}
+
+void
+replacePendingCall(MPI_Request req, const mpi_nonblocking_call_t *call)
+{
+  lockPending();
+  virt_id_entry *entry =
+    lookup_virt_id_entry((mana_mpi_handle){.request = req});
+  JASSERT(entry != NULL && entry->call.type != UNKNOW_REQUEST)(req);
+  if (entry->call.type == ISSEND_REQUEST && call->type != ISSEND_REQUEST) {
+    __atomic_fetch_sub(&pendingIssends, 1, __ATOMIC_RELAXED);
+  }
+  entry->call = *call;
+  unlockPending();
+}
+
+void
+countSendAfterIssends(MPI_Comm comm, int dest, int tag)
+{
+  if (__atomic_load_n(&pendingIssends, __ATOMIC_RELAXED) == 0) {
+    return;
+  }
+  lockPending();
+  for (virt_id_entry *entry = pendingHead; entry != NULL;
+       entry = entry->pending_next) {
+    mpi_nonblocking_call_t *call = &entry->call;
+    if (call->type == ISSEND_REQUEST && call->comm == comm &&
+        call->remote_node == dest && call->tag == tag) {
+      call->later_sends++;
+    }
   }
   unlockPending();
 }
@@ -307,7 +348,8 @@ replayMpiP2pOnRestart()
         JASSERT(retval == MPI_SUCCESS).Text("Error while replaying recv");
         break;
       case ISEND_REQUEST:
-        JASSERT(false)
+      case ISSEND_REQUEST:
+        JASSERT(false)(call->type)
           .Text("There should be no pending MPI_Isend after restart");
         break;
       default:

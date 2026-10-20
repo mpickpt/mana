@@ -46,6 +46,10 @@ typedef struct __mpi_message
   int size;
   MPI_Comm comm;
   MPI_Status status;
+  // An MPI_Issend's: its sender's world rank, to ack when it is received,
+  // and the ack's tag (see publishSsendNotices()).  Otherwise ack_to is -1.
+  int ack_to;
+  int ack_tag;
 } mpi_message_t;
 
 // Struct to store request type and backtrace information for debugging
@@ -80,6 +84,14 @@ extern void addPendingRequestToLog(mpi_req_t , const void* , void* , int ,
 
 // remove finished send/recv call from the pending calls
 extern void clearPendingRequestFromLog(MPI_Request req);
+
+// Replaces the call of a pending request; it keeps its place in the log.
+extern void replacePendingCall(MPI_Request req,
+                               const mpi_nonblocking_call_t *call);
+
+// Counts a send in the later_sends of each pending MPI_Issend with its
+// envelope.  Call it before the send enters the lower half.
+extern void countSendAfterIssends(MPI_Comm comm, int dest, int tag);
 
 // Returns the pending requests in posting order (not handle order).  MPI
 // matches receives in that order, so the drain and restart replay use it.

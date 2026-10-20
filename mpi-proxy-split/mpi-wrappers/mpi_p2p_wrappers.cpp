@@ -90,6 +90,7 @@ int PMPI_Send(const void *buf, int count, MPI_Datatype datatype,
   // A message to MPI_PROC_NULL is never received: don't count it.
   if (dest != MPI_PROC_NULL) {
     local_sent_messages++;
+    countSendAfterIssends(comm, dest, tag);
   }
   MPI_Comm realComm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   MPI_Datatype realType = get_real_id((mana_mpi_handle){.datatype = datatype}).datatype;
@@ -122,6 +123,7 @@ MPI_Isend_internal(const void *buf, int count, MPI_Datatype datatype,
   int retval;
   if (dest != MPI_PROC_NULL) {
     local_sent_messages++;
+    countSendAfterIssends(comm, dest, tag);
   }
   MPI_Comm realComm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   MPI_Datatype realType = get_real_id((mana_mpi_handle){.datatype = datatype}).datatype;
@@ -144,9 +146,11 @@ MPI_Isend_internal(const void *buf, int count, MPI_Datatype datatype,
     printf("rank %d sends %d bytes to rank %d\n", g_world_rank, count * size, worldRank);
     fflush(stdout);
 #endif
-    // Virtualize request
+    // Virtualize request.  An MPI_Issend to MPI_PROC_NULL needs no ack.
     *request = new_virt_request(*request);
-    addPendingRequestToLog(ISEND_REQUEST, buf, NULL, count,
+    mpi_req_t type = synchronous && dest != MPI_PROC_NULL ? ISSEND_REQUEST
+                                                          : ISEND_REQUEST;
+    addPendingRequestToLog(type, buf, NULL, count,
                            datatype, dest, tag, comm, *request);
 #ifdef USE_REQUEST_LOG
     logRequestInfo(*request, ISEND_REQUEST);
@@ -189,6 +193,7 @@ int PMPI_Rsend(const void* ibuf, int count,
   LOWER_HALF_DISABLE_CKPT();
   if (dest != MPI_PROC_NULL) {
     local_sent_messages++;
+    countSendAfterIssends(comm, dest, tag);
   }
   MPI_Comm realComm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   MPI_Datatype realType = get_real_id((mana_mpi_handle){.datatype = datatype}).datatype;
@@ -211,6 +216,8 @@ int PMPI_Rsend(const void* ibuf, int count,
   return retval;
 }
 
+// If a checkpoint drains the message, the request becomes the receive of an
+// ack (see publishSsendNotices()).
 #pragma weak MPI_Issend = PMPI_Issend
 int PMPI_Issend(const void *buf, int count, MPI_Datatype datatype, int dest,
                 int tag, MPI_Comm comm, MPI_Request *request)
@@ -237,6 +244,19 @@ int PMPI_Ssend(const void *buf, int count, MPI_Datatype datatype,
     return retval;
   }
   return PMPI_Wait(&request, MPI_STATUS_IGNORE);
+}
+
+// Under LOWER_HALF_DISABLE_CKPT(), or at resume or restart.  The ack has no
+// data: it completes at once.
+void
+sendSsendAck(int rank, int tag)
+{
+  MPI_Request request;
+  int retval = MPI_Isend_internal(NULL, 0, MPI_BYTE, rank, tag,
+                                  g_ssend_ack_comm, &request);
+  JASSERT(retval == MPI_SUCCESS)(retval)(rank)(tag);
+  retval = PMPI_Wait(&request, MPI_STATUS_IGNORE);
+  JASSERT(retval == MPI_SUCCESS)(retval)(rank)(tag);
 }
 
 #pragma weak MPI_Recv = PMPI_Recv
