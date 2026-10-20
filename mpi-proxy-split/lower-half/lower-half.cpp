@@ -1163,6 +1163,12 @@ void update_library_path(const char *argv0)
     exit(1);
   }
 
+#ifdef OPEN_MPI
+  // libmpistub.so has MPICH's ABI: it lacks Open MPI's ompi_mpi_* objects,
+  // which libmana.so references, so the upper half keeps the real library.
+  free(lib1);
+  return;
+#endif
   // The upper half loads libmpistub.so in place of the MPI library (see
   // mpi-wrappers/mpi_stub_audit.c).  ld.so ignores LD_AUDIT in
   // secure-execution mode.  The upper half's ld.so gets the lower half's
