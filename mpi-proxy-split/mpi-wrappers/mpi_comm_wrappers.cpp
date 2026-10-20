@@ -78,9 +78,10 @@ struct KeyvalTuple {
 static std::vector<int> keyvalVec;
 static std::unordered_map<int, KeyvalTuple> tupleMap;
 
+// The lower half's MPI_TAG_UB at launch, copied because the lower half's
+// storage does not survive a restart.  See check_tag_ub().
+static int tag_ub;
 // The following are prvalues. So we need an address to point them to.
-// On Cori, this is 2^22 - 1, but it just needs to be greater than 2^15 - 1.
-static const int MAX_TAG_COUNT = 2097151;
 // We're actually supposed to check the rank of the HOST process in the group
 // associated with the MPI_COMM_WORLD communicator, but even the standard says
 // "MPI does not specify what it means for a process to be a HOST, nor does it
@@ -88,6 +89,41 @@ static const int MAX_TAG_COUNT = 2097151;
 static const int MPI_HOST_RANK = MPI_PROC_NULL;
 static const int MPI_IO_SOURCE = MPI_ANY_SOURCE;
 static const int MPI_WTIME_IS_GLOBAL_VAL = 0;
+
+// MPI attaches the bound to MPI_COMM_WORLD, so ask the lower half's world.
+static int
+lower_half_tag_ub()
+{
+  int *ub = NULL;
+  int flag = 0;
+  int retval;
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
+  retval = NEXT_FUNC(Comm_get_attr)(lh_info->MANA_COMM_WORLD, MPI_TAG_UB, &ub,
+                                    &flag);
+  RETURN_TO_UPPER_HALF();
+  JASSERT(retval == MPI_SUCCESS && flag)(retval)(flag);
+  return *ub;
+}
+
+void
+init_tag_ub()
+{
+  tag_ub = lower_half_tag_ub();
+}
+
+// The bound stays the launch one: the application, its messages in flight and
+// the logged receives may use any tag up to it, so a smaller bound cannot work.
+void
+check_tag_ub()
+{
+  int ub = lower_half_tag_ub();
+  if (ub < tag_ub) {
+    fprintf(stderr, "MANA: this MPI library allows tags up to %d (MPI_TAG_UB),"
+            " but the computation started with %d; it cannot restart here\n",
+            ub, tag_ub);
+    JASSERT(false)(ub)(tag_ub).Text("MPI_TAG_UB is smaller than at launch");
+  }
+}
 
 extern "C" {
 
@@ -220,7 +256,7 @@ int PMPI_Comm_get_attr(MPI_Comm comm, int comm_keyval, void *attribute_val, int 
   // Environmental inquiries
   switch (comm_keyval) {
     case MPI_TAG_UB:
-      * (const int **) attribute_val = &MAX_TAG_COUNT;
+      * (const int **) attribute_val = &tag_ub;
       *flag = 1;
       return retval;
     case MPI_HOST:
