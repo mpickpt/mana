@@ -974,6 +974,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       resetDrainCounters(); // p2p_drain_send_recv.cpp
       seq_num_reset();
       dmtcp_local_barrier("MPI:seq_num_reset");
+      sendOwedSsendAcks(); // p2p_drain_send_recv.cpp
       mana_state = RUNNING;
       printEventToStderr("EVENT_RESUME (done)");
       break;
@@ -1009,6 +1010,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       mana_state = RESTART_REPLAY;
       dmtcp_global_barrier("MPI:replayMpiP2pOnRestart");
       replayMpiP2pOnRestart(); // p2p_log_replay.cpp
+      sendOwedSsendAcks(); // p2p_drain_send_recv.cpp
       dmtcp_local_barrier("MPI:p2p_log_replay.cpp-void");
       const char *file = get_mpi_file_filename();
       restore_mpi_files(file);

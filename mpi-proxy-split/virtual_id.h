@@ -139,6 +139,8 @@ typedef enum __mpi_req
   IBCAST_REQUEST,
   IREDUCE_REQUEST,
   IBARRIER_REQUEST,
+  // The P2P drain turns it into an IRECV_REQUEST (publishSsendNotices()).
+  ISSEND_REQUEST,
 } mpi_req_t;
 
 // Struct to store the metadata of an nonblocking MPI send/recv call
@@ -154,6 +156,7 @@ typedef struct __mpi_nonblocking_call
   MPI_Comm comm;    // MPI communicator
   int remote_node;  // Can be dest or source depending on the call type
   int tag;          // MPI message tag
+  int later_sends;  // ISSEND_REQUEST: sends with its envelope posted since
 } mpi_nonblocking_call_t;
 
 typedef struct virt_id_entry {

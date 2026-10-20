@@ -74,6 +74,14 @@ typedef struct {
 
 extern pending_recv_t g_pending_recv;
 
+// MANA's communicator for the acks of MPI_Issends (a duplicate of
+// MPI_COMM_WORLD; see publishSsendNotices()).
+extern MPI_Comm g_ssend_ack_comm;
+// Sends an MPI_Issend's ack to world rank 'rank' (mpi_p2p_wrappers.cpp).
+extern "C" void sendSsendAck(int rank, int tag);
+// Sends the acks that the last drain left to send; at resume and restart.
+void sendOwedSsendAcks();
+
 // Set to true at the start of the pending-Recv dummy-injection phase
 // (after drainInFlightP2p() returns and global_sent ==
 // global_recv has been proven).  Cleared in resetDrainCounters() on
@@ -161,6 +169,8 @@ struct DrainStats {
   int64_t isends_completed;
   int64_t blocked;           // ranks blocked in MPI_Recv
   int64_t dummies;           // dummy messages sent
+  int64_t issends;           // MPI_Issends pending (publishSsendNotices())
+  int64_t issends_buffered;  //   whose message is in MANA's buffer
   int64_t kvdb_requests;     // requests to the coordinator's database
   int64_t done_polls;        // polling: polls of the "done" counter
   int64_t barriers;          // global barriers
