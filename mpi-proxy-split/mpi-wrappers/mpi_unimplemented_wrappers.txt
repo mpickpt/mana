@@ -134,7 +134,6 @@ int MPI_Info_set(MPI_Info info, const char *key, const char *value);
 int MPI_Intercomm_create(MPI_Comm local_comm, int local_leader, MPI_Comm bridge_comm, int remote_leader, int tag, MPI_Comm *newintercomm);
 int MPI_Intercomm_merge(MPI_Comm intercomm, int high, MPI_Comm *newintercomm);
 int MPI_Irsend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request);
-int MPI_Issend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request);
 int MPI_Is_thread_main(int *flag);
 int MPI_Keyval_create(MPI_Copy_function *copy_fn, MPI_Delete_function *delete_fn, int *keyval, void *extra_state);
 int MPI_Keyval_free(int *keyval);
@@ -176,7 +175,6 @@ int MPI_Rput(const void *origin_addr, int origin_count, MPI_Datatype origin_data
 int MPI_Rsend_init(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request);
 int MPI_Send_init(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request);
 int MPI_Ssend_init(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request);
-int MPI_Ssend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm);
 int MPI_Start(MPI_Request *request);
 int MPI_Startall(int count, MPI_Request array_of_requests[]);
 

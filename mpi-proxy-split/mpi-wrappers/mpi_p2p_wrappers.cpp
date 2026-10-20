@@ -111,11 +111,13 @@ int PMPI_Send(const void *buf, int count, MPI_Datatype datatype,
   return retval;
 }
 
-// The body of MPI_Isend.  The caller has waited out the P2P drain (see
-// MPI_Isend) and called LOWER_HALF_DISABLE_CKPT().
+// The body of MPI_Isend, or of MPI_Issend if synchronous.  The caller has
+// waited out the P2P drain (see MPI_Isend) and called
+// LOWER_HALF_DISABLE_CKPT().
 static int
 MPI_Isend_internal(const void *buf, int count, MPI_Datatype datatype,
-                   int dest, int tag, MPI_Comm comm, MPI_Request *request)
+                   int dest, int tag, MPI_Comm comm, MPI_Request *request,
+                   bool synchronous = false)
 {
   int retval;
   if (dest != MPI_PROC_NULL) {
@@ -124,7 +126,13 @@ MPI_Isend_internal(const void *buf, int count, MPI_Datatype datatype,
   MPI_Comm realComm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   MPI_Datatype realType = get_real_id((mana_mpi_handle){.datatype = datatype}).datatype;
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
-  retval = NEXT_FUNC(Isend)(buf, count, realType, dest, tag, realComm, request);
+  if (synchronous) {
+    retval = NEXT_FUNC(Issend)(buf, count, realType, dest, tag, realComm,
+                               request);
+  } else {
+    retval = NEXT_FUNC(Isend)(buf, count, realType, dest, tag, realComm,
+                              request);
+  }
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS) {
 #ifdef DEBUG_P2P
@@ -201,6 +209,34 @@ int PMPI_Rsend(const void* ibuf, int count,
 #endif
   LOWER_HALF_ENABLE_CKPT();
   return retval;
+}
+
+#pragma weak MPI_Issend = PMPI_Issend
+int PMPI_Issend(const void *buf, int count, MPI_Datatype datatype, int dest,
+                int tag, MPI_Comm comm, MPI_Request *request)
+{
+  // As in MPI_Isend.
+  while (mana_state == CKPT_P2P) {
+    usleep(100);
+  }
+  LOWER_HALF_DISABLE_CKPT();
+  int retval = MPI_Isend_internal(buf, count, datatype, dest, tag, comm,
+                                  request, true);
+  LOWER_HALF_ENABLE_CKPT();
+  return retval;
+}
+
+// MPI_Issend, then MANA's MPI_Wait, in both MANA_P2P_WAIT modes.
+#pragma weak MPI_Ssend = PMPI_Ssend
+int PMPI_Ssend(const void *buf, int count, MPI_Datatype datatype,
+              int dest, int tag, MPI_Comm comm)
+{
+  MPI_Request request;
+  int retval = PMPI_Issend(buf, count, datatype, dest, tag, comm, &request);
+  if (retval != MPI_SUCCESS) {
+    return retval;
+  }
+  return PMPI_Wait(&request, MPI_STATUS_IGNORE);
 }
 
 #pragma weak MPI_Recv = PMPI_Recv
