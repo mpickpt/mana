@@ -22,8 +22,9 @@
 // Calls that the other tests do not cover: MPI_Get_processor_name;
 // MPI_Alloc_mem and MPI_Free_mem, for a buffer allocated at start (which
 // must keep its content across checkpoints and restarts), one per iteration,
-// and a large one at start that must not take much more memory than asked
-// for; MPI_Allreduce with MPI_MINLOC and MPI_MAXLOC on MPI_DOUBLE_INT
+// a large one at start that must take about as much memory as asked for, and
+// a negative size, which must fail with MPI_ERR_ARG; MPI_Allreduce with
+// MPI_MINLOC and MPI_MAXLOC on MPI_DOUBLE_INT
 // and MPI_2INT; MPI_Wtime; MPI_Initialized and MPI_Finalized; the tool
 // information interface (MPI_T); and the variables that the MPI library
 // defines (MPI_UNWEIGHTED, ...), which a program can use only by address.
@@ -174,10 +175,23 @@ main(int argc, char **argv)
   void *large;
   long before = vm_size_kb();
   MT_MPI(MPI_Alloc_mem(LARGE, MPI_INFO_NULL, &large));
-  long grown = (vm_size_kb() - before) * 1024;
-  MT_CHECK(large != NULL && grown < 2 * LARGE, "MPI_Alloc_mem(%ld) grew the"
-           " process by %ld bytes", LARGE, grown);
+  long after = vm_size_kb();
+  long grown = (after - before) * 1024;
+  MT_CHECK(large != NULL && before > 0 && after > 0 && grown >= LARGE &&
+           grown < 2 * LARGE, "MPI_Alloc_mem(%ld) grew the process by %ld"
+           " bytes", LARGE, grown);
   MT_MPI(MPI_Free_mem(large));
+  // MPI 4 raises it through MPI_COMM_SELF's handler, MPI 3 MPI_COMM_WORLD's.
+  MT_MPI(MPI_Comm_set_errhandler(MPI_COMM_SELF, MPI_ERRORS_RETURN));
+  MT_MPI(MPI_Comm_set_errhandler(MPI_COMM_WORLD, MPI_ERRORS_RETURN));
+  void *bad = NULL;
+  int rc = MPI_Alloc_mem(-1, MPI_INFO_NULL, &bad);
+  int cls = MPI_SUCCESS;
+  MT_MPI(MPI_Error_class(rc, &cls));
+  MT_CHECK(cls == MPI_ERR_ARG && bad == NULL,
+           "MPI_Alloc_mem(-1) returned class %d, pointer %p", cls, bad);
+  MT_MPI(MPI_Comm_set_errhandler(MPI_COMM_SELF, MPI_ERRORS_ARE_FATAL));
+  MT_MPI(MPI_Comm_set_errhandler(MPI_COMM_WORLD, MPI_ERRORS_ARE_FATAL));
   long it;
   for (it = 0; mt_continue(it); it++) {
     double t0 = MPI_Wtime();
