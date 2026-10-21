@@ -30,29 +30,35 @@ if "--timing" in dmtcp_flags:
   os.environ["MANA_TIMING"] = "1"
   dmtcp_flags.remove("--timing")
 if "--restartdir" not in dmtcp_flags:
-  dmtcp_flags.append("--restartdir ./")
-if "--restartdir" in dmtcp_flags:
-  ckptdir_path = dmtcp_flags[dmtcp_flags.index("--restartdir") + 1]
-  if not os.path.exists(ckptdir_path):
-    print("mana_restart: --restartdir " + ckptdir_path + 
-          ": Restart directory doesn't exist")
-    sys.exit(1)
-  for rank_dir in os.listdir(ckptdir_path):
-    if (os.path.isfile(rank_dir)):
-      continue
-    for fname in os.listdir(rank_dir):
-      if fname.endswith('.tmp'):
-        print("mana_restart: --restartdir " + ckptdir_path + 
-              ": Restart directory has .tmp files. ")
-        print("Previous checkpoint may be incomplete.")
-        sys.exit(1)
+  dmtcp_flags.extend(["--restartdir", "./"])
+restartdir_index = dmtcp_flags.index("--restartdir")
+if restartdir_index + 1 >= len(dmtcp_flags):
+  print("mana_restart: --restartdir requires a directory")
+  sys.exit(1)
+restart_dir = os.path.abspath(
+  os.path.expanduser(dmtcp_flags[restartdir_index + 1]))
+if not os.path.isdir(restart_dir):
+  print("mana_restart: --restartdir " + restart_dir +
+        ": Restart directory doesn't exist")
+  sys.exit(1)
+# DMTCP writes each image to <image>.temp and renames it when it is complete.
+for rank_entry in os.scandir(restart_dir):
+  if not rank_entry.is_dir():
+    continue
+  for entry in os.scandir(rank_entry.path):
+    if entry.name.endswith(".temp"):
+      print("mana_restart: --restartdir " + restart_dir +
+            ": Restart directory has .temp files.")
+      print("Previous checkpoint may be incomplete.")
+      sys.exit(1)
+# The lower half replaces "--restartdir DIR" with the rank's image, and
+# DMTCP stops parsing options at the image.  So keep the pair last.
+del dmtcp_flags[restartdir_index:restartdir_index + 2]
+dmtcp_flags.extend(["--restartdir", restart_dir])
 # The new lower half starts MPI for the checkpoint's MANA_P2P_WAIT, which
 # header.mana ("name=value" lines) records as p2p_wait, and keeps free the fd
 # numbers that its rank had open (fds), for DMTCP's restore.  If the launcher
 # does not tell the rank, it keeps free those of all ranks.
-restart_dir = "./"
-if "--restartdir" in dmtcp_flags:
-  restart_dir = dmtcp_flags[dmtcp_flags.index("--restartdir") + 1]
 
 def read_header(header):
   with open(header, errors="replace") as f:

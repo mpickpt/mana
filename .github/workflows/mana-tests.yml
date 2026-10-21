@@ -34,6 +34,9 @@ jobs:
           ./configure
           make -j"$(nproc)" mana
 
+      - name: Test mana_restart wrapper
+        run: python3 mpi-proxy-split/test/test-mana-restart.py -v
+
       - name: Test MANA
         run: >
           mpi-proxy-split/test/autotest.py --retry-once
