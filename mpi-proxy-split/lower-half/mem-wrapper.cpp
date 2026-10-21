@@ -30,6 +30,9 @@
 #include <sys/syscall.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <sched.h>
+#include <signal.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <fcntl.h>
 #include <vector>
@@ -52,6 +55,50 @@ using namespace std;
 std::vector<MmapInfo_t> allocated_blocks;
 std::vector<MmapInfo_t> free_blocks;
 char *max_allocated_addr = NULL;
+
+// No signal while FS is the lower half's: DMTCP's handler uses TLS (#542).
+static uint64_t
+block_signals()
+{
+  uint64_t all = ~0ULL, old;
+  syscall(SYS_rt_sigprocmask, SIG_BLOCK, &all, &old, sizeof(all));
+  return old;
+}
+
+static void
+restore_signals(uint64_t old)
+{
+  syscall(SYS_rt_sigprocmask, SIG_SETMASK, &old, NULL, sizeof(old));
+}
+
+// Reentrant per kernel thread: all threads share one TLS here (#542).
+static volatile pid_t wrapper_owner = 0;
+static int wrapper_depth = 0;
+
+static void
+lock_wrappers()
+{
+  pid_t self = (pid_t)syscall(SYS_gettid);
+  if (__atomic_load_n(&wrapper_owner, __ATOMIC_ACQUIRE) == self) {
+    wrapper_depth++;
+    return;
+  }
+  pid_t none = 0;
+  while (!__atomic_compare_exchange_n(&wrapper_owner, &none, self, false,
+                                      __ATOMIC_ACQUIRE, __ATOMIC_RELAXED)) {
+    none = 0;
+    sched_yield();
+  }
+  wrapper_depth = 1;
+}
+
+static void
+unlock_wrappers()
+{
+  if (--wrapper_depth == 0) {
+    __atomic_store_n(&wrapper_owner, 0, __ATOMIC_RELEASE);
+  }
+}
 static char *arena_base = NULL;
 
 static void* __mmap_wrapper(void * , size_t , int , int , int , off_t);
@@ -294,6 +341,7 @@ uhSbrk(intptr_t increment, UhBrk *h)
 {
   char *caller = (char*)__builtin_return_address(0);
   void *ret = (void*)-1;
+  uint64_t mask = block_signals();
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   if (caller < h->libc_text || caller >= h->libc_text_end) {
     // Not malloc: the kernel's break, which the upper half cannot move.
@@ -323,6 +371,7 @@ uhSbrk(intptr_t increment, UhBrk *h)
     }
   }
   RETURN_TO_UPPER_HALF();
+  restore_signals(mask);
   return ret;
 }
 
@@ -387,9 +436,13 @@ void* restore_mmap(void *addr, size_t length, int prot,
 void* mmap_wrapper(void *addr, size_t length, int prot,
                   int flags, int fd, off_t offset) {
   void *ret = MAP_FAILED;
+  uint64_t mask = block_signals();
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
+  lock_wrappers();
   ret = __mmap_wrapper(addr, length, prot, flags, fd, offset);
+  unlock_wrappers();
   RETURN_TO_UPPER_HALF();
+  restore_signals(mask);
   return ret;
 }
 
@@ -458,9 +511,13 @@ static void* __mmap_wrapper(void *addr, size_t length, int prot,
 
 int munmap_wrapper(void *addr, size_t length) {
   int ret = -1;
+  uint64_t mask = block_signals();
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
+  lock_wrappers();
   ret = __munmap_wrapper(addr, length);
+  unlock_wrappers();
   RETURN_TO_UPPER_HALF();
+  restore_signals(mask);
   return ret;
 }
 

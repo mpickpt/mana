@@ -30,7 +30,8 @@ E2E_TESTS = p2p_blocking p2p_nonblocking p2p_ring p2p_any_source p2p_probe \
             finalize_unsync abort p2p_ssend p2p_ssend_sync \
             p2p_ssend_collective p2p_ssend_probe p2p_ssend_wildcard \
             p2p_ssend_order p2p_ssend_comm p2p_ssend_blocked \
-            p2p_issend_envelope p2p_issend_twice p2p_issend_nbx
+            p2p_issend_envelope p2p_issend_twice p2p_issend_nbx \
+            mmap_threads
 E2E_FORTRAN = fortran_p2p fortran_nonblocking
 
 # The suite also runs the example of ../examples (ring_example).
@@ -39,6 +40,8 @@ e2e: ${E2E_TESTS} ${E2E_FORTRAN} dlopen_mpi
 
 ${E2E_TESTS}: %: %.c mana_test.h
 	$(MPICC) -g3 -O0 -o $@ $< $(MPI_CFLAGS) ${MPI_LDFLAGS}
+
+mmap_threads: MPI_LDFLAGS += -pthread
 
 # Opens the MPI library with dlopen(), so it is not linked with it.
 dlopen_mpi: dlopen_mpi.c
