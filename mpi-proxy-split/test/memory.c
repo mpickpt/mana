@@ -26,7 +26,8 @@
 // of it and allocates a new one; every few iterations it also grows or
 // shrinks the newest block with realloc(), and replaces the oldest mapping.
 // Each iteration checks a few words of every live block and mapping, and
-// the two ranks exchange a checksum of these words.
+// the two ranks exchange a checksum of these words.  At start, an mmap()
+// too large to satisfy must fail without harm.
 
 #include <stdint.h>
 #include <sys/mman.h>
@@ -263,6 +264,11 @@ main(int argc, char **argv)
   mt_init(&argc, &argv, "memory");
   MT_CHECK(mt_size == 2, "needs 2 ranks, not %d", mt_size);
   page = sysconf(_SC_PAGESIZE);
+  // 256 TiB: more than a kernel with 4-level paging allows, and under MANA
+  // past the lower half.  #533 replaced the lower half's mappings on la57.
+  void *huge = mmap(NULL, (size_t)1 << 48, PROT_READ | PROT_WRITE,
+                    MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+  MT_CHECK(huge == MAP_FAILED, "mmap(2^48) returned %p", huge);
   int peer = 1 - mt_rank;
   long it;
   for (it = 0; mt_continue(it); it++) {

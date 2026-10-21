@@ -196,6 +196,38 @@ void remove_overlap_blocks(MmapInfo_t new_block, vector<MmapInfo_t> &blocks) {
   std::sort(blocks.begin(), blocks.end(), mem_compare);
 }
 
+// Calls fn(start, end) per mapping in /proc/self/maps until it returns true.
+template <typename Fn>
+static void for_each_mapping(Fn fn) {
+  int fd = open("/proc/self/maps", O_RDONLY);
+  if (fd < 0) {
+    return;
+  }
+  static char buf[1 << 16];
+  size_t used = 0;
+  bool done = false;
+  while (!done) {
+    ssize_t n = read(fd, buf + used, sizeof(buf) - 1 - used);
+    if (n <= 0) {
+      break;
+    }
+    used += n;
+    buf[used] = '\0';
+    char *line = buf;
+    char *nl;
+    while (!done && (nl = strchr(line, '\n')) != NULL) {
+      unsigned long start, end;
+      if (sscanf(line, "%lx-%lx", &start, &end) == 2) {
+        done = fn((char*)start, (char*)end);
+      }
+      line = nl + 1;
+    }
+    used = buf + used - line;  // A partial line stays for the next read
+    memmove(buf, line, used);
+  }
+  close(fd);
+}
+
 void *next_free_addr(char *addr, size_t length) {
   uintptr_t align_mask = PAGE_SIZE - 1;
   if (addr != NULL) {
@@ -221,7 +253,15 @@ void init_mem_arena(char *base)
   // this area is available for the mmap wrapper to allocate memories.
   // The wrapper allocates memories starting from the arena_base address.
   // We are not really mapping this region in the memory now at this moment.
-  free_blocks.push_back({arena_base, SIZE_MAX / 2});
+  // It ends at the first mapping above it, so a request too large fails (#533).
+  size_t len = SIZE_MAX / 2;
+  for_each_mapping([&](char *start, char *end) {
+    if (start >= base) {
+      len = start - base;
+    }
+    return start >= base;
+  });
+  free_blocks.push_back({arena_base, len});
 }
 
 // At restart, after restore_mmap() has mapped the upper half's areas, the
@@ -384,6 +424,37 @@ void* restore_mmap(void *addr, size_t length, int prot,
   return ret;
 }
 
+// Maps at the arena's next fit, never over an existing mapping (#533).  A
+// mapping the wrapper did not make (the lower half's, or one mremap() grew,
+// #539) leaves the free list, and the next fit is tried.
+static void* arena_mmap(char *hint, size_t length, int prot,
+                        int flags, int fd, off_t offset) {
+  for (int tries = 0; tries < 16; tries++) {
+    char *addr = (char*)next_free_addr(hint, length);
+    if (addr == NULL) {
+      break;
+    }
+    void *ret = mmap_fixed_noreplace(addr, length, prot, flags, fd, offset);
+    if (ret != MAP_FAILED) {
+      if (addr + length > max_allocated_addr) {
+        max_allocated_addr = addr + length;
+      }
+      return ret;
+    }
+    if (errno != EEXIST) {
+      return MAP_FAILED;
+    }
+    for_each_mapping([&](char *start, char *end) {
+      if (start < addr + length && end > addr) {
+        remove_overlap_blocks({start, (size_t)(end - start)}, free_blocks);
+      }
+      return start >= addr + length;
+    });
+  }
+  errno = ENOMEM;
+  return MAP_FAILED;
+}
+
 void* mmap_wrapper(void *addr, size_t length, int prot,
                   int flags, int fd, off_t offset) {
   void *ret = MAP_FAILED;
@@ -398,21 +469,23 @@ static void* __mmap_wrapper(void *addr, size_t length, int prot,
   static char *libc_base_addr = NULL;
   void *ret = MAP_FAILED;
   length = ROUND_UP(length, PAGE_SIZE);
+  bool chosen = false;  // The address is the arena's, not the caller's.
   if (arena_base != NULL) {
     if (addr == NULL ||
         (flags & MAP_FIXED) == 0 ||
         (max_allocated_addr != NULL && (char*)addr > max_allocated_addr)) {
-      addr = next_free_addr((char*)addr, length);
-      if ((char*)addr + length > max_allocated_addr) {
-        max_allocated_addr = (char*)addr + length;
-      }
+      chosen = true;
     }
 #ifdef MAP_FIXED_NOREPLACE
     flags &= ~MAP_FIXED_NOREPLACE;
 #endif
     flags |= MAP_FIXED;
   }
-  ret = _real_mmap(addr, length, prot, flags, fd, offset);
+  if (chosen) {
+    ret = arena_mmap((char*)addr, length, prot, flags, fd, offset);
+  } else {
+    ret = _real_mmap(addr, length, prot, flags, fd, offset);
+  }
   if (ret != MAP_FAILED) {
     DLOG(NOISE, "LH: mmap (%lu): addr %p (%p) @ 0x%zx\n",
          allocated_blocks.size(), ret, addr, length);
