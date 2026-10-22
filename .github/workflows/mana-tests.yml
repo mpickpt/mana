@@ -23,7 +23,7 @@ jobs:
           # libc6-dbg: MANA needs the symbols of ld.so, which Ubuntu strips.
           DEBIAN_FRONTEND=noninteractive apt-get install -y \
             --no-install-recommends build-essential gfortran git \
-            ca-certificates python3 mpich libmpich-dev libc6-dbg
+            ca-certificates python3 mpich libmpich-dev libc6-dbg binutils
 
       - uses: actions/checkout@v4
         with:
@@ -36,6 +36,9 @@ jobs:
 
       - name: Test mana_restart wrapper
         run: python3 mpi-proxy-split/test/test-mana-restart.py -v
+
+      - name: Test loader debug lookup
+        run: python3 mpi-proxy-split/test/test-loader-debug.py -v
 
       - name: Test MANA
         run: >

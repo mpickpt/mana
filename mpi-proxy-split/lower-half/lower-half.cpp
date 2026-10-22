@@ -30,6 +30,7 @@
 #include "patch-trampoline.h"
 #include "lower-half-api.h"
 #include "logging.h"
+#include "build-id-debug.h"
 #include "dmtcp.h"
 #include "protectedfds.h"
 #include "dmtcprestartinternal.h"
@@ -125,8 +126,6 @@ char *deepCopyStack(int argc, char **argv, char *argc_ptr, char *argv_ptr,
 char *create_red_zone(char *stack_addr);
 static void patchAuxv(Elf64_auxv_t *av, unsigned long phnum,
                       unsigned long phdr, unsigned long entry);
-off_t get_symbol_offset_with_debug(const char *elf_interpreter, const char *symbol);
-off_t get_symbol_offset(const char *pathame, const char *symbol);
 
 typedef void (*PostRestartFnPtr_t)(double, int);
 
@@ -1671,41 +1670,6 @@ patchAuxv(Elf64_auxv_t *av, unsigned long phnum,
         break;
     }
   }
-}
-
-/**
- * @brief Retrieves the offset of a symbol in an ELF interpreter, 
- *        checking debug paths if necessary.
- *
- * This function first attempts to locate the given symbol within the 
- *  specified ELF interpreter. If the symbol is not found, it checks 
- *  for a debug version of the ELF binary under `/usr/lib/debug`
- *  (as commonly used in Debian-based systems). If the debug version 
- *  exists, it attempts to locate the symbol in th efile instead.
- *
- * @param elf_interpreter Path to the ELF interpreter binary.
- * @param symbol          Name  of the symbol whose offset is to be retrieved.
- * @return                The offset of the symbol within the ELF binary. The
- *                        function asserts if the symbol is found.
- */
-off_t get_symbol_offset_with_debug(const char *elf_interpreter, const char *symbol)
-{
-  off_t offset = get_symbol_offset(elf_interpreter, symbol);
-  if (!offset) {
-    char buf[256] = "/usr/lib/debug";
-    buf[sizeof(buf)-1] = '\0';
-    
-    ssize_t rc = 0;
-    rc = readlink(elf_interpreter, buf + strlen(buf), sizeof(buf) - strlen(buf) - 1);
-    if (rc != -1 && access(buf, F_OK) == 0) {
-      // Debian family (Ubuntu, etc.) use this scheme to store debug symbols.
-      //   http://sourceware.org/gdb/onlinedocs/gdb/Separate-Debug-Files.html
-      fprintf(stderr, "Debug symbols for interpreter in: %s\n", buf);
-    }
-    offset = get_symbol_offset(buf, symbol); // elf interpreter debug path
-  }
-  assert(offset);
-  return offset;
 }
 
 int MPI_MANA_Internal(char *dummy) {
