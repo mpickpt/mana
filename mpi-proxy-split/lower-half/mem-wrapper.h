@@ -28,6 +28,9 @@ void init_mem_arena_after_restore();
 void* mmap_wrapper(void *, size_t , int , int , int , off_t );
 void* restore_mmap(void *, size_t , int , int , int , off_t );
 int munmap_wrapper(void *, size_t);
+// mmap() at addr that fails with EEXIST rather than replace a mapping.
+void *mmap_fixed_noreplace(void *addr, size_t length, int prot, int flags,
+                           int fd, off_t offset);
 // Records the pid whose exit runs the lower half's exit handlers (uhExit()).
 void record_lower_half_pid();
 std::vector<MmapInfo_t> &get_mmapped_list(int *num);

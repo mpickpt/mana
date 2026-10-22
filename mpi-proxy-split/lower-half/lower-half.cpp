@@ -95,8 +95,6 @@ string get_restore_target_info(string restart_dir, int rank);
 void validate_checkpoint_header(RestoreTarget *t, DmtcpCkptHeader &ckpt_hdr);
 void restore_heap_break(void *saved_brk);
 void reserve_memory_areas(RestoreTarget *t, off_t &ckpt_file_pos);
-void *mmap_fixed_noreplace(void *addr, size_t length, int prot, int flags,
-                           int fd, off_t offset);
 void release_reserved_memory(RestoreTarget *t, off_t ckpt_file_pos);
 void restore_session_leadership(RestoreTarget *t);
 void restore_memory_data(RestoreTarget *t, DmtcpCkptHeader &ckpt_hdr);
