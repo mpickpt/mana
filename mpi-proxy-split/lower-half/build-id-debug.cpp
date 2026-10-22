@@ -133,6 +133,22 @@ get_build_id_debug_path(const char *elf_path, const char *debug_root)
          build_id.substr(0, 2) + "/" + build_id.substr(2) + ".debug";
 }
 
+/**
+ * @brief Retrieves a symbol's offset using the ELF interpreter and its
+ *        separate debug information.
+ *
+ * First try the interpreter with the existing symbol reader. If it returns
+ * no offset, try the conventional debug path formed by appending the
+ * interpreter's symlink target to debug_root. Finally, read the interpreter's
+ * GNU build ID and try debug_root/.build-id/xx/yyyy.debug, where xx is the
+ * first byte of the build ID in hexadecimal and yyyy is the remaining ID.
+ *
+ * @param elf_path   Path to the ELF interpreter, possibly a symbolic link.
+ * @param symbol     Name of the symbol to locate, such as mmap or munmap.
+ * @param debug_root Root of the debug-file tree, normally /usr/lib/debug.
+ * @return The symbol's offset within the interpreter. If no lookup succeeds,
+ *         report the attempted debug paths and assert.
+ */
 off_t get_symbol_offset_with_debug(const char *elf_path, const char *symbol,
                                  const char *debug_root)
 {
