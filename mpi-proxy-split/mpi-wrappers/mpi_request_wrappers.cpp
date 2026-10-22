@@ -25,7 +25,7 @@
 #include "config.h"
 #include "dmtcp.h"
 #include "util.h"
-#include "jassert.h"
+#include "dmtcp_assert.h"
 #include "lower_half_ckpt.h"
 #include "jfilesystem.h"
 #include "protectedfds.h"
@@ -128,7 +128,7 @@ int PMPI_Test(MPI_Request* request, int* flag, MPI_Status* status)
     int size = 0;
     MPI_Get_count(statusPtr, MPI_BYTE, &count);
     MPI_Type_size(MPI_BYTE, &size);
-    JASSERT(size == 1)(size);
+    ASSERT(size == 1, "size={}", size);
     mpi_nonblocking_call_t call;
     getPendingCall(*request, &call);
     MPI_Comm comm = call.comm;
@@ -318,7 +318,7 @@ int PMPI_Waitany(int count, MPI_Request *array_of_requests,
           int size = 0;
           MPI_Get_count(local_status, MPI_BYTE, &count);
           MPI_Type_size(MPI_BYTE, &size);
-          JASSERT(size == 1)(size);
+          ASSERT(size == 1, "size={}", size);
           mpi_nonblocking_call_t call;
           getPendingCall(*request, &call);
           MPI_Comm comm = call.comm;
@@ -385,7 +385,7 @@ int PMPI_Wait(MPI_Request *request, MPI_Status *status)
       int size = 0;
       MPI_Get_count(statusPtr, MPI_BYTE, &count);
       MPI_Type_size(MPI_BYTE, &size);
-      JASSERT(size == 1)(size);
+      ASSERT(size == 1, "size={}", size);
       mpi_nonblocking_call_t call;
       getPendingCall(*request, &call);
       MPI_Comm comm = call.comm;

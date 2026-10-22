@@ -2,7 +2,7 @@
 #include "config.h"
 #include "dmtcp.h"
 #include "util.h"
-#include "jassert.h"
+#include "dmtcp_assert.h"
 #include "jfilesystem.h"
 #include "protectedfds.h"
 #include "mpi_nextfunc.h"

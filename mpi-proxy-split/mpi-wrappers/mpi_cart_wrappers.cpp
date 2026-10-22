@@ -23,7 +23,7 @@
 #include "config.h"
 #include "dmtcp.h"
 #include "util.h"
-#include "jassert.h"
+#include "dmtcp_assert.h"
 #include "lower_half_ckpt.h"
 #include "jfilesystem.h"
 #include "protectedfds.h"
@@ -170,9 +170,9 @@ int PMPI_Cart_create(MPI_Comm old_comm, int ndims,
   // checkpoint-restart. Therefore, we enforce the reorder variable
   // to be false.
   //FIXME: Handle the case when reorder variable is true.
-  JWARNING (reorder == false) .Text ("We are enforcing reorder to false as "
-                                     "the current implementation does not "
-                                     "support reordered ranks.");
+  WARN(reorder == false, "We are enforcing reorder to false as "
+                         "the current implementation does not "
+                         "support reordered ranks.");
   reorder = 0;
   commit_begin(old_comm);
   LOWER_HALF_DISABLE_CKPT();

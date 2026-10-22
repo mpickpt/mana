@@ -696,8 +696,6 @@ ac_subst_files=''
 ac_user_opts='
 enable_option_checking
 enable_debug
-enable_timing
-enable_logging
 enable_quiet
 enable_fsgsbase_override
 '
@@ -1338,7 +1336,7 @@ Optional Features:
   --disable-FEATURE       do not include FEATURE (same as --enable-FEATURE=no)
   --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
   --enable-debug          Use debugging flags "-Wall -g3 -O0" on DMTCP libs
-                          (default is disabled); also, see --enable-logging
+                          (default is disabled)
 
 
 Some influential environment variables:
@@ -5753,18 +5751,6 @@ FFLAGS=$FFLAGS
 
 
 # Keeping these DMTCP flags only for convenience.
-# Check whether --enable-timing was given.
-if test ${enable_timing+y}
-then :
-  enableval=$enable_timing;
-fi
-
-# Check whether --enable-logging was given.
-if test ${enable_logging+y}
-then :
-  enableval=$enable_logging;
-fi
-
 # Check whether --enable-quiet was given.
 if test ${enable_quiet+y}
 then :
