@@ -6,6 +6,7 @@ test/*
 !test/*.f90
 !test/*.h
 !test/*.py
+!test/multinode/
 examples/ring
 proxy
 mpi-wrappers/*.c*
