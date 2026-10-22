@@ -1,103 +1,82 @@
-# Opt-in MPICH/Hydra multi-node test
+# MPICH/Hydra multi-node checkpoint/restart test
 
-This small test uses an already prepared MANA/MPICH runtime on at least two
-SSH-accessible Linux nodes. It does not install packages, configure SSH,
-replace workers, or run the v43 failover experiment.
+This optional test runs an MPI counter on at least two Linux hosts, checkpoints it with MANA, and verifies its state after restart.
 
-Without `MANA_TEST_HOSTFILE`, the runner prints `SKIP` and exits successfully.
-It is not a mandatory distributed job on ordinary CI runners.
+The runner uses an existing MANA and MPICH installation. Without `MANA_TEST_HOSTFILE`, it prints `SKIP` and exits successfully, so ordinary CI jobs do not need access to remote hosts.
 
 ## Prerequisites
 
-- Passwordless, noninteractive SSH from the controller to every host and
-  from Hydra's launcher as required by the installation.
-- MANA and MPICH at identical absolute paths on all hosts, with matching
-  MANA lower-half and plugin binaries. The controller has the same runtime.
-- A matching MPICH compiler, library, Hydra launcher, and remote proxy. The
-  working reference is MPICH 4.3.2, CH3/Nemesis, with Hydra/internal PMI.
-  Some Ubuntu MPICH packages were built with external PMIx and do not work
-  with Hydra; native MPI must pass before the MANA stages.
-- The debug symbols needed by the chosen MANA build. The known-working
-  v1.5.0 setup uses a loader debug compatibility link; PR #488 proposes an
-  alternative lookup. This test does not depend on that unmerged PR.
-- The Hydra `PMI_FD` socket correction where required by the runtime. It was
-  submitted upstream in DMTCP PR #1310; a MANA build must actually contain
-  the fix, rather than merely referring to the merged DMTCP PR.
-- Bash, Python 3.9 or later, coreutils, SSH, and SCP on the relevant hosts.
-- A writable work-root path, accessible under the same absolute name on all
-  nodes. Node-local `/tmp` is supported; shared storage is optional. Use the
-  same user/UID for the test and restart. This test does not bypass DMTCP's
-  checkpoint ownership checks.
+- Noninteractive SSH access to every host, including the access Hydra needs to launch its remote processes.
+- A built MANA runtime at the same absolute path on the controller and all hosts, with matching lower-half and plugin binaries.
+- A matching MPICH compiler, library, Hydra launcher, and remote proxy at the same absolute path on all hosts (the reference setup uses MPICH 4.3.2 with CH3/Nemesis and Hydra's internal PMI).
+- Loader debug symbols required by the MANA build, and the DMTCP `PMI_FD` socket-scan correction if required by the chosen MPICH/Hydra setup.
+- Bash, Python 3.9 or later, coreutils, SSH, and SCP where used by the test.
+- A writable work directory at the same absolute path on all hosts. Node-local `/tmp` works; shared storage is optional. Use the same user and UID throughout checkpoint and restart.
 
-Run this SSH/Hydra test outside a Slurm launch environment. Paths containing
-whitespace or shell metacharacters and IPv6 hostfile entries are unsupported.
+Runtime and work-directory paths must be absolute and contain no whitespace or shell metacharacters. IPv6 hostfile entries are unsupported.
 
 ## Run
 
-Create a hostfile with one host per line. With the default two ranks, use
-two hosts so both are exercised:
+Create a hostfile with one host per line. For the default two ranks, use two hosts:
 
 ```text
 worker-a
 worker-b
 ```
 
-Then run from the MANA repository:
+From the MANA repository, set the installation paths and hostfile:
 
 ```bash
 export MANA_HOME=/absolute/path/to/built/mana
-export MANA_TEST_MPICH_HOME=/absolute/path/to/mpich-4.3.2
+export MANA_TEST_MPICH_HOME=/absolute/path/to/mpich
 export MANA_TEST_HOSTFILE=/absolute/path/to/hosts.txt
 
 bash mpi-proxy-split/test/multinode/run-mpich-hydra.sh
 ```
 
-Hydra `host:slots` entries are also accepted. Choose a layout that places
-ranks on at least two real hosts; the test verifies the hostnames reported
-by the application.
+Hydra `host:slots` entries are also accepted. Choose a layout that places ranks on at least two hosts. The test checks the application's reported hostnames.
 
 ## Configuration
 
-| Variable | Default |
+| Variable | Default or requirement |
 | --- | --- |
-| `MANA_HOME` | Required, prebuilt MANA runtime |
-| `MANA_TEST_MPICH_HOME` | Required, matching MPICH installation |
-| `MANA_TEST_HOSTFILE` | Unset; the test skips |
+| `MANA_HOME` | Required: built MANA runtime |
+| `MANA_TEST_MPICH_HOME` | Required: matching MPICH installation |
+| `MANA_TEST_HOSTFILE` | Unset: skip the test |
 | `MANA_TEST_REMOTE_USER` | Current user |
 | `MANA_TEST_RANKS` | `2` |
-| `MANA_TEST_COORD_PORT` | `7780`, unused on the controller |
-| `MANA_TEST_WORKDIR` | `/tmp/mana-multinode-$USER`, parent of unique runs |
-| `MANA_TEST_TIMEOUT` | `300` seconds per bounded operation/progress wait |
-| `MANA_TEST_SSH` | `ssh`, an executable path |
-| `MANA_TEST_SCP` | `scp`, an executable path |
+| `MANA_TEST_COORD_PORT` | `7780`; must be free on the controller |
+| `MANA_TEST_WORKDIR` | `/tmp/mana-multinode-$USER` |
+| `MANA_TEST_TIMEOUT` | `300` seconds per bounded operation or progress wait |
+| `MANA_TEST_SSH` | `ssh`; an executable name or path |
+| `MANA_TEST_SCP` | `scp`; an executable name or path |
 
-## What it checks
+The work directory is the parent of a unique directory created for each run.
 
-1. Connectivity, required paths, and matching MANA binaries.
-2. Native distributed MPI, including communicator size and every rank's
-   `MPI_Allreduce` result.
-3. Direct DMTCP coordinator startup and a finite MANA smoke test.
-4. A longer MANA run with progress from every rank on at least two hosts.
-5. A blocking checkpoint, followed by exactly one nonempty image and header
-   per rank, no `.temp`/`.tmp` files, stable metadata, and no image writers
-   among this run's tagged processes.
-6. Termination and restart with the same rank layout. The runner retains the
-   released wrapper's checkpoint-directory/option-order workaround so the
-   test remains independent of the restart-wrapper PR.
-7. Per-rank rewind into the checkpointed interval, followed by progress past
-   the pre-termination state and correct collective results. A fresh launch
-   starting at iteration zero cannot satisfy the saved lower bound.
+## What the test checks
 
-The script uses `ssh -n`, a private `HOME`/`.mana.rc`, a unique run directory,
-and an exact environment tag for process cleanup. It uses the existing
-`dmtcp_coordinator` directly, consistent with the resolution of MANA #487.
-Cleanup stops its owned coordinator and tagged processes; it does not match
-arbitrary processes by command-line substring. Logs and checkpoints remain
-in the printed evidence directory for inspection and explicit removal.
+1. Remote access, required paths, and matching MANA binaries.
+2. Native MPI execution, communicator size, and `MPI_Allreduce` results.
+3. A finite MANA run using a directly started DMTCP coordinator.
+4. Progress from every rank during a longer MANA run.
+5. A blocking checkpoint with one nonempty image and header per rank, no `.temp` or `.tmp` files, stable checkpoint metadata, and no image writers among this run's tagged processes.
+6. Restart on the same hosts with the same rank layout. Restart runs from the checkpoint directory, with `--restartdir` after the other options.
+7. Rollback into the checkpointed interval, followed by progress beyond the pre-termination state and correct collective results from every rank.
 
-## Local checks
+The application advances after checkpointing so the test can observe rollback.
 
-These do not establish that distributed execution works:
+## Cleanup and logs
+
+Each run uses a unique directory and a private `HOME` and `.mana.rc`.
+Cleanup stops the coordinator started by the runner and processes owned by the current user that carry the exact run tag.
+
+The runner prints the evidence directory when it exits.
+Logs and checkpoint files remain available for inspection (remove them manually when finished).
+With node-local storage, inspect and remove the run directory on each host.
+
+## Checks without a cluster
+
+These commands check shell syntax and the default skip behavior (they do not validate distributed checkpoint/restart):
 
 ```bash
 bash -n mpi-proxy-split/test/multinode/run-mpich-hydra.sh
@@ -105,5 +84,3 @@ env -u MANA_TEST_HOSTFILE \
   bash mpi-proxy-split/test/multinode/run-mpich-hydra.sh
 ```
 
-Report a new multi-node run's source/runtime revisions, node/rank layout,
-output, and final `PASS` separately from earlier v43 experiment results.
