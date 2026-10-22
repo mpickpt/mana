@@ -25,7 +25,7 @@ AC_PROG_CXX
 AC_PROG_CC
 AC_PROG_CPP
 AC_CONFIG_MACRO_DIR([m4])
-AX_CXX_COMPILE_STDCXX([14], [noext], [mandatory])
+AX_CXX_COMPILE_STDCXX([20], [noext], [mandatory])
 
 AX_CHECK_COMPILE_FLAG([-std=gnu11],
                       [CFLAGS="${CFLAGS} -std=gnu11"],
