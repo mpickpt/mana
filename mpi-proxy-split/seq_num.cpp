@@ -6,7 +6,7 @@
 #include <semaphore.h>
 
 #include "dmtcp.h"
-#include "jassert.h"
+#include "dmtcp_assert.h"
 #include "jconvert.h"
 #include "kvdb.h"
 #include "seq_num.h"
@@ -214,8 +214,9 @@ upload_seq_num(const char *db)
   for (comm_seq_pair_t pair : seq_num) {
     dmtcp::string comm_id_str(jalib::XToString(pair.first));
     unsigned int seq = pair.second;
-    JASSERT(dmtcp::kvdb::request64(KVDBRequest::MAX, db, comm_id_str, seq) ==
-            KVDBResponse::SUCCESS);
+    ASSERT(dmtcp::kvdb::request64(KVDBRequest::MAX, db, comm_id_str, seq) ==
+             KVDBResponse::SUCCESS,
+           "db={} key={}", db, comm_id_str);
   }
 }
 
@@ -227,8 +228,9 @@ download_targets(const char *db)
   for (comm_seq_pair_t pair : seq_num) {
     comm_id = pair.first;
     dmtcp::string comm_id_str(jalib::XToString(pair.first));
-    JASSERT(dmtcp::kvdb::get64(db, comm_id_str, &max_seq) ==
-            KVDBResponse::SUCCESS);
+    ASSERT(dmtcp::kvdb::get64(db, comm_id_str, &max_seq) ==
+             KVDBResponse::SUCCESS,
+           "db={} key={}", db, comm_id_str);
     target[comm_id] = max_seq;
   }
 }
@@ -251,7 +253,7 @@ ckpt_kvdb_name(char *buf, size_t size, const char *what, int attempt)
     : snprintf(buf, size, "/plugin/MANA/%s-%llx-%u-%06d", what, start,
                generation, attempt);
   // DMTCP silently truncates a KVDB name at 63 characters (kvdbId).
-  JASSERT(n > 0 && n < 64 && (size_t)n < size)(buf).Text("KVDB name too long");
+  ASSERT(n > 0 && n < 64 && (size_t)n < size, "KVDB name too long: {}", buf);
 }
 
 void
@@ -285,16 +287,21 @@ try_drain_mpi_collective(int attemptId)
     snprintf(barrier_id, 63, "MANA-PRESUSPEND-%06d-%06d", attemptId, round_num);
     snprintf(key, 63, "round-%06d", round_num);
 
-    JASSERT(dmtcp::kvdb::request64(KVDBRequest::INCRBY, converge_id, key,
-                                   check_seq_nums()) == KVDBResponse::SUCCESS);
-    JASSERT(dmtcp::kvdb::request64(KVDBRequest::OR, cs_id, key,
-                                   current_phase == IN_CS) == KVDBResponse::SUCCESS);
+    ASSERT(dmtcp::kvdb::request64(KVDBRequest::INCRBY, converge_id, key,
+                                  check_seq_nums()) == KVDBResponse::SUCCESS,
+           "db={} key={}", converge_id, key);
+    ASSERT(dmtcp::kvdb::request64(KVDBRequest::OR, cs_id, key,
+                                  current_phase == IN_CS) ==
+             KVDBResponse::SUCCESS,
+           "db={} key={}", cs_id, key);
 
     dmtcp_global_barrier(barrier_id);
 
-    JASSERT(dmtcp::kvdb::get64(converge_id, key, &num_converged) ==
-            KVDBResponse::SUCCESS);
-    JASSERT(dmtcp::kvdb::get64(cs_id, key, &in_cs) == KVDBResponse::SUCCESS);
+    ASSERT(dmtcp::kvdb::get64(converge_id, key, &num_converged) ==
+             KVDBResponse::SUCCESS,
+           "db={} key={}", converge_id, key);
+    ASSERT(dmtcp::kvdb::get64(cs_id, key, &in_cs) == KVDBResponse::SUCCESS,
+           "db={} key={}", cs_id, key);
 
     if (in_cs == 0 && num_converged == g_world_size) {
       return true;
@@ -351,8 +358,8 @@ complete_pending_nonblocking_collectives()
     MPI_Status status;
     while (!flag) {
       int rc = MPI_Test_internal(&request, &flag, &status, false);
-      JASSERT(rc == MPI_SUCCESS)(rc)
-        .Text("MPI_Test failed on a pending non-blocking collective");
+      ASSERT(rc == MPI_SUCCESS,
+             "MPI_Test failed on a pending non-blocking collective: rc={}", rc);
     }
     update_virt_id((mana_mpi_handle){.request = request},
                    (mana_mpi_handle){.request = MPI_REQUEST_NULL});
@@ -370,8 +377,8 @@ test_pending_nonblocking_collectives()
     int flag = 0;
     MPI_Status status;
     int rc = MPI_Test_internal(&request, &flag, &status, false);
-    JASSERT(rc == MPI_SUCCESS)(rc)
-      .Text("MPI_Test failed on a pending non-blocking collective");
+    ASSERT(rc == MPI_SUCCESS,
+           "MPI_Test failed on a pending non-blocking collective: rc={}", rc);
     if (flag) {
       update_virt_id((mana_mpi_handle){.request = request},
                      (mana_mpi_handle){.request = MPI_REQUEST_NULL});
