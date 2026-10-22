@@ -94,7 +94,7 @@ void seq_num_broadcast(MPI_Comm comm, unsigned long new_target) {
     if (i != comm_rank) {
       NEXT_FUNC(Group_translate_ranks)(local_group, 1, &i,
                 world_group, &world_rank);
-      NEXT_FUNC(Send)(&msg, 2, MPI_UNSIGNED_LONG, world_rank,
+      NEXT_FUNC(Send)(&msg, 2, lh_info->MANA_UNSIGNED_LONG, world_rank,
                       0, real_world_comm);
 #ifdef DEBUG_SEQ_NUM
       printf("rank %d sending to rank %d new target comm %u seq %lu target %lu\n",
@@ -143,7 +143,7 @@ void commit_begin(MPI_Comm comm) {
       unsigned long new_target[2];
       MPI_Comm real_world_comm = get_real_id((mana_mpi_handle){.comm = g_world_comm}).comm;
       JUMP_TO_LOWER_HALF(lh_info->fsaddr);
-      NEXT_FUNC(Recv)(&new_target, 2, MPI_UNSIGNED_LONG,
+      NEXT_FUNC(Recv)(&new_target, 2, lh_info->MANA_UNSIGNED_LONG,
           status.MPI_SOURCE, status.MPI_TAG, real_world_comm,
           MPI_STATUS_IGNORE);
       RETURN_TO_UPPER_HALF();
@@ -188,7 +188,7 @@ void commit_finish(MPI_Comm comm) {
       unsigned long new_target[2];
       MPI_Comm real_world_comm = get_real_id((mana_mpi_handle){.comm = g_world_comm}).comm;
       JUMP_TO_LOWER_HALF(lh_info->fsaddr);
-      NEXT_FUNC(Recv)(&new_target, 2, MPI_UNSIGNED_LONG,
+      NEXT_FUNC(Recv)(&new_target, 2, lh_info->MANA_UNSIGNED_LONG,
           status.MPI_SOURCE, status.MPI_TAG, real_world_comm,
           MPI_STATUS_IGNORE);
       RETURN_TO_UPPER_HALF();
@@ -355,7 +355,7 @@ complete_pending_nonblocking_collectives()
         .Text("MPI_Test failed on a pending non-blocking collective");
     }
     update_virt_id((mana_mpi_handle){.request = request},
-                   (mana_mpi_handle){.request = MPI_REQUEST_NULL});
+                   (mana_mpi_handle){.request = lh_info->MANA_REQUEST_NULL});
   }
 }
 
@@ -374,7 +374,7 @@ test_pending_nonblocking_collectives()
       .Text("MPI_Test failed on a pending non-blocking collective");
     if (flag) {
       update_virt_id((mana_mpi_handle){.request = request},
-                     (mana_mpi_handle){.request = MPI_REQUEST_NULL});
+                     (mana_mpi_handle){.request = lh_info->MANA_REQUEST_NULL});
     } else {
       pending++;
     }

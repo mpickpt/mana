@@ -38,6 +38,10 @@ override CFLAGS += -fPIC -I${DMTCP_INCLUDE} -I${PLUGIN_HALF_SRCDIR} \
 override CXXFLAGS += -fPIC -I${DMTCP_INCLUDE} -I${JALIB_INCLUDE} \
                      -I${PLUGIN_HALF_SRCDIR} -I${DMTCP_ROOT}/src \
                      -I${LOWER_HALF_SRCDIR}
+# The upper half has no MPI library, so leave out the C++ bindings that
+# mpi.h declares in C++ (Open MPI 4.1: MPI::Datatype::Free(), ...), whose
+# code is in libmpi_cxx.so.
+override CXXFLAGS += -DOMPI_SKIP_MPICXX -DMPICH_SKIP_MPICXX
 
 # We don't build libmpiwrappers.a.  Instead, we use *.o to build libmana.so.
 default: ${LIBNAME}.a libmpistub.so libmpistub_audit.so
@@ -64,6 +68,7 @@ mpi_unimplemented_wrappers.cpp: generate-mpi-unimplemented-wrappers.py \
 # Make ignores prerequisites on suffix rules, so list header dependencies
 # here: the headers that define inline code.
 $(filter mpi_%,${LIBWRAPPER_OBJS}): ../virtual_id.h ../lower_half_ckpt.h
+mpi_fortran_wrappers.o: fortran_handles.h
 
 # FIXME:  This assumes 'CFLAGS' is compatible with FORTRAN, since MANA does not
 #         define 'FFLAGS'.  But Fortran doesn't use '-std=gnu11' from CFLAGS.
@@ -102,10 +107,19 @@ mpi_fortran_wrappers.cpp: generate-mpi-fortran-wrappers.py \
 	 "// *** THIS FILE IS AUTO-GENERATED! DO 'make' TO UPDATE. ***" >$$tmp;\
 	python3 $^ >> $$tmp && mv -f $$tmp $@ || (rm -f $$tmp && false)
 
+# With Open MPI, a predefined handle is the address of an object in the MPI
+# library, which libmpistub.so must define too.
+mpi_stub_objects.c: generate-mpi-stub-objects.py
+	rm -f $@
+	tmp=$@.tmp.$$$$ ; \
+	printf "%s\n\n" \
+	 "// *** THIS FILE IS AUTO-GENERATED! DO 'make' TO UPDATE. ***" >$$tmp;\
+	python3 $< ${MPICC} >> $$tmp && mv -f $$tmp $@ || (rm -f $$tmp && false)
+
 mpi_stub_wrappers.o: mpi_stub_wrappers.c
 	${MPICC} ${CFLAGS} -c -o $@ $<
 
-libmpistub.so: mpi_stub_wrappers.o mpi_stub_data.o
+libmpistub.so: mpi_stub_wrappers.o mpi_stub_data.o mpi_stub_objects.o
 	${CC} -fPIC $^ -shared -o $@
 
 # An LD_AUDIT module for the upper half; it must not need libc.
@@ -150,6 +164,7 @@ install: libmpistub.so libmpistub_audit.so
 clean: tidy
 	rm -f ${LIBWRAPPER_OBJS}
 	rm -f ${LIBNAME}.a libmpistub.so mpi_stub_data.o libmpistub_audit.so
+	rm -f mpi_stub_objects.c mpi_stub_objects.o
 	rm -f ${MANA_ROOT}/lib/dmtcp/libmpistub.so
 	rm -f ${MANA_ROOT}/lib/dmtcp/libmpistub_audit.so
 	rm -f mpi_stub_wrappers.c

@@ -105,6 +105,7 @@ TESTS = [
   Test("attributes", 2),
   Test("misc_calls", 2),
   Test("fortran_nonblocking", 2),
+  Test("fortran_handles", 2),
   Test("finalize_unsync", 4, args=["8"], kind="run", restart=True,
        native_args=["1"]),
   Test("abort", 2, kind="run", fails=True, expect="abort: calling MPI_Abort"),

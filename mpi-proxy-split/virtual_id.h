@@ -9,13 +9,8 @@
 #include <map>
 #include <vector>
 
-#define MANA_COMM_KIND 1
-#define MANA_GROUP_KIND 2
-#define MANA_DATATYPE_KIND 3
-#define MANA_OP_KIND 4
-#define MANA_REQUEST_KIND 5
-#define MANA_FILE_KIND 6
-#define MANA_NUM_KINDS 6
+#include "lower-half-api.h"  // MANA_*_KIND
+
 #define MANA_VIRT_ID_KIND_SHIFT 28
 
 // A virtual handle is a 32-bit value laid out as
@@ -221,8 +216,8 @@ void free_desc(void *desc, int kind);
 void free_virt_id(mana_mpi_handle virt_id);
 void update_virt_id(mana_mpi_handle virt_id, mana_mpi_handle real_id);
 // Marks 'request', a receive that MANA completed for the application, as
-// done: its real request becomes MPI_REQUEST_NULL, and the application's
-// MPI_Wait/MPI_Test/MPI_Request_get_status return 'status'.
+// done: its real request becomes the lower half's MPI_REQUEST_NULL, and the
+// application's MPI_Wait/MPI_Test/MPI_Request_get_status return 'status'.
 void complete_virt_request(MPI_Request request, const MPI_Status *status);
 // If complete_virt_request() completed 'request', copies its status to
 // 'status' (unless NULL) and returns true.
@@ -285,4 +280,43 @@ get_real_id(mana_mpi_handle virt_id)
   }
   return get_real_id_slow(virt_id);
 }
+
+// For the handles that MANA does not virtualize (MPI_Info, MPI_Errhandler):
+// the application has the upper half's value of a predefined constant, and
+// the lower half's value of any other handle.  With MPICH, both halves have
+// the same constants.  With Open MPI, a constant is the address of an object
+// in the MPI library: libmpistub.so's in the upper half.
+int64_t lower_of_constant(int64_t key);  // Returns 'key' for a non-constant
+int64_t upper_of_constant(int64_t key);
+
+// The key of a handle in the tables of constants (see constant_key() in
+// virtual_id.cpp), from the size of its own type.
+template <typename Handle>
+static inline int64_t
+handle_key(Handle handle)
+{
+  intptr_t value = (intptr_t)handle;
+  return sizeof(Handle) <= sizeof(int) ? (int64_t)(int)value : (int64_t)value;
+}
+
+// Returns the lower half's value of the application's 'handle'.
+template <typename Handle>
+static inline Handle
+lower_half_handle(Handle handle)
+{
+  return (Handle)(intptr_t)lower_of_constant(handle_key(handle));
+}
+
+// Returns the application's value of the lower half's 'handle'.
+template <typename Handle>
+static inline Handle
+upper_half_handle(Handle handle)
+{
+  return (Handle)(intptr_t)upper_of_constant(handle_key(handle));
+}
+
+// The Fortran handle of a handle of this kind, and back; see
+// mpi-wrappers/fortran_handles.h.  Fortran handles have 32 bits.
+int64_t fortran_to_handle(int kind, int fortran);
+int handle_to_fortran(int kind, int64_t key);
 #endif // MANA_VIRTUAL_ID_H

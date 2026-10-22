@@ -117,22 +117,33 @@ main(int argc, char **argv)
   int (*bcast)(void *, int, MPI_Datatype, int, MPI_Comm) =
     lookup(handle, "MPI_Bcast", under_mana);
   int (*finalize)(void) = lookup(handle, "MPI_Finalize", under_mana);
+  // With Open MPI, a predefined handle is the address of an object in the
+  // library (libmpistub.so's under MANA).
+#ifdef OPEN_MPI
+  MPI_Comm world = (MPI_Comm)lookup(handle, "ompi_mpi_comm_world", 0);
+  MPI_Datatype mpi_int = (MPI_Datatype)lookup(handle, "ompi_mpi_int", 0);
+  MPI_Op mpi_sum = (MPI_Op)lookup(handle, "ompi_mpi_op_sum", 0);
+#else
+  MPI_Comm world = MPI_COMM_WORLD;
+  MPI_Datatype mpi_int = MPI_INT;
+  MPI_Op mpi_sum = MPI_SUM;
+#endif
 
   int size;
   init(&argc, &argv);
-  comm_rank(MPI_COMM_WORLD, &rank);
-  comm_size(MPI_COMM_WORLD, &size);
+  comm_rank(world, &rank);
+  comm_size(world, &size);
   time_t end = time(NULL) + (time_t)atof(argv[2]);
   int stop = 0;
   for (int it = 0; !stop; it++) {
     int x = rank + it, sum = -1;
-    allreduce(&x, &sum, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    allreduce(&x, &sum, 1, mpi_int, mpi_sum, world);
     if (sum != size * (size - 1) / 2 + size * it) {
       fail("wrong sum", "");
     }
     usleep(10000);
     stop = time(NULL) >= end;
-    bcast(&stop, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    bcast(&stop, 1, mpi_int, 0, world);
   }
   finalize();
   if (rank == 0) {

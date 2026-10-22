@@ -100,6 +100,20 @@ def print_mpi_type_create_hindexed():
   print("}")
 # =============================================================
 
+# The MPI handle types, by kind (see lower-half-api.h).  The Fortran wrappers
+# convert their Fortran handles to C handles and back (see mana_f2c() in
+# virtual_id.h).
+HANDLE_KINDS = {
+  "MPI_Comm": "MANA_COMM_KIND",
+  "MPI_Group": "MANA_GROUP_KIND",
+  "MPI_Datatype": "MANA_DATATYPE_KIND",
+  "MPI_Op": "MANA_OP_KIND",
+  "MPI_Request": "MANA_REQUEST_KIND",
+  "MPI_File": "MANA_FILE_KIND",
+  "MPI_Errhandler": "MANA_ERRHANDLER_KIND",
+  "MPI_Info": "MANA_INFO_KIND",
+}
+
 def abort_decl(decl, comment):
   print("*** Can't parse:  " + decl + " (" + comment + ")")
   sys.exit(1)
@@ -136,6 +150,8 @@ def emit_wrapper(decl, ret_type, fnc, args, arg_vars):
   # the second comma (or before the trailing ')' for 2-arg fnc)
   fargs = ""
   cargs = ""
+  before = []  # Statements before the call, and after it
+  after = []
   for (i, arg) in enumerate(args.split(',')):
     typ = ""
     iden = ""
@@ -150,6 +166,30 @@ def emit_wrapper(decl, ret_type, fnc, args, arg_vars):
     #   print(arg)
     #   sys.exit(0);
     if len(iden.strip()) > 0 and len(typ.strip()) > 0:
+      handle = typ.replace("const", "").replace("*", "").strip()
+      if handle in HANDLE_KINDS:
+        kind = HANDLE_KINDS[handle]
+        fargs += "MPI_Fint* %s, " % iden
+        if '*' not in typ:
+          cargs += "mana_f2c<%s>(%s, *%s), " % (handle, kind, iden)
+        elif iden.startswith("array_of_"):
+          # The array has 'count' handles; the call may change them.
+          if not re.search(r"\bint count\b", args):
+            abort_decl(decl, "no count for " + iden)
+          before += ["std::vector<%s> %s_buffer;" % (handle, iden),
+                     "%s *c_%s =" % (handle, iden),
+                     "  mana_f2c_array<%s>(%s, %s, *count, &%s_buffer);" %
+                     (handle, kind, iden, iden)]
+          cargs += "c_%s, " % iden
+          after += ["mana_c2f_array(%s, c_%s, %s, *count);" %
+                    (kind, iden, iden)]
+        else:
+          # An output, or an input that the call may change.
+          before += ["%s c_%s = mana_f2c<%s>(%s, *%s);" %
+                     (handle, iden, handle, kind, iden)]
+          cargs += "&c_%s, " % iden
+          after += ["*%s = mana_c2f(%s, c_%s);" % (iden, kind, iden)]
+        continue
       fargs += "%s%s %s, " % (typ, '' if '*' in typ else '*', iden)
       cargs += "%s%s, " % ('' if '*' in typ else '*', iden)
   # add ierr as the last argument for Fortran
@@ -172,11 +212,15 @@ def emit_wrapper(decl, ret_type, fnc, args, arg_vars):
   if fnc in ['MPI_Wtime', 'MPI_Wtick']:
     print("  return " + fnc + "(" + cargs + ");")
   else:
+      for statement in before:
+        print("  " + statement)
       if "int* index" in fargs:
         # This is a temporary fix for the Fortran-to-C interface bug -
         # more details can be found in MPI_Testany in mpi_request_wrappers.cpp
         print("  int *local_index = index;");
       print("  *ierr = " + fnc + "(" + cargs + ");")
+      for statement in after:
+        print("  " + statement)
       if "int* index" in fargs:
         if not (fnc in ['MPI_Waitany', 'MPI_Testany']):
           warnings.warn("'int* index' found in {fnc} - likely to cause erroneous behavior".format(fnc=fnc))
