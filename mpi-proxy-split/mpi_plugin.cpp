@@ -53,7 +53,7 @@
 #include "dmtcp.h"
 #include "kvdb.h"
 #include "util.h"
-#include "jassert.h"
+#include "dmtcp_assert.h"
 #include "jfilesystem.h"
 #include "protectedfds.h"
 #include "procselfmaps.h"
@@ -153,11 +153,11 @@ void recordPostMpiInitMaps()
     }
 
     // Now remove those mappings that existed before Mpi_Init.
-    JASSERT(preMpiInitMaps != nullptr);
+    ASSERT_NOT_NULL(preMpiInitMaps);
     while (preMpiInitMaps->getNextArea(&area)) {
       if (mpiInitLhAreas->find(area.addr) != mpiInitLhAreas->end()) {
-        JWARNING(mpiInitLhAreas->at(area.addr) == area.size)((void *)area.addr)
-                (area.size);
+        WARN(mpiInitLhAreas->at(area.addr) == area.size, "addr={} size={}",
+             (void *)area.addr, area.size);
         mpiInitLhAreas->erase(area.addr);
       } else {
         // Check if a region has the same end addr. E.g., thread stack grew.
@@ -231,7 +231,7 @@ openCkptFileFds()
     struct stat statbuf;
     if (stat(path.c_str(), &statbuf) == 0 && S_ISREG(statbuf.st_mode)) {
       int fd = open(path.c_str(), O_APPEND | O_WRONLY);
-      JWARNING(fd != -1)(path)(flags)(JASSERT_ERRNO);
+      WARN_ERRNO(fd != -1, "path={} flags={}", path, flags);
 
       if (fd != -1) {
         o << path << ";size:" << statbuf.st_size << ";flags:" << std::oct << flags << std::dec << "\n";
@@ -270,7 +270,7 @@ logCkptFileFds()
   string workerPath("/worker/" + string(dmtcp_get_uniquepid_str()));
 
   for (int fd : ckpt_fds) {
-    JASSERT(fstat(fd, &statbuf) == 0);
+    ASSERT_ERRNO(fstat(fd, &statbuf) == 0, "fd={}", fd);
     o << jalib::Filesystem::GetDeviceName(fd) << ";size:" << statbuf.st_size << "\n";
   }
 
@@ -315,17 +315,19 @@ dmtcp_skip_memory_region_ckpting(ProcMapsArea *area)
   // them without scanning uh_mmaps.  ("/dev/zero" is deliberately excluded
   // from isLhDevice() -- it is ambiguous -- and is resolved via uh_mmaps below.)
   if (isLhDevice(area)) {
-    JTRACE("Ignoring region")(area->name)((void*)area->addr);
+    TRACE("Ignoring region: name={} addr={}", area->name, (void*)area->addr);
     return 1;
   }
 
   if (strcmp(area->name, "[heap]") == 0) {
-    JTRACE("Ignoring heap region")(area->name)((void*)area->addr);
+    TRACE("Ignoring heap region: name={} addr={}", area->name,
+          (void*)area->addr);
     return 1;
   }
 
   if (strstr(area->name, "/anon_hugepage")) {
-    JTRACE("Ignoring /anon_hugepage region")(area->name)((void*)area->addr);
+    TRACE("Ignoring /anon_hugepage region: name={} addr={}", area->name,
+          (void*)area->addr);
     return 1;
   }
 
@@ -374,6 +376,8 @@ dmtcp_skip_memory_region_ckpting(ProcMapsArea *area)
   }
   return 1;
 }
+
+#define BT_SIZE 50 /* Maximum size backtrace of stack */
 
 // TODO(kapil): Replace with Jassert::PrintBackrace.
 string GetBacktrace()
@@ -463,7 +467,7 @@ mana_signal_sa_sigaction_wrapper(int signum, siginfo_t *siginfo, void *context)
   }
 
   if (signum == SIGTERM) {
-    JNOTE("SIGTERM received. Exiting.")(GetBacktrace());
+    NOTE("SIGTERM received. Exiting.\n{}", GetBacktrace());
     exit(1);
   }
 
@@ -549,7 +553,7 @@ void
 segvfault_handler(int signum, siginfo_t *siginfo, void *context)
 {
   int dummy = 0;
-  JNOTE("Caught a segmentation fault. Attach gdb to inspect...");
+  NOTE("Caught a segmentation fault. Attach gdb to inspect...");
   while (!dummy);
 }
 
@@ -568,8 +572,8 @@ initialize_segv_handler()
   action.sa_sigaction = segvfault_handler;
   sigemptyset(&action.sa_mask);
 
-  JASSERT(sigaction(SIGSEGV, &action, NULL) != -1)
-    (JASSERT_ERRNO).Text("Could not set up the segfault handler");
+  ASSERT_ERRNO(sigaction(SIGSEGV, &action, NULL) != -1,
+               "Could not set up the segfault handler");
 }
 
 const char *
@@ -712,7 +716,7 @@ restore_mpi_files(const char *filename)
     retval = NEXT_FUNC(File_open)(real_comm, itr->second._filepath,
                                   itr->second._mode, itr->second._info, &fh);
     RETURN_TO_UPPER_HALF();
-    JASSERT(retval == 0).Text("Restoration of MPI_File_open failed");
+    ASSERT(retval == 0, "Restoration of MPI_File_open failed");
 
     // Update virtual mapping with newly created file
     update_virt_id((mana_mpi_handle){.file = itr->first}, (mana_mpi_handle){.file = fh});
@@ -800,8 +804,8 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
   switch (event) {
     case DMTCP_EVENT_INIT: {
       printEventToStderr("EVENT_INIT"); // We don't have a rank. So no printing.
-      JTRACE("*** DMTCP_EVENT_INIT");
-      JASSERT(dmtcp_get_real_tid != NULL);
+      TRACE("*** DMTCP_EVENT_INIT");
+      ASSERT_NOT_NULL(dmtcp_get_real_tid);
       initialize_signal_handlers();
       initialize_segv_handler();
       seq_num_init();
@@ -831,7 +835,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       }
 
       heapAddr = sbrk(0);
-      JASSERT(heapAddr != nullptr);
+      ASSERT_NOT_NULL(heapAddr);
       // FIXME:  If we use PROT_NONE (preferred), then an older DMTCP
       //         will not restore this memory region.
       // By creating a memory page just beyond the end of the heap,
@@ -854,7 +858,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
     case DMTCP_EVENT_EXIT: {
       seq_num_destroy();
       printEventToStderr("EVENT_EXIT");
-      JTRACE("*** DMTCP_EVENT_EXIT");
+      TRACE("*** DMTCP_EVENT_EXIT");
       break;
     }
 

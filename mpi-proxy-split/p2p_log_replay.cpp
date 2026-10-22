@@ -32,7 +32,7 @@
 
 #include "dmtcp.h"
 #include "util.h"
-#include "jassert.h"
+#include "dmtcp_assert.h"
 #include "jfilesystem.h"
 
 #include "mpi_plugin.h"
@@ -79,12 +79,12 @@ void
 getLocalRankInfo()
 {
   if (g_world_rank == -1) {
-    JASSERT(MPI_Comm_rank(MPI_COMM_WORLD, &g_world_rank) == MPI_SUCCESS &&
-        g_world_rank != -1);
+    ASSERT(MPI_Comm_rank(MPI_COMM_WORLD, &g_world_rank) == MPI_SUCCESS &&
+        g_world_rank != -1, "MPI_Comm_rank failed");
   }
   if (g_world_size == -1) {
-    JASSERT(MPI_Comm_size(MPI_COMM_WORLD, &g_world_size) == MPI_SUCCESS &&
-        g_world_size != -1);
+    ASSERT(MPI_Comm_size(MPI_COMM_WORLD, &g_world_size) == MPI_SUCCESS &&
+        g_world_size != -1, "MPI_Comm_size failed");
   }
 }
 
@@ -99,7 +99,8 @@ updateCkptDirByRank()
   } else {
     baseDir = ckptDir;
   }
-  JTRACE("Updating checkpoint directory")(ckptDir)(baseDir);
+  TRACE("Updating checkpoint directory: ckptDir={} baseDir={}", ckptDir,
+        baseDir);
   dmtcp::ostringstream o;
   o << baseDir << "/ckpt_rank_" << g_world_rank;
   dmtcp_set_ckpt_dir(o.str().c_str());
@@ -128,7 +129,7 @@ logRequestInfo(MPI_Request request, mpi_req_t req_type)
       req_info->real_request[req_info->update_counter] =
         get_real_id((mana_mpi_handle){.request = request}).request;
     } else {
-      JWARNING(false).Text("Too many real request update");
+      WARN(false, "Too many real request update");
     }
   } else {
     // Create new request log
@@ -230,7 +231,7 @@ replacePendingCall(MPI_Request req, const mpi_nonblocking_call_t *call)
   lockPending();
   virt_id_entry *entry =
     lookup_virt_id_entry((mana_mpi_handle){.request = req});
-  JASSERT(entry != NULL && entry->call.type != UNKNOW_REQUEST)(req);
+  ASSERT(entry != NULL && entry->call.type != UNKNOW_REQUEST, "req={}", req);
   if (entry->call.type == ISSEND_REQUEST && call->type != ISSEND_REQUEST) {
     __atomic_fetch_sub(&pendingIssends, 1, __ATOMIC_RELAXED);
   }
@@ -316,7 +317,7 @@ replayMpiP2pOnRestart()
   MPI_Request request;
   mpi_nonblocking_call_t pendingCall;
   mpi_nonblocking_call_t *call = &pendingCall;
-  JTRACE("Replaying unserviced isend/irecv calls");
+  TRACE("Replaying unserviced isend/irecv calls");
 
   // No other thread runs at restart; a lock saved in the image is stale.
   pendingLock = 0;
@@ -332,7 +333,7 @@ replayMpiP2pOnRestart()
     MPI_Request realRequest;
     switch (call->type) {
       case IRECV_REQUEST:
-        JTRACE("Replaying Irecv call")(call->remote_node);
+        TRACE("Replaying Irecv call: remote_node={}", call->remote_node);
 #if 0
         MPI_Irecv(call->recvbuf, call->count,
                   realType, call->remote_node,
@@ -345,15 +346,15 @@ replayMpiP2pOnRestart()
         RETURN_TO_UPPER_HALF();
         update_virt_id((mana_mpi_handle){.request = request}, (mana_mpi_handle){.request = realRequest});
 #endif
-        JASSERT(retval == MPI_SUCCESS).Text("Error while replaying recv");
+        ASSERT(retval == MPI_SUCCESS, "Error while replaying recv");
         break;
       case ISEND_REQUEST:
       case ISSEND_REQUEST:
-        JASSERT(false)(call->type)
-          .Text("There should be no pending MPI_Isend after restart");
+        ASSERT(false, "There should be no pending MPI_Isend after restart: "
+               "type={}", call->type);
         break;
       default:
-        JWARNING(false)(call->type).Text("Unhandled replay call");
+        WARN(false, "Unhandled replay call: type={}", call->type);
         break;
     }
   }

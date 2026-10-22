@@ -70,8 +70,7 @@ fi
 AC_ARG_ENABLE([debug],
             [AS_HELP_STRING([--enable-debug],
                             [Use debugging flags "-Wall -g3 -O0" on DMTCP libs
-                             (default is
-                             disabled); also, see --enable-logging])],
+                             (default is disabled)])],
             [use_debug=$enableval],
             [use_debug=no])
 
@@ -88,8 +87,6 @@ fi
 AC_SUBST([FFLAGS], [$FFLAGS])
 
 # Keeping these DMTCP flags only for convenience.
-AC_ARG_ENABLE([timing])
-AC_ARG_ENABLE([logging])
 AC_ARG_ENABLE([quiet])
 AC_ARG_ENABLE([fsgsbase-override])
 

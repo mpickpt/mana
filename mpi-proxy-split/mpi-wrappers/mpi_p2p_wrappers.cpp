@@ -23,7 +23,7 @@
 #include <unistd.h>
 #include "config.h"
 #include "dmtcp.h"
-#include "jassert.h"
+#include "dmtcp_assert.h"
 #include "lower_half_ckpt.h"
 
 #include "mpi_plugin.h"
@@ -254,9 +254,9 @@ sendSsendAck(int rank, int tag)
   MPI_Request request;
   int retval = MPI_Isend_internal(NULL, 0, MPI_BYTE, rank, tag,
                                   g_ssend_ack_comm, &request);
-  JASSERT(retval == MPI_SUCCESS)(retval)(rank)(tag);
+  ASSERT(retval == MPI_SUCCESS, "retval={} rank={} tag={}", retval, rank, tag);
   retval = PMPI_Wait(&request, MPI_STATUS_IGNORE);
-  JASSERT(retval == MPI_SUCCESS)(retval)(rank)(tag);
+  ASSERT(retval == MPI_SUCCESS, "retval={} rank={} tag={}", retval, rank, tag);
 }
 
 #pragma weak MPI_Recv = PMPI_Recv

@@ -37,7 +37,7 @@
 // FIXME:  lower-half should be a standalone program, except where it uses
 //         mtcp_restart.  Why do we have all of these other DMTCP dependencies?
 #include "jalib.h"
-#include "jassert.h"
+#include "dmtcp_assert.h"
 #include "jconvert.h"
 #include "jfilesystem.h"
 #include "util.h"
@@ -128,7 +128,9 @@ static void patchAuxv(Elf64_auxv_t *av, unsigned long phnum,
 off_t get_symbol_offset_with_debug(const char *elf_interpreter, const char *symbol);
 off_t get_symbol_offset(const char *pathame, const char *symbol);
 
-typedef void (*PostRestartFnPtr_t)(double, int);
+// DMTCP's ThreadList::postRestart(int restartPause).  PostRestartFnPtr_t in
+// dmtcp.h still has its old (double, int) signature.
+typedef void (*PostRestartFn_t)(int);
 
 void *ld_so_entry;
 LowerHalfInfo_t lh_info_obj;
@@ -250,7 +252,7 @@ int main(int argc, char *argv[], char *envp[]) {
     // DMTCP code.
     DmtcpRestart dmtcpRestart(argc, argv, BINARY_NAME, MTCP_RESTART_BINARY);
     RestoreTarget *t = new RestoreTarget(image_path.c_str());
-    JASSERT(t->pid() != 0);
+    ASSERT(t->pid() != 0, "image={}", image_path);
     
     DmtcpCkptHeader ckpt_hdr;
     validate_checkpoint_header(t, ckpt_hdr);
@@ -267,8 +269,8 @@ int main(int argc, char *argv[], char *envp[]) {
     /* Everything restored, close file and finish up */
     close(t->fd());
 
-    PostRestartFnPtr_t postRestart = (PostRestartFnPtr_t) ckpt_hdr.postRestartAddr;
-    postRestart(0, 0);
+    PostRestartFn_t postRestart = (PostRestartFn_t) ckpt_hdr.postRestartAddr;
+    postRestart(0);
     // The following line should not be reached.
     assert(0);
   } else {
@@ -360,7 +362,7 @@ static void reserve_restart_fds() {
     return;
   }
   // DMTCP takes an fd already open at one of its protected numbers for its
-  // own (e.g., jassert_init()), so neither a placeholder nor an fd of this
+  // own (e.g., initializeLogFile()), so neither a placeholder nor an fd of this
   // lower half may be there: keep at least `room` numbers below them free.
   const int room = 64;
   std::vector<int> fds;
@@ -890,9 +892,9 @@ void restore_session_leadership(RestoreTarget *t)
 {
   if (t->sid() == t->pid()) {
     if (getsid(0) != t->pid()) {
-      JWARNING(setsid() != -1)
-        (getsid(0))(JASSERT_ERRNO)
-        .Text("Failed to resotre this process as session leader.");
+      WARN_ERRNO(setsid() != -1,
+                 "Failed to restore this process as session leader: sid={}",
+                 getsid(0));
     }
   }
 }
@@ -985,7 +987,8 @@ static int restoreMemoryArea(int fd, DmtcpCkptHeader *ckptHdr)
   if ((area.name[0] && area.name[0] != '/' && strstr(area.name, "stack"))
       || (area.endAddr == (VA) ckptHdr->endOfStack)) {
     area.flags = area.flags | MAP_GROWSDOWN;
-    JTRACE("Detected stack area")((void*)ckptHdr->endOfStack) ((void*)area.endAddr);
+    TRACE("Detected stack area: endOfStack={} endAddr={}",
+          (void*)ckptHdr->endOfStack, (void*)area.endAddr);
   }
 
   // We could have replaced MAP_SHARED with MAP_PRIVATE in writeckpt.cpp
@@ -1000,12 +1003,14 @@ static int restoreMemoryArea(int fd, DmtcpCkptHeader *ckptHdr)
 
   /* CASE MAPPED AS ZERO PAGE: */
   if ((area.properties & DMTCP_ZERO_PAGE) != 0) {
-    JTRACE("restoring zero-paged anonymous area, %p bytes at %p\n") (area.size) ((void*)area.addr);
+    TRACE("restoring zero-paged anonymous area, {} bytes at {}", area.size,
+          (void*)area.addr);
     // No need to mmap since the region has already been mmapped by the parent
     // header.
     // Just restore write-protection if needed.
     if (!(area.prot & PROT_WRITE)) {
-      JASSERT(mprotect(area.addr, area.size, area.prot) == 0);
+      ASSERT_ERRNO(mprotect(area.addr, area.size, area.prot) == 0,
+                   "addr={} size={}", (void*)area.addr, area.size);
     }
   }
 
@@ -1032,11 +1037,11 @@ static int restoreMemoryArea(int fd, DmtcpCkptHeader *ckptHdr)
            * the name of the region but most applications may not care.
            */
           off_t curr_size = lseek(imagefd, 0, SEEK_END);
-          JASSERT(curr_size != -1);
+          ASSERT_ERRNO(curr_size != -1, "lseek failed: {}", area.name);
           if ((static_cast<size_t>(curr_size) < area.size + area.offset) &&
               (area.prot & PROT_WRITE)) {
-            JTRACE("restoring non-anonymous area %s as anonymous: %p bytes at %p\n")
-                  (area.name) (area.size) ((void*)area.addr);
+            TRACE("restoring non-anonymous area {} as anonymous: {} bytes at"
+                  " {}", area.name, area.size, (void*)area.addr);
             close(imagefd);
             imagefd = -1;
             area.offset = 0;
@@ -1046,11 +1051,12 @@ static int restoreMemoryArea(int fd, DmtcpCkptHeader *ckptHdr)
       }
 
       if (area.flags & MAP_ANONYMOUS) {
-        JTRACE("restoring anonymous area, %p bytes at %p\n")
-              (area.size) ((void*)area.addr);
+        TRACE("restoring anonymous area, {} bytes at {}",
+              area.size, (void*)area.addr);
       } else {
-        JTRACE("restoring to non-anonymous area,"
-                " %p bytes at %p from %s + 0x%X\n") (area.size) ((void*)area.addr) (area.name) (area.offset);
+        TRACE("restoring to non-anonymous area,"
+              " {} bytes at {} from {} + {}", area.size, (void*)area.addr,
+              area.name, area.offset);
       }
 
       /* Create the memory area */
@@ -1081,7 +1087,8 @@ static int restoreMemoryArea(int fd, DmtcpCkptHeader *ckptHdr)
         volatile int dummy;
         while (dummy);
       }
-      JASSERT(mmappedat == area.addr);
+      ASSERT(mmappedat == area.addr, "mmappedat={} addr={}", mmappedat,
+             (void*)area.addr);
 
       /* Close image file (fd only gets in the way) */
       if (imagefd >= 0) {
@@ -1098,14 +1105,16 @@ static int restoreMemoryArea(int fd, DmtcpCkptHeader *ckptHdr)
 
       /* ANALYZE THE CONDITION FOR DOING mmapfile MORE CAREFULLY. */
       if (area.mmapFileSize > 0 && area.name[0] == '/') {
-        JTRACE("restoring memory region %p of %p bytes at %p\n") (area.mmapFileSize) (area.size) ((void*)area.addr);
+        TRACE("restoring memory region {} of {} bytes at {}",
+              area.mmapFileSize, area.size, (void*)area.addr);
         ssize_t rc = 0;
         int count = 0;
         do {
           rc = read(fd, area.addr + count, area.mmapFileSize - count);
           count += rc;
         } while (rc > 0 && count < area.mmapFileSize);
-        JASSERT(count == area.mmapFileSize);
+        ASSERT(count == area.mmapFileSize, "count={} mmapFileSize={}", count,
+               area.mmapFileSize);
       } else {
         size_t rc = 0, count = 0;
         do {
@@ -1116,11 +1125,12 @@ static int restoreMemoryArea(int fd, DmtcpCkptHeader *ckptHdr)
           volatile int dummy = 1;
           while (dummy);
         }
-        JASSERT(count == area.size);
+        ASSERT(count == area.size, "count={} size={}", count, area.size);
       }
 
       if (!(area.prot & PROT_WRITE)) {
-        JASSERT(mprotect(area.addr, area.size, area.prot) == 0);
+        ASSERT_ERRNO(mprotect(area.addr, area.size, area.prot) == 0,
+                     "addr={} size={}", (void*)area.addr, area.size);
       }
     }
   }

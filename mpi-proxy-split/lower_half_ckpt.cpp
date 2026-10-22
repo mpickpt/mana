@@ -24,7 +24,7 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 
-#include "jassert.h"
+#include "dmtcp_assert.h"
 #include "lower_half_ckpt.h"
 
 __thread LowerHalfThread lh_thread ATTR_TLS_INITIAL_EXEC;
@@ -102,8 +102,8 @@ wait_until_lower_half_open()
 static void
 make_lower_half_entries_visible()
 {
-  JASSERT(syscall(__NR_membarrier, MEMBARRIER_CMD_GLOBAL, 0, 0) == 0)
-    (JASSERT_ERRNO);
+  ASSERT_ERRNO(syscall(__NR_membarrier, MEMBARRIER_CMD_GLOBAL, 0, 0) == 0,
+               "membarrier(MEMBARRIER_CMD_GLOBAL) failed");
 }
 
 // Fails at launch, rather than at the first checkpoint, without membarrier(2).
@@ -111,8 +111,9 @@ void
 init_lower_half_ckpt()
 {
   long commands = syscall(__NR_membarrier, MEMBARRIER_CMD_QUERY, 0, 0);
-  JASSERT(commands >= 0 && (commands & MEMBARRIER_CMD_GLOBAL))(commands)
-    .Text("MANA needs membarrier(2) (Linux 4.3 or later)");
+  ASSERT(commands >= 0 && (commands & MEMBARRIER_CMD_GLOBAL),
+         "MANA needs membarrier(2) (Linux 4.3 or later): commands={}",
+         commands);
 }
 
 static void

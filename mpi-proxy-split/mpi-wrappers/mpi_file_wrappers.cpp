@@ -24,7 +24,7 @@
 #include "config.h"
 #include "dmtcp.h"
 #include "util.h"
-#include "jassert.h"
+#include "dmtcp_assert.h"
 #include "lower_half_ckpt.h"
 #include "jfilesystem.h"
 #include "protectedfds.h"

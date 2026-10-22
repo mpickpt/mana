@@ -1,5 +1,5 @@
 #include <mpi.h>;
-#include "jassert.h";
+#include "dmtcp_assert.h";
 
 int MPI_Accumulate(const void *origin_addr, int origin_count,
                             MPI_Datatype origin_datatype, int target_rank,
