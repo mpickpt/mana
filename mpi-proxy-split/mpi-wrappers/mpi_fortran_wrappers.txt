@@ -1,7 +1,7 @@
 #include <mpi.h>;
 
 #include "dmtcp.h";
-#include "jassert.h";
+#include "dmtcp_assert.h";
 
 int MPI_Finalize();
 int MPI_Finalized(int* flag);

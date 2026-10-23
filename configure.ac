@@ -25,7 +25,7 @@ AC_PROG_CXX
 AC_PROG_CC
 AC_PROG_CPP
 AC_CONFIG_MACRO_DIR([m4])
-AX_CXX_COMPILE_STDCXX([14], [noext], [mandatory])
+AX_CXX_COMPILE_STDCXX([20], [noext], [mandatory])
 
 AX_CHECK_COMPILE_FLAG([-std=gnu11],
                       [CFLAGS="${CFLAGS} -std=gnu11"],
@@ -70,8 +70,7 @@ fi
 AC_ARG_ENABLE([debug],
             [AS_HELP_STRING([--enable-debug],
                             [Use debugging flags "-Wall -g3 -O0" on DMTCP libs
-                             (default is
-                             disabled); also, see --enable-logging])],
+                             (default is disabled)])],
             [use_debug=$enableval],
             [use_debug=no])
 
@@ -88,8 +87,6 @@ fi
 AC_SUBST([FFLAGS], [$FFLAGS])
 
 # Keeping these DMTCP flags only for convenience.
-AC_ARG_ENABLE([timing])
-AC_ARG_ENABLE([logging])
 AC_ARG_ENABLE([quiet])
 AC_ARG_ENABLE([fsgsbase-override])
 

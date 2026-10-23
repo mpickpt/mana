@@ -60,7 +60,7 @@ def emit_wrapper(decl, ret_type, fnc, args, arg_vars):
   # if arg_vars contains "varX", then "var2" needs to be inserted before
   # the second comma (or before the trailing ')' for 2-arg fnc)
   print(decl + " {")
-  print('  JASSERT(false)("wrapper: `'+ fnc +'` not implemented"); ')
+  print('  ASSERT(false, "wrapper: `'+ fnc +'` not implemented"); ')
   print('  return -1; // To satisfy the compiler')
   print("}")
 

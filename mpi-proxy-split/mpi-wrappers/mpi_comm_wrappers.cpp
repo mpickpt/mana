@@ -29,7 +29,7 @@
 #include "config.h"
 #include "dmtcp.h"
 #include "util.h"
-#include "jassert.h"
+#include "dmtcp_assert.h"
 #include "lower_half_ckpt.h"
 #include "jfilesystem.h"
 #include "protectedfds.h"
@@ -101,7 +101,7 @@ lower_half_tag_ub()
   retval = NEXT_FUNC(Comm_get_attr)(lh_info->MANA_COMM_WORLD, MPI_TAG_UB, &ub,
                                     &flag);
   RETURN_TO_UPPER_HALF();
-  JASSERT(retval == MPI_SUCCESS && flag)(retval)(flag);
+  ASSERT(retval == MPI_SUCCESS && flag, "retval={} flag={}", retval, flag);
   return *ub;
 }
 
@@ -121,7 +121,8 @@ check_tag_ub()
     fprintf(stderr, "MANA: this MPI library allows tags up to %d (MPI_TAG_UB),"
             " but the computation started with %d; it cannot restart here\n",
             ub, tag_ub);
-    JASSERT(false)(ub)(tag_ub).Text("MPI_TAG_UB is smaller than at launch");
+    ASSERT(false, "MPI_TAG_UB is smaller than at launch: ub={} tag_ub={}", ub,
+           tag_ub);
   }
 }
 
@@ -391,7 +392,7 @@ int PMPI_Comm_split_type(MPI_Comm comm, int split_type,
 int PMPI_Attr_get(MPI_Comm comm, int keyval,
                  void *attribute_val, int *flag)
 {
-  JWARNING(false).Text(
+  WARN(false,
     "Use of MPI_Attr_get is deprecated - use MPI_Comm_get_attr instead");
   int retval;
   LOWER_HALF_DISABLE_CKPT();
@@ -407,7 +408,7 @@ int PMPI_Attr_get(MPI_Comm comm, int keyval,
 int PMPI_Attr_delete(MPI_Comm comm, int keyval)
 {
 
-  JWARNING(false).Text(
+  WARN(false,
     "Use of MPI_Attr_delete is deprecated - use MPI_Comm_delete_attr instead");
   int retval;
   LOWER_HALF_DISABLE_CKPT();
@@ -422,7 +423,7 @@ int PMPI_Attr_delete(MPI_Comm comm, int keyval)
 #pragma weak MPI_Attr_put = PMPI_Attr_put
 int PMPI_Attr_put(MPI_Comm comm, int keyval, void *attribute_val)
 {
-  JWARNING(false).Text(
+  WARN(false,
     "Use of MPI_Attr_put is deprecated - use MPI_Comm_set_attr instead");
   int retval;
   LOWER_HALF_DISABLE_CKPT();
@@ -476,7 +477,7 @@ int PMPI_Comm_free_keyval(int *comm_keyval)
     tupleMap.erase(keyval);
     *comm_keyval = MPI_KEYVAL_INVALID;
   } else {
-    JWARNING(false)(keyval).Text("Attempted to free an invalid key!");
+    WARN(false, "Attempted to free an invalid key: keyval={}", keyval);
   }
   return retval;
 }

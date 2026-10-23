@@ -29,7 +29,7 @@
 #include <string>
 #include <vector>
 #include "kvdb.h"
-#include "jassert.h"
+#include "dmtcp_assert.h"
 #include "p2p_drain_send_recv.h"
 #include "p2p_log_replay.h"
 #include "mpi_nextfunc.h"
@@ -138,7 +138,7 @@ kvFetchAdd(const char *db, const char *key, int64_t val)
   g_drain_stats.kvdb_requests++;
   int64_t old = 0;
   KVDBResponse rc = kvdb::request64(KVDBRequest::INCRBY, db, key, val, &old);
-  JASSERT(rc == KVDBResponse::SUCCESS)(db)(key);
+  ASSERT(rc == KVDBResponse::SUCCESS, "db={} key={}", db, key);
   return old;
 }
 
@@ -179,7 +179,7 @@ initialize_drain_send_recv()
     g_p2p_wait = P2P_WAIT_BLOCKING;
   } else if (wait != NULL && strcmp(wait, "polling") != 0 &&
              g_world_rank == 0) {
-    // Not JWARNING: mana_launch silences it.
+    // Not WARN: mana_launch silences it.
     fprintf(stderr, "WARNING: MANA_P2P_WAIT is 'polling' or 'blocking', not "
             "'%s'.  MANA uses 'polling'.\n", wait);
   }
@@ -202,7 +202,7 @@ initialize_drain_send_recv()
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Comm_dup)(lh_info->MANA_COMM_WORLD, &ack_comm);
   RETURN_TO_UPPER_HALF();
-  JASSERT(retval == MPI_SUCCESS)(retval);
+  ASSERT(retval == MPI_SUCCESS, "retval={}", retval);
   g_ssend_ack_comm = new_virt_comm(ack_comm);
 }
 
@@ -248,7 +248,7 @@ recvMsgIntoInternalBuffer(MPI_Status status, MPI_Comm comm)
   int retval = NEXT_FUNC(Recv)(buf, count, MPI_BYTE,
                                status.MPI_SOURCE, status.MPI_TAG,
                                realComm, MPI_STATUS_IGNORE);
-  JASSERT(retval == MPI_SUCCESS);
+  ASSERT(retval == MPI_SUCCESS, "retval={}", retval);
   RETURN_TO_UPPER_HALF();
   // The wrapper would have incremented local_recv_messages for this
   // real receive; we must do it explicitly when bypassing the wrapper,
@@ -393,7 +393,7 @@ drainRemainingP2pMsgs()
       g_drain_stats.iprobes++;
       int retval = MPI_Iprobe_internal(MPI_ANY_SOURCE, MPI_ANY_TAG, comm,
                                        &flag, &status);
-      JASSERT(retval == MPI_SUCCESS);
+      ASSERT(retval == MPI_SUCCESS, "retval={}", retval);
       if (flag) {
         MPI_Request matched_request = MPI_REQUEST_NULL;
         // Check if there are pending MPI_Irecv's that matches the envelope of the
@@ -545,7 +545,7 @@ testDummySends()
     JUMP_TO_LOWER_HALF(lh_info->fsaddr);
     retval = NEXT_FUNC(Test)(&it->request, &flag, MPI_STATUS_IGNORE);
     RETURN_TO_UPPER_HALF();
-    JASSERT(retval == MPI_SUCCESS)(retval);
+    ASSERT(retval == MPI_SUCCESS, "retval={}", retval);
     if (flag) {
       free(it->buf);
       it = g_dummy_sends.erase(it);
@@ -572,12 +572,12 @@ reduceDrainCounters(int64_t *local, int64_t *sums, int n)
   retval = NEXT_FUNC(Iallreduce)(local, sums, n, lh_info->MANA_INT64_T,
                                  lh_info->MANA_SUM, realComm, &request);
   RETURN_TO_UPPER_HALF();
-  JASSERT(retval == MPI_SUCCESS)(retval);
+  ASSERT(retval == MPI_SUCCESS, "retval={}", retval);
   for (;;) {
     JUMP_TO_LOWER_HALF(lh_info->fsaddr);
     retval = NEXT_FUNC(Test)(&request, &done, MPI_STATUS_IGNORE);
     RETURN_TO_UPPER_HALF();
-    JASSERT(retval == MPI_SUCCESS)(retval);
+    ASSERT(retval == MPI_SUCCESS, "retval={}", retval);
     if (done) {
       break;
     }
@@ -751,9 +751,9 @@ consumeMatchingMsgBuffer(void *buf, int count, MPI_Datatype datatype,
                           ((msg->comm == comm)); });
   // This should never happen (since the caller should always check first using
   // existsMatchingMsgBuffer())!
-  JASSERT(req != std::end(g_message_queue))(count)(datatype)
-         .Text("Unexpected error: no message in the queue matches the given"
-               " attributes.");
+  ASSERT(req != std::end(g_message_queue),
+         "Unexpected error: no message in the queue matches the given"
+         " attributes: count={} datatype={}", count, datatype);
   foundMsg = *req;
 
   // The message was drained as packed MPI_BYTEs.  Unpack only the whole
@@ -775,7 +775,7 @@ consumeMatchingMsgBuffer(void *buf, int count, MPI_Datatype datatype,
     retval = NEXT_FUNC(Unpack)(foundMsg->buf, foundMsg->size, &position,
                                buf, elements, realType, realComm);
     RETURN_TO_UPPER_HALF();
-    JASSERT(retval == MPI_SUCCESS)(retval);
+    ASSERT(retval == MPI_SUCCESS, "retval={}", retval);
   }
   *mpi_status = foundMsg->status;
   g_message_queue.erase(req);
@@ -813,7 +813,7 @@ commName(MPI_Comm comm)
   if (comm == MPI_COMM_WORLD) {
     return {(uint64_t)comm, -1, g_world_size, g_world_rank, NULL};
   }
-  JASSERT(comm == MPI_COMM_SELF)(comm).Text("Unknown communicator");
+  ASSERT(comm == MPI_COMM_SELF, "Unknown communicator: comm={}", comm);
   return {(uint64_t)comm, -1, 1, 0, &g_world_rank};
 }
 
@@ -845,7 +845,7 @@ postDummy()
   int source = g_pending_recv.source;
   int sender = -1;
   if (source != MPI_ANY_SOURCE) {
-    JASSERT(source >= 0 && source < size)(source)(size);
+    ASSERT(source >= 0 && source < size, "source={} size={}", source, size);
     sender = source;
   } else {
     std::map<int, uint64_t> words;  // bitmap words read so far
@@ -862,9 +862,9 @@ postDummy()
         sender = i;
       }
     }
-    JASSERT(sender >= 0)(g_pending_recv.comm)
-      .Text("MPI_ANY_SOURCE Recv with no unblocked sender in comm; "
-            "user program may have deadlocked.");
+    ASSERT(sender >= 0,
+           "MPI_ANY_SOURCE Recv with no unblocked sender in comm; "
+           "user program may have deadlocked: comm={}", g_pending_recv.comm);
   }
   int sender_world_rank = members != NULL ? members[sender] : sender;
 
@@ -902,18 +902,20 @@ sendPostedDummies(bool nonblocking)
     snprintf(key, sizeof(key), "dummy_%d_%lld", g_world_rank, (long long)k);
     dmtcp::string dummy;
     KVDBResponse rc = kvGetString(g_drain_db, key, &dummy);
-    JASSERT(rc == KVDBResponse::SUCCESS)(key)(rc);
+    ASSERT(rc == KVDBResponse::SUCCESS, "key={} rc={}", key, rc);
     unsigned long long comm_hash;
     long long comm_instance, bytes;
     int dest, tag;
-    JASSERT(sscanf(dummy.c_str(), "%llu %lld %d %d %lld", &comm_hash,
-                   &comm_instance, &dest, &tag, &bytes) == 5)(dummy);
+    ASSERT(sscanf(dummy.c_str(), "%llu %lld %d %d %lld", &comm_hash,
+                  &comm_instance, &dest, &tag, &bytes) == 5,
+           "dummy={}", dummy);
 
     // This rank's handle of the blocked rank's communicator: it is a
     // member, since the blocked rank chose it among the members.
     MPI_Comm virtComm = commByName(comm_hash, comm_instance);
-    JASSERT(virtComm != MPI_COMM_NULL)(comm_hash)(comm_instance)
-      .Text("The dummy's sender doesn't know the blocked MPI_Recv's comm");
+    ASSERT(virtComm != MPI_COMM_NULL,
+           "The dummy's sender doesn't know the blocked MPI_Recv's comm: "
+           "comm_hash={} comm_instance={}", comm_hash, comm_instance);
     MPI_Comm realComm =
       get_real_id((mana_mpi_handle){.comm = virtComm}).comm;
 
@@ -931,7 +933,7 @@ sendPostedDummies(bool nonblocking)
                             tag, realComm);
     }
     RETURN_TO_UPPER_HALF();
-    JASSERT(ret == MPI_SUCCESS)(ret)(dest)(tag);
+    ASSERT(ret == MPI_SUCCESS, "ret={} dest={} tag={}", ret, dest, tag);
     g_drain_stats.dummies++;
     if (nonblocking) {
       g_dummy_sends.push_back({request, dummy_buf});
@@ -988,7 +990,7 @@ awaitSsendAck(MPI_Request request)
   auto notice = std::find_if(g_ssend_notices.begin(), g_ssend_notices.end(),
                              [request](const SsendNotice &n)
                              { return n.request == request; });
-  JASSERT(notice != g_ssend_notices.end())(request);
+  ASSERT(notice != g_ssend_notices.end(), "request={}", request);
   MPI_Comm realComm =
     get_real_id((mana_mpi_handle){.comm = g_ssend_ack_comm}).comm;
   MPI_Request realRequest;
@@ -997,7 +999,8 @@ awaitSsendAck(MPI_Request request)
   retval = NEXT_FUNC(Irecv)(NULL, 0, lh_info->MANA_BYTE, notice->receiver,
                             notice->ack_tag, realComm, &realRequest);
   RETURN_TO_UPPER_HALF();
-  JASSERT(retval == MPI_SUCCESS)(retval)(notice->receiver);
+  ASSERT(retval == MPI_SUCCESS, "retval={} receiver={}", retval,
+         notice->receiver);
   update_virt_id((mana_mpi_handle){.request = request},
                  (mana_mpi_handle){.request = realRequest});
   // The receiver's rank in g_ssend_ack_comm is its world rank.
@@ -1026,7 +1029,7 @@ markSsendAck(MPI_Comm comm, int source, int tag, int later_sends, int sender,
     }
   }
   if (found != NULL) {
-    JASSERT(found->ack_to == -1)(found->ack_to)(sender);
+    ASSERT(found->ack_to == -1, "ack_to={} sender={}", found->ack_to, sender);
     found->ack_to = sender;
     found->ack_tag = ack_tag;
   }
@@ -1045,16 +1048,18 @@ markSsendAcks()
     snprintf(key, sizeof(key), "ssend_%d_%lld", g_world_rank, (long long)k);
     dmtcp::string notice;
     KVDBResponse rc = kvGetString(g_drain_db, key, &notice);
-    JASSERT(rc == KVDBResponse::SUCCESS)(key)(rc);
+    ASSERT(rc == KVDBResponse::SUCCESS, "key={} rc={}", key, rc);
     unsigned long long comm_hash;
     long long comm_instance;
     int source, tag, later_sends, sender, ack_tag;
-    JASSERT(sscanf(notice.c_str(), "%llu %lld %d %d %d %d %d", &comm_hash,
-                   &comm_instance, &source, &tag, &later_sends, &sender,
-                   &ack_tag) == 7)(notice);
+    ASSERT(sscanf(notice.c_str(), "%llu %lld %d %d %d %d %d", &comm_hash,
+                  &comm_instance, &source, &tag, &later_sends, &sender,
+                  &ack_tag) == 7,
+           "notice={}", notice);
     MPI_Comm comm = commByName(comm_hash, comm_instance);
-    JASSERT(comm != MPI_COMM_NULL)(comm_hash)(comm_instance)
-      .Text("The receiver of an MPI_Issend doesn't know its comm");
+    ASSERT(comm != MPI_COMM_NULL,
+           "The receiver of an MPI_Issend doesn't know its comm: "
+           "comm_hash={} comm_instance={}", comm_hash, comm_instance);
     if (markSsendAck(comm, source, tag, later_sends, sender, ack_tag)) {
       g_drain_stats.issends_buffered++;
     } else {
@@ -1088,8 +1093,8 @@ unblockPendingRecvs()
                               PENDING_RECV_CLOSED, false,
                               __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE);
   bool blocked = (state == PENDING_RECV_ACTIVE);
-  JASSERT(!blocked || g_p2p_wait == P2P_WAIT_BLOCKING)
-    .Text("An MPI_Recv waits in the lower half with MANA_P2P_WAIT=polling");
+  ASSERT(!blocked || g_p2p_wait == P2P_WAIT_BLOCKING,
+         "An MPI_Recv waits in the lower half with MANA_P2P_WAIT=polling");
   if (blocked) {
     snprintf(key, sizeof(key), "blocked_%d", g_world_rank / 64);
     kvOr(g_drain_db, key, (int64_t)((uint64_t)1 << (g_world_rank % 64)));

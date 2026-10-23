@@ -15,7 +15,7 @@ endif
 
 ifeq (${IS_PERLMUTTER}, 1)
   MPICC = cc
-  MPICXX = CC -std=c++14
+  MPICXX = CC -std=c++20
   MPIFORTRAN = ftn
   MPI_LD_FLAG = -lmpich
   MPIRUN = srun
@@ -29,7 +29,7 @@ default2: default
 ## On Perlmutter, the generic settings of 'else' seem to work.
 else
   MPICC = mpicc
-  MPICXX = mpic++ -std=c++14
+  MPICXX = mpic++ -std=c++20
   MPIFORTRAN = mpifort
   MPIRUN = mpirun
   # FIXME: The following paths are hardwired for non-NERSC platforms on which

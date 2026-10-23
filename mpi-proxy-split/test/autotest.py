@@ -99,6 +99,7 @@ TESTS = [
   Test("cartesian", 4),
   Test("datatypes", 2),
   Test("memory", 2),
+  Test("shared_memory", 2),
   Test("init_thread", 2, kind="run", expect="init_thread: PASS"),
   Test("exit_after_finalize", 4, args=["8"], kind="run", restart=True,
        expect="exit_after_finalize: PASS", native_args=["1"]),
