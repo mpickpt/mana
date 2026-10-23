@@ -34,6 +34,7 @@
 #include <cxxabi.h>  /* For backtrace() */
 #include <execinfo.h>  /* For backtrace() */
 
+#include <algorithm>
 #include <regex>
 
 #include "jconvert.h"
@@ -68,8 +69,6 @@ using dmtcp::kvdb::KVDBResponse;
 void * lh_ckpt_mem_addr = NULL;
 size_t lh_ckpt_mem_size = 0;
 int pagesize = sysconf(_SC_PAGESIZE);
-get_mmapped_list_fptr_t get_mmapped_list_fnc = NULL;
-std::vector<MmapInfo_t> uh_mmaps;
 
 extern std::unordered_map<MPI_File, OpenFileParameters> g_params_map;
 
@@ -95,7 +94,6 @@ ProcSelfMaps *postMpiInitMaps = nullptr;
 map<void*, size_t> *mpiInitLhAreas = nullptr;
 void *heapAddr = nullptr;
 
-#undef dmtcp_skip_memory_region_ckpting
 // High memory could start at 0x7ffc00000000 on Perlmutter
 const VA HIGH_ADDR_START = (VA)0x7ffc00000000;
 
@@ -277,53 +275,66 @@ logCkptFileFds()
   }
 }
 
-EXTERNC int
-dmtcp_skip_memory_region_ckpting(ProcMapsArea *area)
+// Finds the first range of the upper half's memory that ends above addr, and
+// stores it in [*start, *end).  This range is either a run of the upper half's
+// mappings, which the lower half's mmap wrapper records, or the upper-half
+// stack.  Returns false if there is no such range.
+static bool
+nextUpperHalfRange(VA addr, VA *start, VA *end)
 {
-  // If it's the upper-half stack, don't skip
-  if (area->addr >= lh_info->uh_stack_start && area->endAddr <= lh_info->uh_stack_end) {
+  int num;
+  get_mmapped_list_fptr_t getMmappedList =
+    (get_mmapped_list_fptr_t)lh_info->mmap_list_fptr;
+  // Reads the live list, which includes the memory that DMTCP maps while it
+  // writes the checkpoint image.
+  const std::vector<MmapInfo_t> &regions = getMmappedList(&num);
+  // The list is sorted and disjoint, and touching regions are merged.
+  auto it = std::partition_point(regions.begin(), regions.end(),
+                                 [addr](const MmapInfo_t &r) {
+                                   return r.addr + r.len <= addr;
+                                 });
+  bool found = (it != regions.end());
+  if (found) {
+    *start = it->addr;
+    *end = it->addr + it->len;
+  }
+  // The lower half maps the stack before its mmap wrapper exists.
+  if (lh_info->uh_stack_end > addr &&
+      (!found || lh_info->uh_stack_start < *start)) {
+    *start = lh_info->uh_stack_start;
+    *end = lh_info->uh_stack_end;
+    found = true;
+  }
+  return found;
+}
+
+// Decides that the checkpoint saves the upper half's memory and skips the
+// lower half's memory.
+EXTERNC int
+dmtcp_skip_memory_region_ckpting(const ProcMapsArea *area, VA *uncheckedAddr)
+{
+  VA start;
+  VA end;
+  if (!nextUpperHalfRange(area->addr, &start, &end) || start >= area->endAddr) {
+    *uncheckedAddr = area->endAddr;
+    return 1;
+  }
+  if (start > area->addr) {
+    *uncheckedAddr = start;
+    return 1;
+  }
+  *uncheckedAddr = std::min(end, area->endAddr);
+
+  // The next definition may skip some of this range.
+  __typeof__(&dmtcp_skip_memory_region_ckpting) next =
+    NEXT_FNC(dmtcp_skip_memory_region_ckpting);
+  if (next == NULL) {
     return 0;
   }
-
-  // Otherwise, checkpoint the region only if it belongs to the upper half, i.e.
-  // it overlaps a region allocated through the upper-half mmap wrapper (tracked
-  // in uh_mmaps).  uh_mmaps is kept sorted and non-overlapping by
-  // merge_overlap_blocks(), and the caller (mtcp_writememoryareas) reprocesses
-  // the tail of a partially-kept area, so clipping to the overlap here walks a
-  // kernel-merged area across consecutive upper-half regions correctly.
-  get_mmapped_list_fnc = (get_mmapped_list_fptr_t) lh_info->mmap_list_fptr;
-
-  int numUhRegions;
-  if (uh_mmaps.size() == 0) {
-    uh_mmaps = get_mmapped_list_fnc(&numUhRegions);
-  }
-
-  for (MmapInfo_t &region : uh_mmaps) {
-    if (regionContains(region.addr, region.addr + region.len,
-                       area->addr, area->endAddr)) {
-      return 0;
-    }
-    if (regionContains(area->addr, area->endAddr,
-                       region.addr, region.addr + region.len)) {
-      area->addr = (char*) region.addr;
-      area->endAddr = (char*) (region.addr + region.len);
-      area->size = area->endAddr - area->addr;
-      return 0;
-    }
-    if (area->addr < region.addr && region.addr < area->endAddr &&
-        area->endAddr < region.addr + region.len) {
-      area->addr = (char*) region.addr;
-      area->size = area->endAddr - area->addr;
-      return 0;
-    }
-    if (region.addr < area->addr && area->addr < region.addr + region.len &&
-        region.addr + region.len < area->endAddr) {
-      area->endAddr = (char*) (region.addr + region.len);
-      area->size = area->endAddr - area->addr;
-      return 0;
-    }
-  }
-  return 1;
+  ProcMapsArea range = *area;
+  range.endAddr = *uncheckedAddr;
+  range.size = range.endAddr - range.addr;
+  return next(&range, uncheckedAddr);
 }
 
 #define BT_SIZE 50 /* Maximum size backtrace of stack */
@@ -898,10 +909,6 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       // The threads are suspended now; let them back into the lower half
       // when they resume.
       allow_threads_to_enter_lower_half();
-      // dmtcp_skip_memory_region_ckpting() saves only the regions in
-      // uh_mmaps and refetches it when empty.  A stale list would miss the
-      // regions mapped since the last checkpoint.
-      uh_mmaps.clear();
       recordMpiInitMaps();
       recordOpenFds();
       dmtcp_local_barrier("MPI:GetLocalRankInfo");
@@ -945,7 +952,6 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       logCkptFileFds();
 
       mpiInitLhAreas->clear();
-      uh_mmaps.clear();
 
       g_upper_half_fsbase->clear();
       g_upper_half_fsbase->insert(std::make_pair(dmtcp_get_real_tid(), getFS()));
