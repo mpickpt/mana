@@ -99,8 +99,6 @@ void *heapAddr = nullptr;
 // High memory could start at 0x7ffc00000000 on Perlmutter
 const VA HIGH_ADDR_START = (VA)0x7ffc00000000;
 
-static bool isLhDevice(const ProcMapsArea *area);
-
 void *old_brk;
 void *old_end_of_brk;
 char *uh_stack_start;
@@ -279,58 +277,9 @@ logCkptFileFds()
   }
 }
 
-// FIXME: Some of these lower-half devices names are obsolete. We can remove
-// this function in the future. This function is a "short-cut" for memory
-// regions that we believe only used by the lower half. Without it, MANA still
-// check all memory regions to decide if DMTCP should skip or not.
-static bool
-isLhDevice(const ProcMapsArea *area)
-{
-  // NOTE: "/dev/zero" is intentionally NOT matched here.  The kernel labels
-  // every MAP_SHARED|MAP_ANONYMOUS region "/dev/zero (deleted)", including
-  // upper-half ones (e.g. the GPU-state staging buffers created by CUDA's
-  // cuCheckpointProcessCheckpoint()).  So the "/dev/zero" name alone is not a
-  // lower-half indicator; upper-half vs lower-half is decided by uh_mmaps
-  // membership in dmtcp_skip_memory_region_ckpting() instead.
-  if (strstr(area->name, "/dev/kgni") ||
-      /* DMTCP SysVIPC plugin should be able to C/R this correctly
-       * And if it's created by lower half, we hope it goes through mmap,
-       * and so it will be recognized by isLhMmapRegion().
-       */
-      // strstr(area->name, "/SYSV") ||
-      strstr(area->name, "/dev/xpmem") ||
-      // strstr(area->name, "xpmem") ||
-      // strstr(area->name, "hugetlbfs" /* Obsolete:  From Cori */) ||
-      strstr(area->name, "/dev/shm")) {
-    return true;
-  }
-
-  return false;
-}
-
 EXTERNC int
 dmtcp_skip_memory_region_ckpting(ProcMapsArea *area)
 {
-  // Fast-path skips: regions that are never upper-half memory, so we can skip
-  // them without scanning uh_mmaps.  ("/dev/zero" is deliberately excluded
-  // from isLhDevice() -- it is ambiguous -- and is resolved via uh_mmaps below.)
-  if (isLhDevice(area)) {
-    TRACE("Ignoring region: name={} addr={}", area->name, (void*)area->addr);
-    return 1;
-  }
-
-  if (strcmp(area->name, "[heap]") == 0) {
-    TRACE("Ignoring heap region: name={} addr={}", area->name,
-          (void*)area->addr);
-    return 1;
-  }
-
-  if (strstr(area->name, "/anon_hugepage")) {
-    TRACE("Ignoring /anon_hugepage region: name={} addr={}", area->name,
-          (void*)area->addr);
-    return 1;
-  }
-
   // If it's the upper-half stack, don't skip
   if (area->addr >= lh_info->uh_stack_start && area->endAddr <= lh_info->uh_stack_end) {
     return 0;
