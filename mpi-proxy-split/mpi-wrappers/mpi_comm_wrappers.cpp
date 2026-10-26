@@ -21,6 +21,7 @@
  *  <http://www.gnu.org/licenses/>.                                         *
  ****************************************************************************/
 
+#include <algorithm>
 #include <unordered_map>
 #include <vector>
 
@@ -79,6 +80,9 @@ struct KeyvalTuple {
 
 static std::vector<int> keyvalVec;
 static std::unordered_map<int, KeyvalTuple> tupleMap;
+// The keyvals of MPI_COMM_SELF's attributes, in the order in which the
+// program set the attributes.  See delete_self_attributes().
+static std::vector<int> selfKeyvals;
 
 // Removes a keyval that the program freed once no attribute uses it, and makes
 // its number free for MPI_Comm_create_keyval().  The standard keeps a freed
@@ -176,6 +180,24 @@ copy_comm_attributes(MPI_Comm oldcomm, MPI_Comm newcomm)
     }
     if (flag) {
       tuple->_attributeMap.emplace(newcomm, attribute_val);
+    }
+  }
+  return MPI_SUCCESS;
+}
+
+// Deletes MPI_COMM_SELF's attributes in the reverse order in which the program
+// set them, as MPI_Finalize() must do first.  Libraries such as HDF5 clean up
+// in the delete callbacks.  Returns the first error of MPI_Comm_delete_attr().
+int
+delete_self_attributes()
+{
+  // A callback may set more attributes on MPI_COMM_SELF.
+  while (!selfKeyvals.empty()) {
+    int keyval = selfKeyvals.back();
+    selfKeyvals.pop_back();
+    int retval = MPI_Comm_delete_attr(MPI_COMM_SELF, keyval);
+    if (retval != MPI_SUCCESS) {
+      return retval;
     }
   }
   return MPI_SUCCESS;
@@ -379,6 +401,8 @@ int PMPI_Comm_set_attr(MPI_Comm comm, int comm_keyval, void *attribute_val)
                        tuple->_extraState);
     }
     attributeMap->erase(comm);
+  } else if (comm == MPI_COMM_SELF) {
+    selfKeyvals.push_back(comm_keyval);
   }
   attributeMap->emplace(comm, attribute_val);
   return retval;
@@ -405,6 +429,11 @@ int PMPI_Comm_delete_attr(MPI_Comm comm, int comm_keyval)
                        tuple->_extraState);
     }
     attributeMap->erase(comm);
+    if (comm == MPI_COMM_SELF) {
+      selfKeyvals.erase(std::remove(selfKeyvals.begin(), selfKeyvals.end(),
+                                    comm_keyval),
+                        selfKeyvals.end());
+    }
     remove_keyval_if_unused(comm_keyval);
   }
   return retval;

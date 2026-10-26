@@ -194,6 +194,11 @@ double PMPI_Wtime()
 int PMPI_Finalize(void)
 {
   int retval;
+  // The delete callbacks may call MPI, so they run before the rest.
+  retval = delete_self_attributes();
+  if (retval != MPI_SUCCESS) {
+    return retval;
+  }
   /*
    *  When calling MPI_Finalize, we disable checkpointing
    *    and do not enable it back up. 
