@@ -135,8 +135,6 @@ int MPI_Intercomm_create(MPI_Comm local_comm, int local_leader, MPI_Comm bridge_
 int MPI_Intercomm_merge(MPI_Comm intercomm, int high, MPI_Comm *newintercomm);
 int MPI_Irsend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request);
 int MPI_Is_thread_main(int *flag);
-int MPI_Keyval_create(MPI_Copy_function *copy_fn, MPI_Delete_function *delete_fn, int *keyval, void *extra_state);
-int MPI_Keyval_free(int *keyval);
 int MPI_Lookup_name(const char *service_name, MPI_Info info, char *port_name);
 
 

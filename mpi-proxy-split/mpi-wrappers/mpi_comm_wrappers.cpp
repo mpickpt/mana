@@ -657,6 +657,21 @@ int PMPI_Comm_free_keyval(int *comm_keyval)
   return retval;
 }
 
+// MPI-1's names of MPI_Comm_create_keyval() and MPI_Comm_free_keyval().
+#pragma weak MPI_Keyval_create = PMPI_Keyval_create
+int PMPI_Keyval_create(MPI_Copy_function *copy_fn,
+                       MPI_Delete_function *delete_fn,
+                       int *keyval, void *extra_state)
+{
+  return MPI_Comm_create_keyval(copy_fn, delete_fn, keyval, extra_state);
+}
+
+#pragma weak MPI_Keyval_free = PMPI_Keyval_free
+int PMPI_Keyval_free(int *keyval)
+{
+  return MPI_Comm_free_keyval(keyval);
+}
+
 #pragma weak MPI_Comm_create_group = PMPI_Comm_create_group
 int MPI_Comm_create_group_internal(MPI_Comm comm, MPI_Group group, int tag,
                                    MPI_Comm *newcomm)
