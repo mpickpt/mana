@@ -231,6 +231,8 @@ delete_self_attributes()
     selfKeyvals.pop_back();
     int retval = MPI_Comm_delete_attr(MPI_COMM_SELF, keyval);
     if (retval != MPI_SUCCESS) {
+      // The attribute stays.
+      selfKeyvals.push_back(keyval);
       return retval;
     }
   }
@@ -351,10 +353,14 @@ int PMPI_Comm_free(MPI_Comm *comm)
     KeyvalTuple *tuple = &it->second;
     std::unordered_map<MPI_Comm, void*> *attributeMap = &tuple->_attributeMap;
     if (tuple->_deleteFn != MPI_COMM_NULL_DELETE_FN) {
-      tuple->_deleteFn(*comm,
-                       keyval,
-                       attributeMap->at(*comm),
-                       tuple->_extraState);
+      int retval = tuple->_deleteFn(*comm,
+                                    keyval,
+                                    attributeMap->at(*comm),
+                                    tuple->_extraState);
+      // MPI_Comm_free fails, and the communicator keeps this attribute.
+      if (retval != MPI_SUCCESS) {
+        return retval;
+      }
     }
     attributeMap->erase(*comm);
     remove_keyval_if_unused(keyval);
@@ -441,10 +447,14 @@ int PMPI_Comm_set_attr(MPI_Comm comm, int comm_keyval, void *attribute_val)
   std::unordered_map<MPI_Comm, void*> *attributeMap = &tuple->_attributeMap;
   if (attributeMap->find(comm) != attributeMap->end()) {
     if (tuple->_deleteFn != MPI_COMM_NULL_DELETE_FN) {
-      tuple->_deleteFn(comm,
-                       comm_keyval,
-                       attributeMap->at(comm),
-                       tuple->_extraState);
+      retval = tuple->_deleteFn(comm,
+                                comm_keyval,
+                                attributeMap->at(comm),
+                                tuple->_extraState);
+      // MPI_Comm_set_attr fails, and the attribute keeps its old value.
+      if (retval != MPI_SUCCESS) {
+        return retval;
+      }
     }
     attributeMap->erase(comm);
   } else if (comm == MPI_COMM_SELF) {
@@ -463,16 +473,21 @@ int PMPI_Comm_delete_attr(MPI_Comm comm, int comm_keyval)
     return retval;
   }
   if (tupleMap.find(comm_keyval) == tupleMap.end()) {
+    retval = MPI_ERR_KEYVAL;
     return retval;
   }
   KeyvalTuple *tuple = &tupleMap.at(comm_keyval);
   std::unordered_map<MPI_Comm, void*> *attributeMap = &tuple->_attributeMap;
   if (attributeMap->find(comm) != attributeMap->end()) {
     if (tuple->_deleteFn != MPI_COMM_NULL_DELETE_FN) {
-      tuple->_deleteFn(comm,
-                       comm_keyval,
-                       attributeMap->at(comm),
-                       tuple->_extraState);
+      retval = tuple->_deleteFn(comm,
+                                comm_keyval,
+                                attributeMap->at(comm),
+                                tuple->_extraState);
+      // MPI_Comm_delete_attr fails, and the attribute stays.
+      if (retval != MPI_SUCCESS) {
+        return retval;
+      }
     }
     attributeMap->erase(comm);
     if (comm == MPI_COMM_SELF) {
@@ -637,6 +652,7 @@ int PMPI_Comm_free_keyval(int *comm_keyval)
     *comm_keyval = MPI_KEYVAL_INVALID;
   } else {
     WARN(false, "Attempted to free an invalid key: keyval={}", keyval);
+    retval = MPI_ERR_KEYVAL;
   }
   return retval;
 }
