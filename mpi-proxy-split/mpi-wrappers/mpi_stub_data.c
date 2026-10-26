@@ -60,3 +60,15 @@ static MPI_F08_status f08_statuses_ignore;
 MPI_F08_status *MPI_F08_STATUSES_IGNORE = &f08_statuses_ignore;
 #endif
 #endif
+
+#ifdef MPICH
+// MPICH's MPI_DUP_FN, and so MPI_COMM_DUP_FN, is a function of the MPI
+// library (MPIR_Dup_fn).  It copies the attribute's value.
+int MPI_DUP_FN(MPI_Comm oldcomm, int keyval, void *extra_state,
+               void *attribute_val_in, void *attribute_val_out, int *flag)
+{
+  *(void **)attribute_val_out = attribute_val_in;
+  *flag = 1;
+  return MPI_SUCCESS;
+}
+#endif

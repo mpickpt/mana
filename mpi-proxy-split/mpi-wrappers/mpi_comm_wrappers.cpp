@@ -143,6 +143,44 @@ check_tag_ub()
   }
 }
 
+// Gives newcomm, a duplicate of oldcomm, the attributes that the copy
+// callbacks of oldcomm's attributes return.  Returns the first error that a
+// callback returns.
+int
+copy_comm_attributes(MPI_Comm oldcomm, MPI_Comm newcomm)
+{
+  // A callback may create or free keyvals, which changes tupleMap.  So list
+  // the keyvals first, and look up each one again.
+  std::vector<int> keyvals;
+  for (auto &tuplePair : tupleMap) {
+    if (tuplePair.second._attributeMap.count(oldcomm) > 0) {
+      keyvals.push_back(tuplePair.first);
+    }
+  }
+  for (int keyval : keyvals) {
+    auto it = tupleMap.find(keyval);
+    if (it == tupleMap.end() || it->second._attributeMap.count(oldcomm) == 0) {
+      continue;
+    }
+    KeyvalTuple *tuple = &it->second;
+    if (tuple->_copyFn == MPI_COMM_NULL_COPY_FN) {
+      continue;
+    }
+    void *attribute_val = NULL;
+    int flag = 0;
+    int retval = tuple->_copyFn(oldcomm, keyval, tuple->_extraState,
+                                tuple->_attributeMap.at(oldcomm),
+                                &attribute_val, &flag);
+    if (retval != MPI_SUCCESS) {
+      return retval;
+    }
+    if (flag) {
+      tuple->_attributeMap.emplace(newcomm, attribute_val);
+    }
+  }
+  return MPI_SUCCESS;
+}
+
 extern "C" {
 
 #pragma weak MPI_Comm_size = PMPI_Comm_size
