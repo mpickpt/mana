@@ -51,6 +51,7 @@ void recordPreMpiInitMaps();
 void recordPostMpiInitMaps();
 void init_tag_ub();  // mpi-wrappers/mpi_comm_wrappers.cpp
 void check_tag_ub();
+int copy_comm_attributes(MPI_Comm oldcomm, MPI_Comm newcomm);
 
 enum mana_state_t {
   UNKNOWN_STATE,

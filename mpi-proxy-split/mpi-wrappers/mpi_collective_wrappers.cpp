@@ -947,6 +947,15 @@ int PMPI_Comm_dup(MPI_Comm comm, MPI_Comm *newcomm)
   }
   LOWER_HALF_ENABLE_CKPT();
   commit_finish(comm);
+  if (retval == MPI_SUCCESS && *newcomm != MPI_COMM_NULL) {
+    retval = copy_comm_attributes(comm, *newcomm);
+    if (retval != MPI_SUCCESS) {
+      // MPI_Comm_dup fails, so it returns no communicator.  Freeing it also
+      // deletes the attributes that were copied.
+      MPI_Comm_free(newcomm);
+      *newcomm = MPI_COMM_NULL;
+    }
+  }
   return retval;
 }
 
