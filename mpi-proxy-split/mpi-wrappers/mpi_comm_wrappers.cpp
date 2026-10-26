@@ -73,10 +73,27 @@ struct KeyvalTuple {
   MPI_Comm_copy_attr_function *_copyFn;
   MPI_Comm_delete_attr_function *_deleteFn;
   std::unordered_map<MPI_Comm, void*> _attributeMap;
+  // The program freed the keyval, but an attribute still uses it.
+  bool _freed = false;
 };
 
 static std::vector<int> keyvalVec;
 static std::unordered_map<int, KeyvalTuple> tupleMap;
+
+// Removes a keyval that the program freed once no attribute uses it, and makes
+// its number free for MPI_Comm_create_keyval().  The standard keeps a freed
+// keyval until then, so that freeing a communicator still calls its delete
+// callback.
+static void
+remove_keyval_if_unused(int keyval)
+{
+  auto it = tupleMap.find(keyval);
+  if (it != tupleMap.end() && it->second._freed &&
+      it->second._attributeMap.empty()) {
+    tupleMap.erase(it);
+    keyvalVec[keyval] = -1;
+  }
+}
 
 // The lower half's MPI_TAG_UB at launch, copied because the lower half's
 // storage does not survive a restart.  See check_tag_ub().
@@ -224,18 +241,29 @@ int PMPI_Comm_free(MPI_Comm *comm)
   // attribute, but since our structure here is a bit different, we check, for
   // each key value, if a communicator/attribute value pairing exists, and if
   // it does then we call the callback function.
+  // A callback may create or free keyvals and delete attributes, which
+  // changes tupleMap.  So list the keyvals first, and look up each one again.
+  std::vector<int> keyvals;
   for (auto &tuplePair : tupleMap) {
-    KeyvalTuple *tuple = &tuplePair.second;
-    std::unordered_map<MPI_Comm, void*> *attributeMap = &tuple->_attributeMap;
-    if (attributeMap->find(*comm) != attributeMap->end()) {
-      if (tuple->_deleteFn != MPI_COMM_NULL_DELETE_FN) {
-        tuple->_deleteFn(*comm,
-                         tuplePair.first,
-                         attributeMap->at(*comm),
-                         tuple->_extraState);
-      }
-      attributeMap->erase(*comm);
+    if (tuplePair.second._attributeMap.count(*comm) > 0) {
+      keyvals.push_back(tuplePair.first);
     }
+  }
+  for (int keyval : keyvals) {
+    auto it = tupleMap.find(keyval);
+    if (it == tupleMap.end() || it->second._attributeMap.count(*comm) == 0) {
+      continue;
+    }
+    KeyvalTuple *tuple = &it->second;
+    std::unordered_map<MPI_Comm, void*> *attributeMap = &tuple->_attributeMap;
+    if (tuple->_deleteFn != MPI_COMM_NULL_DELETE_FN) {
+      tuple->_deleteFn(*comm,
+                       keyval,
+                       attributeMap->at(*comm),
+                       tuple->_extraState);
+    }
+    attributeMap->erase(*comm);
+    remove_keyval_if_unused(keyval);
   }
   // MPI_Comm_free() is a collective call.
   commit_begin(*comm);
@@ -339,6 +367,7 @@ int PMPI_Comm_delete_attr(MPI_Comm comm, int comm_keyval)
                        tuple->_extraState);
     }
     attributeMap->erase(comm);
+    remove_keyval_if_unused(comm_keyval);
   }
   return retval;
 }
@@ -488,9 +517,10 @@ int PMPI_Comm_free_keyval(int *comm_keyval)
 {
   int retval = MPI_SUCCESS;
   int keyval = *comm_keyval;
-  if (keyval < keyvalVec.size() && keyvalVec[keyval] >= 0) {
-    keyvalVec[keyval] = -1;
-    tupleMap.erase(keyval);
+  if (keyval < keyvalVec.size() && keyvalVec[keyval] >= 0 &&
+      !tupleMap.at(keyval)._freed) {
+    tupleMap.at(keyval)._freed = true;
+    remove_keyval_if_unused(keyval);
     *comm_keyval = MPI_KEYVAL_INVALID;
   } else {
     WARN(false, "Attempted to free an invalid key: keyval={}", keyval);
