@@ -51,6 +51,7 @@ void recordPreMpiInitMaps();
 void recordPostMpiInitMaps();
 void init_tag_ub();  // mpi-wrappers/mpi_comm_wrappers.cpp
 void check_tag_ub();
+void init_predefined_attributes();
 int copy_comm_attributes(MPI_Comm oldcomm, MPI_Comm newcomm);
 int delete_self_attributes();
 

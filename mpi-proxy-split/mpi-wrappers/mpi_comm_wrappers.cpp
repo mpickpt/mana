@@ -110,6 +110,15 @@ static int tag_ub;
 static const int MPI_HOST_RANK = MPI_PROC_NULL;
 static const int MPI_IO_SOURCE = MPI_ANY_SOURCE;
 static const int MPI_WTIME_IS_GLOBAL_VAL = 0;
+// The lower half's MPI_APPNUM, MPI_UNIVERSE_SIZE and MPI_LASTUSEDCODE at
+// launch, and whether it has each one (the flag of MPI_Comm_get_attr()).
+// Like MPI_TAG_UB, they stay the launch ones after a restart.
+static int appnum;
+static int appnum_flag;
+static int universe_size;
+static int universe_size_flag;
+static int lastusedcode;
+static int lastusedcode_flag;
 
 // MPI attaches the bound to MPI_COMM_WORLD, so ask the lower half's world.
 static int
@@ -145,6 +154,31 @@ check_tag_ub()
     ASSERT(false, "MPI_TAG_UB is smaller than at launch: ub={} tag_ub={}", ub,
            tag_ub);
   }
+}
+
+// Copies the value of the lower half's attribute 'keyval' of MPI_COMM_WORLD
+// into *value, if the attribute exists, and sets *flag to whether it exists.
+static void
+copy_lower_half_attr(int keyval, int *value, int *flag)
+{
+  int *val = NULL;
+  int retval;
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
+  retval = NEXT_FUNC(Comm_get_attr)(lh_info->MANA_COMM_WORLD, keyval, &val,
+                                    flag);
+  RETURN_TO_UPPER_HALF();
+  ASSERT(retval == MPI_SUCCESS, "keyval={} retval={}", keyval, retval);
+  if (*flag) {
+    *value = *val;
+  }
+}
+
+void
+init_predefined_attributes()
+{
+  copy_lower_half_attr(MPI_APPNUM, &appnum, &appnum_flag);
+  copy_lower_half_attr(MPI_UNIVERSE_SIZE, &universe_size, &universe_size_flag);
+  copy_lower_half_attr(MPI_LASTUSEDCODE, &lastusedcode, &lastusedcode_flag);
 }
 
 // Gives newcomm, a duplicate of oldcomm, the attributes that the copy
@@ -363,6 +397,18 @@ int PMPI_Comm_get_attr(MPI_Comm comm, int comm_keyval, void *attribute_val, int 
     case MPI_WTIME_IS_GLOBAL:
       * (const int **) attribute_val = &MPI_WTIME_IS_GLOBAL_VAL;
       *flag = 1;
+      return retval;
+    case MPI_APPNUM:
+      * (const int **) attribute_val = &appnum;
+      *flag = appnum_flag;
+      return retval;
+    case MPI_UNIVERSE_SIZE:
+      * (const int **) attribute_val = &universe_size;
+      *flag = universe_size_flag;
+      return retval;
+    case MPI_LASTUSEDCODE:
+      * (const int **) attribute_val = &lastusedcode;
+      *flag = lastusedcode_flag;
       return retval;
   }
 
