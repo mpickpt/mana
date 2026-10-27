@@ -122,6 +122,9 @@ use_group(MPI_Comm comm, const int *members, int n, MPI_Group world_group)
   MT_MPI(MPI_Group_free(&reversed));
   MT_MPI(MPI_Group_free(&same));
   MT_MPI(MPI_Group_free(&group));
+  MT_CHECK(group == MPI_GROUP_NULL && same == MPI_GROUP_NULL &&
+           reversed == MPI_GROUP_NULL, "iteration %ld: MPI_Group_free left "
+           "the handle", it);
 }
 
 static void

@@ -374,6 +374,7 @@ int PMPI_File_close(MPI_File *fh)
   // handle (which is unique to this process only)
   if (retval == MPI_SUCCESS) {
     g_params_map.erase(*fh);
+    *fh = MPI_FILE_NULL;
   }
   LOWER_HALF_ENABLE_CKPT();
   return retval;

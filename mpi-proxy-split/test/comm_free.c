@@ -58,6 +58,8 @@ free_late(MPI_Comm *comm)
 {
   usleep(DELAY * mt_rank);
   MT_MPI(MPI_Comm_free(comm));
+  MT_CHECK(*comm == MPI_COMM_NULL, "iteration %ld: MPI_Comm_free left the "
+           "handle", it);
   usleep(DELAY * (mt_size - 1 - mt_rank));
 }
 
