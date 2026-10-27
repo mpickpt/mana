@@ -189,6 +189,7 @@ extern virt_id_entry *virt_id_chunks[MANA_VIRT_ID_NUM_CHUNKS];
 extern int g_world_rank;
 
 void init_predefined_virt_ids();
+void init_world_comm();
 MPI_Comm new_virt_comm(MPI_Comm real_comm);
 MPI_Group new_virt_group(MPI_Group real_group);
 MPI_Op new_virt_op(MPI_Op real_op);
