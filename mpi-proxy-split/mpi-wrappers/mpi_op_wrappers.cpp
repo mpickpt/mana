@@ -64,6 +64,7 @@ int PMPI_Op_free(MPI_Op *op)
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS) {
     free_virt_id((mana_mpi_handle){.op = *op});
+    *op = MPI_OP_NULL;
   }
   LOWER_HALF_ENABLE_CKPT();
   return retval;

@@ -70,6 +70,7 @@ int PMPI_Group_free(MPI_Group *group)
   int retval = MPI_SUCCESS;
   LOWER_HALF_DISABLE_CKPT();
   free_virt_id((mana_mpi_handle){.group = *group});
+  *group = MPI_GROUP_NULL;
   LOWER_HALF_ENABLE_CKPT();
   return retval;
 }

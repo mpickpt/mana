@@ -392,6 +392,7 @@ main(int argc, char **argv)
     collectives(&half);
   }
   MPI_Op_free(&compose_op);
+  MT_CHECK(compose_op == MPI_OP_NULL, "%s", "MPI_Op_free left the handle");
   MPI_Comm_free(&half.comm);
   mt_finish(it);
   return 0;
