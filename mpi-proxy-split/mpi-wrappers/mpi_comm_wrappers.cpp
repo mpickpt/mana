@@ -237,12 +237,15 @@ int PMPI_Comm_free(MPI_Comm *comm)
       attributeMap->erase(*comm);
     }
   }
+  // MPI_Comm_free() is a collective call.
+  commit_begin(*comm);
   LOWER_HALF_DISABLE_CKPT();
   int retval = MPI_Comm_free_internal(comm);
   if (retval == MPI_SUCCESS) {
     free_virt_id((mana_mpi_handle){.comm = *comm});
   }
   LOWER_HALF_ENABLE_CKPT();
+  commit_finish(*comm);
   return retval;
 }
 
