@@ -774,10 +774,18 @@ void init_predefined_virt_ids() {
   lower_to_upper_constants[(int64_t)lh_info->MANA_ERRORS_ARE_FATAL] = (int64_t)MPI_ERRORS_ARE_FATAL;
   lower_to_upper_constants[(int64_t)lh_info->MANA_ERRORS_RETURN] = (int64_t)MPI_ERRORS_RETURN;
 
-  // Initialize g_world_comm and g_world_group.
+  // Initialize g_world_group.
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
+  NEXT_FUNC(Comm_group)(lh_info->MANA_COMM_WORLD, &g_world_group);
+  RETURN_TO_UPPER_HALF();
+}
+
+// Makes g_world_comm, MANA's duplicate of MPI_COMM_WORLD.  Call it at
+// MPI_Init only.  At restart, g_world_comm is in the virtual-ID table, so
+// reconstruct_descriptors() makes it again.
+void init_world_comm() {
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   NEXT_FUNC(Comm_dup)(lh_info->MANA_COMM_WORLD, &g_world_comm);
-  NEXT_FUNC(Comm_group)(lh_info->MANA_COMM_WORLD, &g_world_group);
   RETURN_TO_UPPER_HALF();
   g_world_comm = new_virt_comm(g_world_comm);
 
