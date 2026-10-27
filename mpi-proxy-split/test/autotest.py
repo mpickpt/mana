@@ -96,6 +96,7 @@ TESTS = [
   Test("collectives", 4),
   Test("nonblocking_collectives", 4),
   Test("communicators", 4),
+  Test("comm_free", 4),
   Test("cartesian", 4),
   Test("datatypes", 2),
   Test("memory", 2),
