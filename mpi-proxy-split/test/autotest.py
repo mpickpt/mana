@@ -105,6 +105,7 @@ TESTS = [
   Test("exit_after_finalize", 4, args=["8"], kind="run", restart=True,
        expect="exit_after_finalize: PASS", native_args=["1"]),
   Test("attributes", 2),
+  Test("keyvals", 2),
   Test("misc_calls", 2),
   Test("mmap_threads", 2),
   Test("mmap_threads_quiet", 2, args=["-q"], program="mmap_threads"),
