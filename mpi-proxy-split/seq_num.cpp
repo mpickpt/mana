@@ -134,7 +134,12 @@ void commit_begin(MPI_Comm comm) {
   if (mana_state == RESTART_REPLAY || comm == MPI_COMM_NULL) {
     return;
   }
+  // Checking ckpt_pending and incrementing the sequence number should be
+  // atomic.  drain_mpi_collective() sets ckpt_pending and shares the
+  // sequence numbers under this lock.
+  pthread_mutex_lock(&seq_num_lock);
   while (ckpt_pending && check_seq_nums()) {
+    pthread_mutex_unlock(&seq_num_lock);
     MPI_Status status;
     int flag;
     MPI_Iprobe_internal(MPI_ANY_SOURCE, MPI_ANY_TAG, g_world_comm, &flag,
@@ -160,10 +165,10 @@ void commit_begin(MPI_Comm comm) {
 #endif
       }
     }
+    pthread_mutex_lock(&seq_num_lock);
   }
   unsigned int comm_gid;
   unsigned long *comm_seq, *comm_target;
-  pthread_mutex_lock(&seq_num_lock);
   current_phase = IN_CS;
   lookup_comm_clock(comm, &comm_gid, &comm_seq, &comm_target);
   (*comm_seq)++;
