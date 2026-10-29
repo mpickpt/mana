@@ -269,8 +269,11 @@ MPI_Comm new_virt_comm(MPI_Comm real_comm) {
 
   unsigned int ggid = generate_ggid(desc->global_ranks,
                                     desc->size);
-  seq_num[ggid] = 0;
-  target[ggid] = 0;
+  // One clock counts the collectives on all communicators over these ranks.
+  // So a new communicator must not reset it: a rank would then look done to
+  // drain_mpi_collective() while a peer was ahead.
+  seq_num.emplace(ggid, 0);
+  target.emplace(ggid, 0);
   // The maps never erase entries, so these pointers stay valid.
   desc->ggid = ggid;
   desc->seq_num = &seq_num[ggid];
