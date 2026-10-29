@@ -51,6 +51,7 @@ using namespace std;
 #define MMAP_OFF_MASK (MMAP_OFF_HIGH_MASK | MMAP_OFF_LOW_MASK)
 #define _real_mmap mmap
 #define _real_munmap munmap
+#define _real_mremap mremap
 
 std::vector<MmapInfo_t> allocated_blocks;
 std::vector<MmapInfo_t> free_blocks;
@@ -106,6 +107,7 @@ static void patchLibc(int , char * , char *);
 static void uhExit(int status);
 static void addRegionTommaps(char *, size_t);
 static int __munmap_wrapper(void *, size_t);
+static void* __mremap_wrapper(char *, size_t, size_t, int, char *);
 static void updateMmaps(char *, size_t);
 static void patchSbrk(char *, char *, size_t);
 
@@ -614,6 +616,93 @@ static int __munmap_wrapper(void *addr, size_t length) {
   return ret;
 }
 
+// The upper half libc's mremap() jumps here (patchLibc()).  glibc's
+// realloc() of a block that malloc() mapped calls it.  The kernel would
+// grow the block into the arena's free range, or move it outside the arena,
+// and the free and allocated lists would miss the change (#539).
+void* mremap_wrapper(void *old_address, size_t old_size, size_t new_size,
+                     int flags, void *new_address) {
+  void *ret = MAP_FAILED;
+  uint64_t mask = block_signals();
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
+  lock_wrappers();
+  ret = __mremap_wrapper((char*)old_address, old_size, new_size, flags,
+                         (char*)new_address);
+  unlock_wrappers();
+  RETURN_TO_UPPER_HALF();
+  restore_signals(mask);
+  return ret;
+}
+
+// Whether [addr, addr + len) is in one of the arena's free blocks.
+static bool
+is_free_range(char *addr, size_t len)
+{
+  for (const MmapInfo_t &b : free_blocks) {
+    if (b.addr <= addr && addr + len <= b.addr + b.len) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// Grows or shrinks a mapping in place when the arena's free list allows it.
+// Otherwise, with MREMAP_MAYMOVE, it moves the mapping to a range that the
+// arena reserves first, so that MREMAP_FIXED replaces only the reservation.
+static void* __mremap_wrapper(char *old_address, size_t old_size,
+                              size_t new_size, int flags, char *new_address) {
+  old_size = ROUND_UP(old_size, PAGE_SIZE);
+  new_size = ROUND_UP(new_size, PAGE_SIZE);
+  int dontunmap = 0;  // MREMAP_DONTUNMAP leaves the old mapping
+#ifdef MREMAP_DONTUNMAP
+  dontunmap = flags & MREMAP_DONTUNMAP;
+#endif
+  // The kernel rejects the flags that the wrapper does not know, and
+  // MREMAP_DONTUNMAP without MREMAP_MAYMOVE.
+  int other_flags = flags & ~(MREMAP_MAYMOVE | MREMAP_FIXED | dontunmap);
+  bool invalid = other_flags != 0 || (dontunmap && !(flags & MREMAP_MAYMOVE));
+  void *ret = MAP_FAILED;
+  if (arena_base == NULL || old_size == 0 || (flags & MREMAP_FIXED) ||
+      invalid) {
+    ret = _real_mremap(old_address, old_size, new_size, flags, new_address);
+  } else {
+    if (!dontunmap &&
+        (new_size <= old_size ||
+         is_free_range(old_address + old_size, new_size - old_size))) {
+      // Never replaces a mapping: the kernel fails if one is in the way.
+      ret = _real_mremap(old_address, old_size, new_size, 0);
+    } else if (!(flags & MREMAP_MAYMOVE)) {
+      errno = ENOMEM;
+    }
+    if (ret == MAP_FAILED && (flags & MREMAP_MAYMOVE)) {
+      void *to = arena_mmap(NULL, new_size, PROT_NONE,
+                            MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE |
+                            MAP_FIXED, -1, 0);
+      if (to != MAP_FAILED) {
+        ret = _real_mremap(old_address, old_size, new_size,
+                           MREMAP_MAYMOVE | MREMAP_FIXED | dontunmap, to);
+        if (ret == MAP_FAILED) {
+          _real_munmap(to, new_size);
+        }
+      }
+    }
+  }
+  if (ret != MAP_FAILED) {
+    DLOG(NOISE, "LH: mremap: %p @ 0x%zx -> %p @ 0x%zx\n", old_address,
+         old_size, ret, new_size);
+    if (!dontunmap) {
+      remove_overlap_blocks({old_address, old_size}, allocated_blocks);
+      merge_overlap_blocks({old_address, old_size}, free_blocks);
+    }
+    merge_overlap_blocks({(char*)ret, new_size}, allocated_blocks);
+    remove_overlap_blocks({(char*)ret, new_size}, free_blocks);
+    if ((char*)ret + new_size > max_allocated_addr) {
+      max_allocated_addr = (char*)ret + new_size;
+    }
+  }
+  return ret;
+}
+
 // The MPI process, not a child that the upper half forked.  Set by the
 // lower half's main() at launch and again at restart.
 static pid_t lh_pid;
@@ -642,6 +731,26 @@ uhExit(int status)
   __builtin_unreachable();
 }
 
+// Returns the offset of 'name' in the libc at 'glibc', or else in that
+// libc's debug file under /usr/lib/debug, or 0.
+static off_t libc_symbol_offset(char *glibc, const char *name)
+{
+  off_t offset = get_symbol_offset(glibc, name);
+  if (! offset) {
+    char buf[256] = "/usr/lib/debug";
+    buf[sizeof(buf)-1] = '\0';
+    ssize_t rc = 0;
+    rc = readlink(glibc, buf+strlen(buf), sizeof(buf)-strlen(buf)-1);
+    if (rc != -1 && access(buf, F_OK) == 0) {
+      // Debian family (Ubuntu, etc.) use this scheme to store debug symbols.
+      //   http://sourceware.org/gdb/onlinedocs/gdb/Separate-Debug-Files.html
+      fprintf(stderr, "Debug symbols for interpreter in: %s\n", buf);
+    }
+    offset = get_symbol_offset(buf, name); // elf interpreter debug path
+  }
+  return offset;
+}
+
 static void patchLibc(int fd, char *base, char *glibc)
 {
   assert(base != NULL);
@@ -649,36 +758,16 @@ static void patchLibc(int fd, char *base, char *glibc)
   DLOG(NOISE, "Patching libc (%s) @ %p\n", glibc, base);
   // Save incoming offset
   off_t save_offset = lseek(fd, 0, SEEK_CUR);
-  off_t mmap_offset = get_symbol_offset(glibc, "mmap");
-  if (! mmap_offset) {
-    char buf[256] = "/usr/lib/debug";
-    buf[sizeof(buf)-1] = '\0';
-    ssize_t rc = 0;
-    rc = readlink(glibc, buf+strlen(buf), sizeof(buf)-strlen(buf)-1);
-    if (rc != -1 && access(buf, F_OK) == 0) {
-      // Debian family (Ubuntu, etc.) use this scheme to store debug symbols.
-      //   http://sourceware.org/gdb/onlinedocs/gdb/Separate-Debug-Files.html
-      fprintf(stderr, "Debug symbols for interpreter in: %s\n", buf);
-    }
-    mmap_offset = get_symbol_offset(buf, "mmap"); // elf interpreter debug path
-  }
+  off_t mmap_offset = libc_symbol_offset(glibc, "mmap");
   assert(mmap_offset);
-  off_t munmap_offset = get_symbol_offset(glibc, "munmap");
-  if (! munmap_offset) {
-    char buf[256] = "/usr/lib/debug";
-    buf[sizeof(buf)-1] = '\0';
-    ssize_t rc = 0;
-    rc = readlink(glibc, buf+strlen(buf), sizeof(buf)-strlen(buf)-1);
-    if (rc != -1 && access(buf, F_OK) == 0) {
-      // Debian family (Ubuntu, etc.) use this scheme to store debug symbols.
-      //   http://sourceware.org/gdb/onlinedocs/gdb/Separate-Debug-Files.html
-      fprintf(stderr, "Debug symbols for interpreter in: %s\n", buf);
-    }
-    munmap_offset = get_symbol_offset(buf, "munmap"); // elf interpreter debug path
-  }
+  off_t munmap_offset = libc_symbol_offset(glibc, "munmap");
   assert(munmap_offset);
+  off_t mremap_offset = libc_symbol_offset(glibc, "mremap");
+  assert(mremap_offset);
   patch_trampoline(base + mmap_offset, reinterpret_cast<void*>(&mmap_wrapper));
   patch_trampoline(base + munmap_offset, reinterpret_cast<void*>(&munmap_wrapper));
+  patch_trampoline(base + mremap_offset,
+                   reinterpret_cast<void*>(&mremap_wrapper));
   off_t exit_offset = get_symbol_offset(glibc, "_exit");
   if (exit_offset) {
     patch_trampoline(base + exit_offset, reinterpret_cast<void*>(&uhExit));
