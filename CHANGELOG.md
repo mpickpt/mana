@@ -22,6 +22,38 @@ TODO for all releases:
 - Finally, go to github and do a new release there.
 --->
 
+## [1.6.0] - 2026-10-28
+
+We're pleased to announce `MANA` 1.6.0 !
+
+### What's new
+* MANA runs with Open MPI 4.1 and 5.0, in C and in Fortran, and GitHub
+  Actions now tests it with Open MPI too (PR #529).
+* MANA uses DMTCP's main branch (PR #544).
+* `MPI_Ssend` and `MPI_Issend` are wrapped (PR #522).
+* Attributes work as the standard says, in C and in Fortran, including
+  MPI-1's `MPI_Keyval_create` and `MPI_Attr_*` calls (PR #535, #546, #547).
+
+### Fixed
+* Checkpoints and restarts could hang after `MPI_Comm_free`, with
+  non-blocking collectives started at different times, or with
+  back-to-back checkpoints (PR #541, #545).
+* Threads that mapped memory at the same time could get overlapping memory
+  or crash at a checkpoint, and memory that `realloc` grew was lost at a
+  restart (PR #537, #543, #548).
+* An application's POSIX shared memory was not saved (PR #544), and `argv`
+  pointed to the wrong strings after a restart (PR #528).
+* `mana_launch` and `mana_restart` on another node could find no
+  coordinator; fixed in DMTCP (#523).
+
+### Changed
+* Building MANA needs a C++20 compiler (PR #544).
+* `configure` no longer accepts `--enable-logging` or `--enable-timing`.
+  DMTCP's trace messages are turned on at run time, with
+  `DMTCP_LOG_LEVEL=trace` (PR #544).
+
+**Full Changelog**: https://github.com/mpickpt/mana/compare/v1.5.0...v1.6.0
+
 ## [1.5.0] - 2026-10-05
 
 We're pleased to announce `MANA` 1.5.0 !
