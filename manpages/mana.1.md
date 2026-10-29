@@ -1,5 +1,5 @@
 ---
-date: 5 November 2026
+date: 9 November 2026
 section: 1
 title: MANA
 description: MPI-Agnostic Network-Agnostic Checkpointing
