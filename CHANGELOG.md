@@ -16,9 +16,13 @@ TODO for all releases:
 - Create a new git tag (e.g., v1.2.0)
 - Update CHANGELOG.md
 - Update VERSION
-- Review and update any README.md files (e.g., mpi-proxy-split/README.md).
-- Review and update https://github.com/mpickpt/mana-doc and propagate
-  to readthedocs.io
+- Review and update README.md.
+- Review and update the man page, manpages/mana.1.md, and its date.
+  Then regenerate manpages/mana.1 in manpages/:
+    pandoc -s -o mana.1 mana.1.md
+- Review and update MANA's website, https://mpickpt.github.io/mana/
+  (source in doc/), and "The current release" on its home page,
+  doc/index.md.
 - Finally, go to github and do a new release there.
 - Attach a source tarball that includes DMTCP to the release.  GitHub's
   "Source code" archives leave out the dmtcp submodule.  After
@@ -29,6 +33,62 @@ TODO for all releases:
     tar --concatenate -f mana-1.2.0.tar dmtcp.tar
     rm dmtcp.tar && gzip mana-1.2.0.tar
 --->
+
+## [1.6.0] - 2026-11-05
+
+We're pleased to announce `MANA` 1.6.0 !
+
+### What's new
+* MANA runs with Open MPI 4.1 and 5.0, in C and in Fortran, and GitHub
+  Actions now tests it with Open MPI too (PR #529).
+* MANA uses DMTCP's main branch (PR #544).
+* `MPI_Ssend` and `MPI_Issend` are wrapped (PR #522).
+* Attributes work as the standard says, in C and in Fortran, including
+  MPI-1's `MPI_Keyval_create` and `MPI_Attr_*` calls (PR #535, #546, #547).
+* MANA has a website, https://mpickpt.github.io/mana/, with a quick start, a
+  user guide and a developer guide. It replaces the wiki and readthedocs, and
+  its source is in `doc/` (PR #564).
+
+### Fixed
+* Checkpoints and restarts could hang after `MPI_Comm_free`, with
+  non-blocking collectives started at different times, or with
+  back-to-back checkpoints (PR #541, #545).
+* Checkpoints could hang with non-blocking collectives started in different
+  orders on two communicators, with `MPI_Comm_create_group`, or with an
+  `MPI_Issend` on a freed communicator, and were slow after many
+  `MPI_Comm_free` calls. Each communicator now has its own Collective Clock
+  (PR #552).
+* `make install` installed only DMTCP, and `make uninstall` failed. Now they
+  install and remove MANA too, with `--prefix` and `DESTDIR` (PR #559, #561).
+* Threads that mapped memory at the same time could get overlapping memory
+  or crash at a checkpoint, and memory that `realloc` grew was lost at a
+  restart (PR #537, #543, #548).
+* An application's POSIX shared memory was not saved (PR #544), and `argv`
+  pointed to the wrong strings after a restart (PR #528).
+* On some Cray systems, every restart crashed (PR #563).
+* `mana_launch` and `mana_restart` on another node could find no
+  coordinator; fixed in DMTCP (#523).
+
+### Changed
+* Building MANA needs a C++20 compiler (PR #544).
+* `configure` no longer accepts `--enable-logging` or `--enable-timing`.
+  DMTCP's trace messages are turned on at run time, with
+  `DMTCP_LOG_LEVEL=trace` (PR #544).
+* The sources moved from `mpi-proxy-split/` to `src/`, `test/`, `examples/`
+  and `bench/`, and the `mana_*` scripts to `scripts/`; `bin/` holds only
+  build output. In an existing checkout, run `make distclean` before
+  updating and `./configure` after (PR #559, #560).
+* `make` builds only MANA. `make tests` builds the tests, examples and
+  benchmarks, and `make check` runs the tests (PR #558).
+* `configure` finds the MPI compilers: the `mpicc` first in `PATH`, or `cc`,
+  `CC` and `ftn` with the Cray Programming Environment. `MPICC`, `MPICXX`
+  and `MPIFC` override them, and `configure-mana` is removed (PR #556).
+* `configure` checks out the DMTCP submodule when `dmtcp/` is empty
+  (PR #557).
+* `mpicc_mana`, `mana_start_coordinator`, the `MPI_COLLECTIVE_P2P` build
+  mode and obsolete tools and documents are removed (PR #554, #555).
+
+**Full Changelog**: https://github.com/mpickpt/mana/compare/v1.5.0...v1.6.0
 
 ## [1.5.0] - 2026-10-05
 
