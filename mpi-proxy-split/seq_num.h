@@ -3,6 +3,7 @@
 
 #include <mpi.h>
 #include <pthread.h>
+#include <stdint.h>
 #include <unordered_map>
 
 typedef enum _phase_t {
@@ -29,9 +30,17 @@ void seq_num_init();
 void seq_num_reset();
 void seq_num_destroy();
 
-extern std::unordered_map<unsigned int, unsigned long> seq_num;
-extern std::unordered_map<unsigned int, unsigned long> target;
-extern std::unordered_map<MPI_Comm, unsigned int> ggid_table;
-typedef std::pair<unsigned int, unsigned long> comm_seq_pair_t;
+// The Collective Clock of a communicator on this process.  'seq', the sequence
+// number, counts the collective calls that this process made on the
+// communicator.  'target' is the number that 'seq' must reach before a
+// checkpoint.
+struct comm_clock {
+  unsigned long seq;
+  unsigned long target;
+};
+
+// Adds the clock of a new communicator, with 'seq' and 'target' at 0, and
+// returns it.
+comm_clock* add_comm_clock(uint64_t gid);
 
 #endif // ifndef SEQ_NUM_H
