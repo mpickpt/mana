@@ -131,7 +131,7 @@ lookup_comm_clock(MPI_Comm comm, unsigned int *comm_gid,
 }
 
 void commit_begin(MPI_Comm comm) {
-  if (mana_state == RESTART_REPLAY || comm == MPI_COMM_NULL) {
+  if (comm == MPI_COMM_NULL) {
     return;
   }
   // Checking ckpt_pending and incrementing the sequence number should be
@@ -180,9 +180,6 @@ void commit_begin(MPI_Comm comm) {
 }
 
 void commit_finish(MPI_Comm comm) {
-  if (mana_state == RESTART_REPLAY) {
-    return;
-  }
   current_phase = IS_READY;
   while (ckpt_pending && check_seq_nums()) {
     MPI_Status status;
