@@ -100,6 +100,7 @@ TESTS = [
   Test("comm_free", 4),
   Test("comm_self", 4),
   Test("comm_create_group", 4),
+  Test("comm_free_order", 4),
   Test("cartesian", 4),
   Test("datatypes", 2),
   Test("memory", 2),

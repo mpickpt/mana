@@ -32,7 +32,7 @@ E2E_TESTS = p2p_blocking p2p_nonblocking p2p_ring p2p_any_source p2p_probe \
             p2p_ssend_order p2p_ssend_comm p2p_ssend_blocked \
             p2p_issend_envelope p2p_issend_twice p2p_issend_nbx \
             shared_memory mmap_threads comm_free keyvals realloc_grow \
-            nbc_order comm_self comm_create_group
+            nbc_order comm_self comm_create_group comm_free_order
 E2E_FORTRAN = fortran_p2p fortran_nonblocking fortran_handles fortran_attributes
 
 # The suite also runs the example of ../examples (ring_example).
