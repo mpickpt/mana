@@ -16,6 +16,10 @@ extern MPI_Comm g_world_comm;
 
 // The main functions of the sequence number algorithm for MPI collectives
 void commit_begin(MPI_Comm comm);
+// Waits while a drain attempt runs and this process has reached all its
+// targets.  Then it enters a critical section.  If 'counted' is true, it also
+// counts a call on the clock of 'comm'.
+void begin_critical_section(MPI_Comm comm, bool counted);
 void commit_finish(MPI_Comm comm);
 
 void drain_mpi_collective();

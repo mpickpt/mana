@@ -672,7 +672,13 @@ int MPI_Comm_create_group_internal(MPI_Comm comm, MPI_Group group, int tag,
 int PMPI_Comm_create_group(MPI_Comm comm,
                           MPI_Group group, int tag, MPI_Comm *newcomm)
 {
-  commit_begin(comm);
+  // Only the members of 'group' call this function.  So the clock of 'comm'
+  // must not count the call, and no clock shows that a member is in it.
+  // During a drain attempt, a member that has reached its targets waits here,
+  // even if another member is already in the call.  The attempt then fails.
+  // The member enters the call in the 1 s pause before the next attempt.
+  begin_critical_section(comm, false);
+  LOWER_HALF_DISABLE_CKPT();
   int retval = MPI_Comm_create_group_internal(comm, group, tag, newcomm);
   if (retval == MPI_SUCCESS) {
     if (*newcomm == lh_info->MANA_COMM_NULL) {
@@ -681,6 +687,7 @@ int PMPI_Comm_create_group(MPI_Comm comm,
       *newcomm = new_virt_comm(*newcomm);
     }
   }
+  LOWER_HALF_ENABLE_CKPT();
   commit_finish(comm);
   return retval;
 }
