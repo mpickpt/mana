@@ -181,46 +181,50 @@ slot_entry(int slot)
                         [slot & (MANA_VIRT_ID_CHUNK_SIZE - 1)];
 }
 
-// Hash function on integers. Consult https://stackoverflow.com/questions/664014/.
-// Returns a hash.
-int hash(int i) {
-  return i * 2654435761 % ((unsigned long)1 << 32);
-}
+// The number of gids that this process made.
+static uint64_t gids_made = 0;
+// The descriptor of MPI_COMM_SELF.  MPI_COMM_SELF has no virtual-ID entry.
+static mana_comm_desc *self_desc;
 
-unsigned int generate_ggid(int *ranks, int size) {
-  unsigned int ggid = 0;
-  for (int i = 0; i < size; i++) {
-    ggid ^= hash(ranks[i] + 1);
-  }
-  return ggid;
-}
-
-// FNV-1a hash of the global ranks, in order.
+// Returns a new gid: the number of gids that this process made before, times
+// the world size, plus the world rank of this process.  Gids from two
+// processes differ modulo the world size.  A process never uses the same
+// number twice.  So no two gids in the job are equal.
+//
+// The gid is the key of the communicator's Collective Clock (struct
+// comm_clock).  The clock counts the collective calls that this process made
+// on the communicator.  Before a checkpoint, the drain lets each member make
+// calls until its count reaches the highest count among the members.  Then
+// all members made the same number of calls on the communicator.  MPI fixes
+// the order of collective calls on a communicator, so all members made the
+// same calls.  Therefore, no collective call has started on only some of the
+// members.
+//
+// However, MPI fixes no order of collective calls across communicators.  So a
+// clock must count the calls on one communicator, not on all the
+// communicators of a group.  For example, X and Y have the same group.  The
+// even ranks call MPI_Ibarrier on X and then on Y, and the odd ranks call it
+// on Y and then on X.  If X and Y had one clock, every rank would count one
+// call after its first MPI_Ibarrier, and the drain could stop there.  Then
+// only the even ranks would have started the barrier on X, and only the odd
+// ranks the barrier on Y.  Neither barrier could complete, and the checkpoint
+// would wait for them forever.  So each new communicator gets a new gid, even
+// if another communicator has the same group.
 static uint64_t
-hash_ranks(const int *ranks, int size)
+make_gid()
 {
-  uint64_t h = 14695981039346656037ULL;
-  for (int i = 0; i < size; i++) {
-    unsigned int r = ranks[i];
-    for (int b = 0; b < 4; b++) {
-      h = (h ^ ((r >> (8 * b)) & 0xff)) * 1099511628211ULL;
-    }
-  }
-  return h;
+  return gids_made++ * g_world_size + g_world_rank;
 }
-
-// The number of communicators created so far for each hash of global ranks.
-// All members create a communicator in the same call, so they agree on it.
-static std::unordered_map<uint64_t, unsigned int> comm_instances;
 
 int is_predefined_id(mana_mpi_handle id) {
   return find_constant(constant_key(id)) != NULL;
 }
 
-MPI_Comm new_virt_comm(MPI_Comm real_comm) {
-  if (real_comm == lh_info->MANA_COMM_NULL) {
-    return MPI_COMM_NULL;
-  }
+// Returns a new descriptor of the communicator 'real_comm', with a new gid
+// and a new clock.
+static mana_comm_desc*
+new_comm_desc(MPI_Comm real_comm)
+{
   MPI_Group local_group;
   int *local_ranks;
   mana_comm_desc *desc = (mana_comm_desc*)malloc(sizeof(mana_comm_desc));
@@ -267,19 +271,28 @@ MPI_Comm new_virt_comm(MPI_Comm real_comm) {
     RETURN_TO_UPPER_HALF();
   }
 
-  unsigned int ggid = generate_ggid(desc->global_ranks,
-                                    desc->size);
-  seq_num[ggid] = 0;
-  target[ggid] = 0;
-  // The maps never erase entries, so these pointers stay valid.
-  desc->ggid = ggid;
-  desc->seq_num = &seq_num[ggid];
-  desc->target = &target[ggid];
-  desc->ranks_hash = hash_ranks(desc->global_ranks, desc->size);
-  desc->instance = comm_instances[desc->ranks_hash]++;
+  // The communicator's rank 0 makes the gid and sends it to the other
+  // members.
+  desc->gid = 0;
+  if (desc->rank == 0) {
+    desc->gid = make_gid();
+  }
+  if (desc->size > 1) {
+    JUMP_TO_LOWER_HALF(lh_info->fsaddr);
+    NEXT_FUNC(Bcast)(&desc->gid, 1, lh_info->MANA_UINT64_T, 0, real_comm);
+    RETURN_TO_UPPER_HALF();
+  }
+  desc->clock = add_comm_clock(desc->gid);
+  return desc;
+}
+
+MPI_Comm new_virt_comm(MPI_Comm real_comm) {
+  if (real_comm == lh_info->MANA_COMM_NULL) {
+    return MPI_COMM_NULL;
+  }
+  mana_comm_desc *desc = new_comm_desc(real_comm);
   mana_mpi_handle virt_id;
   virt_id = add_virt_id((mana_mpi_handle){.comm = real_comm}, desc, MANA_COMM_KIND);
-  ggid_table[virt_id.comm] = ggid;
   return virt_id.comm;
 }
 
@@ -712,19 +725,16 @@ void init_predefined_virt_ids() {
   RETURN_TO_UPPER_HALF();
 }
 
-// Makes g_world_comm, MANA's duplicate of MPI_COMM_WORLD.  Call it at
-// MPI_Init only.  At restart, g_world_comm is in the virtual-ID table, so
-// reconstruct_descriptors() makes it again.
+// Makes g_world_comm, MANA's duplicate of MPI_COMM_WORLD, and the descriptor
+// of MPI_COMM_SELF.  Call it at MPI_Init only.  At restart, g_world_comm is
+// in the virtual-ID table, so reconstruct_descriptors() makes it again.
 void init_world_comm() {
+  getLocalRankInfo();  // make_gid() needs g_world_rank and g_world_size.
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   NEXT_FUNC(Comm_dup)(lh_info->MANA_COMM_WORLD, &g_world_comm);
   RETURN_TO_UPPER_HALF();
   g_world_comm = new_virt_comm(g_world_comm);
-
-  unsigned int ggid = ggid_table[g_world_comm];
-  ggid_table[MPI_COMM_WORLD] = ggid;
-  seq_num[ggid] = 0;
-  target[ggid] = 0;
+  self_desc = new_comm_desc(lh_info->MANA_COMM_SELF);
 }
 
 // Takes a slot from the free list, or else the next unused, unreserved slot.
@@ -941,7 +951,13 @@ std::vector<MPI_Comm> live_virt_comms() {
   return result;
 }
 
-MPI_Comm find_virt_comm(uint64_t ranks_hash, unsigned int instance) {
+MPI_Comm find_virt_comm(uint64_t gid) {
+  if (gid == get_comm_desc(MPI_COMM_WORLD)->gid) {
+    return MPI_COMM_WORLD;
+  }
+  if (gid == self_desc->gid) {
+    return MPI_COMM_SELF;
+  }
   MPI_Comm found = MPI_COMM_NULL;
   pthread_mutex_lock(&comm_desc_lock);
   int high_water = __atomic_load_n(&virt_id_high_water, __ATOMIC_ACQUIRE);
@@ -951,14 +967,27 @@ MPI_Comm find_virt_comm(uint64_t ranks_hash, unsigned int instance) {
     if (handle != 0 && handle >> MANA_VIRT_ID_KIND_SHIFT == MANA_COMM_KIND) {
       mana_comm_desc *desc = (mana_comm_desc*)
         __atomic_load_n(&entry->desc, __ATOMIC_ACQUIRE);
-      if (desc != NULL && desc->ranks_hash == ranks_hash &&
-          desc->instance == instance) {
+      if (desc != NULL && desc->gid == gid) {
         found = (MPI_Comm)handle;
       }
     }
   }
   pthread_mutex_unlock(&comm_desc_lock);
   return found;
+}
+
+mana_comm_desc* get_comm_desc(MPI_Comm comm) {
+  if (comm == MPI_COMM_SELF) {
+    return self_desc;
+  }
+  MPI_Comm virt_comm = (comm == MPI_COMM_WORLD) ? g_world_comm : comm;
+  virt_id_entry *entry =
+    lookup_virt_id_entry((mana_mpi_handle){.comm = virt_comm});
+  if (entry == NULL ||
+      entry->virt >> MANA_VIRT_ID_KIND_SHIFT != MANA_COMM_KIND) {
+    return NULL;
+  }
+  return (mana_comm_desc*)entry->desc;
 }
 
 std::vector<MPI_Request> pending_collective_requests() {
