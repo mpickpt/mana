@@ -16,6 +16,8 @@ extern MPI_Comm g_world_comm;
 
 // The main functions of the sequence number algorithm for MPI collectives
 void commit_begin(MPI_Comm comm);
+// Enters a critical section like commit_begin(), but counts no call.
+void commit_begin_uncounted();
 void commit_finish(MPI_Comm comm);
 
 void drain_mpi_collective();

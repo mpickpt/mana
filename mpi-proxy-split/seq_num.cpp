@@ -180,10 +180,12 @@ receive_target()
   }
 }
 
-void commit_begin(MPI_Comm comm) {
-  if (comm == MPI_COMM_NULL) {
-    return;
-  }
+// Waits while a drain attempt runs and this process has reached all its
+// targets.  Then it enters a critical section.  If 'counted' is true, it also
+// counts a call on the clock of 'comm'.
+static void
+begin_critical_section(MPI_Comm comm, bool counted)
+{
   // Checking ckpt_pending and incrementing the sequence number should be
   // atomic.  drain_mpi_collective() sets ckpt_pending and shares the
   // sequence numbers under this lock.
@@ -194,6 +196,10 @@ void commit_begin(MPI_Comm comm) {
     pthread_mutex_lock(&seq_num_lock);
   }
   current_phase = IN_CS;
+  if (!counted) {
+    pthread_mutex_unlock(&seq_num_lock);
+    return;
+  }
   comm_clock *clock = get_comm_desc(comm)->clock;
   clock->seq++;
   pthread_mutex_unlock(&seq_num_lock);
@@ -201,6 +207,17 @@ void commit_begin(MPI_Comm comm) {
     clock->target = clock->seq;
     seq_num_broadcast(comm, clock->seq);
   }
+}
+
+void commit_begin(MPI_Comm comm) {
+  if (comm == MPI_COMM_NULL) {
+    return;
+  }
+  begin_critical_section(comm, true);
+}
+
+void commit_begin_uncounted() {
+  begin_critical_section(MPI_COMM_NULL, false);
 }
 
 void commit_finish(MPI_Comm comm) {
