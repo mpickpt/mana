@@ -672,7 +672,10 @@ int MPI_Comm_create_group_internal(MPI_Comm comm, MPI_Group group, int tag,
 int PMPI_Comm_create_group(MPI_Comm comm,
                           MPI_Group group, int tag, MPI_Comm *newcomm)
 {
-  commit_begin(comm);
+  // Only the members of 'group' call this function.  So the clock of 'comm'
+  // must not count the call.
+  commit_begin_uncounted();
+  LOWER_HALF_DISABLE_CKPT();
   int retval = MPI_Comm_create_group_internal(comm, group, tag, newcomm);
   if (retval == MPI_SUCCESS) {
     if (*newcomm == lh_info->MANA_COMM_NULL) {
@@ -681,6 +684,7 @@ int PMPI_Comm_create_group(MPI_Comm comm,
       *newcomm = new_virt_comm(*newcomm);
     }
   }
+  LOWER_HALF_ENABLE_CKPT();
   commit_finish(comm);
   return retval;
 }

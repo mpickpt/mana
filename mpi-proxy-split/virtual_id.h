@@ -49,6 +49,8 @@ typedef struct {
   int *global_ranks;
 } mana_group_desc;
 
+struct comm_clock;  // seq_num.h
+
 typedef struct {
   int size;
   int rank;
@@ -58,22 +60,12 @@ typedef struct {
   int cart_ndims;
   int *cart_dims;
   int *cart_periods;
-  // Collective Clock state (see seq_num.cpp): the group's global id and its
-  // entries in seq_num and target, shared by all communicators of the group.
-  unsigned int ggid;
-  unsigned long *seq_num;
-  unsigned long *target;
-  // A name for the communicator that all its members agree on, unlike the
-  // virtual handle, which differs between processes.  For a blocked
-  // MPI_Recv, the P2P drain publishes this name, and the rank that sends
-  // the dummy message finds its own handle with find_virt_comm().
-  //   ranks_hash: a hash of the global ranks, in rank order.
-  //   instance: how many communicators with the same ranks_hash this
-  //     process created before this one.  new_virt_comm() takes it from
-  //     comm_instances, a count per ranks_hash.  All members create a
-  //     communicator in the same call, so they get the same instance.
-  uint64_t ranks_hash;
-  unsigned int instance;
+  // The ID of the communicator in the job (see new_comm_desc()).  All members
+  // of the communicator have the same gid, but different virtual handles.  The
+  // Collective Clock and the P2P drain name the communicator by its gid.
+  uint64_t gid;
+  // The communicator's Collective Clock (see seq_num.cpp).
+  struct comm_clock *clock;
 } mana_comm_desc;
 
 typedef struct {
@@ -229,10 +221,15 @@ size_t virt_id_live_count();
 std::vector<MPI_Comm> live_virt_comms();
 // Returns the incomplete non-blocking collective requests, in creation order.
 std::vector<MPI_Request> pending_collective_requests();
-// Returns the communicator with this name (see mana_comm_desc), or
+// Returns the communicator with this gid (see mana_comm_desc), or
 // MPI_COMM_NULL.  Safe to call from the checkpoint thread while an
 // application thread runs.
-MPI_Comm find_virt_comm(uint64_t ranks_hash, unsigned int instance);
+MPI_Comm find_virt_comm(uint64_t gid);
+// Returns the descriptor of 'comm'.  'comm' can be a predefined communicator.
+// MPI_COMM_WORLD uses the descriptor of g_world_comm, MANA's duplicate of
+// MPI_COMM_WORLD.  MPI_COMM_SELF has a descriptor that is in no virtual-ID
+// entry.
+mana_comm_desc* get_comm_desc(MPI_Comm comm);
 
 void reconstruct_descriptors();
 void init_predefined_virt_ids();

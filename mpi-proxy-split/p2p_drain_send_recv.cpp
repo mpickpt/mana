@@ -789,59 +789,18 @@ consumeMatchingMsgBuffer(void *buf, int count, MPI_Datatype datatype,
   return MPI_SUCCESS;
 }
 
-// A communicator as other ranks can find it (commByName()): virtual handles
-// differ between ranks, so it is named by its mana_comm_desc name.  A
-// predefined communicator has instance -1, and name 0 (MPI_COMM_WORLD) or 1
-// (MPI_COMM_SELF), not its handle: with Open MPI, a handle is an address,
-// which can differ between the programs of an MPMD job.
-struct CommName {
-  uint64_t hash;
-  int64_t instance;
-  int size;
-  int rank;            // this rank's rank in it
-  const int *members;  // members' world ranks; NULL: member i is world rank i
-};
-
-static CommName
-commName(MPI_Comm comm)
-{
-  virt_id_entry *entry =
-    lookup_virt_id_entry((mana_mpi_handle){.comm = comm});
-  if (entry != NULL) {
-    mana_comm_desc *desc = (mana_comm_desc*)entry->desc;
-    return {desc->ranks_hash, desc->instance, desc->size, desc->rank,
-            desc->global_ranks};
-  }
-  if (comm == MPI_COMM_WORLD) {
-    return {0, -1, g_world_size, g_world_rank, NULL};
-  }
-  ASSERT(comm == MPI_COMM_SELF, "Unknown communicator: comm={}", comm);
-  return {1, -1, 1, 0, &g_world_rank};
-}
-
-// This rank's handle of a communicator named by commName(), or MPI_COMM_NULL.
-static MPI_Comm
-commByName(uint64_t hash, int64_t instance)
-{
-  if (instance == -1) {
-    return hash == 0 ? MPI_COMM_WORLD : MPI_COMM_SELF;
-  }
-  return find_virt_comm(hash, (unsigned int)instance);
-}
-
-// Phase B of unblockPendingRecvs(), on a blocked rank: posts the dummy to
-// its sender as dummy_<sender>_<slot>.  The dummy names the communicator
-// (commName()) and gives the receive's size in bytes; the sender sends that
-// many MPI_BYTEs.
+// Phase B of unblockPendingRecvs(), on a blocked rank: posts the dummy to its
+// sender as dummy_<sender>_<slot>.  The dummy names the communicator by its
+// gid, because virtual handles differ between ranks.  It also gives the size
+// of the receive in bytes.  The sender sends that many MPI_BYTEs.
 static void
 postDummy()
 {
-  CommName name = commName(g_pending_recv.comm);
-  uint64_t comm_hash = name.hash;
-  int64_t comm_instance = name.instance;
-  int size = name.size;
-  int my_rank = name.rank;
-  const int *members = name.members;
+  mana_comm_desc *desc = get_comm_desc(g_pending_recv.comm);
+  uint64_t comm_gid = desc->gid;
+  int size = desc->size;
+  int my_rank = desc->rank;
+  const int *members = desc->global_ranks;  // members' world ranks
 
   // The sender: the MPI_Recv's source, or for MPI_ANY_SOURCE the first
   // member that is not blocked itself (the bitmap is complete: every rank
@@ -855,7 +814,7 @@ postDummy()
     std::map<int, uint64_t> words;  // bitmap words read so far
     char key[64];
     for (int i = 0; i < size && sender < 0; i++) {
-      int rank = members != NULL ? members[i] : i;
+      int rank = members[i];
       if (words.find(rank / 64) == words.end()) {
         int64_t word = 0;
         snprintf(key, sizeof(key), "blocked_%d", rank / 64);
@@ -870,7 +829,7 @@ postDummy()
            "MPI_ANY_SOURCE Recv with no unblocked sender in comm; "
            "user program may have deadlocked: comm={}", g_pending_recv.comm);
   }
-  int sender_world_rank = members != NULL ? members[sender] : sender;
+  int sender_world_rank = members[sender];
 
   MPI_Datatype realType =
     get_real_id((mana_mpi_handle){.datatype = g_pending_recv.datatype})
@@ -887,9 +846,8 @@ postDummy()
   int64_t slot = kvFetchAdd(g_drain_db, key, 1);
   snprintf(key, sizeof(key), "dummy_%d_%lld", sender_world_rank,
            (long long)slot);
-  snprintf(dummy, sizeof(dummy), "%llu %lld %d %d %lld",
-           (unsigned long long)comm_hash, (long long)comm_instance, my_rank,
-           tag, (long long)bytes);
+  snprintf(dummy, sizeof(dummy), "%llu %d %d %lld",
+           (unsigned long long)comm_gid, my_rank, tag, (long long)bytes);
   kvSetString(g_drain_db, key, dummy);
 }
 
@@ -907,19 +865,19 @@ sendPostedDummies(bool nonblocking)
     dmtcp::string dummy;
     KVDBResponse rc = kvGetString(g_drain_db, key, &dummy);
     ASSERT(rc == KVDBResponse::SUCCESS, "key={} rc={}", key, rc);
-    unsigned long long comm_hash;
-    long long comm_instance, bytes;
+    unsigned long long comm_gid;
+    long long bytes;
     int dest, tag;
-    ASSERT(sscanf(dummy.c_str(), "%llu %lld %d %d %lld", &comm_hash,
-                  &comm_instance, &dest, &tag, &bytes) == 5,
+    ASSERT(sscanf(dummy.c_str(), "%llu %d %d %lld", &comm_gid, &dest, &tag,
+                  &bytes) == 4,
            "dummy={}", dummy);
 
     // This rank's handle of the blocked rank's communicator: it is a
     // member, since the blocked rank chose it among the members.
-    MPI_Comm virtComm = commByName(comm_hash, comm_instance);
+    MPI_Comm virtComm = find_virt_comm(comm_gid);
     ASSERT(virtComm != MPI_COMM_NULL,
            "The dummy's sender doesn't know the blocked MPI_Recv's comm: "
-           "comm_hash={} comm_instance={}", comm_hash, comm_instance);
+           "comm_gid={}", comm_gid);
     MPI_Comm realComm =
       get_real_id((mana_mpi_handle){.comm = virtComm}).comm;
 
@@ -969,9 +927,8 @@ publishSsendNotices()
     if (!getPendingCall(request, &call) || call.type != ISSEND_REQUEST) {
       continue;
     }
-    CommName name = commName(call.comm);
-    int dest = name.members != NULL ? name.members[call.remote_node]
-                                    : call.remote_node;
+    mana_comm_desc *desc = get_comm_desc(call.comm);
+    int dest = desc->global_ranks[call.remote_node];
     // Unique among this rank's pending acks; MPI_TAG_UB is at least 32767.
     int ack_tag = next_ack_tag;
     next_ack_tag = (next_ack_tag + 1) % 32768;
@@ -979,9 +936,9 @@ publishSsendNotices()
     snprintf(key, sizeof(key), "nssends_%d", dest);
     int64_t slot = kvFetchAdd(g_drain_db, key, 1);
     snprintf(key, sizeof(key), "ssend_%d_%lld", dest, (long long)slot);
-    snprintf(notice, sizeof(notice), "%llu %lld %d %d %d %d %d",
-             (unsigned long long)name.hash, (long long)name.instance,
-             name.rank, call.tag, call.later_sends, g_world_rank, ack_tag);
+    snprintf(notice, sizeof(notice), "%llu %d %d %d %d %d",
+             (unsigned long long)desc->gid, desc->rank, call.tag,
+             call.later_sends, g_world_rank, ack_tag);
     kvSetString(g_drain_db, key, notice);
     g_ssend_notices.push_back({request, dest, ack_tag});
   }
@@ -1053,17 +1010,15 @@ markSsendAcks()
     dmtcp::string notice;
     KVDBResponse rc = kvGetString(g_drain_db, key, &notice);
     ASSERT(rc == KVDBResponse::SUCCESS, "key={} rc={}", key, rc);
-    unsigned long long comm_hash;
-    long long comm_instance;
+    unsigned long long comm_gid;
     int source, tag, later_sends, sender, ack_tag;
-    ASSERT(sscanf(notice.c_str(), "%llu %lld %d %d %d %d %d", &comm_hash,
-                  &comm_instance, &source, &tag, &later_sends, &sender,
-                  &ack_tag) == 7,
+    ASSERT(sscanf(notice.c_str(), "%llu %d %d %d %d %d", &comm_gid, &source,
+                  &tag, &later_sends, &sender, &ack_tag) == 6,
            "notice={}", notice);
-    MPI_Comm comm = commByName(comm_hash, comm_instance);
+    MPI_Comm comm = find_virt_comm(comm_gid);
     ASSERT(comm != MPI_COMM_NULL,
            "The receiver of an MPI_Issend doesn't know its comm: "
-           "comm_hash={} comm_instance={}", comm_hash, comm_instance);
+           "comm_gid={}", comm_gid);
     if (markSsendAck(comm, source, tag, later_sends, sender, ack_tag)) {
       g_drain_stats.issends_buffered++;
     } else {
