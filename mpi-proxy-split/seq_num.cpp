@@ -182,12 +182,12 @@ receive_target()
   }
 }
 
-void commit_begin(MPI_Comm comm) {
-  if (comm == MPI_COMM_NULL) {
-    return;
-  }
-  // NULL for an invalid handle, which the MPI call then reports.
-  mana_comm_desc *desc = get_comm_desc(comm);
+void
+begin_critical_section(MPI_Comm comm, bool counted)
+{
+  // NULL if 'counted' is false, or for an invalid handle, which the MPI call
+  // then reports.
+  mana_comm_desc *desc = counted ? get_comm_desc(comm) : NULL;
   // Checking ckpt_pending and incrementing the sequence number should be
   // atomic.  drain_mpi_collective() sets ckpt_pending and shares the
   // sequence numbers under this lock.
@@ -209,6 +209,13 @@ void commit_begin(MPI_Comm comm) {
     clock->target = clock->seq;
     seq_num_broadcast(comm, clock->seq);
   }
+}
+
+void commit_begin(MPI_Comm comm) {
+  if (comm == MPI_COMM_NULL) {
+    return;
+  }
+  begin_critical_section(comm, true);
 }
 
 void commit_finish(MPI_Comm comm) {
