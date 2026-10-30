@@ -95,6 +95,7 @@ TESTS = [
   Test("fortran_p2p", 2),
   Test("collectives", 4),
   Test("nonblocking_collectives", 4),
+  Test("nbc_order", 4),
   Test("communicators", 4),
   Test("comm_free", 4),
   Test("cartesian", 4),
