@@ -59,9 +59,7 @@ enum mana_state_t {
   UNKNOWN_STATE,
   RUNNING,
   CKPT_COLLECTIVE,
-  CKPT_P2P,
-  RESTART_RETORE,
-  RESTART_REPLAY
+  CKPT_P2P
 };
 
 extern mana_state_t mana_state;

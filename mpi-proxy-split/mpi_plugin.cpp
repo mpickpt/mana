@@ -969,7 +969,6 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       MPI_MANA_Internal(str); // This does nothing.  Modify in lower-half
                              // for easy debugging of lower half during restart.
                              // See definition in mpi-wrappers/mpi_wrappers.cpp
-      mana_state = RESTART_REPLAY;
       dmtcp_global_barrier("MPI:replayMpiP2pOnRestart");
       replayMpiP2pOnRestart(); // p2p_log_replay.cpp
       sendOwedSsendAcks(); // p2p_drain_send_recv.cpp
