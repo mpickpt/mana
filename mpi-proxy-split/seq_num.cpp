@@ -42,6 +42,9 @@ static std::unordered_map<uint64_t, comm_clock> clocks;
 // The gids of the clocks whose targets this process raised in the current
 // drain attempt.  The next drain round uploads their sequence numbers.
 static std::vector<uint64_t> raised_clocks;
+// True if this process added a clock in the current drain attempt, after the
+// attempt shared the sequence numbers.
+static bool added_clock;
 
 void seq_num_init() {
   ckpt_pending = false;
@@ -90,6 +93,9 @@ add_comm_clock(uint64_t gid)
 {
   pthread_mutex_lock(&seq_num_lock);
   comm_clock *clock = &clocks[gid];
+  if (ckpt_pending) {
+    added_clock = true;
+  }
   pthread_mutex_unlock(&seq_num_lock);
   return clock;
 }
@@ -289,17 +295,25 @@ try_drain_mpi_collective(int attemptId)
     snprintf(key, 63, "round-%06d", round_num);
 
     // An application thread can raise a target, add a clock or erase a clock
-    // at the same time.
+    // at the same time.  The other members may have shared a higher sequence
+    // number for a clock that this process added after it shared its own.  An
+    // application thread adds a clock only in a critical section.  So a round
+    // that does not see the new clock sees the process in the critical
+    // section.
     pthread_mutex_lock(&seq_num_lock);
+    if (added_clock) {
+      download_targets(db);
+      added_clock = false;
+    }
     int64_t uploaded = upload_raised_targets(db);
     int target_reached = check_seq_nums();
+    int cs = current_phase == IN_CS;
     pthread_mutex_unlock(&seq_num_lock);
 
     ASSERT(dmtcp::kvdb::request64(KVDBRequest::INCRBY, converge_id, key,
                                   target_reached) == KVDBResponse::SUCCESS,
            "db={} key={}", converge_id, key);
-    ASSERT(dmtcp::kvdb::request64(KVDBRequest::OR, cs_id, key,
-                                  current_phase == IN_CS) ==
+    ASSERT(dmtcp::kvdb::request64(KVDBRequest::OR, cs_id, key, cs) ==
              KVDBResponse::SUCCESS,
            "db={} key={}", cs_id, key);
     ASSERT(dmtcp::kvdb::request64(KVDBRequest::INCRBY, raised_id, key,
@@ -345,6 +359,7 @@ drain_mpi_collective()
     pthread_mutex_lock(&seq_num_lock);
     ckpt_pending = true;
     raised_clocks.clear();
+    added_clock = false;
     share_seq_nums(attemptId);
     pthread_mutex_unlock(&seq_num_lock);
 
