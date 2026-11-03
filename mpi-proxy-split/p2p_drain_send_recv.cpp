@@ -57,12 +57,6 @@ extern int MPI_Comm_create_group_internal(MPI_Comm comm, MPI_Group group,
 extern int MPI_Comm_free_internal(MPI_Comm *comm);
 extern int MPI_Comm_group_internal(MPI_Comm comm, MPI_Group *group);
 extern int MPI_Group_free_internal(MPI_Group *group);
-#ifdef DEBUG_P2P
-int *g_sendBytesByRank; // Number of bytes sent to other ranks
-int *g_rsendBytesByRank; // Number of bytes sent to other ranks by MPI_rsend
-int *g_bytesSentToUsByRank; // Number of bytes other ranks sent to us
-int *g_recvBytesByRank; // Number of bytes received from other ranks
-#endif
 int64_t global_sent_messages = 0, global_recv_messages = 0;
 int64_t local_sent_messages = 0, local_recv_messages = 0;
 std::unordered_set<MPI_Comm> active_comms;
@@ -183,17 +177,6 @@ initialize_drain_send_recv()
     fprintf(stderr, "WARNING: MANA_P2P_WAIT is 'polling' or 'blocking', not "
             "'%s'.  MANA uses 'polling'.\n", wait);
   }
-#ifdef DEBUG_P2P
-  g_sendBytesByRank = (int*)JALLOC_HELPER_MALLOC(g_world_size * sizeof(int));
-  g_rsendBytesByRank = (int*)JALLOC_HELPER_MALLOC(g_world_size * sizeof(int));
-  g_bytesSentToUsByRank =
-    (int*)JALLOC_HELPER_MALLOC(g_world_size * sizeof(int));
-  g_recvBytesByRank = (int*)JALLOC_HELPER_MALLOC(g_world_size * sizeof(int));
-  memset(g_sendBytesByRank, 0, g_world_size * sizeof(int));
-  memset(g_rsendBytesByRank, 0, g_world_size * sizeof(int));
-  memset(g_bytesSentToUsByRank, 0, g_world_size * sizeof(int));
-  memset(g_recvBytesByRank, 0, g_world_size * sizeof(int));
-#endif
   active_comms.insert(MPI_COMM_WORLD);
   active_comms.insert(MPI_COMM_SELF);
   // Made only here: restart rebuilds it with the application's communicators.
@@ -295,13 +278,6 @@ completePendingP2pRequests()
     MPI_Test_internal(&request, &flag, &status, false);
     if (flag) {
       if (call.type == IRECV_REQUEST) {
-#ifdef DEBUG_P2P
-        int size = 0;
-        MPI_Type_size(call.datatype, &size);
-        int worldRank = localRankToGlobalRank(status.MPI_SOURCE,
-                                              call.comm);
-        g_recvBytesByRank[worldRank] += call.count * size;
-#endif
         // A receive from MPI_PROC_NULL gets no message: don't count it.
         if (call.remote_node != MPI_PROC_NULL) {
           count_received_message();
@@ -1139,31 +1115,6 @@ resetDrainCounters()
   // pending-Recv slot.
   p2p_dummy_phase = false;
   __atomic_store_n(&g_pending_recv.state, PENDING_RECV_IDLE, __ATOMIC_RELEASE);
-#ifdef DEBUG_P2P
-  memset(g_sendBytesByRank, 0, g_world_size * sizeof(int));
-  memset(g_rsendBytesByRank, 0, g_world_size * sizeof(int));
-  memset(g_bytesSentToUsByRank, 0, g_world_size * sizeof(int));
-  memset(g_recvBytesByRank, 0, g_world_size * sizeof(int));
-#endif
-}
-
-int
-localRankToGlobalRank(int localRank, MPI_Comm localComm)
-{
-  int worldRank;
-  // FIXME: For interface8, use the new architecture.
-  // This only works for interface7
-  MPI_Group worldGroup, localGroup;
-  MPI_Comm realComm = get_real_id((mana_mpi_handle){.comm = localComm}).comm;
-  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
-  NEXT_FUNC(Comm_group)(lh_info->MANA_COMM_WORLD, &worldGroup);
-  NEXT_FUNC(Comm_group)(realComm, &localGroup);
-  NEXT_FUNC(Group_translate_ranks)(localGroup, 1, &localRank,
-                                   worldGroup, &worldRank);
-  NEXT_FUNC(Group_free)(&worldGroup);
-  NEXT_FUNC(Group_free)(&localGroup);
-  RETURN_TO_UPPER_HALF();
-  return worldRank;
 }
 
 // With MANA_DRAIN_STATS set, rank 0 prints the drain's maximum times and

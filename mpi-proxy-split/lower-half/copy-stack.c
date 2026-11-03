@@ -286,13 +286,6 @@ dbg_argc_addr = dest_curr_stack;
 debugStack(argc_ptr, argv_ptr);
 #endif
   *auxv_ptr = dest_auxv_ptr;
-#ifdef STANDALONE
-printf("\nDEBUGGING:\ndest_stack_bottom (highest address): %p;\n"
-       "dest_stack_low: %p; (dest_stack_size: %d)\n"
-       "dest_curr_stack (top of stack = new rsp): %p\n",
-       dest_stack_bottom, dest_stack_low, dest_stack_size,
-       dest_curr_stack);
-#endif
   return dest_curr_stack;
 }
 
@@ -320,33 +313,3 @@ patchAuxv(Elf64_auxv_t *av, unsigned long phnum,
     }
   }
 }
-
-#ifdef STANDALONE
-int main(int argc, char **argv, char **envp) {
-  fprintf(stderr, "*** deepCopyStack:  TEST 1\n");
-  char* dest_argv_orig[] = {"test_word1", "test_word2", "test_word3", NULL};
-  Elf64_auxv_t *auxv_ptr;
-  int dest_argc = sizeof(dest_argv_orig)/sizeof(dest_argv_orig[0]) - 1;
-  char *dest_stack =
-    deepCopyStack(argc, argv, (char *)&argc, (char *)&argv[0], dest_argc, dest_argv_orig, (char *)0x800000, &auxv_ptr);
-  // 5: 3+1 words in argv, and one word in argc
-  int env_padding = ((uint64_t)dest_stack + (dest_argc+2)*sizeof(char *)) % 8 / 8;
-  int i;
-  for (i = 0; envp[i] != NULL; i++) {
-    assert(strcmp(((char **)dest_stack)[(dest_argc+2)+env_padding+i], envp[i]) == 0);
-  }
-
-  fprintf(stderr, "\n*** deepCopyStack:  TEST 2\n");
-  char* dest_argv_orig2[] = {"test_word1", "test_word2", "test_word3", "test_word4", NULL};
-  dest_argc = sizeof(dest_argv_orig2)/sizeof(dest_argv_orig2[0]) - 1;
-  dest_stack =
-    deepCopyStack(argc, argv, (char *)&argc, (char *)&argv[0], dest_argc, dest_argv_orig2, (char *)0x800000, &auxv_ptr);
-  env_padding = ((uint64_t)dest_stack + (dest_argc+2)*sizeof(char *)) % 8 / 8;
-  for (i = 0; envp[i] != NULL; i++) {
-    assert(strcmp(((char **)dest_stack)[(dest_argc+2)+env_padding+i], envp[i]) == 0);
-  }
-
-  fprintf(stderr, "\n*** deepCopyStack:  dest_stack is a copy of stack.\n");
-  return 0;
-}
-#endif
