@@ -620,13 +620,11 @@ ac_subst_vars='LTLIBOBJS
 LIBOBJS
 PANDOC
 FFLAGS
-DEBUG
 subdirs
 ac_ct_FC
 FCFLAGS
 FC
 HAVE_CXX20
-CPP
 ac_ct_CC
 CFLAGS
 CC
@@ -637,22 +635,9 @@ CPPFLAGS
 LDFLAGS
 CXXFLAGS
 CXX
-MKDIR_P
-LN_S
-SET_MAKE
-RANLIB
-ARFLAGS
 INSTALL_DATA
 INSTALL_SCRIPT
 INSTALL_PROGRAM
-host_os
-host_vendor
-host_cpu
-host
-build_os
-build_vendor
-build_cpu
-build
 target_alias
 host_alias
 build_alias
@@ -710,7 +695,6 @@ CPPFLAGS
 CCC
 CC
 CFLAGS
-CPP
 FC
 FCFLAGS'
 ac_subdirs_all='dmtcp'
@@ -1318,10 +1302,6 @@ Fine tuning of the installation directories:
 _ACEOF
 
   cat <<\_ACEOF
-
-System types:
-  --build=BUILD     configure for building on BUILD [guessed]
-  --host=HOST       cross-compile to build programs to run on HOST [BUILD]
 _ACEOF
 fi
 
@@ -1349,7 +1329,6 @@ Some influential environment variables:
               you have headers in a nonstandard directory <include dir>
   CC          C compiler command
   CFLAGS      C compiler flags
-  CPP         C preprocessor
   FC          Fortran compiler command
   FCFLAGS     Fortran compiler flags
 
@@ -1512,44 +1491,6 @@ fi
   as_fn_set_status $ac_retval
 
 } # ac_fn_c_try_compile
-
-# ac_fn_c_try_cpp LINENO
-# ----------------------
-# Try to preprocess conftest.$ac_ext, and return whether this succeeded.
-ac_fn_c_try_cpp ()
-{
-  as_lineno=${as_lineno-"$1"} as_lineno_stack=as_lineno_stack=$as_lineno_stack
-  if { { ac_try="$ac_cpp conftest.$ac_ext"
-case "(($ac_try" in
-  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
-  *) ac_try_echo=$ac_try;;
-esac
-eval ac_try_echo="\"\$as_me:${as_lineno-$LINENO}: $ac_try_echo\""
-printf "%s\n" "$ac_try_echo"; } >&5
-  (eval "$ac_cpp conftest.$ac_ext") 2>conftest.err
-  ac_status=$?
-  if test -s conftest.err; then
-    grep -v '^ *+' conftest.err >conftest.er1
-    cat conftest.er1 >&5
-    mv -f conftest.er1 conftest.err
-  fi
-  printf "%s\n" "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
-  test $ac_status = 0; } > conftest.i && {
-	 test -z "$ac_c_preproc_warn_flag$ac_c_werror_flag" ||
-	 test ! -s conftest.err
-       }
-then :
-  ac_retval=0
-else $as_nop
-  printf "%s\n" "$as_me: failed program was:" >&5
-sed 's/^/| /' conftest.$ac_ext >&5
-
-    ac_retval=1
-fi
-  eval $as_lineno_stack; ${as_lineno_stack:+:} unset as_lineno
-  as_fn_set_status $ac_retval
-
-} # ac_fn_c_try_cpp
 
 # ac_fn_fc_try_compile LINENO
 # ---------------------------
@@ -2410,7 +2351,7 @@ main (int argc, char **argv)
 
 
 # Auxiliary files required by this configure script.
-ac_aux_files="install-sh config.guess config.sub"
+ac_aux_files="install-sh"
 
 # Locations in which to look for auxiliary files.
 ac_aux_dir_candidates="${srcdir}${PATH_SEPARATOR}${srcdir}/..${PATH_SEPARATOR}${srcdir}/../.."
@@ -2577,84 +2518,6 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
 
-# TODO(kapil): Add 'subdir-objects after automake 1.16 has been released.
-# AM_INIT_AUTOMAKE([foreign])
-# AM_MAINTAINER_MODE
-
-
-
-  # Make sure we can run config.sub.
-$SHELL "${ac_aux_dir}config.sub" sun4 >/dev/null 2>&1 ||
-  as_fn_error $? "cannot run $SHELL ${ac_aux_dir}config.sub" "$LINENO" 5
-
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking build system type" >&5
-printf %s "checking build system type... " >&6; }
-if test ${ac_cv_build+y}
-then :
-  printf %s "(cached) " >&6
-else $as_nop
-  ac_build_alias=$build_alias
-test "x$ac_build_alias" = x &&
-  ac_build_alias=`$SHELL "${ac_aux_dir}config.guess"`
-test "x$ac_build_alias" = x &&
-  as_fn_error $? "cannot guess build type; you must specify one" "$LINENO" 5
-ac_cv_build=`$SHELL "${ac_aux_dir}config.sub" $ac_build_alias` ||
-  as_fn_error $? "$SHELL ${ac_aux_dir}config.sub $ac_build_alias failed" "$LINENO" 5
-
-fi
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_cv_build" >&5
-printf "%s\n" "$ac_cv_build" >&6; }
-case $ac_cv_build in
-*-*-*) ;;
-*) as_fn_error $? "invalid value of canonical build" "$LINENO" 5;;
-esac
-build=$ac_cv_build
-ac_save_IFS=$IFS; IFS='-'
-set x $ac_cv_build
-shift
-build_cpu=$1
-build_vendor=$2
-shift; shift
-# Remember, the first character of IFS is used to create $*,
-# except with old shells:
-build_os=$*
-IFS=$ac_save_IFS
-case $build_os in *\ *) build_os=`echo "$build_os" | sed 's/ /-/g'`;; esac
-
-
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking host system type" >&5
-printf %s "checking host system type... " >&6; }
-if test ${ac_cv_host+y}
-then :
-  printf %s "(cached) " >&6
-else $as_nop
-  if test "x$host_alias" = x; then
-  ac_cv_host=$ac_cv_build
-else
-  ac_cv_host=`$SHELL "${ac_aux_dir}config.sub" $host_alias` ||
-    as_fn_error $? "$SHELL ${ac_aux_dir}config.sub $host_alias failed" "$LINENO" 5
-fi
-
-fi
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_cv_host" >&5
-printf "%s\n" "$ac_cv_host" >&6; }
-case $ac_cv_host in
-*-*-*) ;;
-*) as_fn_error $? "invalid value of canonical host" "$LINENO" 5;;
-esac
-host=$ac_cv_host
-ac_save_IFS=$IFS; IFS='-'
-set x $ac_cv_host
-shift
-host_cpu=$1
-host_vendor=$2
-shift; shift
-# Remember, the first character of IFS is used to create $*,
-# except with old shells:
-host_os=$*
-IFS=$ac_save_IFS
-case $host_os in *\ *) host_os=`echo "$host_os" | sed 's/ /-/g'`;; esac
-
 
 
   # Find a good install program.  We prefer a C program (faster),
@@ -2754,202 +2617,6 @@ test -z "$INSTALL_PROGRAM" && INSTALL_PROGRAM='${INSTALL}'
 test -z "$INSTALL_SCRIPT" && INSTALL_SCRIPT='${INSTALL}'
 
 test -z "$INSTALL_DATA" && INSTALL_DATA='${INSTALL} -m 644'
-
-# Automake uses 'ar cru' by default.  The 'ar' program then issues a warning.
-ARFLAGS=cr
-
-if test -n "$ac_tool_prefix"; then
-  # Extract the first word of "${ac_tool_prefix}ranlib", so it can be a program name with args.
-set dummy ${ac_tool_prefix}ranlib; ac_word=$2
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
-printf %s "checking for $ac_word... " >&6; }
-if test ${ac_cv_prog_RANLIB+y}
-then :
-  printf %s "(cached) " >&6
-else $as_nop
-  if test -n "$RANLIB"; then
-  ac_cv_prog_RANLIB="$RANLIB" # Let the user override the test.
-else
-as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $PATH
-do
-  IFS=$as_save_IFS
-  case $as_dir in #(((
-    '') as_dir=./ ;;
-    */) ;;
-    *) as_dir=$as_dir/ ;;
-  esac
-    for ac_exec_ext in '' $ac_executable_extensions; do
-  if as_fn_executable_p "$as_dir$ac_word$ac_exec_ext"; then
-    ac_cv_prog_RANLIB="${ac_tool_prefix}ranlib"
-    printf "%s\n" "$as_me:${as_lineno-$LINENO}: found $as_dir$ac_word$ac_exec_ext" >&5
-    break 2
-  fi
-done
-  done
-IFS=$as_save_IFS
-
-fi
-fi
-RANLIB=$ac_cv_prog_RANLIB
-if test -n "$RANLIB"; then
-  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $RANLIB" >&5
-printf "%s\n" "$RANLIB" >&6; }
-else
-  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
-printf "%s\n" "no" >&6; }
-fi
-
-
-fi
-if test -z "$ac_cv_prog_RANLIB"; then
-  ac_ct_RANLIB=$RANLIB
-  # Extract the first word of "ranlib", so it can be a program name with args.
-set dummy ranlib; ac_word=$2
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
-printf %s "checking for $ac_word... " >&6; }
-if test ${ac_cv_prog_ac_ct_RANLIB+y}
-then :
-  printf %s "(cached) " >&6
-else $as_nop
-  if test -n "$ac_ct_RANLIB"; then
-  ac_cv_prog_ac_ct_RANLIB="$ac_ct_RANLIB" # Let the user override the test.
-else
-as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $PATH
-do
-  IFS=$as_save_IFS
-  case $as_dir in #(((
-    '') as_dir=./ ;;
-    */) ;;
-    *) as_dir=$as_dir/ ;;
-  esac
-    for ac_exec_ext in '' $ac_executable_extensions; do
-  if as_fn_executable_p "$as_dir$ac_word$ac_exec_ext"; then
-    ac_cv_prog_ac_ct_RANLIB="ranlib"
-    printf "%s\n" "$as_me:${as_lineno-$LINENO}: found $as_dir$ac_word$ac_exec_ext" >&5
-    break 2
-  fi
-done
-  done
-IFS=$as_save_IFS
-
-fi
-fi
-ac_ct_RANLIB=$ac_cv_prog_ac_ct_RANLIB
-if test -n "$ac_ct_RANLIB"; then
-  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_ct_RANLIB" >&5
-printf "%s\n" "$ac_ct_RANLIB" >&6; }
-else
-  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
-printf "%s\n" "no" >&6; }
-fi
-
-  if test "x$ac_ct_RANLIB" = x; then
-    RANLIB=":"
-  else
-    case $cross_compiling:$ac_tool_warned in
-yes:)
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: using cross tools not prefixed with host triplet" >&5
-printf "%s\n" "$as_me: WARNING: using cross tools not prefixed with host triplet" >&2;}
-ac_tool_warned=yes ;;
-esac
-    RANLIB=$ac_ct_RANLIB
-  fi
-else
-  RANLIB="$ac_cv_prog_RANLIB"
-fi
-
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking whether ${MAKE-make} sets \$(MAKE)" >&5
-printf %s "checking whether ${MAKE-make} sets \$(MAKE)... " >&6; }
-set x ${MAKE-make}
-ac_make=`printf "%s\n" "$2" | sed 's/+/p/g; s/[^a-zA-Z0-9_]/_/g'`
-if eval test \${ac_cv_prog_make_${ac_make}_set+y}
-then :
-  printf %s "(cached) " >&6
-else $as_nop
-  cat >conftest.make <<\_ACEOF
-SHELL = /bin/sh
-all:
-	@echo '@@@%%%=$(MAKE)=@@@%%%'
-_ACEOF
-# GNU make sometimes prints "make[1]: Entering ...", which would confuse us.
-case `${MAKE-make} -f conftest.make 2>/dev/null` in
-  *@@@%%%=?*=@@@%%%*)
-    eval ac_cv_prog_make_${ac_make}_set=yes;;
-  *)
-    eval ac_cv_prog_make_${ac_make}_set=no;;
-esac
-rm -f conftest.make
-fi
-if eval test \$ac_cv_prog_make_${ac_make}_set = yes; then
-  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-printf "%s\n" "yes" >&6; }
-  SET_MAKE=
-else
-  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
-printf "%s\n" "no" >&6; }
-  SET_MAKE="MAKE=${MAKE-make}"
-fi
-
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking whether ln -s works" >&5
-printf %s "checking whether ln -s works... " >&6; }
-LN_S=$as_ln_s
-if test "$LN_S" = "ln -s"; then
-  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-printf "%s\n" "yes" >&6; }
-else
-  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no, using $LN_S" >&5
-printf "%s\n" "no, using $LN_S" >&6; }
-fi
-
-
-  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for a race-free mkdir -p" >&5
-printf %s "checking for a race-free mkdir -p... " >&6; }
-if test -z "$MKDIR_P"; then
-  if test ${ac_cv_path_mkdir+y}
-then :
-  printf %s "(cached) " >&6
-else $as_nop
-  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $PATH$PATH_SEPARATOR/opt/sfw/bin
-do
-  IFS=$as_save_IFS
-  case $as_dir in #(((
-    '') as_dir=./ ;;
-    */) ;;
-    *) as_dir=$as_dir/ ;;
-  esac
-    for ac_prog in mkdir gmkdir; do
-	 for ac_exec_ext in '' $ac_executable_extensions; do
-	   as_fn_executable_p "$as_dir$ac_prog$ac_exec_ext" || continue
-	   case `"$as_dir$ac_prog$ac_exec_ext" --version 2>&1` in #(
-	     'mkdir ('*'coreutils) '* | \
-	     'BusyBox '* | \
-	     'mkdir (fileutils) '4.1*)
-	       ac_cv_path_mkdir=$as_dir$ac_prog$ac_exec_ext
-	       break 3;;
-	   esac
-	 done
-       done
-  done
-IFS=$as_save_IFS
-
-fi
-
-  test -d ./--version && rmdir ./--version
-  if test ${ac_cv_path_mkdir+y}; then
-    MKDIR_P="$ac_cv_path_mkdir -p"
-  else
-    # As a last resort, use the slow shell script.  Don't cache a
-    # value for MKDIR_P within a source directory, because that will
-    # break other packages using the cache if that directory is
-    # removed, or if the value is a relative name.
-    MKDIR_P="$ac_install_sh -d"
-  fi
-fi
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $MKDIR_P" >&5
-printf "%s\n" "$MKDIR_P" >&6; }
 
 
 
@@ -4321,138 +3988,6 @@ ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
 ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
-ac_ext=c
-ac_cpp='$CPP $CPPFLAGS'
-ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
-ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
-ac_compiler_gnu=$ac_cv_c_compiler_gnu
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking how to run the C preprocessor" >&5
-printf %s "checking how to run the C preprocessor... " >&6; }
-# On Suns, sometimes $CPP names a directory.
-if test -n "$CPP" && test -d "$CPP"; then
-  CPP=
-fi
-if test -z "$CPP"; then
-  if test ${ac_cv_prog_CPP+y}
-then :
-  printf %s "(cached) " >&6
-else $as_nop
-      # Double quotes because $CC needs to be expanded
-    for CPP in "$CC -E" "$CC -E -traditional-cpp" cpp /lib/cpp
-    do
-      ac_preproc_ok=false
-for ac_c_preproc_warn_flag in '' yes
-do
-  # Use a header file that comes with gcc, so configuring glibc
-  # with a fresh cross-compiler works.
-  # On the NeXT, cc -E runs the code through the compiler's parser,
-  # not just through cpp. "Syntax error" is here to catch this case.
-  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-#include <limits.h>
-		     Syntax error
-_ACEOF
-if ac_fn_c_try_cpp "$LINENO"
-then :
-
-else $as_nop
-  # Broken: fails on valid input.
-continue
-fi
-rm -f conftest.err conftest.i conftest.$ac_ext
-
-  # OK, works on sane cases.  Now check whether nonexistent headers
-  # can be detected and how.
-  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-#include <ac_nonexistent.h>
-_ACEOF
-if ac_fn_c_try_cpp "$LINENO"
-then :
-  # Broken: success on invalid input.
-continue
-else $as_nop
-  # Passes both tests.
-ac_preproc_ok=:
-break
-fi
-rm -f conftest.err conftest.i conftest.$ac_ext
-
-done
-# Because of `break', _AC_PREPROC_IFELSE's cleaning code was skipped.
-rm -f conftest.i conftest.err conftest.$ac_ext
-if $ac_preproc_ok
-then :
-  break
-fi
-
-    done
-    ac_cv_prog_CPP=$CPP
-
-fi
-  CPP=$ac_cv_prog_CPP
-else
-  ac_cv_prog_CPP=$CPP
-fi
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $CPP" >&5
-printf "%s\n" "$CPP" >&6; }
-ac_preproc_ok=false
-for ac_c_preproc_warn_flag in '' yes
-do
-  # Use a header file that comes with gcc, so configuring glibc
-  # with a fresh cross-compiler works.
-  # On the NeXT, cc -E runs the code through the compiler's parser,
-  # not just through cpp. "Syntax error" is here to catch this case.
-  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-#include <limits.h>
-		     Syntax error
-_ACEOF
-if ac_fn_c_try_cpp "$LINENO"
-then :
-
-else $as_nop
-  # Broken: fails on valid input.
-continue
-fi
-rm -f conftest.err conftest.i conftest.$ac_ext
-
-  # OK, works on sane cases.  Now check whether nonexistent headers
-  # can be detected and how.
-  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-#include <ac_nonexistent.h>
-_ACEOF
-if ac_fn_c_try_cpp "$LINENO"
-then :
-  # Broken: success on invalid input.
-continue
-else $as_nop
-  # Passes both tests.
-ac_preproc_ok=:
-break
-fi
-rm -f conftest.err conftest.i conftest.$ac_ext
-
-done
-# Because of `break', _AC_PREPROC_IFELSE's cleaning code was skipped.
-rm -f conftest.i conftest.err conftest.$ac_ext
-if $ac_preproc_ok
-then :
-
-else $as_nop
-  { { printf "%s\n" "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
-printf "%s\n" "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "C preprocessor \"$CPP\" fails sanity check
-See \`config.log' for more details" "$LINENO" 5; }
-fi
-
-ac_ext=c
-ac_cpp='$CPP $CPPFLAGS'
-ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
-ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
-ac_compiler_gnu=$ac_cv_c_compiler_gnu
-
 
 
   ax_cxx_compile_alternatives="20"    ax_cxx_compile_cxx20_required=true
@@ -5692,11 +5227,6 @@ fi
 printf "%s\n" "$ac_cv_file_dmtcp_configure" >&6; }
 if test "x$ac_cv_file_dmtcp_configure" = xyes
 then :
-  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes, dmtcp/configure exists" >&5
-printf "%s\n" "yes, dmtcp/configure exists" >&6; }
-
-printf "%s\n" "#define HAVE_DMTCP_CONFIGURE 1" >>confdefs.h
-
 
 else $as_nop
   as_fn_error $? "no, dmtcp/configure does not exist;
@@ -5734,17 +5264,9 @@ fi
 
 
 if test "$use_debug" = "yes"; then
-  DEBUG=yes
-
-
-printf "%s\n" "#define DEBUG 1" >>confdefs.h
-
   CFLAGS="$CFLAGS -Wall -g3 -O0 -DDEBUG"
   CPPFLAGS="$CPPFLAGS -Wall -g3 -O0 -DDEBUG"
   CXXFLAGS="$CXXFLAGS -Wall -g3 -O0 -DDEBUG"
-else
-  DEBUG=no
-
 fi
 
 FFLAGS=$FFLAGS
@@ -6415,7 +5937,6 @@ gives unlimited permission to copy, distribute and modify it."
 ac_pwd='$ac_pwd'
 srcdir='$srcdir'
 INSTALL='$INSTALL'
-MKDIR_P='$MKDIR_P'
 test -n "\$AWK" || AWK=awk
 _ACEOF
 
@@ -6857,11 +6378,6 @@ ac_abs_srcdir=$ac_abs_top_srcdir$ac_dir_suffix
   [\\/$]* | ?:[\\/]* ) ac_INSTALL=$INSTALL ;;
   *) ac_INSTALL=$ac_top_build_prefix$INSTALL ;;
   esac
-  ac_MKDIR_P=$MKDIR_P
-  case $MKDIR_P in
-  [\\/$]* | ?:[\\/]* ) ;;
-  */*) ac_MKDIR_P=$ac_top_build_prefix$MKDIR_P ;;
-  esac
 _ACEOF
 
 cat >>$CONFIG_STATUS <<\_ACEOF || ac_write_fail=1
@@ -6916,7 +6432,6 @@ s&@builddir@&$ac_builddir&;t t
 s&@abs_builddir@&$ac_abs_builddir&;t t
 s&@abs_top_builddir@&$ac_abs_top_builddir&;t t
 s&@INSTALL@&$ac_INSTALL&;t t
-s&@MKDIR_P@&$ac_MKDIR_P&;t t
 $ac_datarootdir_hack
 "
 eval sed \"\$ac_sed_extra\" "$ac_file_inputs" | $AWK -f "$ac_tmp/subs.awk" \

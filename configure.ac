@@ -6,24 +6,13 @@ AC_INIT([MANA],
         [https://github.com/mpickpt/mana])
 
 AC_PREREQ([2.60])
-# TODO(kapil): Add 'subdir-objects after automake 1.16 has been released.
-# AM_INIT_AUTOMAKE([foreign])
-# AM_MAINTAINER_MODE
-AC_CANONICAL_HOST
 AC_PROG_INSTALL
-# Automake uses 'ar cru' by default.  The 'ar' program then issues a warning.
-AC_SUBST([ARFLAGS], [cr])
-AC_PROG_RANLIB
-AC_PROG_MAKE_SET
-AC_PROG_LN_S
-AC_PROG_MKDIR_P
 dnl Due to a strange misfeature in autotools, AC_PROG_CXX will succeed if there
 dnl is no CXX compiler and if AC_PROG_CXX is invoked _after_ AC_PROG_CC.
 dnl So, we are invoking AC_PROG_CXX _before_ AC_PROG_CC, to take advantage
 dnl of an undocumented autotools feature.
 AC_PROG_CXX
 AC_PROG_CC
-AC_PROG_CPP
 AC_CONFIG_MACRO_DIR([m4])
 AX_CXX_COMPILE_STDCXX([20], [noext], [mandatory])
 
@@ -39,10 +28,7 @@ AX_CHECK_COMPILE_FLAG([-fallow-argument-mismatch],
                       [])
 AC_LANG_POP([Fortran])
 
-AC_CHECK_FILE([dmtcp/configure],
-  [AC_MSG_RESULT([yes, dmtcp/configure exists])
-   AC_DEFINE([HAVE_DMTCP_CONFIGURE], 1, [Define if dmtcp/configure exists])
-  ],
+AC_CHECK_FILE([dmtcp/configure], [],
   [AC_MSG_ERROR([no, dmtcp/configure does not exist;
                       Did you do:  git submodule init && git submodule update])
   ])
@@ -75,13 +61,9 @@ AC_ARG_ENABLE([debug],
             [use_debug=no])
 
 if test "$use_debug" = "yes"; then
-  AC_SUBST([DEBUG], [yes])
-  AC_DEFINE([DEBUG],[1],[Use debugging flags "-Wall -g3 -O0"])
   CFLAGS="$CFLAGS -Wall -g3 -O0 -DDEBUG"
   CPPFLAGS="$CPPFLAGS -Wall -g3 -O0 -DDEBUG"
   CXXFLAGS="$CXXFLAGS -Wall -g3 -O0 -DDEBUG"
-else
-  AC_SUBST([DEBUG], [no])
 fi
 
 AC_SUBST([FFLAGS], [$FFLAGS])
