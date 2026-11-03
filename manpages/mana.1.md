@@ -135,7 +135,7 @@ To see status of ranks (especially during checkpoint), try:
 
 To inspect a checkpoint image from, for example, Rank `0`, try:
 
-    util/readdmtcp.sh ckpt_rank0/ckpt_*.dmtcp
+    dmtcp/util/readdmtcp.sh ckpt_rank0/ckpt_*.dmtcp
 
 To debug during restart at stage 'N', replace 'N' Below, and execute:
 
@@ -145,7 +145,7 @@ To debug during restart at stage 'N', replace 'N' Below, and execute:
 To see the stack, you then may or may not need to try some of the
 following:
 
-    (gdb) source util/gdb-dmtcp-utils
+    (gdb) source dmtcp/util/gdb-dmtcp-utils.py
     (gdb) load-symbol-library ADDRESS-OR-LIBRARY-SUBSTRING
     (gdb) dmtcp  # to see other available commands
 
