@@ -13,7 +13,6 @@ description: MPI-Agnostic Network-Agnostic Checkpointing
 
 **mana_launch** [\--help] [\--verbose] [\--timing] [DMTCP_OPTIONS] [\--ckptdir *DIR*] COMMAND [*ARGS...*]\
 **mana_coordinator** [\--help] [\--verbose] [*DMTCP_OPTIONS*]\
-**mana_start_coordinator**\
 **mana_status** [\--help] [\--verbose] [*DMTCP_OPTIONS*]\
 **mana_restart** [\--help] [\--verbose] [*DMTCP_OPTIONS*] [\--restartdir *DIR*]
 
