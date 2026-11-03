@@ -47,13 +47,7 @@ override CXXFLAGS += -DOMPI_SKIP_MPICXX -DMPICH_SKIP_MPICXX
 # We don't build libmpiwrappers.a.  Instead, we use *.o to build libmana.so.
 default: ${LIBNAME}.a libmpistub.so libmpistub_audit.so
 
-# If any .o file is re-built, then re-build mpi_collective_wrappers.o .
-# That recipe will test the environment variable: DEFINE_mpi_collective_p2p
-# If the env. var. is set, then the Makefile will cause
-#   mpi_collective_wrappers.cpp to include mpi_collective_p2p.c .
 ${LIBNAME}.a: ${LIBWRAPPER_OBJS}
-	touch mpi_collective_wrappers.cpp
-	${MAKE} mpi_collective_wrappers.o
 	ar cr $@ $^
 
 mpi_unimplemented_wrappers.cpp: generate-mpi-unimplemented-wrappers.py \
@@ -76,14 +70,8 @@ mpi_fortran_wrappers.o: fortran_handles.h
 fortran_constants.o: fortran_constants.f90
 	${MPIFORTRAN} ${CFLAGS} -fPIC -c -o $@ $<
 
-mpi_collective_wrappers.o: mpi_collective_wrappers.cpp ../virtual_id.h \
-                           mpi_collective_p2p.c
-	if [ ! -z "$$MPI_COLLECTIVE_P2P" ]; then \
-	  DEFINE_mpi_collective_p2p="-DMPI_COLLECTIVE_P2P"; \
-	else \
-	  DEFINE_mpi_collective_p2p=""; \
-	fi && \
-	${MPICXX} ${CXXFLAGS} -Wall -DDEBUG -fPIC $$DEFINE_mpi_collective_p2p \
+mpi_collective_wrappers.o: mpi_collective_wrappers.cpp ../virtual_id.h
+	${MPICXX} ${CXXFLAGS} -Wall -DDEBUG -fPIC \
           -I.. -I../lower-half -c $<
 
 # Some of these functions are also collective; e.g., MPI_Win_allocate_shared

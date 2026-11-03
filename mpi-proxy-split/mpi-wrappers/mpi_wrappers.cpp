@@ -37,17 +37,6 @@
 
 bool g_libmpi_is_initialized = false;
 
-static const char collective_p2p_string[] =
-   "\n"
-   "   ***************************************************************************\n"
-   "   *** The environment variable MPI_COLLECTIVE_P2P was set when this MANA was\n"
-   "   ***   compiled.  It's for debugging/testing.  MPI collective calls will be\n"
-   "   ***   translated to MPI_Send/Recv, and so the application will be _much_\n"
-   "   ***   slower. See mpi_wrappers.cpp and mpi_collective_p2p.c for selecting\n"
-   "   ***   individual MPI collective calls for translation to MPI_Send/Recv.\n"
-   "   ***************************************************************************\n"
-   "\n";
-
 // An atexit() handler: makes uhExit() (lower-half/mem-wrapper.cpp) end the
 // process through the lower half's exit(), so that its exit handlers run.
 // Registered at MPI_Init only; restart restores it with the upper half.
@@ -63,9 +52,6 @@ extern "C" {
 int PMPI_Init(int *argc, char ***argv) {
   // The lower half has initialized MPI already, at launch.
   int retval = MPI_SUCCESS;
-  if (isUsingCollectiveToP2p()) {
-    fprintf(stderr, collective_p2p_string);
-  }
   LOWER_HALF_DISABLE_CKPT();
 
   /*
@@ -101,9 +87,6 @@ int PMPI_Init_thread(int *argc, char ***argv, int required, int *provided) {
   // The lower half has initialized MPI already, at launch.
   *provided = required < MPI_THREAD_FUNNELED ? required : MPI_THREAD_FUNNELED;
   int retval = MPI_SUCCESS;
-  if (isUsingCollectiveToP2p()) {
-    fprintf(stderr, collective_p2p_string);
-  }
   LOWER_HALF_DISABLE_CKPT();
 
   /*

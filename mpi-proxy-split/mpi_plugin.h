@@ -44,7 +44,6 @@
     NOT_IMPLEMENTED(MPIProxy_Cmd_Shutdown_Proxy); \
   }
 
-bool isUsingCollectiveToP2p();
 void recordPreMpiInitMaps();
 void recordPostMpiInitMaps();
 void init_tag_ub();  // mpi-wrappers/mpi_comm_wrappers.cpp
