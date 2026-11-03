@@ -368,7 +368,18 @@ int PMPI_Comm_free(MPI_Comm *comm)
   // MPI_Comm_free() is a collective call.
   commit_begin(*comm);
   LOWER_HALF_DISABLE_CKPT();
-  int retval = MPI_Comm_free_internal(comm);
+  int retval;
+  if (lookup_virt_id_entry((mana_mpi_handle){.comm = *comm}) != NULL &&
+      get_comm_desc(*comm) != NULL) {
+    // The real free waits for the MPI_Comm_free barrier (see
+    // test_comm_free_barriers()).
+    MPI_Comm real_comm = get_real_id((mana_mpi_handle){.comm = *comm}).comm;
+    retval = start_comm_free_barrier(get_comm_desc(*comm)->gid, real_comm);
+  } else {
+    // A predefined communicator or an invalid handle: the MPI library reports
+    // the error.
+    retval = MPI_Comm_free_internal(comm);
+  }
   if (retval == MPI_SUCCESS) {
     free_virt_id((mana_mpi_handle){.comm = *comm});
     *comm = MPI_COMM_NULL;

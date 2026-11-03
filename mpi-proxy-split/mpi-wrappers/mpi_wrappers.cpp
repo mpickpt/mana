@@ -213,6 +213,8 @@ int PMPI_Finalize(void)
    *      corrupt ckpt_images, which give segmentation fault on restart.
    */
   LOWER_HALF_DISABLE_CKPT();
+  // MPI_Finalize requires that no request is pending.
+  complete_comm_free_barriers();
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Finalize)();
   RETURN_TO_UPPER_HALF();
