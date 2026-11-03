@@ -40,23 +40,11 @@ using namespace dmtcp;
 using dmtcp::kvdb::KVDBRequest;
 using dmtcp::kvdb::KVDBResponse;
 
-extern int MPI_Alltoall_internal(const void *sendbuf, int sendcount,
-                                 MPI_Datatype sendtype, void *recvbuf,
-                                 int recvcount, MPI_Datatype recvtype,
-                                 MPI_Comm comm);
 // Defined with C linkage in mpi-wrappers/mpi_request_wrappers.cpp.
 extern "C" int MPI_Iprobe_internal(int source, int tag, MPI_Comm comm,
                                    int *flag, MPI_Status *status);
 extern "C" int MPI_Test_internal(MPI_Request *, int *flag, MPI_Status *status,
                                  bool isRealRequest);
-// FIXME: These three internal functions were added to avoid record and replay.
-// Since we no longer record MPI_Comm and MPI_Group related functions, these
-// internal functions can be removed.
-extern int MPI_Comm_create_group_internal(MPI_Comm comm, MPI_Group group,
-                                          int tag, MPI_Comm *newcomm);
-extern int MPI_Comm_free_internal(MPI_Comm *comm);
-extern int MPI_Comm_group_internal(MPI_Comm comm, MPI_Group *group);
-extern int MPI_Group_free_internal(MPI_Group *group);
 int64_t global_sent_messages = 0, global_recv_messages = 0;
 int64_t local_sent_messages = 0, local_recv_messages = 0;
 std::unordered_set<MPI_Comm> active_comms;

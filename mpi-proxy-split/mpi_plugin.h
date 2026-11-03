@@ -29,21 +29,6 @@
 #include "dmtcp.h"
 #include "lower-half-api.h"
 
-#define NOT_IMPLEMENTED(op)                                         \
-{                                                                   \
-  if (op > MPIProxy_ERROR && op < MPIProxy_Cmd_Shutdown_Proxy)      \
-    fprintf(stdout, "[%d:%s] NOT IMPLEMENTED\n", op, __FUNCTION__); \
-  else                                                              \
-    fprintf(stdout, "[%s] NOT IMPLEMENTED\n", __FUNCTION__);        \
-  exit(EXIT_FAILURE);                                               \
-}
-
-#define NOT_IMPL(func)                            \
-  EXTERNC func                                    \
-  {                                               \
-    NOT_IMPLEMENTED(MPIProxy_Cmd_Shutdown_Proxy); \
-  }
-
 void recordPreMpiInitMaps();
 void recordPostMpiInitMaps();
 void init_tag_ub();  // mpi-wrappers/mpi_comm_wrappers.cpp

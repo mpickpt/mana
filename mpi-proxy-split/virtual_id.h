@@ -114,11 +114,6 @@ typedef struct mana_datatype_desc {
   struct mana_datatype_desc *next_free;
 } mana_datatype_desc;
 
-typedef struct {
-  // Use the g_param for restoring files for now.
-  // Migarate codes to here later.
-} mana_file_desc;
-
 typedef enum __mpi_req
 {
   UNKNOW_REQUEST,
@@ -173,7 +168,6 @@ extern virt_id_entry *virt_id_chunks[MANA_VIRT_ID_NUM_CHUNKS];
 
 extern int g_world_rank;
 
-void init_predefined_virt_ids();
 void init_world_comm();
 MPI_Comm new_virt_comm(MPI_Comm real_comm);
 MPI_Group new_virt_group(MPI_Group real_group);

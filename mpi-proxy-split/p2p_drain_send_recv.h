@@ -174,13 +174,10 @@ uint64_t drainStatsNow();   // microseconds
 void resetDrainStats();
 void reportDrainStats();
 
-int drainRemainingP2pMsgs(int source);
-int recvMsgIntoInternalBuffer(MPI_Status status);
 bool existsMatchingMsgBuffer(int source, int tag, MPI_Comm comm, int *flag,
                              MPI_Status *status);
 int consumeMatchingMsgBuffer(void *buf, int count, MPI_Datatype datatype,
                              int source, int tag, MPI_Comm comm,
                              MPI_Status *mpi_status, int size);
-void removePendingSendRequests();
 void resetDrainCounters();
 #endif
