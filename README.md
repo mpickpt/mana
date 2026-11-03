@@ -50,8 +50,8 @@ MANA is free software: you can redistribute it and/or modify it under the
 terms of the GNU Lesser General Public License, version 3 or (at your option)
 any later version. This is the same license as DMTCP.  See
 [COPYING.LESSER](COPYING.LESSER) for the LGPL and [COPYING](COPYING) for the
-GNU GPL, whose terms the LGPL incorporates.  The DMTCP submodule, the
-autotools scripts and `util/cpplint.py` carry their own license notices.
+GNU GPL, whose terms the LGPL incorporates.  The DMTCP submodule and the
+autotools scripts carry their own license notices.
 
 ---
 

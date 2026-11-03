@@ -2,10 +2,11 @@
 #
 # A hook script to verify what is about to be committed.
 # Called by "git commit" with no arguments.  The hook exits with
-# non-zero status if the files being committed do not conform to
-# the DMTCP style.
+# non-zero status if the files being committed have whitespace errors
+# or do not conform to the DMTCP style.
 #
-# To enable this hook, do this from the root of the repo:
+# 'make' enables this hook.  To enable it by hand, do this from the root
+# of the repo:
 #
 # $ ln -s ../../util/hooks/pre-commit .git/hooks/pre-commit
 
@@ -33,5 +34,30 @@ if [ -n "$ADDED_OR_MODIFIED" ]; then
     # many implementations do not support the `-r` flag, (which instructs
     # `xargs` to not run the script if the arguments are empty), so we also
     # cannot use that.
-    ./util/dmtcp-style.py $ADDED_OR_MODIFIED || exit 1
+    #
+    # DMTCP's style checker, dmtcp/util/dmtcp-style.py, lints only the files
+    # in DMTCP's source directories, and it runs util/cpplint.py from the
+    # current directory.  So run it in dmtcp/, with mpi-proxy-split/ as its
+    # source directory.
+    if [ ! -f dmtcp/util/dmtcp-style.py ]; then
+        echo "dmtcp/util/dmtcp-style.py is missing." \
+             "Do: git submodule update --init"
+        exit 1
+    fi
+    (cd dmtcp && python3 - $ADDED_OR_MODIFIED) <<'EOF' || exit 1
+import importlib.util
+import sys
+
+spec = importlib.util.spec_from_file_location('dmtcp_style',
+                                              'util/dmtcp-style.py')
+dmtcp_style = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(dmtcp_style)
+
+
+class ManaCppLinter(dmtcp_style.CppLinter):
+    source_dirs = ['../mpi-proxy-split']
+
+
+sys.exit(ManaCppLinter().main(['../' + path for path in sys.argv[1:]]))
+EOF
 fi
