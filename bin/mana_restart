@@ -104,14 +104,6 @@ if "--quiet" in dmtcp_flags or "-q" in dmtcp_flags:
   else:
     dmtcp_flags.remove("-q")
 
-# # At higher ranks, restarting NIMROD causes a heap overflow (for a more detailed
-# # write up, refer to Section 4 of mpi-proxy-split/doc/nimrod-build-tutorial.txt).
-# # A temporary workaround is to swap the memory addresses of NIMROD and lh_proxy,
-# # which requires a specially built version of lh_proxy.
-# if echo $target_app | grep -q nimrod ; then
-#   export USE_LH_PROXY_DEFADDR=1
-# fi
-
 # Find the .mana.rc file to get the hostname and port of the coordinator
 rc_filename = ""
 host_flag = ""
