@@ -164,7 +164,7 @@ To inspect a checkpoint image from, for example, Rank \f[C]0\f[R], try:
 .IP
 .nf
 \f[C]
-util/readdmtcp.sh ckpt_rank0/ckpt_*.dmtcp
+dmtcp/util/readdmtcp.sh ckpt_rank0/ckpt_*.dmtcp
 \f[R]
 .fi
 .PP
@@ -182,7 +182,7 @@ following:
 .IP
 .nf
 \f[C]
-(gdb) source util/gdb-dmtcp-utils
+(gdb) source dmtcp/util/gdb-dmtcp-utils.py
 (gdb) load-symbol-library ADDRESS-OR-LIBRARY-SUBSTRING
 (gdb) dmtcp  # to see other available commands
 \f[R]
