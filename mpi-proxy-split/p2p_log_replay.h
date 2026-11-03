@@ -29,13 +29,6 @@
 #include "dmtcpalloc.h"
 #include "virtual_id.h"
 
-#define REAL_REQUEST_LOG_LEVEL 7
-#define STACK_TRACK_LEVEL 7
-
-#ifdef DEBUG
-// #define USE_REQUEST_LOG
-#endif
-
 // Struct to store and return the MPI message (data) during draining and
 // resuming, also used by p2p_drain_send_recv.h
 typedef struct __mpi_message
@@ -51,15 +44,6 @@ typedef struct __mpi_message
   int ack_to;
   int ack_tag;
 } mpi_message_t;
-
-// Struct to store request type and backtrace information for debugging
-typedef struct __request_info
-{
-  mpi_req_t type;
-  MPI_Request real_request[REAL_REQUEST_LOG_LEVEL];
-  int update_counter;
-  void *backtrace[STACK_TRACK_LEVEL];
-} request_info_t;
 
 
 extern int g_world_rank; // Global rank of the current process
@@ -107,11 +91,5 @@ extern bool getPendingCall(MPI_Request req, mpi_nonblocking_call_t *call);
 
 // Returns true if a pending MPI_Isend/MPI_Irecv uses the datatype.
 extern bool pendingCallUsesDatatype(MPI_Datatype type);
-
-// Log the creation or update of a virtual request
-extern void logRequestInfo(MPI_Request request, mpi_req_t req_type);
-
-// Lookup a request's info in the request_log
-extern request_info_t* lookupRequestInfo(MPI_Request request);
 
 #endif // ifndef _P2P_LOG_REPLAY_H

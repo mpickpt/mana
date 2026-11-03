@@ -124,23 +124,6 @@ int PMPI_Test(MPI_Request* request, int* flag, MPI_Status* status)
   if (*flag && *request != MPI_REQUEST_NULL
       && is_counted_irecv(*request)) {
     count_received_message();
-#ifdef DEBUG_P2P
-    int count = 0;
-    int size = 0;
-    MPI_Get_count(statusPtr, MPI_BYTE, &count);
-    MPI_Type_size(MPI_BYTE, &size);
-    ASSERT(size == 1, "size={}", size);
-    mpi_nonblocking_call_t call;
-    getPendingCall(*request, &call);
-    MPI_Comm comm = call.comm;
-    int worldRank = localRankToGlobalRank(statusPtr->MPI_SOURCE, comm);
-    g_recvBytesByRank[worldRank] += count * size;
-    // For debugging
-#if 0
-    printf("rank %d received %d bytes from rank %d\n", g_world_rank, count * size, worldRank);
-    fflush(stdout);
-#endif
-#endif
   }
   if (retval == MPI_SUCCESS && *flag) {
     clearPendingRequestFromLog(*request);
@@ -314,18 +297,6 @@ int PMPI_Waitany(int count, MPI_Request *array_of_requests,
         if (*request != MPI_REQUEST_NULL
           && is_counted_irecv(*request)) {
           count_received_message();
-#ifdef DEBUG_P2P
-          int count = 0;
-          int size = 0;
-          MPI_Get_count(local_status, MPI_BYTE, &count);
-          MPI_Type_size(MPI_BYTE, &size);
-          ASSERT(size == 1, "size={}", size);
-          mpi_nonblocking_call_t call;
-          getPendingCall(*request, &call);
-          MPI_Comm comm = call.comm;
-          int worldRank = localRankToGlobalRank(local_status->MPI_SOURCE, comm);
-          g_recvBytesByRank[worldRank] += count * size;
-#endif
         } else if (*request == MPI_REQUEST_NULL) {
           if (!was_null[i]) {
             *local_index = i;
@@ -381,23 +352,6 @@ int PMPI_Wait(MPI_Request *request, MPI_Status *status)
     if (flag && *request != MPI_REQUEST_NULL
         && is_counted_irecv(*request)) {
       count_received_message();
-#ifdef DEBUG_P2P
-      int count = 0;
-      int size = 0;
-      MPI_Get_count(statusPtr, MPI_BYTE, &count);
-      MPI_Type_size(MPI_BYTE, &size);
-      ASSERT(size == 1, "size={}", size);
-      mpi_nonblocking_call_t call;
-      getPendingCall(*request, &call);
-      MPI_Comm comm = call.comm;
-      int worldRank = localRankToGlobalRank(statusPtr->MPI_SOURCE, comm);
-      g_recvBytesByRank[worldRank] += count * size;
-    // For debugging
-#if 0
-      printf("rank %d received %d bytes from rank %d\n", g_world_rank, count * size, worldRank);
-      fflush(stdout);
-#endif
-#endif
     }
     if (flag) {
       clearPendingRequestFromLog(*request);  // Remove from pending calls

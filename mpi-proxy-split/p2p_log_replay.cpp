@@ -25,10 +25,8 @@
 #include <mpi.h>
 #include <pthread.h>
 #include <map>
-#include <unordered_map>
 #include <utility>
 #include <vector>
-#include <execinfo.h>
 
 #include "dmtcp.h"
 #include "util.h"
@@ -43,11 +41,8 @@
 
 using namespace dmtcp;
 
-std::unordered_map<MPI_Request, request_info_t*> request_log;
 int g_world_rank = -1; // Global rank of the current process
 int g_world_size = -1; // Total number of ranks in the current computation
-// Mutex protecting request_log
-static pthread_mutex_t logMutex = PTHREAD_MUTEX_INITIALIZER;
 
 // The pending MPI_Isend/MPI_Irecv calls, stored in their requests'
 // virtual-ID entries and linked in posting order.  Application threads and
@@ -113,52 +108,6 @@ updateCkptDirByRank()
   Util::writeAll(fd, g_range, sizeof(*g_range));
   close(fd);
 #endif
-}
-
-void
-logRequestInfo(MPI_Request request, mpi_req_t req_type)
-{
-  request_info_t *req_info;
-  std::unordered_map<MPI_Request, request_info_t*>::iterator it;
-  it = request_log.find(request);
-  if (it != request_log.end()) {
-    // Update existing request
-    req_info = it->second;
-    if (req_info->update_counter <= REAL_REQUEST_LOG_LEVEL) {
-      req_info->update_counter++;
-      req_info->real_request[req_info->update_counter] =
-        get_real_id((mana_mpi_handle){.request = request}).request;
-    } else {
-      WARN(false, "Too many real request update");
-    }
-  } else {
-    // Create new request log
-    req_info =
-      (request_info_t*)JALLOC_HELPER_MALLOC(sizeof(request_info_t));
-    memset(&req_info->real_request, 0,
-        sizeof(MPI_Request) * REAL_REQUEST_LOG_LEVEL);
-    memset(&req_info->backtrace, 0, sizeof(void*) * STACK_TRACK_LEVEL);
-    req_info->type = req_type;
-    req_info->real_request[0] = get_real_id((mana_mpi_handle){.request = request}).request;
-    req_info->update_counter = 0;
-    backtrace(&(req_info->backtrace[0]), STACK_TRACK_LEVEL);
-    pthread_mutex_lock(&logMutex);
-    request_log[request] = req_info;
-    pthread_mutex_unlock(&logMutex);
-  }
-}
-
-request_info_t*
-lookupRequestInfo(MPI_Request request)
-{
-  request_info_t *req_info;
-  std::unordered_map<MPI_Request, request_info_t*>::iterator it;
-  it = request_log.find(request);
-  if (it != request_log.end()) {
-    return it->second;
-  } else {
-    return NULL;
-  }
 }
 
 void

@@ -124,9 +124,6 @@ typedef enum __mpi_req
   UNKNOW_REQUEST,
   ISEND_REQUEST,
   IRECV_REQUEST,
-  IBCAST_REQUEST,
-  IREDUCE_REQUEST,
-  IBARRIER_REQUEST,
   // The P2P drain turns it into an IRECV_REQUEST (publishSsendNotices()).
   ISSEND_REQUEST,
 } mpi_req_t;

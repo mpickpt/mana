@@ -100,15 +100,6 @@ int PMPI_Send(const void *buf, int count, MPI_Datatype datatype,
   RETURN_TO_UPPER_HALF();
   lower_half_blocking_call_end();
   LOWER_HALF_ENABLE_CKPT();
-#ifdef DEBUG_P2P
-  if (retval == MPI_SUCCESS) {
-    // Updating global counter of send bytes
-    int size;
-    MPI_Type_size(datatype, &size);
-    int worldRank = localRankToGlobalRank(dest, comm);
-    g_sendBytesByRank[worldRank] += count * size;
-  }
-#endif
   return retval;
 }
 
@@ -137,24 +128,12 @@ MPI_Isend_internal(const void *buf, int count, MPI_Datatype datatype,
   }
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS) {
-#ifdef DEBUG_P2P
-    // Updating global counter of send bytes
-    int size;
-    MPI_Type_size(datatype, &size);
-    int worldRank = localRankToGlobalRank(dest, comm);
-    g_sendBytesByRank[worldRank] += count * size;
-    printf("rank %d sends %d bytes to rank %d\n", g_world_rank, count * size, worldRank);
-    fflush(stdout);
-#endif
     // Virtualize request.  An MPI_Issend to MPI_PROC_NULL needs no ack.
     *request = new_virt_request(*request);
     mpi_req_t type = synchronous && dest != MPI_PROC_NULL ? ISSEND_REQUEST
                                                           : ISEND_REQUEST;
     addPendingRequestToLog(type, buf, NULL, count,
                            datatype, dest, tag, comm, *request);
-#ifdef USE_REQUEST_LOG
-    logRequestInfo(*request, ISEND_REQUEST);
-#endif
   }
   return retval;
 }
@@ -202,16 +181,6 @@ int PMPI_Rsend(const void* ibuf, int count,
   retval = NEXT_FUNC(Rsend)(ibuf, count, realType, dest, tag, realComm);
   RETURN_TO_UPPER_HALF();
   lower_half_blocking_call_end();
-#ifdef DEBUG_P2P
-  if (retval == MPI_SUCCESS) {
-    // Updating global counter of send bytes
-    int size;
-    MPI_Type_size(datatype, &size);
-    int worldRank = localRankToGlobalRank(dest, comm);
-    g_sendBytesByRank[worldRank] += count * size;
-    g_rsendBytesByRank[worldRank] += count * size;
-  }
-#endif
   LOWER_HALF_ENABLE_CKPT();
   return retval;
 }
@@ -456,9 +425,6 @@ MPI_Irecv_internal(void *buf, int count, MPI_Datatype datatype,
     *request = new_virt_request(*request);
     addPendingRequestToLog(IRECV_REQUEST, NULL, buf, count,
                            datatype, source, tag, comm, *request);
-#ifdef USE_REQUEST_LOG
-    logRequestInfo(*request, IRECV_REQUEST);
-#endif
   }
   return retval;
 }
