@@ -2,27 +2,9 @@ CFLAGS = @CFLAGS@
 CXXFLAGS = @CXXFLAGS@
 FFLAGS = ${CXXFLAGS} @FFLAGS@
 
-PLATFORM=${shell echo $$HOST}
-
-# Mark the platform as Perlmutter for a compute node.
-ifeq ($(findstring nid0,$(PLATFORM)),nid0)
-IS_PERLMUTTER = 1
-endif
-# Perlmutter's login node starts with login keyword
-ifeq ($(findstring login,$(PLATFORM)),login)
-IS_PERLMUTTER = 1
-endif
-
-ifeq (${IS_PERLMUTTER}, 1)
-  MPICC = cc
-  MPICXX = CC -std=c++20
-  MPIFORTRAN = ftn
-  MPI_CFLAGS?= @CFLAGS@ -g3 -fPIC
-  MPI_LDFLAGS?= -dynamic
-else
-  MPICC = mpicc
-  MPICXX = mpic++ -std=c++20
-  MPIFORTRAN = mpifort
-  MPI_CFLAGS?= @CFLAGS@ -g3 -fPIC
-  MPI_LDFLAGS?=
-endif
+# The MPI compilers that configure found.
+MPICC = @MPICC@
+MPICXX = @MPICXX@ -std=c++20
+MPIFC = @MPIFC@
+MPI_CFLAGS?= @CFLAGS@ -g3 -fPIC
+MPI_LDFLAGS?=

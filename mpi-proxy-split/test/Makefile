@@ -1,4 +1,3 @@
-PLATFORM=${shell echo $$HOST}
 include ../Makefile_config
 
 ###############################################################
@@ -51,7 +50,7 @@ dlopen_mpi: dlopen_mpi.c
 	$(CC) -g3 -o $@ $@.o -ldl
 
 ${E2E_FORTRAN}: %: %.f90
-	$(MPIFORTRAN) ${FFLAGS} -g3 -O0 -o $@ $<
+	$(MPIFC) ${FFLAGS} -g3 -O0 -o $@ $<
 
 ${BENCH_FILES}: %: %.c
 	$(MPICC) -g -O2 -o $@ $< $(MPI_CFLAGS) ${MPI_LDFLAGS}
