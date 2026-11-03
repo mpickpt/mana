@@ -1,11 +1,5 @@
 #!/bin/sh
 
-# FIXME: USER FORGOT TO DO 'salloc' (detect and report error?):
-# gdc0@cori11:~/mana-rohgarg-orig> srun -N 2 bin/mana_launch --verbose contrib/mpi-proxy-split/test/ping_pong.mana.exe
-# srun: error: No architecture specified, cannot estimate job costs.
-# srun: error: Unable to allocate resources: Unspecified error
-
-
 # if [ -z "$1" ]; then
 #   echo "USAGE:  $0 [--verbose] [DMTCP_OPTIONS ...]"
 #   echo "        For DMTCP options, do: $0 --verbose --help"
