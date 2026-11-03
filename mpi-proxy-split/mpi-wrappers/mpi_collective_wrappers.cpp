@@ -34,25 +34,8 @@
 #include "p2p_log_replay.h"
 #include "p2p_drain_send_recv.h"
 
-#ifdef MPI_COLLECTIVE_P2P
-# include "mpi_collective_p2p.c"
-#endif
-
-// Returns true if the environment variable MPI_COLLECTIVE_P2P
-//   was set when the MANA plugin was compiled.
-//   MPI collective calls will be translated to use MPI_Send/Recv.
-bool
-isUsingCollectiveToP2p() {
-#ifdef MPI_COLLECTIVE_P2P
-  return true;
-#else
-  return false;
-#endif
-}
-
 extern "C" {
 
-#ifndef MPI_COLLECTIVE_P2P
 #pragma weak MPI_Bcast = PMPI_Bcast
 int PMPI_Bcast(void *buffer, int count, MPI_Datatype datatype,
               int root, MPI_Comm comm)
@@ -237,15 +220,7 @@ int PMPI_Reduce_scatter(const void *sendbuf, void *recvbuf,
   commit_finish(comm);
   return retval;
 }
-#endif // #ifndef MPI_COLLECTIVE_P2P
 
-// NOTE:  This C++ function in needed by p2p_drain_send_recv.cpp
-//        both when MPI_COLLECTIVE_P2P is not defined and when it's defined.
-//        With MPI_COLLECTIVE_P2P, p2p_drain_send_recv.cpp will need this
-//        at checkpoint time, to make a direct call to the lower half, as part
-//        of draining the point-to-point MPI calls.  p2p_drain_send_recv.cpp
-//        cannot use the C version in mpi-wrappers/mpi_collective_p2p.c,
-//        which would generate extra point-to-point MPI calls.
 #ifndef MPI_ALLTOALL_RENDEZVOUS
 int
 MPI_Alltoall_internal(const void *sendbuf, int sendcount,
@@ -341,7 +316,6 @@ MPI_Alltoall_internal(const void *sendbuf, int sendcount,
 }
 #endif
 
-#ifndef MPI_COLLECTIVE_P2P
 #pragma weak MPI_Alltoall = PMPI_Alltoall
 int PMPI_Alltoall(const void *sendbuf, int sendcount,
                  MPI_Datatype sendtype, void *recvbuf, int recvcount,
@@ -563,11 +537,10 @@ int PMPI_Scan(const void *sendbuf, void *recvbuf,
   commit_finish(comm);
   return retval;
 }
-#endif // #ifndef MPI_COLLECTIVE_P2P
 
 // Non-blocking collectives.  Like MPI_Ibcast, MPI_Ireduce and MPI_Ibarrier,
 // they tick the Collective Clock and mark their request so that a checkpoint
-// completes them first.  MPI_COLLECTIVE_P2P has no version of them.
+// completes them first.
 #pragma weak MPI_Iallreduce = PMPI_Iallreduce
 int PMPI_Iallreduce(const void *sendbuf, void *recvbuf, int count,
                     MPI_Datatype datatype, MPI_Op op, MPI_Comm comm,

@@ -128,23 +128,6 @@ DMTCP/MANA will pause very early in restart, inside
 \f[B]\f[R]\f[C]DMTCP_RESTART_PAUSE\f[R]\f[B]\f[R]
 DMTCP/MANA will pause during restart, before resuming execution, to
 allow \f[C]gdb attach\f[R] (GDB must be on same node.)
-.TP
-\f[B]\f[R]\f[C]MPI_COLLECTIVE_P2P\f[R]\f[B]\f[R]
-\f[B]For debugging only (high runtime overhead)\f[R]: If this env.
-var.
-is set, and if re-building any files in
-\f[C]mpi-proxy-split/mpi-wrappers\f[R], then MPI collective
-communication calls are translated to MPI_Send/Recv at runtime.
-(Try \f[C]touch mpi_collective_p2p.c\f[R] if not re-building.)
-.PD 0
-.P
-.PD
-.PP
-NOTE: You can select specific collective calls for translation to
-MPI_Send/Recv by copying MPI wrappers from mpi_collective_p2p.c to
-mpi_collective_wrappers.cpp in the mpi-wrappers subdirectory; or block
-certain translations by adjusting
-\f[C]#ifdef/#ifndef MPI_COLLECTIVE_P2P\f[R] in those files.
 .PP
 \f[B]\f[CB]INSPECTING MANA for DEBUGGING\f[B]\f[R]
 .PP

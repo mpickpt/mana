@@ -113,19 +113,6 @@ MANA supports most features of DMTCP, including:
 : DMTCP/MANA will pause during restart, before resuming execution, to
   allow `gdb attach` (GDB must be on same node.)
 
-**`MPI_COLLECTIVE_P2P`**
-
-: **For debugging only (high runtime overhead)**: If this env. var. is
-  set, and if re-building any files in
-  `mpi-proxy-split/mpi-wrappers`, then MPI collective
-  communication calls are translated to MPI_Send/Recv at runtime. (Try
-  `touch mpi_collective_p2p.c` if not re-building.)\
-
-  NOTE: You can select specific collective calls for translation to
-  MPI_Send/Recv by copying MPI wrappers from mpi_collective_p2p.c to
-  mpi_collective_wrappers.cpp in the mpi-wrappers subdirectory; or
-  block certain translations by adjusting `#ifdef/#ifndef MPI_COLLECTIVE_P2P` in those files.
-
 **`INSPECTING MANA for DEBUGGING`**
 
 To see status of ranks (especially during checkpoint), try:
