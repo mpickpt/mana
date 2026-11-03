@@ -43,6 +43,18 @@ struct comm_clock {
   unsigned long target;
 };
 
+// Starts the MPI_Comm_free barrier of a communicator that this process freed
+// (see test_comm_free_barriers()).  'real_comm' is its lower-half handle.
+// Returns the result of MPI_Ibarrier.  If it failed, no barrier is pending.
+int start_comm_free_barrier(uint64_t gid, MPI_Comm real_comm);
+// Tests the pending MPI_Comm_free barriers.  For each one that completed,
+// frees the real communicator and erases the clock.  Call it in the lower
+// half guard.  commit_finish() calls it.
+void test_comm_free_barriers();
+// Completes the pending MPI_Comm_free barriers, like
+// complete_pending_nonblocking_collectives().  Every member of each
+// communicator must call MPI_Comm_free on it.
+void complete_comm_free_barriers();
 // Adds the clock of a new communicator, with 'seq' and 'target' at 0, and
 // returns it.
 comm_clock* add_comm_clock(uint64_t gid);

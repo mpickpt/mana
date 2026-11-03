@@ -11,6 +11,7 @@
 #include "dmtcp_assert.h"
 #include "jconvert.h"
 #include "kvdb.h"
+#include "lower_half_ckpt.h"
 #include "seq_num.h"
 #include "mpi_nextfunc.h"
 #include "virtual_id.h"
@@ -48,6 +49,16 @@ static bool added_clock;
 // Counts the downloads of targets.  A process that waits for a drain checks its
 // targets again only after one.
 static unsigned long targets_version;
+
+// A communicator that this process freed.  Its real free waits for its
+// MPI_Comm_free barrier: an MPI_Ibarrier that each member starts on the
+// communicator in MPI_Comm_free.
+struct pending_free {
+  uint64_t gid;
+  MPI_Comm real_comm;
+  MPI_Request request;
+};
+static std::vector<pending_free> pending_frees;
 
 void seq_num_init() {
   ckpt_pending = false;
@@ -92,27 +103,6 @@ add_comm_clock(uint64_t gid)
   }
   pthread_mutex_unlock(&seq_num_lock);
   return clock;
-}
-
-// Erases the clocks of the communicators that this process freed.  Call it
-// under seq_num_lock when a drain completes.  At that time, all members of
-// such a communicator made the same number of calls on it.  On this process,
-// the last call was MPI_Comm_free.  So all members freed the communicator.
-static void
-erase_freed_clocks()
-{
-  std::unordered_set<uint64_t> live;
-  live.insert(get_comm_desc(MPI_COMM_SELF)->gid);
-  for (MPI_Comm comm : live_virt_comms()) {
-    live.insert(get_comm_desc(comm)->gid);
-  }
-  for (auto it = clocks.begin(); it != clocks.end();) {
-    if (live.count(it->first) == 0) {
-      it = clocks.erase(it);
-    } else {
-      ++it;
-    }
-  }
 }
 
 // Lets the MPI library make progress while this process waits for a drain.
@@ -187,6 +177,13 @@ void commit_finish(MPI_Comm comm) {
     pthread_mutex_lock(&seq_num_lock);
     wait_while_targets_reached();
     pthread_mutex_unlock(&seq_num_lock);
+  }
+  // Each collective call frees the communicators whose MPI_Comm_free barriers
+  // completed, also on a process that frees no more communicators.
+  if (!pending_frees.empty()) {
+    LOWER_HALF_DISABLE_CKPT();
+    test_comm_free_barriers();
+    LOWER_HALF_ENABLE_CKPT();
   }
 }
 
@@ -297,6 +294,69 @@ download_raised_targets(const char *db, const char *list_db,
     it->second.target = max_seq;
   }
   __atomic_add_fetch(&targets_version, 1, __ATOMIC_RELAXED);
+}
+
+int
+start_comm_free_barrier(uint64_t gid, MPI_Comm real_comm)
+{
+  pending_free f = {gid, real_comm, lh_info->MANA_REQUEST_NULL};
+  int retval;
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
+  retval = NEXT_FUNC(Ibarrier)(real_comm, &f.request);
+  RETURN_TO_UPPER_HALF();
+  if (retval == MPI_SUCCESS) {
+    pending_frees.push_back(f);
+  }
+  return retval;
+}
+
+// Tests the MPI_Comm_free barrier of 'f' once, or until it completes if
+// 'wait'.  When it completes, every member started its MPI_Comm_free: this
+// function then frees the real communicator, erases the clock and returns
+// true.
+static bool
+finish_free(pending_free *f, bool wait)
+{
+  int flag = 0;
+  int retval;
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
+  do {
+    retval = NEXT_FUNC(Test)(&f->request, &flag, MPI_STATUS_IGNORE);
+  } while (retval == MPI_SUCCESS && wait && !flag);
+  if (retval == MPI_SUCCESS && flag) {
+    retval = NEXT_FUNC(Comm_free)(&f->real_comm);
+  }
+  RETURN_TO_UPPER_HALF();
+  ASSERT(retval == MPI_SUCCESS,
+         "Freeing a communicator after its barrier failed: gid={} rc={}",
+         f->gid, retval);
+  if (flag) {
+    pthread_mutex_lock(&seq_num_lock);
+    clocks.erase(f->gid);
+    pthread_mutex_unlock(&seq_num_lock);
+  }
+  return flag;
+}
+
+void
+test_comm_free_barriers()
+{
+  for (size_t i = 0; i < pending_frees.size();) {
+    if (finish_free(&pending_frees[i], false)) {
+      pending_frees.erase(pending_frees.begin() + i);
+    } else {
+      i++;
+    }
+  }
+}
+
+void
+complete_comm_free_barriers()
+{
+  for (pending_free &f : pending_frees) {
+    finish_free(&f, true);
+  }
+  pending_frees.clear();
 }
 
 // Writes the KVDB name "/plugin/MANA/<what>-<start>-<generation>" to buf,
@@ -432,9 +492,6 @@ drain_mpi_collective()
     pthread_mutex_unlock(&seq_num_lock);
 
     if (try_drain_mpi_collective(attemptId)) {
-      pthread_mutex_lock(&seq_num_lock);
-      erase_freed_clocks();
-      pthread_mutex_unlock(&seq_num_lock);
       return;
     }
 

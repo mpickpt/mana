@@ -900,6 +900,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
         complete_pending_nonblocking_collectives();  // seq_num.cpp
         g_drain_stats.t_collective += drainStatsNow() - t_nbc;
       }
+      complete_comm_free_barriers();  // seq_num.cpp
       reportDrainStats();  // With MANA_DRAIN_STATS set
       printEventToStderr("EVENT_PRESUSPEND (done)");
       break;
