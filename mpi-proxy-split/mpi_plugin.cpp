@@ -351,7 +351,7 @@ string GetBacktrace()
 
   for (int i = 1; i < nptrs; i++) {
     Dl_info info;
-    ss << "   " << i << ' ' ;
+    ss << "   " << i << ' ';
     if (dladdr1(buffer[i], &info, NULL, 0)) {
       int status;
       size_t buflen = sizeof(buf);

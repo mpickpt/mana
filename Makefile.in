@@ -146,7 +146,7 @@ display-config:
 
 
 _hooksdir=.git/hooks
-add-git-hooks: ${_hooksdir}/pre-commit ${_hooksdir}/post-rewrite
+add-git-hooks: ${_hooksdir}/pre-commit
 
 ${_hooksdir}/%: util/hooks/%
 	if test -d ${_hooksdir}; then \
