@@ -1,5 +1,3 @@
-# MPI compiler according to the platform
-PLATFORM=${shell echo $$HOST}
 include ../Makefile_config
 
 WRAPPERS_SRCDIR = ${PWD}
@@ -68,7 +66,7 @@ mpi_fortran_wrappers.o: fortran_handles.h
 # FIXME:  This assumes 'CFLAGS' is compatible with FORTRAN, since MANA does not
 #         define 'FFLAGS'.  But Fortran doesn't use '-std=gnu11' from CFLAGS.
 fortran_constants.o: fortran_constants.f90
-	${MPIFORTRAN} ${CFLAGS} -fPIC -c -o $@ $<
+	${MPIFC} ${CFLAGS} -fPIC -c -o $@ $<
 
 mpi_collective_wrappers.o: mpi_collective_wrappers.cpp ../virtual_id.h
 	${MPICXX} ${CXXFLAGS} -Wall -DDEBUG -fPIC \

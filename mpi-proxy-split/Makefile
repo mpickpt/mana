@@ -1,5 +1,3 @@
-# MPI compiler according to the platform
-PLATFORM=${shell echo $$HOST}
 include Makefile_config
 
 # These are needed for libmana.so, since the wrapper functions there will

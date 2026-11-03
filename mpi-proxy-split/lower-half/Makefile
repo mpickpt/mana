@@ -1,4 +1,3 @@
-# MPI compiler according to the platform
 UNAME_RELEASE=${shell uname -r}
 include ../Makefile_config
 

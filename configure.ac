@@ -28,6 +28,39 @@ AX_CHECK_COMPILE_FLAG([-fallow-argument-mismatch],
                       [])
 AC_LANG_POP([Fortran])
 
+dnl MANA builds its wrappers and the lower half with the compiler wrappers
+dnl of the MPI library.  The Cray Programming Environment, which sets
+dnl CRAYPE_VERSION, names them cc, CC and ftn.
+AC_ARG_VAR([MPICC], [MPI C compiler command])
+AC_ARG_VAR([MPICXX], [MPI C++ compiler command])
+AC_ARG_VAR([MPIFC], [MPI Fortran compiler command])
+if test -n "$CRAYPE_VERSION"; then
+  mana_mpicc=cc mana_mpicxx=CC mana_mpifc=ftn
+else
+  mana_mpicc=mpicc mana_mpicxx="mpic++ mpicxx" mana_mpifc="mpifort mpif90"
+fi
+AC_CHECK_PROGS([MPICC], [$mana_mpicc])
+AC_CHECK_PROGS([MPICXX], [$mana_mpicxx])
+AC_CHECK_PROGS([MPIFC], [$mana_mpifc])
+if test -z "$MPICC" || test -z "$MPICXX" || test -z "$MPIFC"; then
+  AC_MSG_ERROR([cannot find the MPI compilers.
+Put the bin directory of the MPI library first in PATH,
+or set MPICC, MPICXX and MPIFC.])
+fi
+
+AC_MSG_CHECKING([whether $MPICC builds an MPI program])
+AC_LANG_PUSH([C])
+mana_save_CC=$CC
+CC=$MPICC
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <mpi.h>]],
+                                [[MPI_Init(0, 0); MPI_Finalize();]])],
+               [AC_MSG_RESULT([yes])],
+               [AC_MSG_RESULT([no])
+                AC_MSG_ERROR([$MPICC cannot build an MPI program.
+Set MPICC to the C compiler of the MPI library.])])
+CC=$mana_save_CC
+AC_LANG_POP([C])
+
 AC_CHECK_FILE([dmtcp/configure], [],
   [AC_MSG_ERROR([no, dmtcp/configure does not exist;
                       Did you do:  git submodule init && git submodule update])

@@ -33,6 +33,12 @@ clean` first.  For example, on Fedora, with Open MPI:
     PATH=/usr/lib64/openmpi/bin:$PATH ./configure
     PATH=/usr/lib64/openmpi/bin:$PATH make -j8
 
+With the Cray Programming Environment, as on Perlmutter, `./configure` uses
+the compiler wrappers `cc`, `CC` and `ftn` instead.  To choose the MPI
+compilers yourself, set `MPICC`, `MPICXX` and `MPIFC`.  For example:
+
+    ./configure MPICC=cc MPICXX=CC MPIFC=ftn
+
 In a container that runs as root, Open MPI's `mpirun` needs
 `OMPI_ALLOW_RUN_AS_ROOT=1` and `OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1`.
 
