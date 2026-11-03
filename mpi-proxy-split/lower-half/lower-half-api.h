@@ -126,19 +126,8 @@ typedef struct _LowerHalfInfo
   MPI_Datatype MANA_LONG_LONG_INT;
   MPI_Datatype MANA_LONG_LONG;
   MPI_Datatype MANA_UNSIGNED_LONG_LONG;
-#if 0
-  MPI_Datatype MANA_2COMPLEX;
-  MPI_Datatype MANA_2DOUBLE_COMPLEX;
-  MPI_Datatype MANA_CXX_COMPLEX;
-#endif
   MPI_Datatype MANA_CHARACTER;
   MPI_Datatype MANA_LOGICAL;
-#if 0
-  MPI_Datatype MANA_LOGICAL1;
-  MPI_Datatype MANA_LOGICAL2;
-  MPI_Datatype MANA_LOGICAL4;
-  MPI_Datatype MANA_LOGICAL8;
-#endif
   MPI_Datatype MANA_INTEGER;
   MPI_Datatype MANA_INTEGER1;
   MPI_Datatype MANA_INTEGER2;

@@ -218,18 +218,6 @@ int PMPI_Waitall(int count, MPI_Request *array_of_requests,
 {
   // FIXME: Revisit this wrapper - call get_real_id on array
   int retval = MPI_SUCCESS;
-#if 0
-  LOWER_HALF_DISABLE_CKPT();
-  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
-  retval = NEXT_FUNC(Waitall)(count, array_of_requests, array_of_statuses);
-  RETURN_TO_UPPER_HALF();
-  if (retval == MPI_SUCCESS) {
-    for (int i = 0; i < count; i++) {
-      clearPendingRequestFromLog(&array_of_requests[i]);
-    }
-  }
-  LOWER_HALF_ENABLE_CKPT();
-#else
   // NOTE: See MPI_Testany above for the rationale for these variables.
   int local_count = count;
   MPI_Request *local_array_of_requests = array_of_requests;
@@ -252,7 +240,6 @@ int PMPI_Waitall(int count, MPI_Request *array_of_requests,
       break;
     }
   }
-#endif
   return retval;
 }
 

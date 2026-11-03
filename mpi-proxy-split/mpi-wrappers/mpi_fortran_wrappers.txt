@@ -139,10 +139,3 @@ int MPI_File_get_errhandler(MPI_File fh, MPI_Errhandler* errhandler);
 int MPI_File_delete(const char* filename, MPI_Info info);
 int MPI_Get_library_version(char* version, int* resultlen);
 int MPI_Get_address(const void* location, MPI_Aint* address);
-
-// removed in MPI-3.0 (2012); 
-#if 0;
-int MPI_Type_hindexed(int count, const int* array_of_blocklengths, const MPI_Aint* array_of_displacements, MPI_Datatype oldtype, MPI_Datatype* newtype);
-int MPI_Type_hvector(int count, int blocklength, MPI_Aint stride, MPI_Datatype oldtype, MPI_Datatype* newtype);
-#endif;
-

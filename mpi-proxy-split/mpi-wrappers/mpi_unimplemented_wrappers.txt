@@ -251,15 +251,3 @@ int MPI_Win_unlock(int rank, MPI_Win win);
 int MPI_Win_unlock_all(MPI_Win win);
 int MPI_Win_wait(MPI_Win win);
 double MPI_Wtick(void);
-
-// removed in MPI-3.0 (2012);
-#if 0;
-int MPI_Address(const void *location, MPI_Aint *address);
-int MPI_Errhandler_create(MPI_Handler_function *function, MPI_Errhandler *errhandler);
-int MPI_Errhandler_get(MPI_Comm comm, MPI_Errhandler *errhandler);
-int MPI_Errhandler_set(MPI_Comm comm, MPI_Errhandler errhandler);
-int MPI_Type_extent(MPI_Datatype type, MPI_Aint *extent);
-int MPI_Type_lb(MPI_Datatype type, MPI_Aint *lb);
-int MPI_Type_ub(MPI_Datatype mtype, MPI_Aint *ub);
-#endif;
-

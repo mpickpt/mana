@@ -453,18 +453,3 @@ int MPI_T_category_get_cvars(int cat_index, int len, int indices[]);
 int MPI_T_category_get_pvars(int cat_index, int len, int indices[]);
 int MPI_T_category_get_categories(int cat_index, int len, int indices[]);
 int MPI_T_category_changed(int *update_number);
-
-// removed in MPI-3.0 (2012);
-#if 0;
-int MPI_Address(const void *location, MPI_Aint *address);
-int MPI_Errhandler_create(MPI_Handler_function *function, MPI_Errhandler *errhandler);
-int MPI_Errhandler_get(MPI_Comm comm, MPI_Errhandler *errhandler);
-int MPI_Errhandler_set(MPI_Comm comm, MPI_Errhandler errhandler);
-int MPI_Type_extent(MPI_Datatype type, MPI_Aint *extent);
-int MPI_Type_hindexed(int count, const int array_of_blocklengths[], const MPI_Aint array_of_displacements[], MPI_Datatype oldtype, MPI_Datatype *newtype);
-int MPI_Type_hvector(int count, int blocklength, MPI_Aint stride, MPI_Datatype oldtype, MPI_Datatype *newtype);
-int MPI_Type_lb(MPI_Datatype type, MPI_Aint *lb);
-int MPI_Type_struct(int count, const int array_of_blocklengths[], const MPI_Aint array_of_displacements[], const MPI_Datatype array_of_types[], MPI_Datatype *newtype);
-int MPI_Type_ub(MPI_Datatype mtype, MPI_Aint *ub);
-#endif;
-

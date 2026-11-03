@@ -99,15 +99,6 @@ updateCkptDirByRank()
   dmtcp::ostringstream o;
   o << baseDir << "/ckpt_rank_" << g_world_rank;
   dmtcp_set_ckpt_dir(o.str().c_str());
-
-#if 0
-  o << "/lhregions.dat";
-  dmtcp::string fname = o.str();
-  int fd = open(fname.c_str(), O_CREAT | O_WRONLY, 0600);
-  // g_range (lh_memory_range) was written for debugging here.
-  Util::writeAll(fd, g_range, sizeof(*g_range));
-  close(fd);
-#endif
 }
 
 void
@@ -283,18 +274,12 @@ replayMpiP2pOnRestart()
     switch (call->type) {
       case IRECV_REQUEST:
         TRACE("Replaying Irecv call: remote_node={}", call->remote_node);
-#if 0
-        MPI_Irecv(call->recvbuf, call->count,
-                  realType, call->remote_node,
-                  call->tag, realComm, &request);
-#else
         JUMP_TO_LOWER_HALF(lh_info->fsaddr);
         NEXT_FUNC(Irecv)(call->recvbuf, call->count,
                          realType, call->remote_node,
                          call->tag, realComm, &realRequest);
         RETURN_TO_UPPER_HALF();
         update_virt_id((mana_mpi_handle){.request = request}, (mana_mpi_handle){.request = realRequest});
-#endif
         ASSERT(retval == MPI_SUCCESS, "Error while replaying recv");
         break;
       case ISEND_REQUEST:
