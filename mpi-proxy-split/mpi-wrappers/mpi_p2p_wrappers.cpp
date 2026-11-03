@@ -453,16 +453,6 @@ int PMPI_Sendrecv(const void *sendbuf, int sendcount,
                  int recvtag, MPI_Comm comm, MPI_Status *status)
 {
   int retval;
-#if 0
-  LOWER_HALF_DISABLE_CKPT();
-  MPI_Comm realComm = get_real_id(comm).real_comm;
-  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
-  retval = NEXT_FUNC(Sendrecv)(sendbuf, sendcount, sendtype, dest, sendtag,
-                               recvbuf, recvcount, recvtype, source, recvtag,
-                               realComm, status);
-  RETURN_TO_UPPER_HALF();
-  LOWER_HALF_ENABLE_CKPT();
-#else
   get_fortran_constants();
   MPI_Request reqs[2];
   MPI_Status sts[2];
@@ -492,7 +482,6 @@ int PMPI_Sendrecv(const void *sendbuf, int sendcount,
   if (retval == MPI_SUCCESS) {
     // updateLocalRecvs();
   }
-#endif
   return retval;
 }
 

@@ -59,12 +59,6 @@ void patch_trampoline(void *from_addr, void *to_addr) {
    * asm("jr t0"); // jump to the double word
    * asm(".dword 0x1234567812345678");
    */
-# if 0
-   11154:  00000297  auipc   t0,0x0                          
-   11158:  02b1      addi    t0,t0,10 # 1115e <patch_trampoline+0x3a>
-   1115a:  0002b283  ld      t0,0(t0)                        
-   1115e:  8282      jr      t0 
-# endif
 #else
 # error "architecture not supported"
 #endif
