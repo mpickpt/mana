@@ -17,28 +17,12 @@ ifeq (${IS_PERLMUTTER}, 1)
   MPICC = cc
   MPICXX = CC -std=c++20
   MPIFORTRAN = ftn
-  MPI_LD_FLAG = -lmpich
-  MPIRUN = srun
   MPI_CFLAGS?= @CFLAGS@ -g3 -fPIC
-  MPI_CXXFLAGS?= @CXXFLAGS@ -g3 -fPIC
   MPI_LDFLAGS?= -dynamic
-# This is needed, or else mana_coordinator.o becomes the default target.
-default2: default
-#mana_coordinator.o: mana_coordinator.cpp
-#	${CXX} ${CXXFLAGS} `CC --cray-print-opts=cflags` -c -o $@ $<
-## On Perlmutter, the generic settings of 'else' seem to work.
 else
   MPICC = mpicc
   MPICXX = mpic++ -std=c++20
   MPIFORTRAN = mpifort
-  MPIRUN = mpirun
-  # FIXME: The following paths are hardwired for non-NERSC platforms on which
-  # MPICH and other extra libraries are installed from source.
-  # Eventually, the LD_FLAGS for MPI should be configured in the
-  # `../configure-mana` script.
-  MPI_LD_FLAG = -L$$HOME/mpich-static/usr/lib64 -lmpi -L$$HOME/local_install/lib -llzma -lz -lm -lxml2
   MPI_CFLAGS?= @CFLAGS@ -g3 -fPIC
-  MPI_CXXFLAGS?= @CXXFLAGS@ -g3 -fPIC
-  MPI_FFLAGS = @FFLAGS@ -g3
   MPI_LDFLAGS?=
 endif
