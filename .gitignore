@@ -1,65 +1,42 @@
-# git ls-files --others --exclude-from=.git/info/exclude
-# Lines that start with '#' are comments.
-# For a project mostly in C, the following would be a good set of
-# exclude patterns (uncomment them if you want to use them):
-*.[oat]
+# The dmtcp submodule has a .gitignore of its own.
+
+# Made by ./configure and autoreconf.
+/Makefile
+/manpages/Makefile
+/config.log
+/config.status
+/aclocal.m4
+/autom4te.cache/
+
+# Made by make.  bin/ also gets DMTCP's programs and the lower half, but the
+# mana_* launchers are sources.
+/bin/*
+!/bin/mana_*
+/lib/
+/manpages/mana.1.gz
+*.[oa]
+*.so
+*.so.*
+*.mod
+*.dirstamp
+*.pyc
+__pycache__/
+
+# Left by runs in the tree.
+ckpt_*.dmtcp
+ckpt_rank_*/
+dmtcp_restart_script*
+dmtcp_coordinator_db-*.json
+core
+core.*
+*.log
+
+# Editors and code browsers.
 *~
 *.swp
 *.swo
-*.log
-*.status
-*.so
-*.pyc
-*.dirstamp
-Makefile
-core
 cscope.*
-dmtcpaware*
-*aclocal.m4*
-
-autom4te.cache
-
-bin/
-lib/
-local/
-include/config.h
-include/dmtcp.h
-include/stamp-h1
-dmtcp/src/dmtcp_checkpoint
-dmtcp/src/dmtcp_launch
-dmtcp/src/dmtcp_command
-dmtcp/src/dmtcp_coordinator
-dmtcp/src/dmtcp_nocheckpoint
-dmtcp/src/dmtcp_restart
-dmtcp/src/libdmtcpaware.so*
-plugin/ipc/dmtcp_ssh*
-dmtcp_discover_rm
-dmtcp_srun_helper
-
-mtcp/libmtcp.so*
-mtcp/mtcp.lis
-mtcp/mtcp.map
-mtcp/mtcp_restart
-mtcp/readmtcp
-mtcp/mtcp.t.orig
-mtcp/testmtcp6
-mtcp/util-arch
-
-test/*
-!*.{c,h,cpp,java,py,in}
-test/testconfig.py
-
-*.deps*
-
-ckpt_*.dmtcp
-dmtcp_restart_script*
-
 GPATH
 GRTAGS
 GTAGS
-
 .idea/
-build/
-
-restart_plugin/lower_half_api.h
-manpages/mana.1.gz
