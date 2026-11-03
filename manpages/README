@@ -1,2 +1,0 @@
-Markdown file(s) are the source files that should be converted into manpages
-using pandoc. Please check the commented-out lines Makefile for recipe.
