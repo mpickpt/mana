@@ -48,7 +48,6 @@
 #include "mpi_nextfunc.h"
 #include "virtual_id.h"
 #include "uh_wrappers.h"
-#include "logging.h"
 
 #include "config.h"
 #include "dmtcp.h"
@@ -66,10 +65,6 @@ using dmtcp::kvdb::KVDBRequest;
 using dmtcp::kvdb::KVDBResponse;
 
 /* Global variables */
-void * lh_ckpt_mem_addr = NULL;
-size_t lh_ckpt_mem_size = 0;
-int pagesize = sysconf(_SC_PAGESIZE);
-
 extern std::unordered_map<MPI_File, OpenFileParameters> g_params_map;
 
 bool g_libmana_is_initialized = false;
@@ -83,7 +78,6 @@ static bool processingOpenCkpFileFds = false;
 
 std::unordered_map<pid_t, unsigned long> *g_upper_half_fsbase = NULL;
 DmtcpMutex g_upper_half_fsbase_lock;
-int CheckAndEnableFsGsBase();
 
 EXTERNC pid_t dmtcp_get_real_tid() __attribute((weak));
 
@@ -94,11 +88,6 @@ ProcSelfMaps *postMpiInitMaps = nullptr;
 map<void*, size_t> *mpiInitLhAreas = nullptr;
 void *heapAddr = nullptr;
 
-// High memory could start at 0x7ffc00000000 on Perlmutter
-const VA HIGH_ADDR_START = (VA)0x7ffc00000000;
-
-void *old_brk;
-void *old_end_of_brk;
 char *uh_stack_start;
 char *uh_stack_end;
 
@@ -167,10 +156,6 @@ void recordPostMpiInitMaps()
       }
     }
   }
-}
-
-void recordMpiInitMaps()
-{
 }
 
 void recordOpenFds()
@@ -911,7 +896,6 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       // The threads are suspended now; let them back into the lower half
       // when they resume.
       allow_threads_to_enter_lower_half();
-      recordMpiInitMaps();
       recordOpenFds();
       dmtcp_local_barrier("MPI:GetLocalRankInfo");
       getLocalRankInfo(); // p2p_log_replay.cpp
@@ -924,8 +908,6 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       const char *file2 = get_mpi_file_filename();
       save_mpi_files(file2);
       printEventToStderr("EVENT_PRECHECKPOINT (done)");
-      // Save a copy of the break address before checkpoint
-      old_brk = sbrk(0);
       uh_stack_start = lh_info->uh_stack_start;
       uh_stack_end = lh_info->uh_stack_end;
       break;

@@ -24,80 +24,6 @@ else:
 declarations = declarations_file.read().split(';')[:-1]  # Each decl ends in ';'
 declarations_file.close()
 
-def print_mpi_type_struct():
-  print("#ifdef MPICH_NUMVERSION")
-  print("#if MPICH_NUMVERSION < MPICH_CALC_VERSION(3,4,0,0,2) && defined(CRAY_MPICH_VERSION)")
-  print("""EXTERNC int mpi_type_struct_ (int* count,
-            const int* array_of_blocklengths,
-            const MPI_Aint* array_of_displacements,
-            MPI_Datatype* array_of_types,
-            MPI_Datatype* newtype, int *ierr) {""")
-  print("#else")
-  print("""EXTERNC int mpi_type_struct_ (int* count,
-            int* array_of_blocklengths,
-            MPI_Aint* array_of_displacements,
-            MPI_Datatype* array_of_types,
-            MPI_Datatype* newtype, int *ierr) {""")
-  print("#endif")
-  print("#else")
-  print("""EXTERNC int mpi_type_struct_ (int* count,
-            int* array_of_blocklengths,
-            MPI_Aint* array_of_displacements,
-            MPI_Datatype* array_of_types,
-            MPI_Datatype* newtype, int *ierr) {""")
-  print("#endif")
-  print("""    *ierr = MPI_Type_struct(*count, array_of_blocklengths,
-            array_of_displacements, array_of_types, newtype);""")
-  print("  return *ierr;")
-  print("}")
-
-def print_mpi_type_hindexed():
-  # Perlmutter cray_mpich both implement MPI 3.1. However, they use different 
-  # APIs. We use MPICH_NUMVERSION (3.4a2) to differentiate the cray-mpich on Cori
-  # and Perlmuttter. This ad-hoc workaround should be removed once the cray-mpich
-  # on Perlmutter is fixed to use the right API.
-  print("#ifdef MPICH_NUMVERSION")
-  print("#if MPICH_NUMVERSION < MPICH_CALC_VERSION(3,4,0,0,2) && defined(CRAY_MPICH_VERSION)")
-  print("""EXTERNC int mpi_type_hindexed_ (int* count,
-            const int* array_of_blocklengths,
-            const MPI_Aint* array_of_displacements,
-            MPI_Datatype* oldtype,  MPI_Datatype* newtype, int *ierr) {""")
-  print("#else")
-  print("""EXTERNC int mpi_type_hindexed_ (int* count,
-            int* array_of_blocklengths,  MPI_Aint* array_of_displacements,
-            MPI_Datatype* oldtype,  MPI_Datatype* newtype, int *ierr) {""")
-  print("#endif")
-  print("#else")
-  print("""EXTERNC int mpi_type_hindexed_ (int* count,
-            int* array_of_blocklengths,  MPI_Aint* array_of_displacements,
-            MPI_Datatype* oldtype,  MPI_Datatype* newtype, int *ierr) {""")
-  print("#endif")
-  print("""    *ierr = MPI_Type_hindexed(*count, array_of_blocklengths,
-            array_of_displacements, *oldtype, newtype);""")
-  print("  return *ierr;")
-  print("}")
-
-def print_mpi_type_create_hindexed():
-  print("#ifdef MPICH_NUMVERSION")
-  print("#if MPICH_NUMVERSION < MPICH_CALC_VERSION(3,4,0,0,2) && defined(CRAY_MPICH_VERSION)")
-  print("""EXTERNC int mpi_type_create_hindexed_ (int* count,
-            const int* array_of_blocklengths,
-            const MPI_Aint* array_of_displacements,  MPI_Datatype* oldtype,
-            MPI_Datatype* newtype, int *ierr) {""")
-  print("#else")
-  print("""EXTERNC int mpi_type_create_hindexed_ (int* count,
-            int* array_of_blocklengths,  MPI_Aint* array_of_displacements,
-            MPI_Datatype* oldtype,  MPI_Datatype* newtype, int *ierr) {""")
-  print("#endif")
-  print("#else")
-  print("""EXTERNC int mpi_type_create_hindexed_ (int* count,
-            int* array_of_blocklengths,  MPI_Aint* array_of_displacements,
-            MPI_Datatype* oldtype,  MPI_Datatype* newtype, int *ierr) {""")
-  print("#endif")
-  print("""    *ierr = MPI_Type_create_hindexed(*count, array_of_blocklengths,
-             array_of_displacements, *oldtype, newtype);""")
-  print("  return *ierr;")
-  print("}")
 # =============================================================
 
 # The MPI handle types, by kind (see lower-half-api.h).  The Fortran wrappers
@@ -196,14 +122,6 @@ def emit_wrapper(decl, ret_type, fnc, args, arg_vars):
   fargs += "int *ierr"
   if cargs.endswith(", "):
     cargs = cargs[:-2]
-
-  # Handle MPI_Type_struct separately to ensure macros generate correctly
-  if fnc == 'MPI_Type_struct':
-    print_mpi_type_struct()
-    return
-  elif fnc == 'MPI_Type_hindexed':
-    print_mpi_type_hindexed()
-    return
 
   if fargs == '' and not(fnc in ['MPI_Wtime', 'MPI_Wtick']):
     print("EXTERNC " + ret_type + " " + fnc.lower() + "_ (int* ierr) {")

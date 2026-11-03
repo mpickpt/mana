@@ -288,28 +288,3 @@ debugStack(argc_ptr, argv_ptr);
   *auxv_ptr = dest_auxv_ptr;
   return dest_curr_stack;
 }
-
-// FIXME:  This was copied into lower-half.cpp, and is unused here.
-//         Why didn't we simply remove the 'static' declaration?
-// Given a pointer to auxvector, parses the aux vector and patches the AT_PHDR,
-// AT_ENTRY, and AT_PHNUM entries.
-static void
-patchAuxv(Elf64_auxv_t *av, unsigned long phnum,
-          unsigned long phdr, unsigned long entry)
-{
-  for (; av->a_type != AT_NULL; ++av) {
-    switch (av->a_type) {
-      case AT_PHNUM:
-        av->a_un.a_val = phnum;
-        break;
-      case AT_PHDR:
-        av->a_un.a_val = phdr;
-        break;
-      case AT_ENTRY:
-        av->a_un.a_val = entry;
-        break;
-      default:
-        break;
-    }
-  }
-}

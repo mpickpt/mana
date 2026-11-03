@@ -46,9 +46,6 @@
 
 using namespace std;
 
-#define MMAP_OFF_HIGH_MASK ((-(4096ULL << 1) << (8 * sizeof (off_t) - 1)))
-#define MMAP_OFF_LOW_MASK  (4096ULL - 1)
-#define MMAP_OFF_MASK (MMAP_OFF_HIGH_MASK | MMAP_OFF_LOW_MASK)
 #define _real_mmap mmap
 #define _real_munmap munmap
 #define _real_mremap mremap
@@ -105,23 +102,14 @@ static char *arena_base = NULL;
 static void* __mmap_wrapper(void * , size_t , int , int , int , off_t);
 static void patchLibc(int , char * , char *);
 static void uhExit(int status);
-static void addRegionTommaps(char *, size_t);
 static int __munmap_wrapper(void *, size_t);
 static void* __mremap_wrapper(char *, size_t, size_t, int, char *);
-static void updateMmaps(char *, size_t);
 static void patchSbrk(char *, char *, size_t);
 
 off_t get_symbol_offset(const char *pathame, const char *symbol);
 
 bool mem_compare (MmapInfo_t &a, MmapInfo_t &b) {
   return (a.addr < b.addr);
-}
-
-void print_blocks(vector<MmapInfo_t> &blocks) {
-  for (auto b : blocks) {
-    printf("block %p ~ %p, size %lx\n", b.addr, b.addr + b.len, b.len);
-  }
-  fflush(stdout);
 }
 
 void merge_overlap_blocks(MmapInfo_t new_block, vector<MmapInfo_t> &blocks) {
@@ -349,15 +337,6 @@ int checkLibrary(int fd, const char* name,
   return 0;
 }
 
-
-void block_if_contains(void *target, void *addr, size_t length) {
-  if (addr <= (char*) target && (char*) addr + length >= (char*) target) {
-    printf("%p detected at mmap. Paused.\n", target);
-    fflush(stdout);
-    volatile int dummy = 1;
-    while (dummy);
-  }
-}
 
 // The upper half's heap.  The kernel's brk belongs to the lower half
 // (create_heap_guard_page()), and glibc's mmap'ed fallback arena never gives
