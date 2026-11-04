@@ -105,24 +105,6 @@ libmpistub_audit.so: mpi_stub_audit.c
 	${CC} -O2 -fPIC -shared -nostdlib -fno-stack-protector \
 	  -Wl,--no-undefined -o $@ $<
 
-libmpich_gnu_82.so.3.0.1: libmpistub.so
-	ln -sf $< $@
-
-libmpich_gnu_82.so.3: libmpich_gnu.so.3.0.1
-	ln -sf $< $@
-
-libmpich_intel.so.3.0.1: libmpistub.so
-	ln -sf $< $@
-
-libmpich_intel.so.3: libmpich_intel.so.3.0.1
-	ln -sf $< $@
-
-libpmi.so.0.5.0: libmpistub.so
-	ln -sf $< $@
-
-libpmi.so.0: libpmi.so.0.5.0
-	ln -sf $< $@
-
 tidy:
 	rm -f *~ .*.swp dmtcp_restart_script*.sh ckpt_*.dmtcp
 	rm -rf ckpt_rank_*
@@ -130,14 +112,6 @@ tidy:
 
 install: libmpistub.so libmpistub_audit.so
 	cp -f libmpistub.so libmpistub_audit.so ${MANA_ROOT}/lib/dmtcp/
-	cd ${MANA_ROOT}/lib/dmtcp && \
-		ln -sf libmpistub.so libmpich_intel.so.3.0.1 && \
-		ln -sf libmpich_intel.so.3.0.1 libmpich_intel.so.3 && \
-		ln -sf libmpistub.so libmpich_gnu_82.so.3.0.1 && \
-		ln -sf libmpich_gnu_82.so.3.0.1 libmpich_gnu_82.so.3
-	cd ${MANA_ROOT}/lib/dmtcp && \
-		ln -sf libmpistub.so libpmi.so.0.5.0 && \
-		ln -sf libpmi.so.0.5.0 libpmi.so.0
 
 clean: tidy
 	rm -f ${LIBWRAPPER_OBJS} *.d
@@ -148,13 +122,6 @@ clean: tidy
 	rm -f mpi_stub_wrappers.c
 	rm -f mpi_unimplemented_wrappers.cpp
 	rm -f mpi_fortran_wrappers.cpp
-	rm -f libmpich_intel.so.3.0.1 libmpich_intel.so.3
-	rm -f libmpich_gnu_82.so.3.0.1 libmpich_gnu_82.so.3
-	rm -f libpmi.so.3.0.1 libpmi.so.0
-	if test -d ${MANA_ROOT}/lib/dmtcp; then \
-        cd ${MANA_ROOT}/lib/dmtcp && rm -f libmpich_gnu_82.so.* \
-            libmpich_intel.so.* libpmi.so.*; \
-    fi
 
 
 distclean: clean

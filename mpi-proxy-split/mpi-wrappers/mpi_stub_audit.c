@@ -42,11 +42,13 @@
 #define STUB_LIBRARY "libmpistub.so"
 
 // The names of MPICH-ABI MPI libraries, without ".so...": MPICH, Intel MPI,
-// MVAPICH, and Cray MPICH (libmpi_cray, libmpich_gnu_82, ...).  Not a
-// profiler like libmpiP, nor libmpistub itself.
+// MVAPICH, and Cray MPICH (libmpi_cray, libmpich_gnu_82, ...).  Also
+// libpmi, the process-management library of MPICH and Cray MPICH, for a
+// program that links it itself.  Not a profiler like libmpiP, nor
+// libmpistub itself.
 static const char *const mpi_libraries[] = {
   "libmpi", "libmpich", "libmpifort", "libmpicxx", "libmpichfort",
-  "libmpichcxx", "libfmpich", "libmpichf90", NULL
+  "libmpichcxx", "libfmpich", "libmpichf90", "libpmi", NULL
 };
 static const char *const mpi_library_prefixes[] = {
   "libmpi_", "libmpich_", "libmpifort_", NULL
