@@ -12,11 +12,11 @@ MPICXX = @MPICXX@ -std=c++20
 override CFLAGS += -fno-stack-protector
 override CXXFLAGS += -fno-stack-protector
 
-# Targets to install:
+# Targets to stage:
 #   libmana.so (using mpi-wrappers/libmpiwrappers.a), libmpistub.so,
 #   libmpistub_audit.so
 
-# Subdirectories needed to install
+# Subdirectories needed to stage
 LOWER_HALF_SRCDIR=lower-half
 WRAPPERS_SRCDIR=mpi-wrappers
 
@@ -45,10 +45,12 @@ override CXXFLAGS += -fPIC -I${DMTCP_INCLUDE} -I${JALIB_INCLUDE} \
 # code is in libmpi_cxx.so.
 override CXXFLAGS += -DOMPI_SKIP_MPICXX -DMPICH_SKIP_MPICXX
 
-# 'make' does what 'make install' does.
-default: install
+# 'make' builds libmana.so, the stubs and the lower half, and stages them:
+# it copies them into ../lib/dmtcp and ../bin, where MANA's scripts find
+# them.
+default: stage
 
-# ${WRAPPERS_SRCDIR}/libmpiwrappers.a made in install/default before libmana.so
+# ${WRAPPERS_SRCDIR}/libmpiwrappers.a made in stage/default before libmana.so
 # libmana.so needs libmpistub.so (in the same directory once installed): with
 # Open MPI, it refers to the MPI library's objects (see
 # generate-mpi-stub-objects.py), and a program that loads the MPI library
@@ -85,19 +87,19 @@ ${MANA_ROOT}/lib/dmtcp/libmana.so: libmana.so
 	cp -f $< $@
 ${MANA_ROOT}/lib/dmtcp/libmpistub.so: ${WRAPPERS_SRCDIR}/mpi_stub_wrappers.txt \
                                       ${WRAPPERS_SRCDIR}/mpi_stub_data.c
-	$(MAKE) -C ${WRAPPERS_SRCDIR} install
+	$(MAKE) -C ${WRAPPERS_SRCDIR} stage
 ${MANA_ROOT}/lib/dmtcp/libmpistub_audit.so: ${WRAPPERS_SRCDIR}/mpi_stub_audit.c
-	$(MAKE) -C ${WRAPPERS_SRCDIR} install
+	$(MAKE) -C ${WRAPPERS_SRCDIR} stage
 
 # ${WRAPPERS_SRCDIR}/libmpiwrappers.a ia a prerequisite for libmana.so,
 #   which is a prerequisite for ${MANA_ROOT}/lib/dmtcp/libmana.so
-# Always do 'make default' or 'make install' -- not 'make libmana.so'
-install:
+# Always do 'make' or 'make stage' -- not 'make libmana.so'
+stage:
 	$(MAKE) -C ${WRAPPERS_SRCDIR} libmpiwrappers.a libmpistub.so
 	$(MAKE) ${MANA_ROOT}/lib/dmtcp/libmana.so
 	$(MAKE) ${MANA_ROOT}/lib/dmtcp/libmpistub.so
 	$(MAKE) ${MANA_ROOT}/lib/dmtcp/libmpistub_audit.so
-	$(MAKE) -C ${LOWER_HALF_SRCDIR} install
+	$(MAKE) -C ${LOWER_HALF_SRCDIR} stage
 
 tidy:
 	rm -f *~ .*.swp dmtcp_restart_script*.sh ckpt_*.dmtcp
@@ -115,7 +117,7 @@ distclean: clean
 
 FORCE:
 
-.PHONY: default clean distclean tidy check tests install
+.PHONY: default clean distclean tidy check tests stage
 
 # Regenerate this Makefile when Makefile.in or config.status is newer.
 Makefile: Makefile.in @top_builddir@/config.status

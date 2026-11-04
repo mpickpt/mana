@@ -40,7 +40,7 @@ all: default
 MANA_SCRIPTS = mana_coordinator mana_launch mana_restart mana_status
 
 mana: mana_prereqs dmtcp $(MANA_SCRIPTS:%=bin/%)
-	cd mpi-proxy-split && $(MAKE) install
+	cd mpi-proxy-split && $(MAKE) stage
 
 # bin/ holds the scripts next to DMTCP's programs and the lower half, which
 # the scripts run.
@@ -79,12 +79,10 @@ create-dirs:
 
 install: all create-dirs
 	cd ${DMTCP_ROOT} && $(MAKE) DESTDIR=$(DESTDIR) $(INSTALL_FLAGS)
-	cd mpi-proxy-split && $(MAKE) DESTDIR=$(DESTDIR) $(INSTALL_FLAGS)
 	cd manpages && $(MAKE) DESTDIR=$(DESTDIR) $(INSTALL_FLAGS)
 
 uninstall:
 	cd ${DMTCP_ROOT} && $(MAKE) DESTDIR=$(DESTDIR) $(UNINSTALL_FLAGS)
-	cd mpi-proxy-split && $(MAKE) DESTDIR=$(DESTDIR) $(UNINSTALL_FLAGS)
 	cd manpages && $(MAKE) DESTDIR=$(DESTDIR) $(UNINSTALL_FLAGS)
 
 distclean: clean

@@ -110,7 +110,7 @@ tidy:
 	rm -rf ckpt_rank_*
 	rm -f dmtcp_coordinator_db-*.json
 
-install: libmpistub.so libmpistub_audit.so
+stage: libmpistub.so libmpistub_audit.so
 	cp -f libmpistub.so libmpistub_audit.so ${MANA_ROOT}/lib/dmtcp/
 
 clean: tidy
@@ -126,7 +126,7 @@ clean: tidy
 
 distclean: clean
 
-.PHONY: default clean distclean tidy install
+.PHONY: default clean distclean tidy stage
 
 # Regenerate this Makefile when Makefile.in or config.status is newer.
 Makefile: Makefile.in @top_builddir@/config.status
