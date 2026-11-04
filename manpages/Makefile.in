@@ -28,3 +28,7 @@ clean:
 
 distclean: clean
 	rm -f Makefile
+
+# Regenerate this Makefile when Makefile.in or config.status is newer.
+Makefile: Makefile.in @top_builddir@/config.status
+	cd @top_builddir@ && ./config.status manpages/Makefile

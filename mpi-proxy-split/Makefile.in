@@ -1,4 +1,10 @@
-include Makefile_config
+# @configure_input@
+
+# The compilers and flags that configure found.
+CFLAGS = @CFLAGS@
+CXXFLAGS = @CXXFLAGS@
+MPICC = @MPICC@
+MPICXX = @MPICXX@ -std=c++20
 
 # These are needed for libmana.so, since the wrapper functions there will
 # call the lower half.  That requires temporarily changing the FS register,
@@ -20,11 +26,10 @@ LIBOBJS = uh_wrappers.o mpi_plugin.o p2p_drain_send_recv.o p2p_log_replay.o \
           seq_num.o virtual_id.o lower_half_ckpt.o \
           lower-half/switch-context.o \
 
-# Modify if your MANA_ROOT is located elsewhere.
+# MANA_ROOT and DMTCP_ROOT in the environment replace these.
 ifndef MANA_ROOT
-  MANA_ROOT=..
+  MANA_ROOT=@top_srcdir@
 endif
-# Modify if your DMTCP_ROOT is located elsewhere.
 ifndef DMTCP_ROOT
   DMTCP_ROOT=${MANA_ROOT}/dmtcp
 endif
@@ -108,3 +113,7 @@ clean: tidy
 distclean: clean
 
 .PHONY: default clean distclean tidy check tests install
+
+# Regenerate this Makefile when Makefile.in or config.status is newer.
+Makefile: Makefile.in @top_builddir@/config.status
+	cd @top_builddir@ && ./config.status mpi-proxy-split/Makefile

@@ -1,4 +1,12 @@
-include ../Makefile_config
+# @configure_input@
+
+# The compilers and flags that configure found.
+CXXFLAGS = @CXXFLAGS@
+FFLAGS = ${CXXFLAGS} @FFLAGS@
+MPICC = @MPICC@
+MPIFC = @MPIFC@
+MPI_CFLAGS?= @CFLAGS@ -g3 -fPIC
+MPI_LDFLAGS?=
 
 ###############################################################
 # NOTE:  More Fortran/C examples (under LGPL license) at:
@@ -74,3 +82,7 @@ tidy:
 clean: tidy
 	rm -f *.pyc *.so
 	rm -f ${E2E_TESTS} ${E2E_FORTRAN} ${BENCH_FILES}
+
+# Regenerate this Makefile when Makefile.in or config.status is newer.
+Makefile: Makefile.in @top_builddir@/config.status
+	cd @top_builddir@ && ./config.status mpi-proxy-split/test/Makefile

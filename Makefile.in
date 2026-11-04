@@ -76,6 +76,9 @@ distclean: clean
 	- cd mpi-proxy-split && $(MAKE) distclean
 	- cd manpages && $(MAKE) distclean
 	rm -f Makefile config.log config.status config.status-* config.cache
+	rm -f mpi-proxy-split/Makefile mpi-proxy-split/lower-half/Makefile \
+	  mpi-proxy-split/mpi-wrappers/Makefile mpi-proxy-split/test/Makefile \
+	  mpi-proxy-split/examples/Makefile
 	rm -rf autom4te.cache
 	rm -rf $(top_builddir)/lib
 	- cd $(top_builddir)/bin && find . \! -name '*mana*' -delete
@@ -154,3 +157,7 @@ ${_hooksdir}/%: util/hooks/%
 .PHONY: default all add-git-hooks \
 	display-build-env display-release display-config \
 	dmtcp clean
+
+# Regenerate this Makefile when Makefile.in or config.status is newer.
+Makefile: Makefile.in config.status
+	./config.status Makefile

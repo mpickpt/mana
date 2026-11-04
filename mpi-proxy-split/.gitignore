@@ -7,10 +7,15 @@ test/*
 !test/*.h
 !test/*.py
 !test/*.md
-!test/Makefile
+!test/Makefile.in
 examples/ring
 lower-half/lower-half
-Makefile_config
+
+# Made by configure from the Makefile.in files.
+/Makefile
+/lower-half/Makefile
+/mpi-wrappers/Makefile
+/examples/Makefile
 
 # Made by mpi-wrappers/Makefile from the generate-*.py scripts.
 mpi-wrappers/mpi_fortran_wrappers.cpp
