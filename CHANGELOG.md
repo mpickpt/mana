@@ -20,6 +20,14 @@ TODO for all releases:
 - Review and update https://github.com/mpickpt/mana-doc and propagate
   to readthedocs.io
 - Finally, go to github and do a new release there.
+- Attach a source tarball that includes DMTCP to the release.  GitHub's
+  "Source code" archives leave out the dmtcp submodule.  After
+  'git submodule update', for example for v1.2.0:
+    git archive --prefix=mana-1.2.0/ -o mana-1.2.0.tar v1.2.0
+    git -C dmtcp archive --prefix=mana-1.2.0/dmtcp/ -o ../dmtcp.tar \
+      $(git rev-parse v1.2.0:dmtcp)
+    tar --concatenate -f mana-1.2.0.tar dmtcp.tar
+    rm dmtcp.tar && gzip mana-1.2.0.tar
 --->
 
 ## [1.5.0] - 2026-10-05
