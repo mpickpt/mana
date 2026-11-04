@@ -1,10 +1,14 @@
-include ../Makefile_config
+# @configure_input@
 
-# Modify if your MANA_ROOT is located elsewhere.
+# The compilers and flags that configure found.
+CFLAGS = @CFLAGS@
+CXXFLAGS = @CXXFLAGS@
+MPICXX = @MPICXX@ -std=c++20
+
+# MANA_ROOT and DMTCP_ROOT in the environment replace these.
 ifndef MANA_ROOT
-  MANA_ROOT=../..
+  MANA_ROOT=@top_srcdir@
 endif
-# Modify if your DMTCP_ROOT is located elsewhere.
 ifndef DMTCP_ROOT
   DMTCP_ROOT=${MANA_ROOT}/dmtcp
 endif
@@ -57,3 +61,7 @@ clean: tidy
 distclean: clean
 
 .PHONY: default clean distclean install
+
+# Regenerate this Makefile when Makefile.in or config.status is newer.
+Makefile: Makefile.in @top_builddir@/config.status
+	cd @top_builddir@ && ./config.status mpi-proxy-split/lower-half/Makefile

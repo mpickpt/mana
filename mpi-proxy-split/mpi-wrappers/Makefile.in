@@ -1,4 +1,11 @@
-include ../Makefile_config
+# @configure_input@
+
+# The compilers and flags that configure found.
+CFLAGS = @CFLAGS@
+CXXFLAGS = @CXXFLAGS@
+MPICC = @MPICC@
+MPICXX = @MPICXX@ -std=c++20
+MPIFC = @MPIFC@
 
 # By default, your resulting plugin library will have this name.
 LIBNAME=libmpiwrappers
@@ -18,11 +25,10 @@ LIBWRAPPER_OBJS = mpi_p2p_wrappers.o mpi_collective_wrappers.o \
                   mpi_t_wrappers.o
 
 
-# Modify if your MANA_ROOT is located elsewhere.
+# MANA_ROOT and DMTCP_ROOT in the environment replace these.
 ifndef MANA_ROOT
-  MANA_ROOT=../..
+  MANA_ROOT=@top_srcdir@
 endif
-# Modify if your DMTCP_ROOT is located elsewhere.
 ifndef DMTCP_ROOT
   DMTCP_ROOT=${MANA_ROOT}/dmtcp
 endif
@@ -163,3 +169,7 @@ clean: tidy
 distclean: clean
 
 .PHONY: default clean distclean tidy install
+
+# Regenerate this Makefile when Makefile.in or config.status is newer.
+Makefile: Makefile.in @top_builddir@/config.status
+	cd @top_builddir@ && ./config.status mpi-proxy-split/mpi-wrappers/Makefile
