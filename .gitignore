@@ -15,6 +15,7 @@
 /lib/
 /manpages/mana.1.gz
 *.[oa]
+*.d
 *.so
 *.so.*
 *.mod

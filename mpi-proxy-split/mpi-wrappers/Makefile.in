@@ -55,16 +55,16 @@ mpi_unimplemented_wrappers.cpp: generate-mpi-unimplemented-wrappers.py \
 	mpi_unimplemented_wrappers.txt
 	python3 $^ > $@
 
+# -MMD -MP writes the headers that an object includes into its .d file,
+# which make reads below.  So a change to a header rebuilds the objects
+# that include it.
 .c.o:
-	${MPICC} ${CFLAGS} -c -o $@ $<
+	${MPICC} ${CFLAGS} -MMD -MP -c -o $@ $<
 
 .cpp.o:
-	${MPICXX} ${CXXFLAGS} -c -o $@ $<
+	${MPICXX} ${CXXFLAGS} -MMD -MP -c -o $@ $<
 
-# Make ignores prerequisites on suffix rules, so list header dependencies
-# here: the headers that define inline code.
-$(filter mpi_%,${LIBWRAPPER_OBJS}): ../virtual_id.h ../lower_half_ckpt.h
-mpi_fortran_wrappers.o: fortran_handles.h
+-include $(wildcard *.d)
 
 # FIXME:  This assumes 'CFLAGS' is compatible with FORTRAN, since MANA does not
 #         define 'FFLAGS'.  But Fortran doesn't use '-std=gnu11' from CFLAGS.
@@ -140,7 +140,7 @@ install: libmpistub.so libmpistub_audit.so
 		ln -sf libpmi.so.0.5.0 libpmi.so.0
 
 clean: tidy
-	rm -f ${LIBWRAPPER_OBJS}
+	rm -f ${LIBWRAPPER_OBJS} *.d
 	rm -f ${LIBNAME}.a libmpistub.so mpi_stub_data.o libmpistub_audit.so
 	rm -f mpi_stub_objects.c mpi_stub_objects.o
 	rm -f ${MANA_ROOT}/lib/dmtcp/libmpistub.so
