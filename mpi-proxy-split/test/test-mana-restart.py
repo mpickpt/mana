@@ -9,7 +9,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 WRAPPER = Path(os.environ.get(
-  "MANA_RESTART_WRAPPER", ROOT / "bin" / "mana_restart"))
+  "MANA_RESTART_WRAPPER", ROOT / "scripts" / "mana_restart"))
 
 
 class ManaRestartTest(unittest.TestCase):

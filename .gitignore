@@ -8,10 +8,8 @@
 /aclocal.m4
 /autom4te.cache/
 
-# Made by make.  bin/ also gets DMTCP's programs and the lower half, but the
-# mana_* launchers are sources.
-/bin/*
-!/bin/mana_*
+# Made by make.
+/bin/
 /lib/
 /manpages/mana.1.gz
 *.[oa]
