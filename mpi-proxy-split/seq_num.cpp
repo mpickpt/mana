@@ -2,6 +2,7 @@
 
 #include <map>
 #include <unordered_set>
+#include <vector>
 #include <string.h>
 #include <pthread.h>
 #include <semaphore.h>
@@ -38,6 +39,12 @@ pthread_mutex_t seq_num_lock;
 // The clocks of this process, by gid.  The descriptor of a communicator
 // points to its clock.
 static std::unordered_map<uint64_t, comm_clock> clocks;
+// The gids of the clocks whose targets this process raised in the current
+// drain attempt.  The next drain round uploads their sequence numbers.
+static std::vector<uint64_t> raised_clocks;
+// Counts the downloads of targets.  A process that waits for a drain checks its
+// targets again only after one.
+static unsigned long targets_version;
 
 void seq_num_init() {
   ckpt_pending = false;
@@ -67,17 +74,6 @@ int check_seq_nums() {
       break;
     }
   }
-  return target_reached;
-}
-
-// Calls check_seq_nums() under seq_num_lock and returns its result.  Another
-// thread can add or erase clocks at the same time.
-static int
-check_seq_nums_locked()
-{
-  pthread_mutex_lock(&seq_num_lock);
-  int target_reached = check_seq_nums();
-  pthread_mutex_unlock(&seq_num_lock);
   return target_reached;
 }
 
@@ -113,72 +109,33 @@ erase_freed_clocks()
   }
 }
 
-void seq_num_broadcast(MPI_Comm comm, unsigned long new_target) {
-  uint64_t comm_gid = get_comm_desc(comm)->gid;
-  unsigned long msg[2] = {comm_gid, new_target};
-  int comm_size;
-  int comm_rank;
-  int world_rank;
-  MPI_Comm_size(comm, &comm_size);
-  MPI_Comm_rank(comm, &comm_rank);
-  MPI_Group world_group, local_group;
-  MPI_Comm real_local_comm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
-  MPI_Comm real_world_comm = get_real_id((mana_mpi_handle){.comm = g_world_comm}).comm;
-  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
-  NEXT_FUNC(Comm_group)(real_world_comm, &world_group);
-  NEXT_FUNC(Comm_group)(real_local_comm, &local_group);
-  for (int i = 0; i < comm_size; i++) {
-    if (i != comm_rank) {
-      NEXT_FUNC(Group_translate_ranks)(local_group, 1, &i,
-                world_group, &world_rank);
-      NEXT_FUNC(Send)(&msg, 2, lh_info->MANA_UNSIGNED_LONG, world_rank,
-                      0, real_world_comm);
-#ifdef DEBUG_SEQ_NUM
-      printf("rank %d sending to rank %d new target comm %u seq %lu target %lu\n",
-             g_world_rank, world_rank, comm_gid, clocks[comm_gid].seq,
-             new_target);
-      fflush(stdout);
-#endif
-    }
-  }
-  NEXT_FUNC(Group_free)(&world_group);
-  NEXT_FUNC(Group_free)(&local_group);
-  RETURN_TO_UPPER_HALF();
-}
-
-// Receives a target message, if one arrived, and raises the target of its
-// clock.  It ignores the target of a clock that it erased, because every
-// member freed that communicator.
+// Lets the MPI library make progress while this process waits for a drain.
+// The other members may wait for a non-blocking collective that this process
+// started.  The MPI library progresses that collective only during MPI calls.
 static void
-receive_target()
+progress_mpi()
 {
   MPI_Status status;
   int flag;
   MPI_Iprobe_internal(MPI_ANY_SOURCE, MPI_ANY_TAG, g_world_comm, &flag,
                       &status);
-  if (flag) {
-    unsigned long new_target[2];
-    MPI_Comm real_world_comm =
-      get_real_id((mana_mpi_handle){.comm = g_world_comm}).comm;
-    JUMP_TO_LOWER_HALF(lh_info->fsaddr);
-    NEXT_FUNC(Recv)(&new_target, 2, lh_info->MANA_UNSIGNED_LONG,
-        status.MPI_SOURCE, status.MPI_TAG, real_world_comm,
-        MPI_STATUS_IGNORE);
-    RETURN_TO_UPPER_HALF();
-    uint64_t updated_comm = new_target[0];
-    unsigned long updated_target = new_target[1];
-    pthread_mutex_lock(&seq_num_lock);
-    std::unordered_map<uint64_t, comm_clock>::iterator it =
-      clocks.find(updated_comm);
-    if (it != clocks.end() && it->second.target < updated_target) {
-      it->second.target = updated_target;
-#ifdef DEBUG_SEQ_NUM
-      printf("rank %d received new target comm %lu seq %lu target %lu\n",
-          g_world_rank, updated_comm, it->second.seq, updated_target);
-      fflush(stdout);
-#endif
-    }
+}
+
+// Waits while a drain attempt runs and this process has reached all its
+// targets.  Call it under seq_num_lock.  Only a download of targets, or the
+// end of the attempt, can end the wait.  So it checks the targets again only
+// after a download, and spins without the lock until then.
+static void
+wait_while_targets_reached()
+{
+  while (ckpt_pending && check_seq_nums()) {
+    unsigned long version = targets_version;
     pthread_mutex_unlock(&seq_num_lock);
+    do {
+      progress_mpi();
+    } while (ckpt_pending &&
+             __atomic_load_n(&targets_version, __ATOMIC_RELAXED) == version);
+    pthread_mutex_lock(&seq_num_lock);
   }
 }
 
@@ -192,11 +149,7 @@ begin_critical_section(MPI_Comm comm, bool counted)
   // atomic.  drain_mpi_collective() sets ckpt_pending and shares the
   // sequence numbers under this lock.
   pthread_mutex_lock(&seq_num_lock);
-  while (ckpt_pending && check_seq_nums()) {
-    pthread_mutex_unlock(&seq_num_lock);
-    receive_target();
-    pthread_mutex_lock(&seq_num_lock);
-  }
+  wait_while_targets_reached();
   current_phase = IN_CS;
   if (desc == NULL) {
     pthread_mutex_unlock(&seq_num_lock);
@@ -204,11 +157,15 @@ begin_critical_section(MPI_Comm comm, bool counted)
   }
   comm_clock *clock = desc->clock;
   clock->seq++;
-  pthread_mutex_unlock(&seq_num_lock);
+  // This process passed its target.  The next drain round uploads the new
+  // target for the other members.
   if (ckpt_pending && clock->seq > clock->target) {
     clock->target = clock->seq;
-    seq_num_broadcast(comm, clock->seq);
+    if (desc->size > 1) {
+      raised_clocks.push_back(desc->gid);
+    }
   }
+  pthread_mutex_unlock(&seq_num_lock);
 }
 
 void commit_begin(MPI_Comm comm) {
@@ -220,34 +177,120 @@ void commit_begin(MPI_Comm comm) {
 
 void commit_finish(MPI_Comm comm) {
   current_phase = IS_READY;
-  while (ckpt_pending && check_seq_nums_locked()) {
-    receive_target();
+  if (ckpt_pending) {
+    pthread_mutex_lock(&seq_num_lock);
+    wait_while_targets_reached();
+    pthread_mutex_unlock(&seq_num_lock);
   }
+}
+
+// Uploads 'seq', the sequence number of the clock 'gid', to the KVDB 'db',
+// which keeps the maximum of the uploads.
+static void
+upload_seq(const char *db, uint64_t gid, unsigned long seq)
+{
+  dmtcp::string comm_id_str(jalib::XToString(gid));
+  ASSERT(dmtcp::kvdb::request64(KVDBRequest::MAX, db, comm_id_str,
+                                (int64_t)seq) == KVDBResponse::SUCCESS,
+         "db={} key={}", db, comm_id_str);
 }
 
 void
 upload_seq_num(const char *db)
 {
   for (auto &pair : clocks) {
-    dmtcp::string comm_id_str(jalib::XToString(pair.first));
-    int64_t seq = pair.second.seq;
-    ASSERT(dmtcp::kvdb::request64(KVDBRequest::MAX, db, comm_id_str, seq) ==
-             KVDBResponse::SUCCESS,
-           "db={} key={}", db, comm_id_str);
+    upload_seq(db, pair.first, pair.second.seq);
   }
 }
 
+// Sets the target of each clock to its value in the KVDB 'db'.  A clock keeps
+// its target if the KVDB has no value for it.  That is so for a clock that no
+// process had at the start of the attempt and whose target no process raised.
 void
 download_targets(const char *db)
 {
   int64_t max_seq = 0;
   for (auto &pair : clocks) {
     dmtcp::string comm_id_str(jalib::XToString(pair.first));
+    KVDBResponse rc = dmtcp::kvdb::get64(db, comm_id_str, &max_seq);
+    ASSERT(rc == KVDBResponse::SUCCESS || rc == KVDBResponse::KEY_NOT_FOUND,
+           "db={} key={} rc={}", db, comm_id_str, rc);
+    if (rc == KVDBResponse::SUCCESS) {
+      pair.second.target = max_seq;
+    }
+  }
+  __atomic_add_fetch(&targets_version, 1, __ATOMIC_RELAXED);
+}
+
+// The KVDB key of entry 'i' in the list of the gids that a drain round raised.
+static void
+raised_entry_key(char *buf, size_t size, const char *round_key, int64_t i)
+{
+  snprintf(buf, size, "%s-%lld", round_key, (long long)i);
+}
+
+// Uploads the sequence number of each clock in raised_clocks to the KVDB 'db'.
+// It also adds the gids to the round's list in 'list_db', whose length is the
+// value of 'round_key' in 'count_db'.  Then it empties raised_clocks.
+static void
+upload_raised_targets(const char *db, const char *list_db,
+                      const char *count_db, const char *round_key)
+{
+  std::vector<uint64_t> gids;
+  // raised_clocks has a clock once for each call that raised its target.
+  std::unordered_set<uint64_t> uploaded;
+  for (uint64_t gid : raised_clocks) {
+    std::unordered_map<uint64_t, comm_clock>::iterator it = clocks.find(gid);
+    if (it == clocks.end() || !uploaded.insert(gid).second) {
+      continue;
+    }
+    upload_seq(db, gid, it->second.seq);
+    gids.push_back(gid);
+  }
+  raised_clocks.clear();
+  int64_t first = 0;
+  ASSERT(dmtcp::kvdb::request64(KVDBRequest::INCRBY, count_db, round_key,
+                                gids.size(), &first) == KVDBResponse::SUCCESS,
+         "db={} key={}", count_db, round_key);
+  for (size_t i = 0; i < gids.size(); i++) {
+    char entry[64];
+    raised_entry_key(entry, sizeof(entry), round_key, first + i);
+    ASSERT(dmtcp::kvdb::set64(list_db, entry, (int64_t)gids[i]) ==
+             KVDBResponse::SUCCESS,
+           "db={} key={}", list_db, entry);
+  }
+}
+
+// Downloads the targets of the clocks in the round's list of raised gids (see
+// upload_raised_targets()), which has 'raised' entries.  If the list is not
+// shorter than the clocks of this process, it downloads all targets.
+static void
+download_raised_targets(const char *db, const char *list_db,
+                        const char *round_key, int64_t raised)
+{
+  if (raised >= (int64_t)clocks.size()) {
+    download_targets(db);
+    return;
+  }
+  std::unordered_set<uint64_t> downloaded;
+  for (int64_t i = 0; i < raised; i++) {
+    char entry[64];
+    raised_entry_key(entry, sizeof(entry), round_key, i);
+    int64_t gid = 0;
+    ASSERT(dmtcp::kvdb::get64(list_db, entry, &gid) == KVDBResponse::SUCCESS,
+           "db={} key={}", list_db, entry);
+    std::unordered_map<uint64_t, comm_clock>::iterator it = clocks.find(gid);
+    if (it == clocks.end() || !downloaded.insert(gid).second) {
+      continue;
+    }
+    dmtcp::string comm_id_str(jalib::XToString((uint64_t)gid));
+    int64_t max_seq = 0;
     ASSERT(dmtcp::kvdb::get64(db, comm_id_str, &max_seq) ==
              KVDBResponse::SUCCESS,
            "db={} key={}", db, comm_id_str);
-    pair.second.target = max_seq;
+    it->second.target = max_seq;
   }
+  __atomic_add_fetch(&targets_version, 1, __ATOMIC_RELAXED);
 }
 
 // Writes the KVDB name "/plugin/MANA/<what>-<start>-<generation>" to buf,
@@ -290,21 +333,38 @@ try_drain_mpi_collective(int attemptId)
   int round_num = 0;
   int64_t num_converged = 0;
   int64_t in_cs = 0;
+  int64_t raised = 0;
+  char db[64] = { 0 };
+  ckpt_kvdb_name(db, sizeof(db), "comm-seq-max", attemptId);
 
-  for (int i = 0; i < MAX_DRAIN_ROUNDS; i++) {
+  // The attempt fails after MAX_DRAIN_ROUNDS rounds in a row in which no
+  // process raised a target.  The other members see a raised target only in
+  // the next round, so a chain of raises takes one round for each raise.
+  int rounds_without_raise = 0;
+  while (rounds_without_raise < MAX_DRAIN_ROUNDS) {
     char key[64] = { 0 };
     char barrier_id[64] = { 0 };
     char cs_id[64] = { 0 };
     char converge_id[64] = { 0 };
+    char raised_id[64] = { 0 };
+    char list_id[64] = { 0 };
 
     ckpt_kvdb_name(cs_id, sizeof(cs_id), "CRITICAL-SECTION", attemptId);
     ckpt_kvdb_name(converge_id, sizeof(converge_id), "CONVERGE", attemptId);
+    ckpt_kvdb_name(raised_id, sizeof(raised_id), "TARGETS-RAISED", attemptId);
+    ckpt_kvdb_name(list_id, sizeof(list_id), "RAISED-GIDS", attemptId);
     snprintf(barrier_id, 63, "MANA-PRESUSPEND-%06d-%06d", attemptId, round_num);
     snprintf(key, 63, "round-%06d", round_num);
 
+    // An application thread can raise a target, add a clock or erase a clock
+    // at the same time.
+    pthread_mutex_lock(&seq_num_lock);
+    upload_raised_targets(db, list_id, raised_id, key);
+    int target_reached = check_seq_nums();
+    pthread_mutex_unlock(&seq_num_lock);
+
     ASSERT(dmtcp::kvdb::request64(KVDBRequest::INCRBY, converge_id, key,
-                                  check_seq_nums_locked()) ==
-             KVDBResponse::SUCCESS,
+                                  target_reached) == KVDBResponse::SUCCESS,
            "db={} key={}", converge_id, key);
     ASSERT(dmtcp::kvdb::request64(KVDBRequest::OR, cs_id, key,
                                   current_phase == IN_CS) ==
@@ -318,9 +378,23 @@ try_drain_mpi_collective(int attemptId)
            "db={} key={}", converge_id, key);
     ASSERT(dmtcp::kvdb::get64(cs_id, key, &in_cs) == KVDBResponse::SUCCESS,
            "db={} key={}", cs_id, key);
+    ASSERT(dmtcp::kvdb::get64(raised_id, key, &raised) ==
+             KVDBResponse::SUCCESS,
+           "db={} key={}", raised_id, key);
 
-    if (in_cs == 0 && num_converged == g_world_size) {
+    // A process that reached its targets in this round can pass a target only
+    // after its targets rise.  Its targets rise only in the download below.
+    // So if no process raised a target, the drain ends.
+    if (in_cs == 0 && num_converged == g_world_size && raised == 0) {
       return true;
+    }
+    if (raised > 0) {
+      pthread_mutex_lock(&seq_num_lock);
+      download_raised_targets(db, list_id, key, raised);
+      pthread_mutex_unlock(&seq_num_lock);
+      rounds_without_raise = 0;
+    } else {
+      rounds_without_raise++;
     }
 
     round_num++;
@@ -338,6 +412,7 @@ drain_mpi_collective()
     // Publish our seq_num to kvdb.
     pthread_mutex_lock(&seq_num_lock);
     ckpt_pending = true;
+    raised_clocks.clear();
     share_seq_nums(attemptId);
     pthread_mutex_unlock(&seq_num_lock);
 

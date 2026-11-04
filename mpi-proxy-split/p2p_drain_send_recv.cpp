@@ -364,8 +364,8 @@ drainRemainingP2pMsgs()
 {
   int bytesReceived = 0;
   // Probe the predefined communicators in active_comms and the live ones in
-  // the virtual-ID table.  Skip MANA's g_world_comm: its Collective Clock
-  // messages are not counted as sent or received.
+  // the virtual-ID table.  Skip MANA's g_world_comm, on which no rank sends a
+  // point-to-point message.
   std::vector<MPI_Comm> comms(active_comms.begin(), active_comms.end());
   for (MPI_Comm virtComm : live_virt_comms()) {
     if (virtComm != g_world_comm) {
