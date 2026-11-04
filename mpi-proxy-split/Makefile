@@ -43,10 +43,10 @@ override CXXFLAGS += -DOMPI_SKIP_MPICXX -DMPICH_SKIP_MPICXX
 # ${WRAPPERS_SRCDIR}/libmpiwrappers.a ia a prerequisite for libmana.so
 # Always do 'make default' or 'make install' -- not 'make libmana.so'
 default:
-	make -C ${LOWER_HALF_SRCDIR} lower-half
-	make -C ${WRAPPERS_SRCDIR} libmpiwrappers.a libmpistub.so \
+	$(MAKE) -C ${LOWER_HALF_SRCDIR} lower-half
+	$(MAKE) -C ${WRAPPERS_SRCDIR} libmpiwrappers.a libmpistub.so \
 	  libmpistub_audit.so
-	make libmana.so
+	$(MAKE) libmana.so
 
 # ${WRAPPERS_SRCDIR}/libmpiwrappers.a made in install/default before libmana.so
 # libmana.so needs libmpistub.so (in the same directory once installed): with
@@ -68,30 +68,30 @@ libmana.so: ${LIBOBJS} ${WRAPPERS_SRCDIR}/libmpiwrappers.a
 $(filter-out lower-half/%,${LIBOBJS}): virtual_id.h lower_half_ckpt.h
 
 tests:
-	+ @make -C test/ default
-	+ @make -C examples/
+	@$(MAKE) -C test/ default
+	@$(MAKE) -C examples/
 
 check: libmana.so
-	@make -C test/ e2e
+	@$(MAKE) -C test/ e2e
 	@test/autotest.py
 
 ${MANA_ROOT}/lib/dmtcp/libmana.so: libmana.so
 	cp -f $< $@
 ${MANA_ROOT}/lib/dmtcp/libmpistub.so: ${WRAPPERS_SRCDIR}/mpi_stub_wrappers.txt \
                                       ${WRAPPERS_SRCDIR}/mpi_stub_data.c
-	+ make -C ${WRAPPERS_SRCDIR} install
+	$(MAKE) -C ${WRAPPERS_SRCDIR} install
 ${MANA_ROOT}/lib/dmtcp/libmpistub_audit.so: ${WRAPPERS_SRCDIR}/mpi_stub_audit.c
-	+ make -C ${WRAPPERS_SRCDIR} install
+	$(MAKE) -C ${WRAPPERS_SRCDIR} install
 
 # ${WRAPPERS_SRCDIR}/libmpiwrappers.a ia a prerequisite for libmana.so,
 #   which is a prerequisite for ${MANA_ROOT}/lib/dmtcp/libmana.so
 # Always do 'make default' or 'make install' -- not 'make libmana.so'
 install:
-	+ make -C ${WRAPPERS_SRCDIR} libmpiwrappers.a libmpistub.so
-	+ make ${MANA_ROOT}/lib/dmtcp/libmana.so
-	+ make ${MANA_ROOT}/lib/dmtcp/libmpistub.so
-	+ make ${MANA_ROOT}/lib/dmtcp/libmpistub_audit.so
-	+ make -C ${LOWER_HALF_SRCDIR} install
+	$(MAKE) -C ${WRAPPERS_SRCDIR} libmpiwrappers.a libmpistub.so
+	$(MAKE) ${MANA_ROOT}/lib/dmtcp/libmana.so
+	$(MAKE) ${MANA_ROOT}/lib/dmtcp/libmpistub.so
+	$(MAKE) ${MANA_ROOT}/lib/dmtcp/libmpistub_audit.so
+	$(MAKE) -C ${LOWER_HALF_SRCDIR} install
 
 tidy:
 	rm -f *~ .*.swp dmtcp_restart_script*.sh ckpt_*.dmtcp
@@ -102,8 +102,8 @@ clean: tidy
 	rm -f ${LIBOBJS}
 	rm -f libmana.so
 	rm -f ${MANA_ROOT}/lib/dmtcp/libmana.so
-	cd ${LOWER_HALF_SRCDIR} && make clean
-	cd ${WRAPPERS_SRCDIR} && make clean
+	cd ${LOWER_HALF_SRCDIR} && $(MAKE) clean
+	cd ${WRAPPERS_SRCDIR} && $(MAKE) clean
 
 distclean: clean
 

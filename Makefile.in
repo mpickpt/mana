@@ -62,14 +62,14 @@ create-dirs:
 	$(INSTALL) -d $(DESTDIR)$(mandir)/man1
 
 install: all create-dirs
-	cd ${DMTCP_ROOT} && make DESTDIR=$(DESTDIR) $(INSTALL_FLAGS)
-	cd mpi-proxy-split && make DESTDIR=$(DESTDIR) $(INSTALL_FLAGS)
-	cd manpages && make DESTDIR=$(DESTDIR) $(INSTALL_FLAGS)
+	cd ${DMTCP_ROOT} && $(MAKE) DESTDIR=$(DESTDIR) $(INSTALL_FLAGS)
+	cd mpi-proxy-split && $(MAKE) DESTDIR=$(DESTDIR) $(INSTALL_FLAGS)
+	cd manpages && $(MAKE) DESTDIR=$(DESTDIR) $(INSTALL_FLAGS)
 
 uninstall:
-	cd ${DMTCP_ROOT} && make DESTDIR=$(DESTDIR) $(UNINSTALL_FLAGS)
-	cd mpi-proxy-split && make DESTDIR=$(DESTDIR) $(UNINSTALL_FLAGS)
-	cd manpages && make DESTDIR=$(DESTDIR) $(UNINSTALL_FLAGS)
+	cd ${DMTCP_ROOT} && $(MAKE) DESTDIR=$(DESTDIR) $(UNINSTALL_FLAGS)
+	cd mpi-proxy-split && $(MAKE) DESTDIR=$(DESTDIR) $(UNINSTALL_FLAGS)
+	cd manpages && $(MAKE) DESTDIR=$(DESTDIR) $(UNINSTALL_FLAGS)
 
 distclean: clean
 	- cd ${DMTCP_ROOT} && $(MAKE) distclean
