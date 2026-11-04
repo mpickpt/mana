@@ -68,6 +68,11 @@ libmana.so: ${LIBOBJS} ${WRAPPERS_SRCDIR}/libmpiwrappers.a
 .cpp.o:
 	${MPICXX} ${CXXFLAGS} -c -o $@ $<
 
+# lower-half/Makefile builds switch-context.o, which the lower-half program
+# links too.
+lower-half/switch-context.o: FORCE
+	$(MAKE) -C ${LOWER_HALF_SRCDIR} switch-context.o
+
 # Make ignores prerequisites on suffix rules, so list header dependencies
 # here: the headers that define inline code.
 $(filter-out lower-half/%,${LIBOBJS}): virtual_id.h lower_half_ckpt.h
@@ -111,6 +116,8 @@ clean: tidy
 	cd ${WRAPPERS_SRCDIR} && $(MAKE) clean
 
 distclean: clean
+
+FORCE:
 
 .PHONY: default clean distclean tidy check tests install
 

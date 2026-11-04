@@ -37,6 +37,13 @@ default: lower-half
 .c.o:
 	${MPICXX} ${CFLAGS} -c -o $@ $<
 
+# libmana.so links switch-context.o too.  So build it as the other objects
+# of libmana.so are built: without the stack protector, because the code
+# switches the FS register, and without the C++ bindings of mpi.h.
+switch-context.o: switch-context.cpp
+	${MPICXX} ${CXXFLAGS} -fno-stack-protector -DOMPI_SKIP_MPICXX \
+	  -DMPICH_SKIP_MPICXX -c -o $@ $<
+
 # Normally, gcc (or clang) will automatically link with libatomic.so.
 # However, for come MPICXX it's hard to know if they cover it.
 # So this is good as a safety measure.
