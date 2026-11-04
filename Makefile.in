@@ -4,8 +4,6 @@ CXX=@CXX@
 CXXFLAGS = @CXXFLAGS@
 CPPFLAGS = @CPPFLAGS@
 LDFLAGS = @LDFLAGS@
-PACKAGE=@PACKAGE_TARNAME@
-PACKAGE_TARNAME=@PACKAGE_TARNAME@-@PACKAGE_VERSION@
 VERSION=@PACKAGE_VERSION@
 
 # Allow the user to specify the install program.
@@ -23,21 +21,16 @@ pkglibdir = @libdir@/@PACKAGE@
 docdir=@docdir@
 includedir=@includedir@
 mandir=@mandir@
-infodir=@mandir@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 srcdir = @srcdir@
 VPATH = @srcdir@
-targetdir = $(top_builddir)
 
 INSTALL_FLAGS = install
 UNINSTALL_FLAGS = uninstall
 
 # If 'DMTCP_ROOT' env. var. is defined, use that instead of dmtcp submodule.
 DMTCP_ROOT ?= $(top_builddir)/dmtcp
-
-# Macros TEST and XTERM_E used on command line by check1, check2, ...:
-#   make TEST=readline XTERM_E="xterm -e" check-readline
 
 default: display-build-env add-git-hooks mana_prereqs
 	$(MAKE) mana
@@ -157,11 +150,6 @@ ${_hooksdir}/%: util/hooks/%
 	if test -d ${_hooksdir}; then \
 	  cd ${_hooksdir} && ln -s ../../$< . ; \
 	fi
-
-# src/Makefile tries to make this, to ensure that configure, config.status,
-#   and so on are up to date.  It's assuming that this directory is also
-#   under control of automake.  So, we add this stub to satisfy automake.
-am--refresh:
 
 .PHONY: default all add-git-hooks \
 	display-build-env display-release display-config \
