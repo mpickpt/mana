@@ -65,9 +65,9 @@ A typical workflow for using MANA after untar\[aq]ing is:
 \f[C]
 cd dmtcp-mana
 \&./configure --enable-debug
-make -j mana
+make -j mana tests
 # Build the program with mpicc as usual; no relinking for MANA is needed.
-# 'make' also builds an example: mpi-proxy-split/examples/ring
+# 'make tests' also builds an example: mpi-proxy-split/examples/ring
 salloc -N 2 -q interactive -C haswell -t 01:00:00
 bin/mana_coordinator -i10
 srun -N 2 bin/mana_launch mpi-proxy-split/examples/ring

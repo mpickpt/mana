@@ -45,13 +45,8 @@ override CXXFLAGS += -fPIC -I${DMTCP_INCLUDE} -I${JALIB_INCLUDE} \
 # code is in libmpi_cxx.so.
 override CXXFLAGS += -DOMPI_SKIP_MPICXX -DMPICH_SKIP_MPICXX
 
-# ${WRAPPERS_SRCDIR}/libmpiwrappers.a ia a prerequisite for libmana.so
-# Always do 'make default' or 'make install' -- not 'make libmana.so'
-default:
-	$(MAKE) -C ${LOWER_HALF_SRCDIR} lower-half
-	$(MAKE) -C ${WRAPPERS_SRCDIR} libmpiwrappers.a libmpistub.so \
-	  libmpistub_audit.so
-	$(MAKE) libmana.so
+# 'make' does what 'make install' does.
+default: install
 
 # ${WRAPPERS_SRCDIR}/libmpiwrappers.a made in install/default before libmana.so
 # libmana.so needs libmpistub.so (in the same directory once installed): with
