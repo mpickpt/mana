@@ -48,6 +48,14 @@ mana: mana_prereqs dmtcp
 	cd mpi-proxy-split && $(MAKE) install && $(MAKE) -j tests
 
 dmtcp: dmtcp/configure
+	@ # A 'git pull' can change the DMTCP commit that MANA uses, and it
+	@ # leaves dmtcp/ at the old commit.  'git submodule status' marks that
+	@ # with a '+'.
+	@ if test "${DMTCP_ROOT}" = "$(top_builddir)/dmtcp" && \
+	     git submodule status dmtcp 2>/dev/null | grep -q '^+'; then \
+	    echo '** Warning: dmtcp/ is not at the DMTCP commit that MANA uses.'; \
+	    echo '**   To check out that commit, do: git submodule update dmtcp'; \
+	  fi
 	cd ${DMTCP_ROOT} && $(MAKE)
 	cp -rf ${DMTCP_ROOT}/bin .
 	cp -rf ${DMTCP_ROOT}/lib .
