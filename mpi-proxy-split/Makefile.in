@@ -59,7 +59,7 @@ default:
 # generate-mpi-stub-objects.py), and a program that loads the MPI library
 # with dlopen() has not loaded libmpistub.so yet.
 libmana.so: ${LIBOBJS} ${WRAPPERS_SRCDIR}/libmpiwrappers.a
-	${CXX} -shared -fPIC -g3 -O0 -o $@ ${LIBOBJS} -Wl,--whole-archive ${WRAPPERS_SRCDIR}/libmpiwrappers.a -Wl,--no-whole-archive \
+	${CXX} -shared -fPIC -o $@ ${LIBOBJS} -Wl,--whole-archive ${WRAPPERS_SRCDIR}/libmpiwrappers.a -Wl,--no-whole-archive \
 	  -L${WRAPPERS_SRCDIR} -lmpistub -Wl,-rpath,'$$ORIGIN'
 
 .c.o:

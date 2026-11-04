@@ -71,15 +71,6 @@ mpi_fortran_wrappers.o: fortran_handles.h
 fortran_constants.o: fortran_constants.f90
 	${MPIFC} ${CFLAGS} -fPIC -c -o $@ $<
 
-mpi_collective_wrappers.o: mpi_collective_wrappers.cpp ../virtual_id.h
-	${MPICXX} ${CXXFLAGS} -Wall -DDEBUG -fPIC \
-          -I.. -I../lower-half -c $<
-
-# Some of these functions are also collective; e.g., MPI_Win_allocate_shared
-mpi_win_wrappers.o: mpi_win_wrappers.cpp ../virtual_id.h
-	${MPICXX} ${CXXFLAGS} -Wall -DDEBUG -fPIC \
-          -I.. -I../lower-half -c $<
-
 # We need to write to mpi_stub_wrappers.c.tmp.$$ first, in case of 'make -j'.
 # The parallel make would generate mpi_stub_wrappers.c 3 times, and overwrite.
 mpi_stub_wrappers.c: generate-mpi-stub-wrappers.py mpi_stub_wrappers.txt
