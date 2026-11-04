@@ -37,8 +37,16 @@ default: display-build-env add-git-hooks mana_prereqs
 
 all: default
 
-mana: mana_prereqs dmtcp
+MANA_SCRIPTS = mana_coordinator mana_launch mana_restart mana_status
+
+mana: mana_prereqs dmtcp $(MANA_SCRIPTS:%=bin/%)
 	cd mpi-proxy-split && $(MAKE) install
+
+# bin/ holds the scripts next to DMTCP's programs and the lower half, which
+# the scripts run.
+$(MANA_SCRIPTS:%=bin/%): bin/%: scripts/%
+	@mkdir -p bin
+	cp -f $< $@
 
 # The end-to-end tests, the example and the benchmarks.
 tests:
@@ -88,8 +96,7 @@ distclean: clean
 	  mpi-proxy-split/mpi-wrappers/Makefile mpi-proxy-split/test/Makefile \
 	  mpi-proxy-split/examples/Makefile
 	rm -rf autom4te.cache
-	rm -rf $(top_builddir)/lib
-	- cd $(top_builddir)/bin && find . \! -name '*mana*' -delete
+	rm -rf $(top_builddir)/lib $(top_builddir)/bin
 
 tidy:
 	rm -rf ckpt_rank*
