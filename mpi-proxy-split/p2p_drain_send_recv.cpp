@@ -928,7 +928,24 @@ publishSsendNotices()
       continue;
     }
     mana_comm_desc *desc = get_comm_desc(call.comm);
-    ASSERT(desc != NULL, "Unknown communicator: comm={}", call.comm);
+    if (desc == NULL) {
+      // To post a notice, this rank reads the gid of the communicator and the
+      // world rank of the receiver from the communicator's descriptor.
+      // However, MPI lets a rank free a communicator while an MPI_Issend on it
+      // is pending.  The descriptor is then gone.
+      //
+      // Such an MPI_Issend needs no notice.  The drain completes it like an
+      // MPI_Isend, without an ack.  An ack is needed only for a message that
+      // the drain receives into MANA's buffer before its receive starts.  This
+      // message never goes there.  The Collective Clock counts MPI_Comm_free,
+      // so by now the receiver has freed the communicator too.  MPI allows no
+      // receive after that.  So the receiver started the matching receive
+      // before, and the MPI library puts the message into the application's
+      // buffer.
+      call.type = ISEND_REQUEST;
+      replacePendingCall(request, &call);
+      continue;
+    }
     int dest = desc->global_ranks[call.remote_node];
     // Unique among this rank's pending acks; MPI_TAG_UB is at least 32767.
     int ack_tag = next_ack_tag;
