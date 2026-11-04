@@ -14,13 +14,16 @@ As seen in the MANA documentation, for install and a quick start, do:
 
     git clone https://github.com/mpickpt/mana
     cd mana
-    git submodule init
-    git submodule update
     ./configure
     make -j8
     # Testing on a single host (but see MANA docs for running on a cluster):
     PATH_TO_MANA/bin/mana_coordinator
     PATH_TO_MANA/bin/mana_launch [mana options] [user_program and args]
+
+If `dmtcp/` is empty, `./configure` checks out the DMTCP commit that MANA
+uses (the `dmtcp` submodule).  A later `git pull` can change that commit
+without changing `dmtcp/`; `make` then warns, and `git submodule update`
+checks out the new commit.
 
 On Debian and Ubuntu, also install the package libc6-dbg: MANA needs the
 symbols of the dynamic loader, which these distributions strip.

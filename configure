@@ -5461,6 +5461,13 @@ ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
+if test ! -f "$srcdir/dmtcp/configure" && test -e "$srcdir/.git"; then
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking out the DMTCP submodule" >&5
+printf "%s\n" "$as_me: checking out the DMTCP submodule" >&6;}
+  (cd "$srcdir" && git submodule update --init dmtcp) ||
+    as_fn_error $? "cannot check out the DMTCP submodule.
+Check it out yourself with: git submodule update --init dmtcp" "$LINENO" 5
+fi
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for dmtcp/configure" >&5
 printf %s "checking for dmtcp/configure... " >&6; }
 if test ${ac_cv_file_dmtcp_configure+y}
@@ -5481,9 +5488,9 @@ if test "x$ac_cv_file_dmtcp_configure" = xyes
 then :
 
 else $as_nop
-  as_fn_error $? "no, dmtcp/configure does not exist;
-                      Did you do:  git submodule init && git submodule update" "$LINENO" 5
-
+  as_fn_error $? "dmtcp/ is empty, and this is not a git clone.
+Use a MANA source tarball that includes DMTCP, or clone MANA with:
+  git clone --recurse-submodules https://github.com/mpickpt/mana" "$LINENO" 5
 fi
 
 

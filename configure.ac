@@ -61,10 +61,19 @@ Set MPICC to the C compiler of the MPI library.])])
 CC=$mana_save_CC
 AC_LANG_POP([C])
 
+dnl A fresh clone has an empty dmtcp/.  So check out the DMTCP commit that
+dnl MANA uses.  A dmtcp/ that is already checked out stays as it is, since a
+dnl developer may work on DMTCP there.
+if test ! -f "$srcdir/dmtcp/configure" && test -e "$srcdir/.git"; then
+  AC_MSG_NOTICE([checking out the DMTCP submodule])
+  (cd "$srcdir" && git submodule update --init dmtcp) ||
+    AC_MSG_ERROR([cannot check out the DMTCP submodule.
+Check it out yourself with: git submodule update --init dmtcp])
+fi
 AC_CHECK_FILE([dmtcp/configure], [],
-  [AC_MSG_ERROR([no, dmtcp/configure does not exist;
-                      Did you do:  git submodule init && git submodule update])
-  ])
+  [AC_MSG_ERROR([dmtcp/ is empty, and this is not a git clone.
+Use a MANA source tarball that includes DMTCP, or clone MANA with:
+  git clone --recurse-submodules https://github.com/mpickpt/mana])])
 
 ac_configure_args="$ac_configure_args --disable-dlsym-wrapper"
 AC_CONFIG_SUBDIRS([dmtcp])
