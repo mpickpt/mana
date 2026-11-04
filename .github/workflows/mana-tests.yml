@@ -50,7 +50,7 @@ jobs:
       - name: Build
         run: |
           ./configure
-          make -j"$(nproc)" mana
+          make -j"$(nproc)" mana tests
 
       - name: Test mana_restart wrapper
         run: python3 mpi-proxy-split/test/test-mana-restart.py -v

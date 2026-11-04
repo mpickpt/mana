@@ -52,7 +52,8 @@ CI does.
 
 To run MANA's tests, which checkpoint and restart each test program:
 
-    mpi-proxy-split/test/autotest.py         # or: make -C mpi-proxy-split check
+    make tests                               # builds them; 'make' does not
+    mpi-proxy-split/test/autotest.py         # or: make check
     mpi-proxy-split/test/autotest.py --help  # e.g. --launcher 'srun -n {n}'
 
 MANA is free software: you can redistribute it and/or modify it under the

@@ -38,7 +38,15 @@ default: display-build-env add-git-hooks mana_prereqs
 all: default
 
 mana: mana_prereqs dmtcp
-	cd mpi-proxy-split && $(MAKE) install && $(MAKE) -j tests
+	cd mpi-proxy-split && $(MAKE) install
+
+# The end-to-end tests, the example and the benchmarks.
+tests:
+	cd mpi-proxy-split && $(MAKE) tests
+
+# Builds the end-to-end tests and runs them (test/autotest.py).
+check: mana
+	cd mpi-proxy-split && $(MAKE) check
 
 dmtcp: dmtcp/configure
 	@ # A 'git pull' can change the DMTCP commit that MANA uses, and it
@@ -154,7 +162,7 @@ ${_hooksdir}/%: util/hooks/%
 	  cd ${_hooksdir} && ln -s ../../$< . ; \
 	fi
 
-.PHONY: default all add-git-hooks \
+.PHONY: default all mana tests check add-git-hooks \
 	display-build-env display-release display-config \
 	dmtcp clean
 
