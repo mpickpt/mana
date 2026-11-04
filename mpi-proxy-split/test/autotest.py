@@ -92,6 +92,7 @@ TESTS = [
   Test("p2p_issend_twice", 4),
   Test("p2p_issend_waitall", 4, args=["-w"], program="p2p_issend_twice"),
   Test("p2p_issend_nbx", 4),
+  Test("p2p_issend_comm_free", 4),
   Test("fortran_p2p", 2),
   Test("collectives", 4),
   Test("nonblocking_collectives", 4),
