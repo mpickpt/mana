@@ -25,6 +25,16 @@ uses (the `dmtcp` submodule).  A later `git pull` can change that commit
 without changing `dmtcp/`; `make` then warns, and `git submodule update`
 checks out the new commit.
 
+`make` puts MANA in the source tree's `bin` and `lib/dmtcp`.  To install it,
+with DMTCP, into another directory, give that directory to `./configure`:
+
+    ./configure --prefix=$HOME/mana-install
+    make -j8
+    make install        # 'make uninstall' removes it
+
+MANA's scripts find its other files from their own directory, so keep the
+default `--bindir` and `--libdir` (`PREFIX/bin` and `PREFIX/lib`).
+
 On Debian and Ubuntu, also install the package libc6-dbg: MANA needs the
 symbols of the dynamic loader, which these distributions strip.
 

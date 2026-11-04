@@ -1,5 +1,9 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+datarootdir=@datarootdir@
 mandir=@mandir@
 PANDOC=@PANDOC@
+INSTALL = @INSTALL@
 INSTALL_DATA = @INSTALL_DATA@
 
 MANPAGES = mana.1.gz
@@ -20,8 +24,9 @@ install: ${MANPAGES}
 	$(INSTALL) -d $(DESTDIR)$(mandir)/man1
 	${INSTALL_DATA} ${MANPAGES} $(DESTDIR)$(mandir)/man1
 
+# Quote each path: a space in it must not split it into other files' names.
 uninstall:
-	cd $(DESTDIR)$(mandir)/man1 && rm -f ${MANPAGES}
+	for f in $(MANPAGES); do rm -f "$(DESTDIR)$(mandir)/man1/$$f"; done
 
 clean:
 	rm -f *.1.gz

@@ -14,13 +14,10 @@ INSTALL_SCRIPT = @INSTALL_SCRIPT@
 
 prefix=@prefix@
 exec_prefix=@exec_prefix@
-datarootdir=@datarootdir@
 bindir=@bindir@
 libdir=@libdir@
-pkglibdir = @libdir@/@PACKAGE@
-docdir=@docdir@
-includedir=@includedir@
-mandir=@mandir@
+# DMTCP installs its plugins here too.
+pkglibdir = $(libdir)/dmtcp
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 srcdir = @srcdir@
@@ -69,21 +66,26 @@ dmtcp: dmtcp/configure
 	cp -rf ${DMTCP_ROOT}/bin .
 	cp -rf ${DMTCP_ROOT}/lib .
 
-create-dirs:
-	$(INSTALL) -d $(DESTDIR)$(bindir)
-	$(INSTALL) -d $(DESTDIR)$(libdir)
-	$(INSTALL) -d $(DESTDIR)$(pkglibdir)
-	$(INSTALL) -d $(DESTDIR)$(includedir)
-	$(INSTALL) -d $(DESTDIR)$(docdir)
-	$(INSTALL) -d $(DESTDIR)$(mandir)/man1
+# MANA's scripts find the lower half, DMTCP's programs and MANA's libraries
+# from their own directory: in it and in ../lib/dmtcp.  So MANA works when
+# bindir and libdir are configure's defaults, PREFIX/bin and PREFIX/lib.
+MANA_LIBS = libmana.so libmpistub.so libmpistub_audit.so
 
-install: all create-dirs
+install: all
 	cd ${DMTCP_ROOT} && $(MAKE) DESTDIR=$(DESTDIR) $(INSTALL_FLAGS)
+	$(INSTALL) -d $(DESTDIR)$(bindir) $(DESTDIR)$(pkglibdir)
+	$(INSTALL_SCRIPT) $(MANA_SCRIPTS:%=scripts/%) $(DESTDIR)$(bindir)
+	$(INSTALL_PROGRAM) bin/lower-half $(DESTDIR)$(bindir)
+	$(INSTALL_PROGRAM) $(MANA_LIBS:%=lib/dmtcp/%) $(DESTDIR)$(pkglibdir)
 	cd manpages && $(MAKE) DESTDIR=$(DESTDIR) $(INSTALL_FLAGS)
 
+# In the reverse order of 'install'.  Quote each path: a space in it must
+# not split it into other files' names.
 uninstall:
-	cd ${DMTCP_ROOT} && $(MAKE) DESTDIR=$(DESTDIR) $(UNINSTALL_FLAGS)
 	cd manpages && $(MAKE) DESTDIR=$(DESTDIR) $(UNINSTALL_FLAGS)
+	for f in $(MANA_SCRIPTS) lower-half; do rm -f "$(DESTDIR)$(bindir)/$$f"; done
+	for f in $(MANA_LIBS); do rm -f "$(DESTDIR)$(pkglibdir)/$$f"; done
+	cd ${DMTCP_ROOT} && $(MAKE) DESTDIR=$(DESTDIR) $(UNINSTALL_FLAGS)
 
 distclean: clean
 	- cd ${DMTCP_ROOT} && $(MAKE) distclean
