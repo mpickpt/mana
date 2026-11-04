@@ -31,26 +31,29 @@ TEXTSEG_ADDR_FLAG=-Wl,-Ttext-segment=0x10000000
 
 default: lower-half
 
+# -MMD -MP writes the headers that an object includes into its .d file,
+# which make reads below.  So a change to a header rebuilds the objects
+# that include it.
 .cpp.o:
-	${MPICXX} ${CXXFLAGS} -c -o $@ $<
+	${MPICXX} ${CXXFLAGS} -MMD -MP -c -o $@ $<
 
 .c.o:
-	${MPICXX} ${CFLAGS} -c -o $@ $<
+	${MPICXX} ${CFLAGS} -MMD -MP -c -o $@ $<
 
 # libmana.so links switch-context.o too.  So build it as the other objects
 # of libmana.so are built: without the stack protector, because the code
 # switches the FS register, and without the C++ bindings of mpi.h.
 switch-context.o: switch-context.cpp
 	${MPICXX} ${CXXFLAGS} -fno-stack-protector -DOMPI_SKIP_MPICXX \
-	  -DMPICH_SKIP_MPICXX -c -o $@ $<
+	  -DMPICH_SKIP_MPICXX -MMD -MP -c -o $@ $<
+
+-include $(wildcard *.d)
 
 # Normally, gcc (or clang) will automatically link with libatomic.so.
 # However, for come MPICXX it's hard to know if they cover it.
 # So this is good as a safety measure.
 lower-half: get-symbol-offset.o build-id-debug.o copy-stack.o patch-trampoline.o lh-func-ptr.o mem-wrapper.o switch-context.o lower-half.o mmap-fixed-noreplace.o ${DMTCP_DEPS}
 	${MPICXX} ${TEXTSEG_ADDR_FLAG} ${CXXFLAGS} -o $@ $^ -lpthread -ldl -latomic
-
-build-id-debug.o lower-half.o: build-id-debug.h
 
 install: lower-half
 	cp -f $^ ${MANA_ROOT}/bin/
@@ -63,7 +66,7 @@ tidy:
 clean: tidy
 	rm -f lower-half
 	rm -f ${MANA_ROOT}/bin/lower-half
-	rm -f *.o
+	rm -f *.o *.d
 
 distclean: clean
 

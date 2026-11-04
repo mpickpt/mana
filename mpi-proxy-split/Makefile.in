@@ -62,20 +62,21 @@ libmana.so: ${LIBOBJS} ${WRAPPERS_SRCDIR}/libmpiwrappers.a
 	${CXX} -shared -fPIC -o $@ ${LIBOBJS} -Wl,--whole-archive ${WRAPPERS_SRCDIR}/libmpiwrappers.a -Wl,--no-whole-archive \
 	  -L${WRAPPERS_SRCDIR} -lmpistub -Wl,-rpath,'$$ORIGIN'
 
+# -MMD -MP writes the headers that an object includes into its .d file,
+# which make reads below.  So a change to a header rebuilds the objects
+# that include it.
 .c.o:
-	${MPICC} ${CFLAGS} -c -o $@ $<
+	${MPICC} ${CFLAGS} -MMD -MP -c -o $@ $<
 
 .cpp.o:
-	${MPICXX} ${CXXFLAGS} -c -o $@ $<
+	${MPICXX} ${CXXFLAGS} -MMD -MP -c -o $@ $<
 
 # lower-half/Makefile builds switch-context.o, which the lower-half program
 # links too.
 lower-half/switch-context.o: FORCE
 	$(MAKE) -C ${LOWER_HALF_SRCDIR} switch-context.o
 
-# Make ignores prerequisites on suffix rules, so list header dependencies
-# here: the headers that define inline code.
-$(filter-out lower-half/%,${LIBOBJS}): virtual_id.h lower_half_ckpt.h
+-include $(wildcard *.d)
 
 tests:
 	@$(MAKE) -C test/ default
@@ -109,7 +110,7 @@ tidy:
 	rm -rf dmtcp_coordinator_db-*.json
 
 clean: tidy
-	rm -f ${LIBOBJS}
+	rm -f ${LIBOBJS} *.d
 	rm -f libmana.so
 	rm -f ${MANA_ROOT}/lib/dmtcp/libmana.so
 	cd ${LOWER_HALF_SRCDIR} && $(MAKE) clean
