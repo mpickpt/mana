@@ -5,15 +5,6 @@ include ../Makefile_config
 #        https://people.math.sc.edu/Burkardt/f_src/mpi/mpi.html
 ###############################################################
 
-ifndef DMTCP_ROOT
-  DMTCP_ROOT=../../dmtcp
-endif
-DMTCP_BIN=${DMTCP_ROOT}/bin
-DMTCP_LIB=${DMTCP_ROOT}/lib/dmtcp
-DMTCP_INCLUDE=${DMTCP_ROOT}/include
-# LIBNAME=libdmtcp_mpi-proxy
-LIBNAME=libmana
-
 # Benchmarks of MANA's overhead; built with -O2 and not run by 'make check'.
 BENCH_FILES = virtid_bench synthetic_app
 

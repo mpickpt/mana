@@ -1,7 +1,5 @@
 include ../Makefile_config
 
-WRAPPERS_SRCDIR = ${PWD}
-
 # By default, your resulting plugin library will have this name.
 LIBNAME=libmpiwrappers
 
@@ -42,7 +40,6 @@ override CXXFLAGS += -fPIC -I${DMTCP_INCLUDE} -I${JALIB_INCLUDE} \
 # code is in libmpi_cxx.so.
 override CXXFLAGS += -DOMPI_SKIP_MPICXX -DMPICH_SKIP_MPICXX
 
-# We don't build libmpiwrappers.a.  Instead, we use *.o to build libmana.so.
 default: ${LIBNAME}.a libmpistub.so libmpistub_audit.so
 
 ${LIBNAME}.a: ${LIBWRAPPER_OBJS}
@@ -102,9 +99,6 @@ mpi_stub_objects.c: generate-mpi-stub-objects.py
 	printf "%s\n\n" \
 	 "// *** THIS FILE IS AUTO-GENERATED! DO 'make' TO UPDATE. ***" >$$tmp;\
 	python3 $< ${MPICC} >> $$tmp && mv -f $$tmp $@ || (rm -f $$tmp && false)
-
-mpi_stub_wrappers.o: mpi_stub_wrappers.c
-	${MPICC} ${CFLAGS} -c -o $@ $<
 
 libmpistub.so: mpi_stub_wrappers.o mpi_stub_data.o mpi_stub_objects.o
 	${CC} -fPIC $^ -shared -o $@
@@ -168,8 +162,4 @@ clean: tidy
 
 distclean: clean
 
-dist: distclean
-	dir=`basename $$PWD` && cd .. && tar czvf $$dir.tgz ./$$dir
-	dir=`basename $$PWD` && ls -l ../$$dir.tgz
-
-.PHONY: default clean dist distclean tidy install
+.PHONY: default clean distclean tidy install

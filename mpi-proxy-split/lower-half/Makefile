@@ -1,4 +1,3 @@
-UNAME_RELEASE=${shell uname -r}
 include ../Makefile_config
 
 # Modify if your MANA_ROOT is located elsewhere.
@@ -10,14 +9,9 @@ ifndef DMTCP_ROOT
   DMTCP_ROOT=${MANA_ROOT}/dmtcp
 endif
 
-ifndef PLUGIN_ROOT
-  PLUGIN_ROOT=..
-endif
-
 DMTCP_INCLUDE=${DMTCP_ROOT}/include
 JALIB_INCLUDE=${DMTCP_ROOT}/jalib
 MANA_INCLUDE=${MANA_ROOT}/mpi-proxy-split
-PLUGIN_INCLUDE=${PLUGIN_ROOT}
 
 DMTCP_DEPS = ${DMTCP_ROOT}/src/libdmtcprestart.a \
 	     ${DMTCP_ROOT}/src/libdmtcpinternal.a \
@@ -62,8 +56,4 @@ clean: tidy
 
 distclean: clean
 
-dist: distclean
-	dir=`basename $$PWD` && cd .. && tar czvf $$dir.tgz ./$$dir
-	dir=`basename $$PWD` && ls -l ../$$dir.tgz
-
-.PHONY: default clean dist distclean install
+.PHONY: default clean distclean install
