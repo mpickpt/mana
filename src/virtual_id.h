@@ -147,7 +147,7 @@ typedef struct virt_id_entry {
   int next_free;      // Next slot in the free list, if the slot is free
   unsigned int gen;   // Generation of the next handle that uses this slot
   // For a pending MPI_Isend/MPI_Irecv: the call, linked in posting order
-  // (see p2p_log_replay.cpp).  Otherwise, call.type is UNKNOW_REQUEST.
+  // (see p2p_drain.cpp).  Otherwise, call.type is UNKNOW_REQUEST.
   mpi_nonblocking_call_t call;
   struct virt_id_entry *pending_prev;
   struct virt_id_entry *pending_next;

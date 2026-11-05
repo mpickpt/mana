@@ -27,7 +27,6 @@
 #include "lower_half_ckpt.h"
 
 #include "mpi_plugin.h"
-#include "p2p_log_replay.h"
 #include "p2p_drain.h"
 #include "jfilesystem.h"
 #include "protectedfds.h"

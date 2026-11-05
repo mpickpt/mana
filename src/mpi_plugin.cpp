@@ -42,7 +42,6 @@
 #include "mpi_plugin.h"
 #include "lower-half-api.h"
 #include "lower_half_ckpt.h"
-#include "p2p_log_replay.h"
 #include "p2p_drain.h"
 #include "seq_num.h"
 #include "mpi_nextfunc.h"
@@ -82,6 +81,9 @@ DmtcpMutex g_upper_half_fsbase_lock;
 EXTERNC pid_t dmtcp_get_real_tid() __attribute((weak));
 
 mana_state_t mana_state = UNKNOWN_STATE;
+
+int g_world_rank = -1; // Global rank of the current process
+int g_world_size = -1; // Total number of ranks in the current computation
 
 ProcSelfMaps *preMpiInitMaps = nullptr;
 ProcSelfMaps *postMpiInitMaps = nullptr;
@@ -744,6 +746,37 @@ close_lower_half_except_blocked()
   g_drain_stats.t_wait_lower_half += drainStatsNow() - t;
 }
 
+void
+getLocalRankInfo()
+{
+  if (g_world_rank == -1) {
+    ASSERT(MPI_Comm_rank(MPI_COMM_WORLD, &g_world_rank) == MPI_SUCCESS &&
+        g_world_rank != -1, "MPI_Comm_rank failed");
+  }
+  if (g_world_size == -1) {
+    ASSERT(MPI_Comm_size(MPI_COMM_WORLD, &g_world_size) == MPI_SUCCESS &&
+        g_world_size != -1, "MPI_Comm_size failed");
+  }
+}
+
+void
+updateCkptDirByRank()
+{
+  const char *ckptDir = dmtcp_get_ckpt_dir();
+  dmtcp::string baseDir;
+
+  if (strstr(ckptDir, "ckpt_rank_") != NULL) {
+    baseDir = jalib::Filesystem::DirName(ckptDir);
+  } else {
+    baseDir = ckptDir;
+  }
+  TRACE("Updating checkpoint directory: ckptDir={} baseDir={}", ckptDir,
+        baseDir);
+  dmtcp::ostringstream o;
+  o << baseDir << "/ckpt_rank_" << g_world_rank;
+  dmtcp_set_ckpt_dir(o.str().c_str());
+}
+
 static void
 mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
 {
@@ -898,7 +931,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       allow_threads_to_enter_lower_half();
       recordOpenFds();
       dmtcp_local_barrier("MPI:GetLocalRankInfo");
-      getLocalRankInfo(); // p2p_log_replay.cpp
+      getLocalRankInfo();
       dmtcp_global_barrier("MPI:update-ckpt-dir-by-rank");
       updateCkptDirByRank(); // mpi_plugin.cpp
       // computeUnionOfCkptImageAddresses();
@@ -953,7 +986,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
                              // for easy debugging of lower half during restart.
                              // See definition in mpi-wrappers/mpi_wrappers.cpp
       dmtcp_global_barrier("MPI:replayMpiP2pOnRestart");
-      replayMpiP2pOnRestart(); // p2p_log_replay.cpp
+      replayMpiP2pOnRestart(); // p2p_drain.cpp
       sendOwedSsendAcks(); // p2p_drain.cpp
       dmtcp_local_barrier("MPI:p2p_log_replay.cpp-void");
       const char *file = get_mpi_file_filename();

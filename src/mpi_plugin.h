@@ -48,4 +48,15 @@ extern mana_state_t mana_state;
 extern bool g_libmana_is_initialized;
 extern bool g_libmpi_is_initialized;  // MANA's MPI_Init has returned
 
+extern int g_world_rank; // Global rank of the current process
+extern int g_world_size; // Total number of ranks in the current computation
+
+// Fetches the MPI rank and world size; also, verifies that MPI rank and
+// world size match the globally stored values in the plugin
+extern void getLocalRankInfo();
+
+// Sets the name of the checkpoint directory of the current process to
+// "ckpt_rank_<RANK>", where RANK is the MPI rank of the process.
+extern void updateCkptDirByRank();
+
 #endif // ifndef _MPI_PLUGIN_H

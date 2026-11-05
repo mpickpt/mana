@@ -22,10 +22,29 @@
 #ifndef _P2P_SEND_RECV_H
 #define _P2P_SEND_RECV_H
 
+#include <mpi.h>
+#include <stdint.h>
 #include <unordered_set>
+#include <vector>
 #include "dmtcp.h"
 #include "dmtcpalloc.h"
-#include "p2p_log_replay.h"
+#include "virtual_id.h"
+
+// Struct to store and return the MPI message (data) during draining and
+// resuming
+typedef struct __mpi_message
+{
+  void *buf;
+  int count;
+  MPI_Datatype datatype;
+  int size;
+  MPI_Comm comm;
+  MPI_Status status;
+  // An MPI_Issend's: its sender's world rank, to ack when it is received,
+  // and the ack's tag (see publishSsendNotices()).  Otherwise ack_to is -1.
+  int ack_to;
+  int ack_tag;
+} mpi_message_t;
 
 extern int64_t global_sent_messages, global_recv_messages;
 extern int64_t local_sent_messages, local_recv_messages;
@@ -180,4 +199,39 @@ int consumeMatchingMsgBuffer(void *buf, int count, MPI_Datatype datatype,
                              int source, int tag, MPI_Comm comm,
                              MPI_Status *mpi_status, int size);
 void resetDrainCounters();
+
+// Restores the state of MPI P2P communication by replaying any pending
+// MPI_Isend and MPI_Irecv requests post restart
+extern void replayMpiP2pOnRestart();
+
+// Saves a nonblocking send/recv call in the virtual-ID entry of request 'rq'.
+extern void addPendingRequestToLog(mpi_req_t , const void* , void* , int ,
+                                   MPI_Datatype , int , int ,
+                                   MPI_Comm, MPI_Request);
+
+// remove finished send/recv call from the pending calls
+extern void clearPendingRequestFromLog(MPI_Request req);
+
+// Replaces the call of a pending request; it keeps its place in the log.
+extern void replacePendingCall(MPI_Request req,
+                               const mpi_nonblocking_call_t *call);
+
+// Counts a send in the later_sends of each pending MPI_Issend with its
+// envelope.  Call it before the send enters the lower half.
+extern void countSendAfterIssends(MPI_Comm comm, int dest, int tag);
+
+// Returns the pending requests in posting order (not handle order).  MPI
+// matches receives in that order, so the drain and restart replay use it.
+extern std::vector<MPI_Request> pendingRequestsInPostingOrder();
+
+// Returns the type of a pending request, or UNKNOW_REQUEST if the request is
+// not (or no longer) pending.
+extern mpi_req_t pendingRequestType(MPI_Request req);
+
+// Copies the call of a pending request to *call.  Returns false if the
+// request is not (or no longer) pending.
+extern bool getPendingCall(MPI_Request req, mpi_nonblocking_call_t *call);
+
+// Returns true if a pending MPI_Isend/MPI_Irecv uses the datatype.
+extern bool pendingCallUsesDatatype(MPI_Datatype type);
 #endif
