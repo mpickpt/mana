@@ -31,7 +31,7 @@
 #include "protectedfds.h"
 
 #include "p2p_log_replay.h"
-#include "p2p_drain_send_recv.h"
+#include "p2p_drain.h"
 #include "mpi_plugin.h"
 #include "mpi_nextfunc.h"
 #include "virtual_id.h"

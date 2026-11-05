@@ -32,7 +32,7 @@
 #include "seq_num.h"
 #include "virtual_id.h"
 #include "p2p_log_replay.h"
-#include "p2p_drain_send_recv.h"
+#include "p2p_drain.h"
 
 extern "C" {
 
