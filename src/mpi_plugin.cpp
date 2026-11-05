@@ -43,7 +43,7 @@
 #include "lower-half-api.h"
 #include "lower_half_ckpt.h"
 #include "p2p_log_replay.h"
-#include "p2p_drain_send_recv.h"
+#include "p2p_drain.h"
 #include "seq_num.h"
 #include "mpi_nextfunc.h"
 #include "virtual_id.h"
@@ -843,7 +843,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       while (!__atomic_load_n(&g_libmpi_is_initialized, __ATOMIC_ACQUIRE)) {
         usleep(1000);
       }
-      resetDrainStats();  // p2p_drain_send_recv.cpp
+      resetDrainStats();  // p2p_drain.cpp
       uint64_t t0 = drainStatsNow();
       mana_state = CKPT_COLLECTIVE;
       // preSuspendBarrier() will send coord response and get worker state.
@@ -871,7 +871,7 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       if (own_tls) {
         lh_info->ckpt_uh_fs = (void *)getFS();
       }
-      drainP2p(); // p2p_drain_send_recv.cpp
+      drainP2p(); // p2p_drain.cpp
       lh_info->ckpt_uh_fs = NULL;
       openCkptFileFds();
       if (g_p2p_wait == P2P_WAIT_BLOCKING) {
@@ -917,10 +917,10 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       printEventToStderr("EVENT_RESUME");
       processingOpenCkpFileFds = false;
       dmtcp_local_barrier("MPI:Reset-Drain-Send-Recv-Counters");
-      resetDrainCounters(); // p2p_drain_send_recv.cpp
+      resetDrainCounters(); // p2p_drain.cpp
       seq_num_reset();
       dmtcp_local_barrier("MPI:seq_num_reset");
-      sendOwedSsendAcks(); // p2p_drain_send_recv.cpp
+      sendOwedSsendAcks(); // p2p_drain.cpp
       mana_state = RUNNING;
       printEventToStderr("EVENT_RESUME (done)");
       break;
@@ -947,14 +947,14 @@ mpi_plugin_event_hook(DmtcpEvent_t event, DmtcpEventData_t *data)
       check_tag_ub();
       reconstruct_descriptors();
       dmtcp_local_barrier("MPI:Reset-Drain-Send-Recv-Counters");
-      resetDrainCounters(); // p2p_drain_send_recv.cpp
+      resetDrainCounters(); // p2p_drain.cpp
       char str[1];
       MPI_MANA_Internal(str); // This does nothing.  Modify in lower-half
                              // for easy debugging of lower half during restart.
                              // See definition in mpi-wrappers/mpi_wrappers.cpp
       dmtcp_global_barrier("MPI:replayMpiP2pOnRestart");
       replayMpiP2pOnRestart(); // p2p_log_replay.cpp
-      sendOwedSsendAcks(); // p2p_drain_send_recv.cpp
+      sendOwedSsendAcks(); // p2p_drain.cpp
       dmtcp_local_barrier("MPI:p2p_log_replay.cpp-void");
       const char *file = get_mpi_file_filename();
       restore_mpi_files(file);

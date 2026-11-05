@@ -31,7 +31,7 @@
 #include "mpi_nextfunc.h"
 #include "virtual_id.h"
 #include "seq_num.h"
-#include "p2p_drain_send_recv.h"
+#include "p2p_drain.h"
 
 extern "C" {
 

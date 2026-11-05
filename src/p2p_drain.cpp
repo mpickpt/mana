@@ -30,7 +30,7 @@
 #include <vector>
 #include "kvdb.h"
 #include "dmtcp_assert.h"
-#include "p2p_drain_send_recv.h"
+#include "p2p_drain.h"
 #include "p2p_log_replay.h"
 #include "mpi_nextfunc.h"
 #include "seq_num.h"
@@ -69,7 +69,7 @@ unlockMessageQueue()
   __atomic_clear(&g_message_queue_lock, __ATOMIC_RELEASE);
 }
 
-// See p2p_drain_send_recv.h for documentation of these globals.
+// See p2p_drain.h for documentation of these globals.
 pending_recv_t g_pending_recv = { /*.state=*/ PENDING_RECV_IDLE };
 MPI_Comm g_ssend_ack_comm = MPI_COMM_NULL;
 volatile bool p2p_dummy_phase = false;

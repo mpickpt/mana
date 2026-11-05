@@ -30,7 +30,7 @@
 #include "virtual_id.h"
 
 // Struct to store and return the MPI message (data) during draining and
-// resuming, also used by p2p_drain_send_recv.h
+// resuming, also used by p2p_drain.h
 typedef struct __mpi_message
 {
   void *buf;
