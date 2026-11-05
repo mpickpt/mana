@@ -53,14 +53,14 @@ jobs:
           make -j"$(nproc)" mana tests
 
       - name: Test mana_restart wrapper
-        run: python3 mpi-proxy-split/test/test-mana-restart.py -v
+        run: python3 test/test-mana-restart.py -v
 
       - name: Test loader debug lookup
-        run: python3 mpi-proxy-split/test/test-loader-debug.py -v
+        run: python3 test/test-loader-debug.py -v
 
       - name: Test MANA
         run: >
-          mpi-proxy-split/test/autotest.py --retry-once
+          test/autotest.py --retry-once
           --workdir /tmp/autotest --launcher '${{ matrix.launcher }}'
 
       - name: Keep the logs of failed tests

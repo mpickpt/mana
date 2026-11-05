@@ -58,10 +58,10 @@ cd dmtcp-mana
 ./configure --enable-debug
 make -j mana tests
 # Build the program with mpicc as usual; no relinking for MANA is needed.
-# 'make tests' also builds an example: mpi-proxy-split/examples/ring
+# 'make tests' also builds an example: examples/ring
 salloc -N 2 -q interactive -C haswell -t 01:00:00
 bin/mana_coordinator -i10
-srun -N 2 bin/mana_launch mpi-proxy-split/examples/ring
+srun -N 2 bin/mana_launch examples/ring
 bin/mana_coordinator -i10
 srun -N 2 bin/mana_restart
 ```

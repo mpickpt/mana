@@ -130,4 +130,4 @@ distclean: clean
 
 # Regenerate this Makefile when Makefile.in or config.status is newer.
 Makefile: Makefile.in @top_builddir@/config.status
-	cd @top_builddir@ && ./config.status mpi-proxy-split/mpi-wrappers/Makefile
+	cd @top_builddir@ && ./config.status src/mpi-wrappers/Makefile

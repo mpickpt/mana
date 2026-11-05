@@ -37,8 +37,8 @@ if [ -n "$ADDED_OR_MODIFIED" ]; then
     #
     # DMTCP's style checker, dmtcp/util/dmtcp-style.py, lints only the files
     # in DMTCP's source directories, and it runs util/cpplint.py from the
-    # current directory.  So run it in dmtcp/, with mpi-proxy-split/ as its
-    # source directory.
+    # current directory.  So run it in dmtcp/, with MANA's directories as
+    # its source directories.
     if [ ! -f dmtcp/util/dmtcp-style.py ]; then
         echo "dmtcp/util/dmtcp-style.py is missing." \
              "Do: git submodule update --init"
@@ -55,7 +55,7 @@ spec.loader.exec_module(dmtcp_style)
 
 
 class ManaCppLinter(dmtcp_style.CppLinter):
-    source_dirs = ['../mpi-proxy-split']
+    source_dirs = ['../src', '../test', '../examples']
 
 
 sys.exit(ManaCppLinter().main(['../' + path for path in sys.argv[1:]]))

@@ -14,7 +14,7 @@ import tempfile
 import unittest
 
 
-SOURCE = Path(__file__).resolve().parents[1] / "lower-half"
+SOURCE = Path(__file__).resolve().parents[1] / "src" / "lower-half"
 DRIVER = Path(__file__).with_name("loader-debug-driver.cpp")
 
 

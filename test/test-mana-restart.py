@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[1]
 WRAPPER = Path(os.environ.get(
   "MANA_RESTART_WRAPPER", ROOT / "scripts" / "mana_restart"))
 

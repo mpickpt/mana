@@ -15,7 +15,7 @@ endif
 
 DMTCP_INCLUDE=${DMTCP_ROOT}/include
 JALIB_INCLUDE=${DMTCP_ROOT}/jalib
-MANA_INCLUDE=${MANA_ROOT}/mpi-proxy-split
+MANA_INCLUDE=${MANA_ROOT}/src
 
 DMTCP_DEPS = ${DMTCP_ROOT}/src/libdmtcprestart.a \
 	     ${DMTCP_ROOT}/src/libdmtcpinternal.a \
@@ -74,4 +74,4 @@ distclean: clean
 
 # Regenerate this Makefile when Makefile.in or config.status is newer.
 Makefile: Makefile.in @top_builddir@/config.status
-	cd @top_builddir@ && ./config.status mpi-proxy-split/lower-half/Makefile
+	cd @top_builddir@ && ./config.status src/lower-half/Makefile

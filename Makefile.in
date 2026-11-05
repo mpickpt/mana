@@ -37,7 +37,7 @@ all: default
 MANA_SCRIPTS = mana_coordinator mana_launch mana_restart mana_status
 
 mana: mana_prereqs dmtcp $(MANA_SCRIPTS:%=bin/%)
-	cd mpi-proxy-split && $(MAKE) stage
+	cd src && $(MAKE) stage
 
 # bin/ holds the scripts next to DMTCP's programs and the lower half, which
 # the scripts run.
@@ -47,11 +47,12 @@ $(MANA_SCRIPTS:%=bin/%): bin/%: scripts/%
 
 # The end-to-end tests, the example and the benchmarks.
 tests:
-	cd mpi-proxy-split && $(MAKE) tests
+	cd test && $(MAKE)
+	cd examples && $(MAKE)
 
 # Builds the end-to-end tests and runs them (test/autotest.py).
 check: mana
-	cd mpi-proxy-split && $(MAKE) check
+	cd test && $(MAKE) check
 
 dmtcp: dmtcp/configure
 	@ # A 'git pull' can change the DMTCP commit that MANA uses, and it
@@ -89,12 +90,11 @@ uninstall:
 
 distclean: clean
 	- cd ${DMTCP_ROOT} && $(MAKE) distclean
-	- cd mpi-proxy-split && $(MAKE) distclean
+	- cd src && $(MAKE) distclean
 	- cd manpages && $(MAKE) distclean
 	rm -f Makefile config.log config.status config.status-* config.cache
-	rm -f mpi-proxy-split/Makefile mpi-proxy-split/lower-half/Makefile \
-	  mpi-proxy-split/mpi-wrappers/Makefile mpi-proxy-split/test/Makefile \
-	  mpi-proxy-split/examples/Makefile
+	rm -f src/Makefile src/lower-half/Makefile src/mpi-wrappers/Makefile \
+	  test/Makefile examples/Makefile
 	rm -rf autom4te.cache
 	rm -rf $(top_builddir)/lib $(top_builddir)/bin
 
@@ -104,7 +104,7 @@ tidy:
 	rm -f dmtcp_coordinator_db-*.json
 
 clean: tidy
-	cd mpi-proxy-split && $(MAKE) clean
+	cd src && $(MAKE) clean
 
 mana_prereqs:
 	@ if test -n "$$HUGETLB_DEFAULT_PAGE_SIZE"; then \

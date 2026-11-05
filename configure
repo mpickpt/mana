@@ -5500,7 +5500,7 @@ ac_configure_args="$ac_configure_args --disable-dlsym-wrapper"
 subdirs="$subdirs dmtcp"
 
 
-ac_config_files="$ac_config_files Makefile manpages/Makefile mpi-proxy-split/Makefile mpi-proxy-split/lower-half/Makefile mpi-proxy-split/mpi-wrappers/Makefile mpi-proxy-split/test/Makefile mpi-proxy-split/examples/Makefile"
+ac_config_files="$ac_config_files Makefile manpages/Makefile src/Makefile src/lower-half/Makefile src/mpi-wrappers/Makefile test/Makefile examples/Makefile"
 
 
 enable_option_checking=fatal
@@ -6298,11 +6298,11 @@ do
   case $ac_config_target in
     "Makefile") CONFIG_FILES="$CONFIG_FILES Makefile" ;;
     "manpages/Makefile") CONFIG_FILES="$CONFIG_FILES manpages/Makefile" ;;
-    "mpi-proxy-split/Makefile") CONFIG_FILES="$CONFIG_FILES mpi-proxy-split/Makefile" ;;
-    "mpi-proxy-split/lower-half/Makefile") CONFIG_FILES="$CONFIG_FILES mpi-proxy-split/lower-half/Makefile" ;;
-    "mpi-proxy-split/mpi-wrappers/Makefile") CONFIG_FILES="$CONFIG_FILES mpi-proxy-split/mpi-wrappers/Makefile" ;;
-    "mpi-proxy-split/test/Makefile") CONFIG_FILES="$CONFIG_FILES mpi-proxy-split/test/Makefile" ;;
-    "mpi-proxy-split/examples/Makefile") CONFIG_FILES="$CONFIG_FILES mpi-proxy-split/examples/Makefile" ;;
+    "src/Makefile") CONFIG_FILES="$CONFIG_FILES src/Makefile" ;;
+    "src/lower-half/Makefile") CONFIG_FILES="$CONFIG_FILES src/lower-half/Makefile" ;;
+    "src/mpi-wrappers/Makefile") CONFIG_FILES="$CONFIG_FILES src/mpi-wrappers/Makefile" ;;
+    "test/Makefile") CONFIG_FILES="$CONFIG_FILES test/Makefile" ;;
+    "examples/Makefile") CONFIG_FILES="$CONFIG_FILES examples/Makefile" ;;
 
   *) as_fn_error $? "invalid argument: \`$ac_config_target'" "$LINENO" 5;;
   esac
