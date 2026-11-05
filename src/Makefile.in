@@ -75,14 +75,6 @@ lower-half/switch-context.o: FORCE
 
 -include $(wildcard *.d)
 
-tests:
-	@$(MAKE) -C test/ default
-	@$(MAKE) -C examples/
-
-check: libmana.so
-	@$(MAKE) -C test/ e2e
-	@test/autotest.py
-
 ${MANA_ROOT}/lib/dmtcp/libmana.so: libmana.so
 	cp -f $< $@
 ${MANA_ROOT}/lib/dmtcp/libmpistub.so: ${WRAPPERS_SRCDIR}/mpi_stub_wrappers.txt \
@@ -117,8 +109,8 @@ distclean: clean
 
 FORCE:
 
-.PHONY: default clean distclean tidy check tests stage
+.PHONY: default clean distclean tidy stage
 
 # Regenerate this Makefile when Makefile.in or config.status is newer.
 Makefile: Makefile.in @top_builddir@/config.status
-	cd @top_builddir@ && ./config.status mpi-proxy-split/Makefile
+	cd @top_builddir@ && ./config.status src/Makefile

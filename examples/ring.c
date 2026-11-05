@@ -34,7 +34,7 @@
 // run it under MANA, from MANA's directory:
 //
 //   bin/mana_coordinator
-//   mpirun -np 4 bin/mana_launch mpi-proxy-split/examples/ring
+//   mpirun -np 4 bin/mana_launch examples/ring
 //   bin/mana_status --checkpoint        (in another shell, while it runs)
 //
 // Then stop the job (Ctrl-C), and restart it from the checkpoint:

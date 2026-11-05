@@ -244,9 +244,9 @@ int PMPI_Get_address(const void *location, MPI_Aint *address)
 // FOR DEBUGGING ONLY:
 // This defines a call to MPI_MANA_Internal in the lower half, which
 //   is especially useful in debugging restart.  It is called
-//   from mpi-proxy-split/mpi_plugin.cpp, just before replaying the pending
+//   from src/mpi_plugin.cpp, just before replaying the pending
 //   receives.
-// In mpi-proxy-split/lower-half, redefine MPI_MANA_Internal()
+// In src/lower-half, redefine MPI_MANA_Internal()
 //   to do whatever is desired.  Then do:
 //   rm bin/lh_proxy
 //   module list # Verify the correct 'module' settings

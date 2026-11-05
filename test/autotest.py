@@ -25,7 +25,7 @@ import tempfile
 import time
 
 TEST_DIR = os.path.dirname(os.path.abspath(__file__))
-MANA_ROOT = os.path.abspath(os.path.join(TEST_DIR, "..", ".."))
+MANA_ROOT = os.path.abspath(os.path.join(TEST_DIR, ".."))
 
 
 # In the arguments of a test, stands for the MPI library by its full path.
