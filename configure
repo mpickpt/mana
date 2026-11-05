@@ -5500,7 +5500,7 @@ ac_configure_args="$ac_configure_args --disable-dlsym-wrapper"
 subdirs="$subdirs dmtcp"
 
 
-ac_config_files="$ac_config_files Makefile manpages/Makefile src/Makefile src/lower-half/Makefile src/mpi-wrappers/Makefile test/Makefile examples/Makefile"
+ac_config_files="$ac_config_files Makefile manpages/Makefile src/Makefile src/lower-half/Makefile src/mpi-wrappers/Makefile test/Makefile examples/Makefile bench/Makefile"
 
 
 enable_option_checking=fatal
@@ -6303,6 +6303,7 @@ do
     "src/mpi-wrappers/Makefile") CONFIG_FILES="$CONFIG_FILES src/mpi-wrappers/Makefile" ;;
     "test/Makefile") CONFIG_FILES="$CONFIG_FILES test/Makefile" ;;
     "examples/Makefile") CONFIG_FILES="$CONFIG_FILES examples/Makefile" ;;
+    "bench/Makefile") CONFIG_FILES="$CONFIG_FILES bench/Makefile" ;;
 
   *) as_fn_error $? "invalid argument: \`$ac_config_target'" "$LINENO" 5;;
   esac

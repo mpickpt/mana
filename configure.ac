@@ -84,7 +84,8 @@ AC_CONFIG_FILES([Makefile \
                  src/lower-half/Makefile \
                  src/mpi-wrappers/Makefile \
                  test/Makefile \
-                 examples/Makefile])
+                 examples/Makefile \
+                 bench/Makefile])
 
 dnl Autoconf manual says option checking is set to warn ("yes") by
 dnl  by default.  But it's actually set to "no".

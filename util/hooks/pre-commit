@@ -55,7 +55,7 @@ spec.loader.exec_module(dmtcp_style)
 
 
 class ManaCppLinter(dmtcp_style.CppLinter):
-    source_dirs = ['../src', '../test', '../examples']
+    source_dirs = ['../src', '../test', '../examples', '../bench']
 
 
 sys.exit(ManaCppLinter().main(['../' + path for path in sys.argv[1:]]))

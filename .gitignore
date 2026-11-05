@@ -8,6 +8,7 @@
 /src/mpi-wrappers/Makefile
 /test/Makefile
 /examples/Makefile
+/bench/Makefile
 /config.log
 /config.status
 /aclocal.m4
@@ -19,6 +20,8 @@
 /manpages/mana.1.gz
 /src/lower-half/lower-half
 /examples/ring
+/bench/virtid_bench
+/bench/synthetic_app
 *.[oa]
 *.d
 *.so
@@ -35,7 +38,7 @@ __pycache__/
 /src/mpi-wrappers/mpi_stub_objects.c
 /src/mpi-wrappers/*.tmp.*
 
-# The programs of the end-to-end tests and the benchmarks have no suffix:
+# The programs of the end-to-end tests have no suffix:
 # ignore all but the sources.
 /test/*
 !/test/*.c

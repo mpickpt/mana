@@ -49,6 +49,7 @@ $(MANA_SCRIPTS:%=bin/%): bin/%: scripts/%
 tests:
 	cd test && $(MAKE)
 	cd examples && $(MAKE)
+	cd bench && $(MAKE)
 
 # Builds the end-to-end tests and runs them (test/autotest.py).
 check: mana
@@ -94,7 +95,7 @@ distclean: clean
 	- cd manpages && $(MAKE) distclean
 	rm -f Makefile config.log config.status config.status-* config.cache
 	rm -f src/Makefile src/lower-half/Makefile src/mpi-wrappers/Makefile \
-	  test/Makefile examples/Makefile
+	  test/Makefile examples/Makefile bench/Makefile
 	rm -rf autom4te.cache
 	rm -rf $(top_builddir)/lib $(top_builddir)/bin
 

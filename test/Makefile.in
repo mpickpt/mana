@@ -13,11 +13,8 @@ MPI_LDFLAGS?=
 #        https://people.math.sc.edu/Burkardt/f_src/mpi/mpi.html
 ###############################################################
 
-# Benchmarks of MANA's overhead; built with -O2 and not run by 'make check'.
-BENCH_FILES = virtid_bench synthetic_app
-
 default: default_prereqs
-	+ $(MAKE) ${BENCH_FILES} e2e
+	+ $(MAKE) e2e
 
 # End-to-end tests, run by autotest.py natively and under MANA.  Each test is
 # one program, named after the test and linked as any MPI program.
@@ -51,9 +48,6 @@ dlopen_mpi: dlopen_mpi.c
 ${E2E_FORTRAN}: %: %.f90
 	$(MPIFC) ${FFLAGS} -g3 -O0 -o $@ $<
 
-${BENCH_FILES}: %: %.c
-	$(MPICC) -g -O2 -o $@ $< $(MPI_CFLAGS) ${MPI_LDFLAGS}
-
 check: e2e
 	./autotest.py
 
@@ -81,7 +75,7 @@ tidy:
 
 clean: tidy
 	rm -f *.pyc *.so
-	rm -f ${E2E_TESTS} ${E2E_FORTRAN} ${BENCH_FILES}
+	rm -f ${E2E_TESTS} ${E2E_FORTRAN}
 
 # Regenerate this Makefile when Makefile.in or config.status is newer.
 Makefile: Makefile.in @top_builddir@/config.status
