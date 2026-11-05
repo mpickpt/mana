@@ -1,0 +1,23 @@
+# @configure_input@
+
+# The compilers and flags that configure found.
+MPICC = @MPICC@
+MPI_CFLAGS?= @CFLAGS@ -g3 -fPIC
+MPI_LDFLAGS?=
+
+# Benchmarks of MANA's overhead; built with -O2 and not run by 'make check'.
+BENCH_FILES = virtid_bench synthetic_app
+
+default: ${BENCH_FILES}
+
+${BENCH_FILES}: %: %.c
+	$(MPICC) -g -O2 -o $@ $< $(MPI_CFLAGS) ${MPI_LDFLAGS}
+
+clean:
+	rm -f ${BENCH_FILES}
+
+.PHONY: default clean
+
+# Regenerate this Makefile when Makefile.in or config.status is newer.
+Makefile: Makefile.in @top_builddir@/config.status
+	cd @top_builddir@ && ./config.status bench/Makefile

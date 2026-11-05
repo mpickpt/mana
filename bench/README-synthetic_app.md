@@ -23,10 +23,10 @@ same options.
 ## Usage
 
 ```
-make -C test synthetic_app
-mpirun -np 8 test/synthetic_app --profile=vasp
+make -C bench synthetic_app
+mpirun -np 8 bench/synthetic_app --profile=vasp
 bin/mana_coordinator
-mpirun -np 8 bin/mana_launch test/synthetic_app --profile=vasp
+mpirun -np 8 bin/mana_launch bench/synthetic_app --profile=vasp
 ```
 
 The options are listed at the top of `synthetic_app.c`.
