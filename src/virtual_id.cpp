@@ -10,7 +10,8 @@
 #include "switch-context.h"
 #include "mpi_nextfunc.h"
 #include "seq_num.h"
-#include "p2p_log_replay.h"
+#include "mpi_plugin.h"
+#include "p2p_drain.h"
 #include <iostream>
 
 MPI_Group g_world_group;

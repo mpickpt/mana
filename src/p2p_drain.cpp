@@ -31,7 +31,7 @@
 #include "kvdb.h"
 #include "dmtcp_assert.h"
 #include "p2p_drain.h"
-#include "p2p_log_replay.h"
+#include "mpi_plugin.h"
 #include "mpi_nextfunc.h"
 #include "seq_num.h"
 #include "virtual_id.h"
@@ -1186,4 +1186,223 @@ reportDrainStats()
           v["drained_msgs"], v["drained_bytes"], v["irecvs_completed"],
           v["isends_completed"], v["blocked"], v["dummies"], v["issends"],
           v["issends_buffered"], v["kvdb_requests"], v["done_polls"]);
+}
+
+// The pending MPI_Isend/MPI_Irecv calls, stored in their requests'
+// virtual-ID entries and linked in posting order.  Application threads and
+// the checkpoint thread (P2P drain, restart) both change the list.  The
+// spinlock pendingLock guards the links and call types; never hold it across
+// an MPI call.
+static virt_id_entry *pendingHead = NULL;
+static virt_id_entry *pendingTail = NULL;
+static int pendingLock = 0;
+// The pending MPI_Issends: changed under pendingLock, read without it.
+static int pendingIssends = 0;
+
+static inline void
+lockPending()
+{
+  while (__atomic_exchange_n(&pendingLock, 1, __ATOMIC_ACQUIRE)) {
+    while (__atomic_load_n(&pendingLock, __ATOMIC_RELAXED)) {
+    }
+  }
+}
+
+static inline void
+unlockPending()
+{
+  __atomic_store_n(&pendingLock, 0, __ATOMIC_RELEASE);
+}
+
+void
+addPendingRequestToLog(mpi_req_t req, const void* sbuf, void* rbuf, int cnt,
+                       MPI_Datatype type, int remote, int tag,
+                       MPI_Comm comm, MPI_Request rq)
+{
+  virt_id_entry *entry = get_virt_id_entry((mana_mpi_handle){.request = rq});
+  mpi_nonblocking_call_t *call = &entry->call;
+  call->sendbuf = sbuf;
+  call->recvbuf = rbuf;
+  call->count = cnt;
+  call->datatype = type;
+  call->remote_node = remote;
+  call->tag = tag;
+  call->comm = comm;
+  call->later_sends = 0;
+  lockPending();
+  call->type = req;
+  if (req == ISSEND_REQUEST) {
+    __atomic_fetch_add(&pendingIssends, 1, __ATOMIC_RELAXED);
+  }
+  entry->pending_prev = pendingTail;
+  entry->pending_next = NULL;
+  if (pendingTail != NULL) {
+    pendingTail->pending_next = entry;
+  } else {
+    pendingHead = entry;
+  }
+  pendingTail = entry;
+  unlockPending();
+}
+
+void
+clearPendingRequestFromLog(MPI_Request req)
+{
+  // Look the request up under the lock: while the P2P drain clears it, the
+  // application may free it and a new request may take its slot.
+  lockPending();
+  virt_id_entry *entry =
+    lookup_virt_id_entry((mana_mpi_handle){.request = req});
+  if (entry == NULL) {
+    unlockPending();
+    return;
+  }
+  if (entry->call.type != UNKNOW_REQUEST) {
+    if (entry->call.type == ISSEND_REQUEST) {
+      __atomic_fetch_sub(&pendingIssends, 1, __ATOMIC_RELAXED);
+    }
+    if (entry->pending_prev != NULL) {
+      entry->pending_prev->pending_next = entry->pending_next;
+    } else {
+      pendingHead = entry->pending_next;
+    }
+    if (entry->pending_next != NULL) {
+      entry->pending_next->pending_prev = entry->pending_prev;
+    } else {
+      pendingTail = entry->pending_prev;
+    }
+    entry->pending_prev = NULL;
+    entry->pending_next = NULL;
+    entry->call.type = UNKNOW_REQUEST;
+  }
+  unlockPending();
+}
+
+void
+replacePendingCall(MPI_Request req, const mpi_nonblocking_call_t *call)
+{
+  lockPending();
+  virt_id_entry *entry =
+    lookup_virt_id_entry((mana_mpi_handle){.request = req});
+  ASSERT(entry != NULL && entry->call.type != UNKNOW_REQUEST, "req={}", req);
+  if (entry->call.type == ISSEND_REQUEST && call->type != ISSEND_REQUEST) {
+    __atomic_fetch_sub(&pendingIssends, 1, __ATOMIC_RELAXED);
+  }
+  entry->call = *call;
+  unlockPending();
+}
+
+void
+countSendAfterIssends(MPI_Comm comm, int dest, int tag)
+{
+  if (__atomic_load_n(&pendingIssends, __ATOMIC_RELAXED) == 0) {
+    return;
+  }
+  lockPending();
+  for (virt_id_entry *entry = pendingHead; entry != NULL;
+       entry = entry->pending_next) {
+    mpi_nonblocking_call_t *call = &entry->call;
+    if (call->type == ISSEND_REQUEST && call->comm == comm &&
+        call->remote_node == dest && call->tag == tag) {
+      call->later_sends++;
+    }
+  }
+  unlockPending();
+}
+
+std::vector<MPI_Request>
+pendingRequestsInPostingOrder()
+{
+  std::vector<MPI_Request> requests;
+  lockPending();
+  for (virt_id_entry *entry = pendingHead; entry != NULL;
+       entry = entry->pending_next) {
+    requests.push_back((MPI_Request)entry->virt);
+  }
+  unlockPending();
+  return requests;
+}
+
+mpi_req_t
+pendingRequestType(MPI_Request req)
+{
+  virt_id_entry *entry =
+    lookup_virt_id_entry((mana_mpi_handle){.request = req});
+  if (entry == NULL) {
+    return UNKNOW_REQUEST;
+  }
+  return __atomic_load_n(&entry->call.type, __ATOMIC_RELAXED);
+}
+
+bool
+getPendingCall(MPI_Request req, mpi_nonblocking_call_t *call)
+{
+  virt_id_entry *entry =
+    lookup_virt_id_entry((mana_mpi_handle){.request = req});
+  if (entry == NULL) {
+    return false;
+  }
+  lockPending();
+  *call = entry->call;
+  unlockPending();
+  return call->type != UNKNOW_REQUEST;
+}
+
+bool
+pendingCallUsesDatatype(MPI_Datatype type)
+{
+  bool found = false;
+  lockPending();
+  for (virt_id_entry *entry = pendingHead; entry != NULL;
+       entry = entry->pending_next) {
+    if (entry->call.datatype == type) {
+      found = true;
+      break;
+    }
+  }
+  unlockPending();
+  return found;
+}
+
+void
+replayMpiP2pOnRestart()
+{
+  MPI_Request request;
+  mpi_nonblocking_call_t pendingCall;
+  mpi_nonblocking_call_t *call = &pendingCall;
+  TRACE("Replaying unserviced isend/irecv calls");
+
+  // No other thread runs at restart; a lock saved in the image is stale.
+  pendingLock = 0;
+  // Re-post the receives in the order they were posted.
+  for (MPI_Request pending : pendingRequestsInPostingOrder()) {
+    int retval = 0;
+    request = pending;
+    if (!getPendingCall(request, call)) {
+      continue;
+    }
+    MPI_Comm realComm = get_real_id((mana_mpi_handle){.comm = call->comm}).comm;
+    MPI_Datatype realType = get_real_id((mana_mpi_handle){.datatype = call->datatype}).datatype;
+    MPI_Request realRequest;
+    switch (call->type) {
+      case IRECV_REQUEST:
+        TRACE("Replaying Irecv call: remote_node={}", call->remote_node);
+        JUMP_TO_LOWER_HALF(lh_info->fsaddr);
+        NEXT_FUNC(Irecv)(call->recvbuf, call->count,
+                         realType, call->remote_node,
+                         call->tag, realComm, &realRequest);
+        RETURN_TO_UPPER_HALF();
+        update_virt_id((mana_mpi_handle){.request = request}, (mana_mpi_handle){.request = realRequest});
+        ASSERT(retval == MPI_SUCCESS, "Error while replaying recv");
+        break;
+      case ISEND_REQUEST:
+      case ISSEND_REQUEST:
+        ASSERT(false, "There should be no pending MPI_Isend after restart: "
+               "type={}", call->type);
+        break;
+      default:
+        WARN(false, "Unhandled replay call: type={}", call->type);
+        break;
+    }
+  }
 }
