@@ -22,6 +22,7 @@
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE // For MAP_ANONYMOUS
 #endif
+#include <elf.h>
 #include <errno.h>
 #include <stddef.h>
 #include <assert.h>
@@ -498,9 +499,37 @@ void* mmap_wrapper(void *addr, size_t length, int prot,
   return ret;
 }
 
+// The load base of the library open on 'fd', from its executable segment at
+// file offset 'offset', which is mapped at 'addr': ld.so maps a segment at
+// the base plus the segment's address, both rounded down to a page, from the
+// segment's file offset rounded down to a page.  NULL if the library has no
+// such segment.
+static char* library_base(int fd, off_t offset, char *addr)
+{
+  const Elf64_Off page_mask = ~((Elf64_Off)PAGE_SIZE - 1);
+  Elf64_Ehdr ehdr;
+  if (pread(fd, &ehdr, sizeof(ehdr), 0) != (ssize_t)sizeof(ehdr) ||
+      memcmp(ehdr.e_ident, ELFMAG, SELFMAG) != 0 ||
+      ehdr.e_ident[EI_CLASS] != ELFCLASS64 ||
+      ehdr.e_phentsize != sizeof(Elf64_Phdr)) {
+    return NULL;
+  }
+  for (int i = 0; i < ehdr.e_phnum; i++) {
+    Elf64_Phdr phdr;
+    if (pread(fd, &phdr, sizeof(phdr), ehdr.e_phoff + i * sizeof(phdr)) !=
+        (ssize_t)sizeof(phdr)) {
+      return NULL;
+    }
+    if (phdr.p_type == PT_LOAD && (phdr.p_flags & PF_X) != 0 &&
+        (phdr.p_offset & page_mask) == (Elf64_Off)offset) {
+      return addr - (phdr.p_vaddr & page_mask);
+    }
+  }
+  return NULL;
+}
+
 static void* __mmap_wrapper(void *addr, size_t length, int prot,
                             int flags, int fd, off_t offset) {
-  static char *libc_base_addr = NULL;
   void *ret = MAP_FAILED;
   length = ROUND_UP(length, PAGE_SIZE);
   bool chosen = false;  // The address is the arena's, not the caller's.
@@ -528,34 +557,38 @@ static void* __mmap_wrapper(void *addr, size_t length, int prot,
                             (size_t)(new_block_end_addr - (char*)ret)};
     merge_overlap_blocks(new_block, allocated_blocks);
     remove_overlap_blocks(new_block, free_blocks);
-    if (fd > 0) {
+    // Patch each libc when ld.so maps its code, at a base that comes from
+    // this mapping alone.  The upper half can load more than one libc (an
+    // LD_AUDIT module's namespace has its own), and other mappings of a libc
+    // file, such as its data or one that only reads the file, can come
+    // between a libc's first mapping and its code.
+    if (fd > 0 && (prot & PROT_EXEC)) {
       char glibcFullPath[PATH_MAX] = {0};
       int found = checkLibrary(fd, "libc.so", glibcFullPath, PATH_MAX) ||
                   checkLibrary(fd, "libc-", glibcFullPath, PATH_MAX);
       if (found) {
-        if (libc_base_addr == NULL) {
-          libc_base_addr = static_cast<char*>(ret);
+        char *libc_base = library_base(fd, offset, (char*)ret);
+        if (libc_base == NULL) {
+          DLOG(ERROR, "No executable segment of %s at file offset 0x%lx\n",
+               glibcFullPath, (long)offset);
         }
-        if (prot & PROT_EXEC) {
-          int rc = mprotect(ret, length, prot | PROT_WRITE);
-          if (rc < 0) {
-            DLOG(ERROR,
-                 "Failed to add PROT_WRITE perms for memory region at: %p "
-                 "of: %zu bytes. Error: %s\n", addr, length, strerror(errno));
-            return NULL;
-          }
-          patchLibc(fd, libc_base_addr, glibcFullPath);
-          off_t sbrk_offset = get_symbol_offset(glibcFullPath, "__sbrk");
-          if (sbrk_offset) {
-            patchSbrk(libc_base_addr + sbrk_offset, (char*)ret, length);
-          }
-          rc = mprotect(ret, length, prot);
-          if (rc < 0) {
-            DLOG(ERROR, "Failed to restore perms for memory region at: %p "
-                "of: %zu bytes. Error: %s\n", addr, length, strerror(errno));
-            return NULL;
-          }
-          libc_base_addr = NULL;
+        int rc = mprotect(ret, length, prot | PROT_WRITE);
+        if (rc < 0) {
+          DLOG(ERROR,
+               "Failed to add PROT_WRITE perms for memory region at: %p "
+               "of: %zu bytes. Error: %s\n", addr, length, strerror(errno));
+          return NULL;
+        }
+        patchLibc(fd, libc_base, glibcFullPath);
+        off_t sbrk_offset = get_symbol_offset(glibcFullPath, "__sbrk");
+        if (sbrk_offset) {
+          patchSbrk(libc_base + sbrk_offset, (char*)ret, length);
+        }
+        rc = mprotect(ret, length, prot);
+        if (rc < 0) {
+          DLOG(ERROR, "Failed to restore perms for memory region at: %p "
+              "of: %zu bytes. Error: %s\n", addr, length, strerror(errno));
+          return NULL;
         }
       }
     }
