@@ -1,6 +1,8 @@
 # @configure_input@
 
-# The compilers and flags that configure found.
+# The compilers and flags found by configure.  Without CC here, make uses cc,
+# which is the Cray compiler wrapper on some Cray systems.
+CC = @CC@
 CFLAGS = @CFLAGS@
 CXXFLAGS = @CXXFLAGS@
 MPICC = @MPICC@
@@ -100,10 +102,24 @@ mpi_stub_objects.c: generate-mpi-stub-objects.py
 libmpistub.so: mpi_stub_wrappers.o mpi_stub_data.o mpi_stub_objects.o
 	${CC} -fPIC $^ -shared -o $@
 
-# An LD_AUDIT module for the upper half; it must not need libc.
-libmpistub_audit.so: mpi_stub_audit.c
+# An LD_AUDIT module for the upper half.  It must not depend on any shared
+# library, not even libc.  Otherwise ld.so loads a second libc into the
+# module's namespace.  The Cray compiler wrapper adds -lxpmem even with
+# -nostdlib.  So the rule checks the module with readelf before installing
+# it.  The rule also depends on this Makefile, so that an existing build
+# rechecks the module when the Makefile is regenerated.
+libmpistub_audit.so: mpi_stub_audit.c Makefile
+	tmp=$@.tmp.$$$$ ; \
 	${CC} -O2 -fPIC -shared -nostdlib -fno-stack-protector \
-	  -Wl,--no-undefined -o $@ $<
+	  -Wl,--no-undefined -o $$tmp $< || { rm -f $$tmp; exit 1; } ; \
+	dynamic=$$(readelf -d $$tmp) || { \
+	  echo "readelf could not read $@"; rm -f $$tmp; exit 1; } ; \
+	if echo "$$dynamic" | grep NEEDED; then \
+	  echo "$@ must not depend on any shared library."; \
+	  echo "Build it with a plain C compiler, such as gcc."; \
+	  rm -f $$tmp; exit 1; \
+	fi ; \
+	mv -f $$tmp $@
 
 tidy:
 	rm -f *~ .*.swp dmtcp_restart_script*.sh ckpt_*.dmtcp
