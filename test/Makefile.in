@@ -1,6 +1,8 @@
 # @configure_input@
 
-# The compilers and flags that configure found.
+# The compilers and flags that configure found.  CC is the plain C
+# compiler: make's default, cc, is the compiler wrapper on a Cray system.
+CC = @CC@
 CXXFLAGS = @CXXFLAGS@
 FFLAGS = ${CXXFLAGS} @FFLAGS@
 MPICC = @MPICC@

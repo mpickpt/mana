@@ -556,6 +556,13 @@ void reconstruct_datatype_desc(virt_id_entry *entry) {
 }
 
 void reconstruct_descriptors() {
+  // As in init_world_comm(), MPI_COMM_WORLD runs the new MPI library's first
+  // collective.  Otherwise the communicators that the program uses first
+  // where it resumes would take Cray MPICH's shared-memory collectives from
+  // MPI_COMM_WORLD.
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
+  NEXT_FUNC(Barrier)(lh_info->MANA_COMM_WORLD);
+  RETURN_TO_UPPER_HALF();
   // Reconstruct by kind, then in creation order (not slot order: slots are
   // reused).  MPI_Comm_create_group is collective, so all ranks must
   // reconstruct their communicators in the same order.
@@ -721,6 +728,12 @@ void init_predefined_virt_ids() {
 void init_world_comm() {
   getLocalRankInfo();  // make_gid() needs g_world_rank and g_world_size.
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
+  // Run a collective on MPI_COMM_WORLD before any other communicator does,
+  // as most programs do.  Cray MPICH sets up its shared-memory collectives
+  // for only the first few communicators that run a collective, and
+  // new_virt_comm() runs MPI_Bcast on every new communicator, g_world_comm
+  // first.
+  NEXT_FUNC(Barrier)(lh_info->MANA_COMM_WORLD);
   NEXT_FUNC(Comm_dup)(lh_info->MANA_COMM_WORLD, &g_world_comm);
   RETURN_TO_UPPER_HALF();
   g_world_comm = new_virt_comm(g_world_comm);

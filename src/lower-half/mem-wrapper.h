@@ -34,4 +34,6 @@ void *mmap_fixed_noreplace(void *addr, size_t length, int prot, int flags,
 // Records the pid whose exit runs the lower half's exit handlers (uhExit()).
 void record_lower_half_pid();
 std::vector<MmapInfo_t> &get_mmapped_list(int *num);
+// This process's rank in MPI_COMM_WORLD, or -1 before main() knows it.
+extern int lh_world_rank;
 #endif // MMAP_WRAPPER_H

@@ -213,6 +213,7 @@ int main(int argc, char *argv[], char *envp[]) {
   remove_dangling_env_entries(initial_argv);
   record_lower_half_pid();
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  lh_world_rank = rank;
   
   // Initialize MPI Functions and Constants mapping table in lower-half
   initialize_lh_info();
