@@ -1,6 +1,8 @@
 # @configure_input@
 
-# The compilers and flags that configure found.
+# The compilers and flags that configure found.  CC is the plain C
+# compiler: make's default, cc, is the compiler wrapper on a Cray system.
+CC = @CC@
 CFLAGS = @CFLAGS@
 CXXFLAGS = @CXXFLAGS@
 MPICC = @MPICC@
@@ -100,10 +102,22 @@ mpi_stub_objects.c: generate-mpi-stub-objects.py
 libmpistub.so: mpi_stub_wrappers.o mpi_stub_data.o mpi_stub_objects.o
 	${CC} -fPIC $^ -shared -o $@
 
-# An LD_AUDIT module for the upper half; it must not need libc.
+# An LD_AUDIT module for the upper half.  It must need no library: ld.so
+# would load it, and the libc that it needs, into the module's namespace,
+# a second libc in the upper half.  A Cray compiler wrapper adds -lxpmem
+# even with -nostdlib, so check the module before installing it, and fail
+# if readelf cannot.
 libmpistub_audit.so: mpi_stub_audit.c
+	tmp=$@.tmp.$$$$ ; \
 	${CC} -O2 -fPIC -shared -nostdlib -fno-stack-protector \
-	  -Wl,--no-undefined -o $@ $<
+	  -Wl,--no-undefined -o $$tmp $< || { rm -f $$tmp; exit 1; } ; \
+	dynamic=$$(readelf -d $$tmp) || { \
+	  echo "cannot check $@ with readelf"; rm -f $$tmp; exit 1; } ; \
+	if echo "$$dynamic" | grep NEEDED; then \
+	  echo "$@ must need no library; link it with a plain C compiler"; \
+	  rm -f $$tmp; exit 1; \
+	fi ; \
+	mv -f $$tmp $@
 
 tidy:
 	rm -f *~ .*.swp dmtcp_restart_script*.sh ckpt_*.dmtcp
