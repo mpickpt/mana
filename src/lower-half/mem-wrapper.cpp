@@ -499,6 +499,8 @@ void* mmap_wrapper(void *addr, size_t length, int prot,
   return ret;
 }
 
+int lh_world_rank = -1;
+
 // The load base of the library open on 'fd', from its executable segment at
 // file offset 'offset', which is mapped at 'addr': ld.so maps a segment at
 // the base plus the segment's address, both rounded down to a page, from the
@@ -589,6 +591,20 @@ static void* __mmap_wrapper(void *addr, size_t length, int prot,
           DLOG(ERROR, "Failed to restore perms for memory region at: %p "
               "of: %zu bytes. Error: %s\n", addr, length, strerror(errno));
           return NULL;
+        }
+        // A second libc is in another namespace: that of an LD_AUDIT module
+        // that needs libc, or one that dlmopen() makes.  Its mmap is patched
+        // like the first one's, but DMTCP's wrappers are only in the
+        // program's namespace, so code in the other one creates threads,
+        // files and signal handlers that DMTCP does not see.  Only rank 0
+        // warns: the ranks normally load the same libraries.
+        static int libcs_patched = 0;
+        if (++libcs_patched == 2 && lh_world_rank <= 0) {
+          fprintf(stderr,
+                  "MANA: warning: the upper half loaded a second libc (%s), "
+                  "for an LD_AUDIT module or dlmopen().  DMTCP does not see "
+                  "the threads, files or signal handlers of code that uses "
+                  "it, so a restart may not restore them.\n", glibcFullPath);
         }
       }
     }
