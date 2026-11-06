@@ -80,7 +80,10 @@ ${MANA_ROOT}/lib/dmtcp/libmana.so: libmana.so
 ${MANA_ROOT}/lib/dmtcp/libmpistub.so: ${WRAPPERS_SRCDIR}/mpi_stub_wrappers.txt \
                                       ${WRAPPERS_SRCDIR}/mpi_stub_data.c
 	$(MAKE) -C ${WRAPPERS_SRCDIR} stage
-${MANA_ROOT}/lib/dmtcp/libmpistub_audit.so: ${WRAPPERS_SRCDIR}/mpi_stub_audit.c
+# Restage the audit module when its Makefile changes (see
+# mpi-wrappers/Makefile.in).
+${MANA_ROOT}/lib/dmtcp/libmpistub_audit.so: \
+    ${WRAPPERS_SRCDIR}/mpi_stub_audit.c ${WRAPPERS_SRCDIR}/Makefile
 	$(MAKE) -C ${WRAPPERS_SRCDIR} stage
 
 # ${WRAPPERS_SRCDIR}/libmpiwrappers.a ia a prerequisite for libmana.so,

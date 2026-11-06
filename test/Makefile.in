@@ -1,6 +1,8 @@
 # @configure_input@
 
-# The compilers and flags that configure found.
+# The compilers and flags found by configure.  Without CC here, make uses cc,
+# which is the Cray compiler wrapper on some Cray systems.
+CC = @CC@
 CXXFLAGS = @CXXFLAGS@
 FFLAGS = ${CXXFLAGS} @FFLAGS@
 MPICC = @MPICC@
