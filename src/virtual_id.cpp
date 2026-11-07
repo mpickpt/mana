@@ -182,16 +182,9 @@ slot_entry(int slot)
                         [slot & (MANA_VIRT_ID_CHUNK_SIZE - 1)];
 }
 
-// The number of gids that this process made.
-static uint64_t gids_made = 0;
 // The descriptor of MPI_COMM_SELF.  MPI_COMM_SELF has no virtual-ID entry.
 static mana_comm_desc *self_desc;
 
-// Returns a new gid: the number of gids that this process made before, times
-// the world size, plus the world rank of this process.  Gids from two
-// processes differ modulo the world size.  A process never uses the same
-// number twice.  So no two gids in the job are equal.
-//
 // The gid is the key of the communicator's Collective Clock (struct
 // comm_clock).  The clock counts the collective calls that this process made
 // on the communicator.  Before a checkpoint, the drain lets each member make
@@ -211,20 +204,93 @@ static mana_comm_desc *self_desc;
 // ranks the barrier on Y.  Neither barrier could complete, and the checkpoint
 // would wait for them forever.  So each new communicator gets a new gid, even
 // if another communicator has the same group.
+//
+// Each member computes the gid locally, from the call that created the
+// communicator.  A collective call to agree on the gid would be the
+// communicator's first collective, even if the application uses it much
+// later or never.  Some MPI libraries assign collective resources at first
+// use.  For example, Cray MPICH gives its shared-memory collectives to the
+// first communicators that call MPI_Bcast, MPI_Barrier or MPI_Allreduce.
+//
+// A communicator created by a call on a parent P, such as MPI_Comm_dup or
+// MPI_Comm_split, gets the gid hash(gid(P), n, r):
+// - n counts the earlier communicator-creating calls on P.  MPI requires all
+//   members of P to make collective calls on P in the same order.  So all
+//   members compute the same n.
+// - r is the world rank of the new communicator's rank 0.  It distinguishes
+//   the disjoint communicators of one MPI_Comm_split.
+// Only the group's members call MPI_Comm_create_group(P, group, tag).  For
+// this call, n counts only earlier calls on P with the same group and tag.
+// MPI_COMM_WORLD, MPI_COMM_SELF and MANA's internal communicators get gids
+// from their names, and MPI_COMM_SELF also from the world rank.
+//
+// Two gids are equal only if the 64-bit hash collides, with a probability
+// below 3x10^{-12} for 10,000 communicators.  If two communicators in one
+// process get the same gid, add_comm_clock() aborts.
+enum { GID_CHILD = 1, GID_GROUP_CHILD, GID_NAMED };
+
+// Mixes 'value' into the hash 'h'.  For a fixed 'h', distinct values give
+// distinct results, because boost's hash_combine and the splitmix64
+// finalizer are both one-to-one.
 static uint64_t
-make_gid()
+gid_mix(uint64_t h, uint64_t value)
 {
-  return gids_made++ * g_world_size + g_world_rank;
+  uint64_t x = h ^ (value + 0x9e3779b97f4a7c15ULL + (h << 6) + (h >> 2));
+  x = (x ^ (x >> 30)) * 0xbf58476d1ce4e5b9ULL;
+  x = (x ^ (x >> 27)) * 0x94d049bb133111ebULL;
+  return x ^ (x >> 31);
+}
+
+uint64_t
+child_gid_seed(MPI_Comm parent)
+{
+  mana_comm_desc *desc = get_comm_desc(parent);
+  if (desc == NULL) {
+    return 0;  // Invalid handle; the MPI call will fail.
+  }
+  return gid_mix(gid_mix(GID_CHILD, desc->gid), desc->children++);
+}
+
+uint64_t
+group_child_gid_seed(MPI_Comm parent, MPI_Group group, int tag)
+{
+  mana_comm_desc *desc = get_comm_desc(parent);
+  virt_id_entry *entry =
+    lookup_virt_id_entry((mana_mpi_handle){.group = group});
+  if (desc == NULL || entry == NULL ||
+      entry->virt >> MANA_VIRT_ID_KIND_SHIFT != MANA_GROUP_KIND) {
+    return 0;  // Invalid handle or MPI_GROUP_EMPTY; the MPI call will fail.
+  }
+  mana_group_desc *group_desc = (mana_group_desc*)entry->desc;
+  uint64_t key = gid_mix(GID_GROUP_CHILD, (uint32_t)tag);
+  for (int i = 0; i < group_desc->size; i++) {
+    key = gid_mix(key, (uint32_t)group_desc->global_ranks[i]);
+  }
+  if (desc->group_children == NULL) {
+    desc->group_children = new std::unordered_map<uint64_t, uint64_t>();
+  }
+  uint64_t n = (*desc->group_children)[key]++;
+  return gid_mix(gid_mix(key, desc->gid), n);
+}
+
+uint64_t
+mana_gid_seed(const char *name)
+{
+  uint64_t h = GID_NAMED;
+  for (const char *c = name; *c != '\0'; c++) {
+    h = gid_mix(h, (unsigned char)*c);
+  }
+  return h;
 }
 
 int is_predefined_id(mana_mpi_handle id) {
   return find_constant(constant_key(id)) != NULL;
 }
 
-// Returns a new descriptor of the communicator 'real_comm', with a new gid
-// and a new clock.
+// Returns a new descriptor for the communicator 'real_comm', with a new clock
+// and the gid hash('seed', world rank of the communicator's rank 0).
 static mana_comm_desc*
-new_comm_desc(MPI_Comm real_comm)
+new_comm_desc(MPI_Comm real_comm, uint64_t seed)
 {
   MPI_Group local_group;
   int *local_ranks;
@@ -272,26 +338,19 @@ new_comm_desc(MPI_Comm real_comm)
     RETURN_TO_UPPER_HALF();
   }
 
-  // The communicator's rank 0 makes the gid and sends it to the other
-  // members.
-  desc->gid = 0;
-  if (desc->rank == 0) {
-    desc->gid = make_gid();
-  }
-  if (desc->size > 1) {
-    JUMP_TO_LOWER_HALF(lh_info->fsaddr);
-    NEXT_FUNC(Bcast)(&desc->gid, 1, lh_info->MANA_UINT64_T, 0, real_comm);
-    RETURN_TO_UPPER_HALF();
-  }
+  // Computed locally, without communication; see the comment on gids above.
+  desc->gid = gid_mix(seed, (uint32_t)desc->global_ranks[0]);
+  desc->children = 0;
+  desc->group_children = NULL;
   desc->clock = add_comm_clock(desc->gid);
   return desc;
 }
 
-MPI_Comm new_virt_comm(MPI_Comm real_comm) {
+MPI_Comm new_virt_comm(MPI_Comm real_comm, uint64_t seed) {
   if (real_comm == lh_info->MANA_COMM_NULL) {
     return MPI_COMM_NULL;
   }
-  mana_comm_desc *desc = new_comm_desc(real_comm);
+  mana_comm_desc *desc = new_comm_desc(real_comm, seed);
   mana_mpi_handle virt_id;
   virt_id = add_virt_id((mana_mpi_handle){.comm = real_comm}, desc, MANA_COMM_KIND);
   return virt_id.comm;
@@ -556,6 +615,15 @@ void reconstruct_datatype_desc(virt_id_entry *entry) {
 }
 
 void reconstruct_descriptors() {
+  // Run the new MPI library's first collective on MPI_COMM_WORLD, as most
+  // programs do after MPI_Init.  Otherwise, on Cray MPICH, the communicators
+  // that the program uses first after the restart could use up the
+  // shared-memory collective slots.  MANA does not reproduce the slot order
+  // from before the checkpoint, because that order is specific to one MPI
+  // library.
+  JUMP_TO_LOWER_HALF(lh_info->fsaddr);
+  NEXT_FUNC(Barrier)(lh_info->MANA_COMM_WORLD);
+  RETURN_TO_UPPER_HALF();
   // Reconstruct by kind, then in creation order (not slot order: slots are
   // reused).  MPI_Comm_create_group is collective, so all ranks must
   // reconstruct their communicators in the same order.
@@ -719,12 +787,13 @@ void init_predefined_virt_ids() {
 // of MPI_COMM_SELF.  Call it at MPI_Init only.  At restart, g_world_comm is
 // in the virtual-ID table, so reconstruct_descriptors() makes it again.
 void init_world_comm() {
-  getLocalRankInfo();  // make_gid() needs g_world_rank and g_world_size.
+  getLocalRankInfo();  // Sets g_world_rank and g_world_size.
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   NEXT_FUNC(Comm_dup)(lh_info->MANA_COMM_WORLD, &g_world_comm);
   RETURN_TO_UPPER_HALF();
-  g_world_comm = new_virt_comm(g_world_comm);
-  self_desc = new_comm_desc(lh_info->MANA_COMM_SELF);
+  g_world_comm = new_virt_comm(g_world_comm, mana_gid_seed("MPI_COMM_WORLD"));
+  self_desc = new_comm_desc(lh_info->MANA_COMM_SELF,
+                            mana_gid_seed("MPI_COMM_SELF"));
 }
 
 // Takes a slot from the free list, or else the next unused, unreserved slot.
@@ -843,6 +912,7 @@ void free_desc(void *desc, int kind) {
     free(comm_desc->global_ranks);
     free(comm_desc->cart_dims);
     free(comm_desc->cart_periods);
+    delete comm_desc->group_children;
   } else if (kind == MANA_GROUP_KIND) {
     mana_group_desc *group_desc = (mana_group_desc*)desc;
     free(group_desc->global_ranks);

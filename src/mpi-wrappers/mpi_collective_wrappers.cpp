@@ -803,6 +803,7 @@ int PMPI_Comm_split(MPI_Comm comm, int color, int key, MPI_Comm *newcomm)
   int retval;
   LOWER_HALF_DISABLE_CKPT();
   MPI_Comm real_comm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
+  uint64_t seed = child_gid_seed(comm);
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Comm_split)(real_comm, color, key, newcomm);
   RETURN_TO_UPPER_HALF();
@@ -810,7 +811,7 @@ int PMPI_Comm_split(MPI_Comm comm, int color, int key, MPI_Comm *newcomm)
     if (*newcomm == lh_info->MANA_COMM_NULL) {
       *newcomm = MPI_COMM_NULL;
     } else {
-      *newcomm = new_virt_comm(*newcomm);
+      *newcomm = new_virt_comm(*newcomm, seed);
     }
   }
   LOWER_HALF_ENABLE_CKPT();
@@ -825,6 +826,7 @@ int PMPI_Comm_dup(MPI_Comm comm, MPI_Comm *newcomm)
   int retval;
   LOWER_HALF_DISABLE_CKPT();
   MPI_Comm real_comm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
+  uint64_t seed = child_gid_seed(comm);
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Comm_dup)(real_comm, newcomm);
   RETURN_TO_UPPER_HALF();
@@ -832,7 +834,7 @@ int PMPI_Comm_dup(MPI_Comm comm, MPI_Comm *newcomm)
     if (*newcomm == lh_info->MANA_COMM_NULL) {
       *newcomm = MPI_COMM_NULL;
     } else {
-      *newcomm = new_virt_comm(*newcomm);
+      *newcomm = new_virt_comm(*newcomm, seed);
     }
   }
   LOWER_HALF_ENABLE_CKPT();

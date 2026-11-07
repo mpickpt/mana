@@ -112,11 +112,12 @@ int PMPI_Cart_sub(MPI_Comm comm, const int *remain_dims, MPI_Comm *new_comm)
   commit_begin(comm);
   LOWER_HALF_DISABLE_CKPT();
   MPI_Comm realComm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
+  uint64_t seed = child_gid_seed(comm);
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Cart_sub)(realComm, remain_dims, new_comm);
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS) {
-    *new_comm = new_virt_comm(*new_comm);
+    *new_comm = new_virt_comm(*new_comm, seed);
   }
   LOWER_HALF_ENABLE_CKPT();
   commit_finish(comm);
@@ -177,12 +178,13 @@ int PMPI_Cart_create(MPI_Comm old_comm, int ndims,
   commit_begin(old_comm);
   LOWER_HALF_DISABLE_CKPT();
   MPI_Comm realComm = get_real_id((mana_mpi_handle){.comm = old_comm}).comm;
+  uint64_t seed = child_gid_seed(old_comm);
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Cart_create)(realComm, ndims, dims,
                                   periods, reorder, comm_cart);
   RETURN_TO_UPPER_HALF();
   if (retval == MPI_SUCCESS) {
-    *comm_cart = new_virt_comm(*comm_cart);
+    *comm_cart = new_virt_comm(*comm_cart, seed);
   }
   LOWER_HALF_ENABLE_CKPT();
   commit_finish(old_comm);

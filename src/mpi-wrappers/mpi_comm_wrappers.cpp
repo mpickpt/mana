@@ -275,6 +275,7 @@ int PMPI_Comm_create(MPI_Comm comm, MPI_Group group, MPI_Comm *newcomm)
   LOWER_HALF_DISABLE_CKPT();
   MPI_Comm real_comm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   MPI_Group real_group = get_real_id((mana_mpi_handle){.group = group}).group;
+  uint64_t seed = child_gid_seed(comm);
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Comm_create)(real_comm, real_group, newcomm);
   RETURN_TO_UPPER_HALF();
@@ -282,7 +283,7 @@ int PMPI_Comm_create(MPI_Comm comm, MPI_Group group, MPI_Comm *newcomm)
     if (*newcomm == lh_info->MANA_COMM_NULL) {
       *newcomm = MPI_COMM_NULL;
     } else {
-      *newcomm = new_virt_comm(*newcomm);
+      *newcomm = new_virt_comm(*newcomm, seed);
     }
   }
   LOWER_HALF_ENABLE_CKPT();
@@ -547,6 +548,7 @@ int PMPI_Comm_split_type(MPI_Comm comm, int split_type,
   LOWER_HALF_DISABLE_CKPT();
   MPI_Comm real_comm = get_real_id((mana_mpi_handle){.comm = comm}).comm;
   MPI_Info real_info = lower_half_handle(inf);
+  uint64_t seed = child_gid_seed(comm);
   JUMP_TO_LOWER_HALF(lh_info->fsaddr);
   retval = NEXT_FUNC(Comm_split_type)(real_comm, split_type, key, real_info,
                                       newcomm);
@@ -555,7 +557,7 @@ int PMPI_Comm_split_type(MPI_Comm comm, int split_type,
     if (*newcomm == lh_info->MANA_COMM_NULL) {
       *newcomm = MPI_COMM_NULL;
     } else {
-      *newcomm = new_virt_comm(*newcomm);
+      *newcomm = new_virt_comm(*newcomm, seed);
     }
   }
   LOWER_HALF_ENABLE_CKPT();
@@ -690,12 +692,13 @@ int PMPI_Comm_create_group(MPI_Comm comm,
   // The member enters the call in the 1 s pause before the next attempt.
   begin_critical_section(comm, false);
   LOWER_HALF_DISABLE_CKPT();
+  uint64_t seed = group_child_gid_seed(comm, group, tag);
   int retval = MPI_Comm_create_group_internal(comm, group, tag, newcomm);
   if (retval == MPI_SUCCESS) {
     if (*newcomm == lh_info->MANA_COMM_NULL) {
       *newcomm = MPI_COMM_NULL;
     } else {
-      *newcomm = new_virt_comm(*newcomm);
+      *newcomm = new_virt_comm(*newcomm, seed);
     }
   }
   LOWER_HALF_ENABLE_CKPT();
