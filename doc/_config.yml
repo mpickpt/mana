@@ -1,0 +1,62 @@
+title: MANA
+description: >-
+  MANA (MPI-Agnostic, Network-Agnostic checkpointing) checkpoints and restarts
+  MPI jobs. It is a plugin of DMTCP.
+theme: just-the-docs
+# GitHub Pages serves the site of the mana repository at
+# https://mpickpt.github.io/mana/ (see .github/workflows/website.yml).
+url: https://mpickpt.github.io
+baseurl: /mana
+
+aux_links:
+  Source code: https://github.com/mpickpt/mana
+  Releases: https://github.com/mpickpt/mana/releases
+  DMTCP: https://dmtcp.github.io/
+aux_links_new_tab: true
+
+nav_enabled: true
+heading_anchors: true
+search_enabled: true
+
+back_to_top: true
+back_to_top_text: "Back to top"
+
+footer_content: >-
+  MANA is free software under the GNU Lesser General Public License, version 3
+  or later.
+
+gh_edit_link: true
+gh_edit_link_text: "Edit this page on GitHub."
+gh_edit_repository: "https://github.com/mpickpt/mana"
+gh_edit_branch: "main"
+gh_edit_source: doc
+gh_edit_view_mode: "tree"
+
+callouts:
+  warning:
+    title: Warning
+    color: yellow
+  note:
+    title: Note
+    color: green
+  tip:
+    title: Tip
+    color: blue
+  important:
+    title: Important
+    color: red
+
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: default
+
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - vendor/
+
+sass:
+  quiet_deps: true
+  silence_deprecations: ['import']

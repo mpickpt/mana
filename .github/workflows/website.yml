@@ -1,0 +1,60 @@
+# Builds MANA's website from doc/ with Jekyll.  A pull request only builds
+# it.  A push to main also deploys it to GitHub Pages, at
+# https://mpickpt.github.io/mana/.
+name: Website
+
+on:
+  push:
+    branches: [ main ]
+    paths: [ 'doc/**', '.github/workflows/website.yml' ]
+  pull_request:
+    branches: [ main ]
+    paths: [ 'doc/**', '.github/workflows/website.yml' ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A new push cancels the build of a pull request, but not a deployment.
+concurrency:
+  group: website-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: doc
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+          working-directory: doc
+      # _config.yml sets baseurl to /mana, the path of the site.
+      - name: Build with Jekyll
+        run: bundle exec jekyll build
+        env:
+          JEKYLL_ENV: production
+      - name: Upload the site
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: doc/_site
+
+  deploy:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
