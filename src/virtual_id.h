@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <map>
+#include <unordered_map>
 #include <vector>
 
 #include "lower-half-api.h"  // MANA_*_KIND
@@ -65,6 +66,12 @@ typedef struct {
   // the KVDB keys and values of the Collective Clock and the P2P drain hold
   // the gid of a communicator, not its handle.
   uint64_t gid;
+  // The number of communicator-creating collective calls, such as
+  // MPI_Comm_dup, made on this communicator so far (see child_gid_seed()).
+  uint64_t children;
+  // The number of MPI_Comm_create_group() calls on this communicator so far,
+  // by group and tag, or NULL before the first (see group_child_gid_seed()).
+  std::unordered_map<uint64_t, uint64_t> *group_children;
   // The communicator's Collective Clock (see seq_num.cpp).
   struct comm_clock *clock;
 } mana_comm_desc;
@@ -169,7 +176,20 @@ extern virt_id_entry *virt_id_chunks[MANA_VIRT_ID_NUM_CHUNKS];
 extern int g_world_rank;
 
 void init_world_comm();
-MPI_Comm new_virt_comm(MPI_Comm real_comm);
+// Returns the gid seed of a communicator created by a collective call on
+// 'parent': MPI_Comm_dup, MPI_Comm_split, MPI_Comm_split_type,
+// MPI_Comm_create, MPI_Cart_create or MPI_Cart_sub.  Every member of
+// 'parent' must call it once per such call, before the communicator is
+// created, even if the member gets MPI_COMM_NULL.
+uint64_t child_gid_seed(MPI_Comm parent);
+// Like child_gid_seed(), for MPI_Comm_create_group(parent, group, tag).
+uint64_t group_child_gid_seed(MPI_Comm parent, MPI_Group group, int tag);
+// Returns the gid seed of the communicator named 'name': MPI_COMM_WORLD,
+// MPI_COMM_SELF or one of MANA's internal communicators.
+uint64_t mana_gid_seed(const char *name);
+// Returns the virtual handle of a new communicator whose gid is derived from
+// 'seed' (see new_comm_desc()).
+MPI_Comm new_virt_comm(MPI_Comm real_comm, uint64_t seed);
 MPI_Group new_virt_group(MPI_Group real_group);
 MPI_Op new_virt_op(MPI_Op real_op);
 // Returns a zeroed descriptor; the caller fills it in and passes it to

@@ -174,7 +174,7 @@ initialize_drain_send_recv()
   retval = NEXT_FUNC(Comm_dup)(lh_info->MANA_COMM_WORLD, &ack_comm);
   RETURN_TO_UPPER_HALF();
   ASSERT(retval == MPI_SUCCESS, "retval={}", retval);
-  g_ssend_ack_comm = new_virt_comm(ack_comm);
+  g_ssend_ack_comm = new_virt_comm(ack_comm, mana_gid_seed("ssend-ack"));
 }
 
 // Sums all ranks' sent and received counts in this round's keys.  The next
