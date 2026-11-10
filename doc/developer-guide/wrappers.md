@@ -61,7 +61,11 @@ the variables that `mpi.h` declares, such as `MPI_F_STATUS_IGNORE`.
 `make` builds `libmpistub_audit.so` from `mpi_stub_audit.c`. It is an audit module
 of `ld.so`, which loads `libmpistub.so` in place of each MPI library. It is
 built without libc, because an audit module gets its own namespace, and a
-second libc there would call `mmap()` without the wrappers of MANA.
+second libc there would call `mmap()` without the wrappers of MANA. `make`
+builds the module with the C compiler that `configure` found (`CC`), and the
+build fails if the module depends on a shared library. On a Cray system, do
+not use `cc` for it. The Cray compiler wrapper can add a shared library, such
+as `libxpmem.so`, also with `-nostdlib`.
 
 ## The parts of a wrapper
 
@@ -127,6 +131,13 @@ alias of it. So a PMPI tool that `MANA_PRELOAD` loads can intercept
 - **Mark the requests of non-blocking collectives.** A non-blocking
   collective wrapper makes its request with `new_virt_collective_request()`.
   The checkpoint completes these requests before it saves the image.
+- **Get the gid seed of a new communicator before the lower-half call.** A
+  wrapper that makes a communicator calls `child_gid_seed(comm)` before the
+  lower-half call. For `MPI_Comm_create_group`, it calls
+  `group_child_gid_seed()`. It gives the seed to `new_virt_comm()`. Get the
+  seed on each member, also on a member that gets `MPI_COMM_NULL`, because the
+  seed counts the calls on the parent communicator. See
+  [The gid of a communicator](virtual-ids.html#the-gid-of-a-communicator).
 - **Use the existing point-to-point wrappers as a model.** A point-to-point
   wrapper must count messages, look in the buffer of MANA, and record pending
   requests for the drain. Copy the pattern of the nearest existing wrapper.

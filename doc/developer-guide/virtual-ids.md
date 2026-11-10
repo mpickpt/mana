@@ -101,10 +101,37 @@ the object again:
 
 All members of a communicator have the same gid. Each member has its own
 virtual handle for the communicator, and the values of these handles can
-differ. Rank 0 of the new communicator makes the gid from its world rank and
-a counter. Then it sends the gid to the other members with `MPI_Bcast`. The
-gid is unique in the job. The Collective Clock and the P2P drain use the gid
-to identify a communicator in the database of the coordinator.
+differ. The Collective Clock and the P2P drain use the gid to identify a
+communicator in the database of the coordinator.
+
+Each member computes the gid without communication. A communicator that a
+call on a parent communicator P makes, for example `MPI_Comm_dup` or
+`MPI_Comm_split`, gets a hash of these values:
+
+- The gid of P.
+- The number of earlier calls on P that made a communicator. MPI requires
+  all members of P to make collective calls on P in the same order. Thus, all
+  members count the same number.
+- The world rank of rank 0 of the new communicator. This value makes the
+  communicators of one `MPI_Comm_split` different.
+
+Only the members of the group call `MPI_Comm_create_group`. For this call,
+the number includes only the earlier calls on P with the same group and tag.
+`MPI_COMM_WORLD`, `MPI_COMM_SELF` and the internal communicators of MANA get
+gids from their names. The gid of `MPI_COMM_SELF` also uses the world rank.
+
+Two communicators get the same gid only if the 64-bit hash collides. For
+10,000 communicators, the probability is less than 3×10⁻¹². If two
+communicators in one process get the same gid, `add_comm_clock()` stops the
+process.
+
+MANA does not use a collective call to agree on the gid. That call would be
+the first collective call on the communicator, also if the application uses
+the communicator much later or never. Some MPI libraries assign resources to a
+communicator at its first collective call. For example, each node has a fixed
+number of slots for the shared-memory collectives of Cray MPICH. A
+communicator gets a slot at its first `MPI_Bcast`, `MPI_Barrier` or
+`MPI_Allreduce`, if a slot is free.
 
 ### Datatypes made from freed datatypes
 
@@ -128,3 +155,11 @@ For communicators, the order is the same on all members. This is necessary,
 because the constructors are collective: all members of a communicator must
 make it in the same order. Groups, datatypes and operations are local, so
 their sequence can differ between ranks.
+
+Before it makes the objects again, `reconstruct_descriptors()` calls
+`MPI_Barrier` on `MPI_COMM_WORLD`. Thus, the first collective call of the new
+MPI library is on `MPI_COMM_WORLD`, as in most programs after `MPI_Init`. On
+Cray MPICH, `MPI_COMM_WORLD` then gets a slot for the shared-memory
+collectives before the other communicators. The other communicators get slots
+in the order that the application uses them after the restart. This order can
+be different from the order before the checkpoint.
