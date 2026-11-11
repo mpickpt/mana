@@ -84,8 +84,8 @@ If your program needs one of these features, please open an issue at
 
 ## Limitations of checkpoint and restart
 
-- **Restart with the same job configuration.** Use the same number of ranks,
-  the same MPI library, and the same network as the original job.
+- **Restart with the same job configuration.** Use the same number of ranks
+  and the same MPI library as the original job.
 - **No checkpoint after `MPI_Finalize`.** After a rank calls `MPI_Finalize`,
   MANA does not checkpoint the job.
 - **A checkpoint can wait for a late rank.** Before a checkpoint, each
