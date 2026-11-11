@@ -100,8 +100,8 @@ mpirun -np 4 bin/mana_restart --restartdir DIR
 Obey these rules for a restart:
 
 - Use the same number of ranks as the original job.
-- Use the same MPI library, the same MANA build, and the same network as the
-  original job. The ranks can restart on other nodes.
+- Use the same MPI library and the same MANA build as the original job. The
+  ranks can restart on other nodes.
 - The program and the files that it had open must be at the same paths as
   before.
 

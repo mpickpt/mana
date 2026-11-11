@@ -62,10 +62,10 @@ MPI library.
  +--------------------------------------------+
 ```
 
-The design has one cost. A checkpoint must restart with the same MPI library
-and the same network, because the upper half holds data that came from that
-library (for example, the values of MPI constants). But the same MANA source
-works with each MPI library.
+The design has one cost. A checkpoint must restart with the same MPI library,
+because the upper half holds data that came from that library (for example,
+the values of MPI constants). But the same MANA source works with each MPI
+library.
 
 ## Launch
 

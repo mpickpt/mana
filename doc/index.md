@@ -39,11 +39,11 @@ library and the network libraries that it uses. A checkpoint saves only the
 upper half. A restart starts a new lower half, initializes MPI again, and
 restores the upper half into the same process.
 
-Therefore, MANA never saves the internal state of the MPI library or of the
-network. This is the meaning of the name. MANA uses only the MPI interface of
-the library, so the same design works with different MPI libraries and
-different networks. However, a job must restart with the same MPI library and
-the same network as at the checkpoint.
+Therefore, MANA never saves the internal state of the MPI library or of
+the network. This is the meaning of the name. MANA uses only the MPI
+interface of the library, so the same design works with different MPI
+libraries and different networks. However, a job must restart with the
+same MPI library as at the checkpoint.
 [Architecture](developer-guide/architecture.html) explains the design.
 
 ## Supported software
