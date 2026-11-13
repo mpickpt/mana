@@ -78,8 +78,11 @@
 #define MAX_CMD_ARGV2_LENGTH 100
 #define HEAP_GUARD_SIZE 0x1000000
 // Room below the heap guard for the heap of a restarted lower half, which
-// may need a little more than at launch (see restore_heap_break()).
-#define HEAP_SLACK_SIZE 0x1000000
+// may need more than at launch (see restore_heap_break()): with Intel MPI and
+// 256 ranks, 16 MB was up to 7.8 MB short (MPICH and Open MPI needed no more).
+// Address space only: the pages are not touched unless the restarted lower
+// half uses them.
+#define HEAP_SLACK_SIZE 0x10000000  // 256 MB
 
 // Lower half initialization helper functions
 void set_addr_no_randomize(char *argv[]);
